@@ -2,6 +2,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:budgetti/features/settings/categories_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -105,6 +106,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                   // Settings
                   Text("Settings", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.textGrey)),
+                  const SizedBox(height: 16),
+
+                  // Manage Categories
+                  InkWell(
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CategoriesScreen())),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceGrey,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("Manage Categories", style: TextStyle(color: Colors.white, fontSize: 16)),
+                          Icon(Icons.arrow_forward_ios, color: AppTheme.textGrey, size: 16),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
                   // Currency Dropdown

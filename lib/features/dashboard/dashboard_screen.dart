@@ -51,6 +51,9 @@ class DashboardScreen extends ConsumerWidget {
                 final totalBalance = accounts.fold(0.0, (sum, acc) => sum + acc.balance);
                 final formatter = ref.watch(currencyProvider);
 
+                // Watch transactions for the first account to calculate trend
+                final transactionsAsync = ref.watch(transactionsProvider(accounts.first.id)); // Assuming single account
+                
                 return SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                   child: Column(
@@ -96,11 +99,39 @@ class DashboardScreen extends ConsumerWidget {
                   ),
 
                   // Summary Card
-                  SummaryCard(
-                    title: "Total Balance",
-                    amount: formatter.format(totalBalance),
-                    trend: "+12% vs last month",
-                    isPositive: true,
+                  transactionsAsync.when(
+                    data: (transactions) {
+                      final now = DateTime.now();
+                      final last30Days = now.subtract(const Duration(days: 30));
+                      final netFlow = transactions
+                          .where((t) => t.date.isAfter(last30Days))
+                          .fold(0.0, (sum, t) => sum + t.amount);
+                      
+                      final isPositive = netFlow >= 0;
+                      final sign = isPositive ? "+" : "";
+                      final isVisible = ref.watch(balanceVisibilityProvider);
+                      
+                      return SummaryCard(
+                        title: "Total Balance",
+                        amount: formatter.format(totalBalance),
+                        trend: "$sign${formatter.format(netFlow)} this month",
+                        isPositive: isPositive,
+                        isVisible: isVisible,
+                        onToggleVisibility: () => ref.read(balanceVisibilityProvider.notifier).toggle(),
+                      );
+                    },
+                    loading: () => SummaryCard(
+                      title: "Total Balance", 
+                      amount: formatter.format(totalBalance),
+                      trend: "Calculating...",
+                      isPositive: true,
+                    ),
+                    error: (_, __) => SummaryCard(
+                      title: "Total Balance",
+                      amount: formatter.format(totalBalance),
+                      trend: "Unavailable",
+                      isPositive: false,
+                    ),
                   ),
                   const SizedBox(height: 32),
 

@@ -23,8 +23,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
   String _selectedCategory = 'Groceries';
   DateTime _selectedDate = DateTime.now();
 
-  // Mock categories
-  final List<String> _categories = ['Groceries', 'Entertainment', 'Transport', 'Utilities', 'Shopping', 'Salary', 'Freelance', 'Other'];
 
   @override
   void dispose() {
@@ -93,39 +91,63 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Select Category",
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: _categories.length,
-                  separatorBuilder: (context, index) => const Divider(color: AppTheme.textGrey, height: 1),
-                  itemBuilder: (context, index) {
-                    final cat = _categories[index];
-                    return ListTile(
-                      title: Text(cat, style: const TextStyle(color: Colors.white)),
-                      leading: Icon(
-                        _isExpense ? Icons.shopping_bag_outlined : Icons.monetization_on_outlined, 
-                        color: AppTheme.primaryGreen
-                      ),
-                      onTap: () {
-                        setState(() => _selectedCategory = cat);
-                        context.pop();
+        return Consumer(
+          builder: (context, ref, child) {
+            final categoriesAsync = ref.watch(categoriesProvider);
+            
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Select Category",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: categoriesAsync.when(
+                      data: (categories) {
+                         // Filter by type
+                         final filtered = categories.where((c) => c.type == (_isExpense ? 'expense' : 'income')).toList();
+                         if (filtered.isEmpty) return const Center(child: Text("No categories found", style: TextStyle(color: AppTheme.textGrey)));
+
+                         return ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => const Divider(color: AppTheme.textGrey, height: 1),
+                          itemBuilder: (context, index) {
+                            final cat = filtered[index];
+                            return ListTile(
+                              title: Text(cat.name, style: const TextStyle(color: Colors.white)),
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Color(cat.colorHex).withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  IconData(cat.iconCode, fontFamily: 'MaterialIcons'),
+                                  color: Color(cat.colorHex),
+                                  size: 20,
+                                ),
+                              ),
+                              onTap: () {
+                                setState(() => _selectedCategory = cat.name);
+                                Navigator.of(context).pop();
+                              },
+                              trailing: _selectedCategory == cat.name ? const Icon(Icons.check, color: AppTheme.primaryGreen) : null,
+                            );
+                          },
+                        );
                       },
-                      trailing: _selectedCategory == cat ? const Icon(Icons.check, color: AppTheme.primaryGreen) : null,
-                    );
-                  },
-                ),
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, s) => Center(child: Text("Error: $e", style: TextStyle(color: Colors.red))),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -192,23 +214,55 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
               const SizedBox(height: 24),
           
               // Amount
-              TextFormField(
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                textAlign: TextAlign.center,
-                decoration: InputDecoration(
-                  prefixText: "$currencySymbol ",
-                  prefixStyle: const TextStyle(color: AppTheme.primaryGreen, fontSize: 24, fontWeight: FontWeight.bold),
-                  hintText: "0.00",
-                  hintStyle: TextStyle(color: AppTheme.textGrey.withValues(alpha: 0.5)),
-                  border: InputBorder.none,
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceGrey,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.3)),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) return 'Enter amount';
-                  if (double.tryParse(value) == null) return 'Invalid';
-                  return null;
-                },
+                child: Row(
+                  children: [
+                    // Currency indicator
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryGreen.withValues(alpha: 0.2),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          bottomLeft: Radius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        currencySymbol,
+                        style: const TextStyle(
+                          color: AppTheme.primaryGreen,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // Input area
+                    Expanded(
+                      child: TextFormField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                        textAlign: TextAlign.right,
+                        decoration: InputDecoration(
+                          hintText: "0.00",
+                          hintStyle: TextStyle(color: AppTheme.textGrey.withValues(alpha: 0.5)),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Enter amount';
+                          if (double.tryParse(value) == null) return 'Invalid';
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
           
@@ -235,7 +289,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppTheme.textGrey),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
@@ -259,7 +313,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                   decoration: BoxDecoration(
                     border: Border.all(color: AppTheme.textGrey),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

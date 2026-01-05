@@ -1,5 +1,8 @@
+import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/models/account.dart';
+import 'package:budgetti/models/category.dart' as model;
 import 'package:budgetti/models/transaction.dart';
+import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class FinanceService {
@@ -7,10 +10,17 @@ abstract class FinanceService {
   Future<List<Transaction>> getTransactions(String accountId);
   Future<void> addTransaction(Transaction transaction);
   Future<void> deleteTransactions(List<String> ids);
+  Future<List<model.Category>> getCategories();
+  Future<void> addCategory(model.Category category);
+  Future<void> updateCategory(model.Category category);
+  Future<void> deleteCategory(String id);
 }
 
 class SupabaseFinanceService implements FinanceService {
   final _client = Supabase.instance.client;
+  final AppDatabase _db;
+
+  SupabaseFinanceService(this._db);
 
   @override
   Future<List<Account>> getAccounts() async {
@@ -75,5 +85,53 @@ class SupabaseFinanceService implements FinanceService {
     if (ids.isEmpty) return;
 
     await _client.from('transactions').delete().filter('id', 'in', ids);
+  }
+
+  @override
+  Future<List<model.Category>> getCategories() async {
+    // Seed default categories if table is empty
+    await _db.seedIfEmpty();
+    
+    final driftCategories = await _db.select(_db.categories).get();
+    
+    // Sort manually or via query. Query order is better.
+    // .get() returns List<Category> (drift)
+    // Map to model.Category
+    driftCategories.sort((a, b) => a.name.compareTo(b.name));
+
+    return driftCategories.map((c) => model.Category(
+      id: c.id,
+      userId: 'local', 
+      name: c.name,
+      iconCode: c.iconCode,
+      colorHex: c.colorHex,
+      type: c.type,
+    )).toList();
+  }
+
+  @override
+  Future<void> addCategory(model.Category category) async {
+    await _db.into(_db.categories).insert(CategoriesCompanion.insert(
+      id: category.id,
+      name: category.name,
+      iconCode: category.iconCode,
+      colorHex: category.colorHex,
+      type: category.type,
+    ));
+  }
+
+  @override
+  Future<void> updateCategory(model.Category category) async {
+    await (_db.update(_db.categories)..where((t) => t.id.equals(category.id))).write(CategoriesCompanion(
+      name: Value(category.name),
+      iconCode: Value(category.iconCode),
+      colorHex: Value(category.colorHex),
+      type: Value(category.type),
+    ));
+  }
+
+  @override
+  Future<void> deleteCategory(String id) async {
+    await (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go();
   }
 }
