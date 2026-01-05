@@ -97,6 +97,11 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
             selectedIcon: Icon(Icons.pie_chart),
             label: 'Stats',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: 'Budgets',
+          ),
         ],
       ),
     );

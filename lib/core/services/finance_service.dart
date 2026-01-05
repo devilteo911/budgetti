@@ -3,6 +3,7 @@ import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart' as model;
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/models/tag.dart' as model_tag;
+import 'package:budgetti/models/budget.dart' as model_budget;
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -20,6 +21,9 @@ abstract class FinanceService {
   Future<void> addTag(model_tag.Tag tag);
   Future<void> updateTag(model_tag.Tag tag);
   Future<void> deleteTag(String id);
+  Future<List<model_budget.Budget>> getBudgets();
+  Future<void> upsertBudget(model_budget.Budget budget);
+  Future<void> deleteBudget(String id);
 }
 
 class SupabaseFinanceService implements FinanceService {
@@ -189,5 +193,36 @@ class SupabaseFinanceService implements FinanceService {
   @override
   Future<void> deleteTag(String id) async {
     await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
+  }
+
+  @override
+  Future<List<model_budget.Budget>> getBudgets() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return [];
+
+    final List<dynamic> data = await _client
+        .from('budgets')
+        .select()
+        .eq('user_id', user.id);
+
+    return data.map((json) => model_budget.Budget.fromJson(json)).toList();
+  }
+
+  @override
+  Future<void> upsertBudget(model_budget.Budget budget) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    await _client.from('budgets').upsert({
+      'user_id': user.id,
+      'category': budget.category,
+      'limit_amount': budget.limit,
+      'period': budget.period,
+    }, onConflict: 'user_id, category, period');
+  }
+
+  @override
+  Future<void> deleteBudget(String id) async {
+    await _client.from('budgets').delete().eq('id', id);
   }
 }

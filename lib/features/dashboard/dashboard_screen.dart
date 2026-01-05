@@ -1,6 +1,6 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
-import 'package:budgetti/features/dashboard/widgets/spending_chart.dart';
+import 'package:budgetti/features/dashboard/widgets/budget_saturation_recap.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:flutter/material.dart';
@@ -141,35 +141,8 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // Chart
-                  Text(
-                    "Activity",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textWhite,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    height: 250,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceGrey,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: accounts.isNotEmpty 
-                      ? Consumer(
-                          builder: (context, ref, child) {
-                             final transactionsAsync = ref.watch(transactionsProvider(accounts.first.id));
-                             return transactionsAsync.when(
-                               data: (transactions) => SpendingChart(transactions: transactions),
-                               loading: () => const Center(child: CircularProgressIndicator()),
-                               error: (_, __) => const Center(child: Text("Error loading chart")),
-                             );
-                          }
-                        )
-                      : const Center(child: Text("No accounts")),
-                  ),
+                  // Budget Saturation recap
+                  const BudgetSaturationRecap(),
 
                   const SizedBox(height: 32),
                   // Recent Transactions Mock (Should be real mostly)
