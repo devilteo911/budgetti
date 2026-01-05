@@ -37,6 +37,11 @@ class ScaffoldWithNavBar extends StatelessWidget {
             selectedIcon: Icon(Icons.receipt_long),
             label: 'Transactions',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.pie_chart_outline),
+            selectedIcon: Icon(Icons.pie_chart),
+            label: 'Stats',
+          ),
         ],
       ),
     );

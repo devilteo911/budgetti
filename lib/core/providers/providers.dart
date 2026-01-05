@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:budgetti/core/database/database.dart' hide Category, Tag;
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/account.dart';
@@ -66,3 +67,100 @@ class BalanceVisibility extends Notifier<bool> {
 }
 
 final balanceVisibilityProvider = NotifierProvider<BalanceVisibility, bool>(BalanceVisibility.new);
+
+class TransactionFilterState {
+  final DateTimeRange? dateRange;
+  final List<String> categories;
+  final List<String> tags;
+
+  TransactionFilterState({
+    this.dateRange,
+    this.categories = const [],
+    this.tags = const [],
+  });
+
+  bool get isEmpty =>
+      dateRange == null && categories.isEmpty && tags.isEmpty;
+
+  TransactionFilterState copyWith({
+    DateTimeRange? Function()? dateRange,
+    List<String>? categories,
+    List<String>? tags,
+  }) {
+    return TransactionFilterState(
+      dateRange: dateRange != null ? dateRange() : this.dateRange,
+      categories: categories ?? this.categories,
+      tags: tags ?? this.tags,
+    );
+  }
+}
+
+class TransactionFiltersNotifier extends Notifier<TransactionFilterState> {
+  @override
+  TransactionFilterState build() => TransactionFilterState();
+
+  void setDateRange(DateTimeRange? range) {
+    state = state.copyWith(dateRange: () => range);
+  }
+
+  void toggleCategory(String category) {
+    final categories = List<String>.from(state.categories);
+    if (categories.contains(category)) {
+      categories.remove(category);
+    } else {
+      categories.add(category);
+    }
+    state = state.copyWith(categories: categories);
+  }
+
+  void toggleTag(String tag) {
+    final tags = List<String>.from(state.tags);
+    if (tags.contains(tag)) {
+      tags.remove(tag);
+    } else {
+      tags.add(tag);
+    }
+    state = state.copyWith(tags: tags);
+  }
+
+  void reset() {
+    state = TransactionFilterState();
+  }
+}
+
+final transactionFiltersProvider =
+    NotifierProvider<TransactionFiltersNotifier, TransactionFilterState>(
+        TransactionFiltersNotifier.new);
+
+final filteredTransactionsProvider =
+    FutureProvider.family<List<Transaction>, String>((ref, accountId) async {
+  final transactions = await ref.watch(transactionsProvider(accountId).future);
+  final filters = ref.watch(transactionFiltersProvider);
+
+  if (filters.isEmpty) return transactions;
+
+  return transactions.where((t) {
+    // Date Filter
+    if (filters.dateRange != null) {
+      if (t.date.isBefore(filters.dateRange!.start) ||
+          t.date.isAfter(filters.dateRange!.end.add(const Duration(days: 1)))) {
+        return false;
+      }
+    }
+
+    // Category Filter
+    if (filters.categories.isNotEmpty &&
+        !filters.categories.contains(t.category)) {
+      return false;
+    }
+
+    // Tag Filter
+    if (filters.tags.isNotEmpty) {
+      if (!t.tags.any((tag) => filters.tags.contains(tag))) {
+        return false;
+      }
+    }
+
+    return true;
+  }).toList();
+});

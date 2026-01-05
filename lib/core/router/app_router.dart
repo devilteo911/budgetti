@@ -6,6 +6,7 @@ import 'package:budgetti/features/dashboard/dashboard_screen.dart';
 import 'package:budgetti/features/profile/profile_screen.dart';
 import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
 import 'package:budgetti/features/transactions/transactions_screen.dart';
+import 'package:budgetti/features/stats/stats_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -45,6 +46,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/transactions',
                 builder: (context, state) => const TransactionsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/stats',
+                builder: (context, state) => const StatsScreen(),
               ),
             ],
           ),

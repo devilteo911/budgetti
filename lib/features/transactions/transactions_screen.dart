@@ -1,6 +1,7 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
+import 'package:budgetti/features/transactions/transaction_filter_sheet.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:flutter/material.dart';
@@ -86,7 +87,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final transactionsAsync = ref.watch(transactionsProvider('1'));
+    const accountId = '1';
+    final transactionsAsync = ref.watch(filteredTransactionsProvider(accountId));
+    final filters = ref.watch(transactionFiltersProvider);
 
     return transactionsAsync.when(
       loading: () => Scaffold(
@@ -101,50 +104,58 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         return Scaffold(
           appBar: _buildAppBar(transactions),
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: transactions.isEmpty
-                  ? const Center(child: Text("No transactions yet", style: TextStyle(color: AppTheme.textGrey)))
-                  : Builder(
-                      builder: (context) {
-                        final grouped = _groupTransactionsByDate(transactions);
-                        return ListView.builder(
-                          padding: const EdgeInsets.only(top: 16, bottom: 24),
-                          itemCount: grouped.length,
-                          itemBuilder: (context, index) {
-                            final date = grouped.keys.elementAt(index);
-                            final dayTransactions = grouped[date]!;
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  child: Text(
-                                    _formatDateHeader(date),
-                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                          color: AppTheme.textGrey,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.2,
-                                        ),
-                                  ),
-                                ),
-                                ...dayTransactions.map((t) => _TransactionItem(
-                                  transaction: t,
-                                  isSelected: _selectedIds.contains(t.id),
-                                  onLongPress: () => _toggleSelection(t.id), // Enter selection mode
-                                  onTap: () {
-                                    if (_isSelectionMode) {
-                                      _toggleSelection(t.id);
-                                    }
-                                    // Else: Show details (not implemented yet)
-                                  },
-                                )),
-                              ],
+            child: Column(
+              children: [
+                if (!filters.isEmpty) _buildActiveFilters(filters),
+                Expanded(
+                  child: transactions.isEmpty
+                      ? const Center(
+                          child: Text("No transactions found",
+                              style: TextStyle(color: AppTheme.textGrey)))
+                      : Builder(
+                          builder: (context) {
+                            final grouped = _groupTransactionsByDate(transactions);
+                            return ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              itemCount: grouped.length,
+                              itemBuilder: (context, index) {
+                                final date = grouped.keys.elementAt(index);
+                                final dayTransactions = grouped[date]!;
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      child: Text(
+                                        _formatDateHeader(date),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              color: AppTheme.textGrey,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1.2,
+                                            ),
+                                      ),
+                                    ),
+                                    ...dayTransactions.map((t) => _TransactionItem(
+                                      transaction: t,
+                                      isSelected: _selectedIds.contains(t.id),
+                                      onLongPress: () => _toggleSelection(t.id),
+                                      onTap: () {
+                                        if (_isSelectionMode) {
+                                          _toggleSelection(t.id);
+                                        }
+                                      },
+                                    )),
+                                  ],
+                                );
+                              },
                             );
                           },
-                        );
-                      },
-                    ),
+                        ),
+                ),
+              ],
             ),
           ),
         );
@@ -184,6 +195,55 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ),
       ),
       centerTitle: false,
+      actions: [
+        IconButton(
+          icon: Icon(
+            Icons.filter_list,
+            color: ref.watch(transactionFiltersProvider).isEmpty 
+                ? Colors.white 
+                : AppTheme.primaryGreen,
+          ),
+          onPressed: _showFilterSheet,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActiveFilters(TransactionFilterState filters) {
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.only(bottom: 8, top: 4),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          if (filters.dateRange != null)
+            _ActiveFilterChip(
+              label: filters.dateRange!.start.year == filters.dateRange!.end.year &&
+                     filters.dateRange!.start.month == filters.dateRange!.end.month &&
+                     filters.dateRange!.start.day == filters.dateRange!.end.day
+                  ? DateFormat('dd MMM').format(filters.dateRange!.start)
+                  : "${DateFormat('dd MMM').format(filters.dateRange!.start)} - ${DateFormat('dd MMM').format(filters.dateRange!.end)}",
+              onDeleted: () => ref.read(transactionFiltersProvider.notifier).setDateRange(null),
+            ),
+          ...filters.categories.map((c) => _ActiveFilterChip(
+            label: c,
+            onDeleted: () => ref.read(transactionFiltersProvider.notifier).toggleCategory(c),
+          )),
+          ...filters.tags.map((t) => _ActiveFilterChip(
+            label: t,
+            onDeleted: () => ref.read(transactionFiltersProvider.notifier).toggleTag(t),
+          )),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const TransactionFilterSheet(),
     );
   }
 
@@ -343,6 +403,30 @@ class _TransactionItem extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveFilterChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onDeleted;
+
+  const _ActiveFilterChip({required this.label, required this.onDeleted});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InputChip(
+        label: Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.primaryGreen)),
+        onDeleted: onDeleted,
+        deleteIcon: const Icon(Icons.close, size: 14, color: AppTheme.primaryGreen),
+        backgroundColor: AppTheme.primaryGreen.withValues(alpha: 0.1),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: AppTheme.primaryGreen.withValues(alpha: 0.3)),
         ),
       ),
     );
