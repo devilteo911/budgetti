@@ -288,16 +288,13 @@ class _TransactionItem extends ConsumerWidget {
     final categoriesAsync = ref.watch(categoriesProvider);
     final tagsAsync = ref.watch(tagsProvider);
     
-    // Find the category color
-    Color? categoryColor;
-    categoriesAsync.whenData((categories) {
-      final category = categories.firstWhere(
-        (c) => c.name == transaction.category,
-        orElse: () => categories.first,
-      );
-      categoryColor = Color(category.colorHex);
-    });
+    // Find the category 
+    final category = categoriesAsync.value?.firstWhere(
+      (c) => c.name == transaction.category,
+      orElse: () => categoriesAsync.value!.first,
+    );
 
+    final categoryColor = category != null ? Color(category.colorHex) : null;
     final allTags = tagsAsync.value ?? [];
 
     return GestureDetector(
@@ -310,13 +307,13 @@ class _TransactionItem extends ConsumerWidget {
           color: isSelected 
             ? AppTheme.primaryGreen.withValues(alpha: 0.1) 
             : categoryColor != null 
-              ? categoryColor!.withValues(alpha: 0.08)
+              ? categoryColor.withValues(alpha: 0.08)
               : AppTheme.surfaceGrey,
           borderRadius: BorderRadius.circular(16),
           border: isSelected 
             ? Border.all(color: AppTheme.primaryGreen, width: 2) 
             : categoryColor != null
-              ? Border.all(color: categoryColor!.withValues(alpha: 0.3), width: 1)
+              ? Border.all(color: categoryColor.withValues(alpha: 0.3), width: 1)
               : null,
         ),
         child: Row(
@@ -328,14 +325,16 @@ class _TransactionItem extends ConsumerWidget {
                 color: isSelected 
                   ? AppTheme.primaryGreen 
                   : categoryColor != null
-                    ? categoryColor!.withValues(alpha: 0.2)
+                    ? categoryColor.withValues(alpha: 0.2)
                     : AppTheme.surfaceGreyLight,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: isSelected 
                 ? const Icon(Icons.check, color: AppTheme.backgroundBlack, size: 20)
                 : Icon(
-                    isIncome ? Icons.arrow_downward : Icons.shopping_bag_outlined,
+                    category != null 
+                      ? IconData(category.iconCode, fontFamily: 'MaterialIcons')
+                      : (isIncome ? Icons.arrow_downward : Icons.shopping_bag_outlined),
                     color: categoryColor ?? (isIncome ? AppTheme.primaryGreen : Colors.white),
                     size: 20,
                   ),

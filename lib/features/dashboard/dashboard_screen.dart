@@ -172,8 +172,11 @@ class DashboardScreen extends ConsumerWidget {
                     Consumer(
                       builder: (context, ref, child) {
                         final transactionsAsync = ref.watch(transactionsProvider(accounts.first.id));
+                        final categoriesAsync = ref.watch(categoriesProvider);
+                        
                         return transactionsAsync.when(
-                            data: (transactions) => Column(
+                          data: (transactions) => categoriesAsync.when(
+                            data: (categories) => Column(
                                   children: [
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -185,28 +188,36 @@ class DashboardScreen extends ConsumerWidget {
                                                 color: AppTheme.textWhite,
                                               ),
                                         ),
-                                        TextButton(
-                                          onPressed: () {},
-                                          child: const Text("See All"),
-                                        ),
                                       ],
                                     ),
                                     const SizedBox(height: 16),
-                                    ...transactions.map((t) => _buildTransactionItem(
-                                          context,
-                                          t.description,
-                                          t.category,
-                                          formatter.format(t.amount.abs()),
-                                          t.date,
-                                          isIncome: t.amount > 0,
-                                        )),
+                                    ...transactions.take(3).map((t) {
+                                      final category = categories.firstWhere(
+                                        (c) => c.name == t.category,
+                                        orElse: () => categories.first,
+                                      );
+                                      return _buildTransactionItem(
+                                        context,
+                                        t.description,
+                                        t.category,
+                                        formatter.format(t.amount.abs()),
+                                        t.date,
+                                        categoryIcon: IconData(category.iconCode, fontFamily: 'MaterialIcons'),
+                                        categoryColor: Color(category.colorHex),
+                                        isIncome: t.amount > 0,
+                                      );
+                                    }),
                                   ],
                                 ),
-                            loading: () => const Center(child: Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: CircularProgressIndicator(),
-                            )),
-                            error: (e, s) => const SizedBox.shrink());
+                            loading: () => const Center(child: CircularProgressIndicator()),
+                            error: (_, __) => const SizedBox.shrink(),
+                          ),
+                          loading: () => const Center(child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(),
+                          )),
+                          error: (e, s) => const SizedBox.shrink(),
+                        );
                       },
                     ),
                 ],
@@ -221,25 +232,26 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildTransactionItem(BuildContext context, String title, String subtitle, String amount, DateTime date,
-      {bool isIncome = false}) {
+      {required IconData categoryIcon, required Color categoryColor, bool isIncome = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceGrey,
+        color: categoryColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: categoryColor.withValues(alpha: 0.2), width: 1),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceGreyLight,
+              color: categoryColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              isIncome ? Icons.arrow_downward : Icons.shopping_bag,
-              color: isIncome ? AppTheme.primaryGreen : Colors.white,
+              categoryIcon,
+              color: categoryColor,
               size: 20,
             ),
           ),
