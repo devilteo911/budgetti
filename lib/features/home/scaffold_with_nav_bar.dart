@@ -2,7 +2,7 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-class ScaffoldWithNavBar extends StatelessWidget {
+class ScaffoldWithNavBar extends StatefulWidget {
   const ScaffoldWithNavBar({
     required this.navigationShell,
     super.key,
@@ -10,19 +10,74 @@ class ScaffoldWithNavBar extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  State<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
+}
+
+class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
+  int _previousIndex = 0;
+
+  @override
+  void didUpdateWidget(ScaffoldWithNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.navigationShell.currentIndex != widget.navigationShell.currentIndex) {
+      _previousIndex = oldWidget.navigationShell.currentIndex;
+    }
+  }
+
   void _goBranch(int index) {
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       index,
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = widget.navigationShell.currentIndex;
+    final isForward = currentIndex >= _previousIndex;
+
     return Scaffold(
-      body: navigationShell,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          final bool isIncoming = child.key == ValueKey(currentIndex);
+          
+          Offset begin;
+          if (isIncoming) {
+            begin = isForward ? const Offset(1.0, 0.0) : const Offset(-1.0, 0.0);
+          } else {
+            begin = isForward ? const Offset(-1.0, 0.0) : const Offset(1.0, 0.0);
+          }
+
+          return SlideTransition(
+            position: animation.drive(Tween<Offset>(
+              begin: begin,
+              end: Offset.zero,
+            )),
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          );
+        },
+        layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+          return Stack(
+            children: <Widget>[
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey(currentIndex),
+          child: widget.navigationShell,
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
+        selectedIndex: currentIndex,
         onDestinationSelected: _goBranch,
         backgroundColor: AppTheme.backgroundBlack,
         indicatorColor: AppTheme.primaryGreen.withValues(alpha: 0.2),

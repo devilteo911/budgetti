@@ -22,6 +22,9 @@ class DashboardScreen extends ConsumerWidget {
             context: context,
             isScrollControlled: true,
             backgroundColor: AppTheme.surfaceGrey,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
             builder: (context) => const AddTransactionModal(),
           );
         },
@@ -85,13 +88,16 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                           GestureDetector(
                             onTap: () => context.push('/profile'),
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                color: AppTheme.surfaceGreyLight,
-                                shape: BoxShape.circle,
+                            child: Hero(
+                              tag: 'profile-image',
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.surfaceGreyLight,
+                                  shape: BoxShape.circle,
+                                ),
+                                padding: const EdgeInsets.all(8),
+                                child: const Icon(Icons.person, color: AppTheme.primaryGreen),
                               ),
-                              padding: const EdgeInsets.all(8),
-                              child: const Icon(Icons.person, color: AppTheme.primaryGreen),
                             ),
                           )
                       ],

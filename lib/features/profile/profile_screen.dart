@@ -87,10 +87,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Center(
                     child: Column(
                       children: [
-                        const CircleAvatar(
-                          radius: 50,
-                          backgroundColor: AppTheme.surfaceGrey,
-                          child: Icon(Icons.person, size: 50, color: AppTheme.primaryGreen),
+                        Hero(
+                          tag: 'profile-image',
+                          child: const CircleAvatar(
+                            radius: 50,
+                            backgroundColor: AppTheme.surfaceGrey,
+                            child: Icon(Icons.person, size: 50, color: AppTheme.primaryGreen),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(

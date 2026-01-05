@@ -79,6 +79,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       context: context,
       backgroundColor: AppTheme.backgroundBlack,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => AddTransactionModal(transaction: transactionToEdit),
     ).then((_) {
       setState(() => _selectedIds.clear());
