@@ -226,6 +226,7 @@ class _TransactionItem extends ConsumerWidget {
     final isIncome = transaction.amount > 0;
     final formatter = ref.watch(currencyProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
+    final tagsAsync = ref.watch(tagsProvider);
     
     // Find the category color
     Color? categoryColor;
@@ -236,6 +237,8 @@ class _TransactionItem extends ConsumerWidget {
       );
       categoryColor = Color(category.colorHex);
     });
+
+    final allTags = tagsAsync.value ?? [];
 
     return GestureDetector(
       onLongPress: onLongPress,
@@ -287,53 +290,45 @@ class _TransactionItem extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    transaction.category, 
-                    style: TextStyle(
-                      color: categoryColor?.withValues(alpha: 0.8) ?? AppTheme.textGrey, 
-                      fontSize: 14
-                    )
-                  ),
-                  if (transaction.tags.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Consumer(
-                      builder: (context, ref, child) {
-                        final tagsAsync = ref.watch(tagsProvider);
-                        return tagsAsync.maybeWhen(
-                          data: (allTags) => Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: transaction.tags.map((tagName) {
-                              final tag = allTags.firstWhere(
-                                (t) => t.name == tagName,
-                                orElse: () => Tag(id: '', name: tagName, colorHex: 0xFF9E9E9E),
-                              );
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Color(tag.colorHex).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: Color(tag.colorHex).withValues(alpha: 0.3),
-                                    width: 0.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  tag.name,
-                                  style: TextStyle(
-                                    color: Color(tag.colorHex),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                          orElse: () => const SizedBox.shrink(),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        transaction.category, 
+                        style: TextStyle(
+                          color: categoryColor?.withValues(alpha: 0.8) ?? AppTheme.textGrey, 
+                          fontSize: 14
+                        )
+                      ),
+                      ...transaction.tags.map((tagName) {
+                        final tag = allTags.firstWhere(
+                          (t) => t.name == tagName,
+                          orElse: () => Tag(id: '', name: tagName, colorHex: 0xFF9E9E9E),
                         );
-                      },
-                    ),
-                  ],
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Color(tag.colorHex).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: Color(tag.colorHex).withValues(alpha: 0.3),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Text(
+                            tag.name,
+                            style: TextStyle(
+                              color: Color(tag.colorHex),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
                 ],
               ),
             ),
