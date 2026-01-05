@@ -110,7 +110,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
-      final amount = double.parse(_amountController.text);
+      final amount = double.parse(_amountController.text.replaceAll(',', '.'));
       final finalAmount = _isExpense ? -amount : amount;
 
       final transaction = Transaction(
@@ -284,19 +284,15 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const SizedBox(width: 48), // Spacer for centering title
+                    const SizedBox(width: 48), // Left spacer
                     Text(
                       widget.transaction != null ? "Edit Transaction" : "New Transaction",
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
-                    _isScanning 
-                      ? const SizedBox(width: 48, height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
-                      : IconButton(
-                          onPressed: _scanReceipt,
-                          icon: const Icon(Icons.document_scanner, color: AppTheme.primaryGreen),
-                          tooltip: "Scan Receipt",
-                        ),
+                    const SizedBox(
+                      width: 48,
+                    ), // Right spacer to keep title centered
                   ],
                 ),
               ),
@@ -345,6 +341,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.3)),
                   ),
+                  clipBehavior: Clip.antiAlias,
                   child: Row(
                     children: [
                       // Currency indicator
@@ -378,10 +375,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                             hintStyle: TextStyle(color: AppTheme.textGrey.withValues(alpha: 0.5)),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            filled: false,
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) return 'Enter amount';
-                            if (double.tryParse(value) == null) return 'Invalid';
+                            final sanitized = value.replaceAll(',', '.');
+                            if (double.tryParse(sanitized) == null)
+                              return 'Invalid';
                             return null;
                           },
                         ),
@@ -526,20 +526,60 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
           
               // Submit
               _buildAnimatedItem(7, 
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isScanning ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          widget.transaction != null
+                              ? "Update Transaction"
+                              : "Add Transaction",
+                          style: const TextStyle(
+                            color: AppTheme.backgroundBlack,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      widget.transaction != null ? "Update Transaction" : "Add Transaction",
-                      style: const TextStyle(color: AppTheme.backgroundBlack, fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                    const SizedBox(width: 12),
+                    if (_isScanning)
+                      const SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppTheme.primaryGreen,
+                            strokeWidth: 3,
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        height: 56,
+                        width: 56,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGreyLight,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          onPressed: _scanReceipt,
+                          icon: const Icon(
+                            Icons.document_scanner,
+                            color: AppTheme.primaryGreen,
+                          ),
+                          tooltip: "Scan Receipt",
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),

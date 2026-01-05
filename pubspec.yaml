@@ -63,6 +63,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   drift_dev: ^2.30.0
   build_runner: ^2.4.13
+  flutter_launcher_icons: ^0.14.3
 
 dependency_overrides:
   test_api: 0.7.6

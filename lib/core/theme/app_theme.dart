@@ -21,7 +21,7 @@ class AppTheme {
       primary: primaryGreen,
       secondary: const Color(0xFF5AC8FA), // Light Blue
       tertiary: const Color(0xFFFFCC00), // Yellow
-      error: const Color(0xFFFF453A), // Red
+      error: const Color(0xFFFF8B8B), // Pastel Red
     ),
     scaffoldBackgroundColor: backgroundBlack,
     cardColor: surfaceGrey,

@@ -132,7 +132,15 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                       return Card(
                         color: AppTheme.surfaceGrey,
                         margin: const EdgeInsets.only(bottom: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: Color(
+                              category.colorHex,
+                            ).withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                        ),
                         child: InkWell(
                           onTap: () => _showSetBudgetDialog(category.name, budget.limit),
                           borderRadius: BorderRadius.circular(16),
@@ -180,11 +188,23 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                   children: [
                                     Text(
                                       "Spent: ${currencyFormatter.format(spent)}",
-                                      style: TextStyle(color: isOverBudget ? Colors.red : AppTheme.textGrey),
+                                      style: TextStyle(
+                                        color: isOverBudget
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.error
+                                            : AppTheme.textGrey,
+                                      ),
                                     ),
                                     Text(
                                       "${(percent * 100).toStringAsFixed(0)}%",
-                                      style: TextStyle(color: isOverBudget ? Colors.red : AppTheme.textGrey),
+                                      style: TextStyle(
+                                        color: isOverBudget
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.error
+                                            : AppTheme.textGrey,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -194,7 +214,9 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                   child: LinearProgressIndicator(
                                     value: percent,
                                     backgroundColor: AppTheme.backgroundBlack,
-                                    color: isOverBudget ? Colors.red : AppTheme.primaryGreen,
+                                    color: isOverBudget
+                                        ? Theme.of(context).colorScheme.error
+                                        : AppTheme.primaryGreen,
                                     minHeight: 8,
                                   ),
                                 ),

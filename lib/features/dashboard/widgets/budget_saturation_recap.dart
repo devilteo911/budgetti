@@ -109,6 +109,12 @@ class BudgetSaturationRecap extends ConsumerWidget {
                           decoration: BoxDecoration(
                             color: AppTheme.surfaceGrey,
                             borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Color(
+                                category.colorHex,
+                              ).withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +135,11 @@ class BudgetSaturationRecap extends ConsumerWidget {
                                   Text(
                                     "${currencyFormatter.format(spent)} / ${currencyFormatter.format(limit)}",
                                     style: TextStyle(
-                                      color: isOverLimit ? Colors.red : (isNearLimit ? Colors.orange : AppTheme.textGrey),
+                                      color: isOverLimit
+                                          ? Theme.of(context).colorScheme.error
+                                          : (isNearLimit
+                                                ? Colors.orange
+                                                : AppTheme.textGrey),
                                       fontSize: 12,
                                     ),
                                   ),
@@ -141,7 +151,11 @@ class BudgetSaturationRecap extends ConsumerWidget {
                                 child: LinearProgressIndicator(
                                   value: ratio.clamp(0.0, 1.0),
                                   backgroundColor: AppTheme.backgroundBlack,
-                                  color: isOverLimit ? Colors.red : (isNearLimit ? Colors.orange : AppTheme.primaryGreen),
+                                  color: isOverLimit
+                                      ? Theme.of(context).colorScheme.error
+                                      : (isNearLimit
+                                            ? Colors.orange
+                                            : AppTheme.primaryGreen),
                                   minHeight: 6,
                                 ),
                               ),
