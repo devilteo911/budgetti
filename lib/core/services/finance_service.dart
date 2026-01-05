@@ -6,6 +6,7 @@ abstract class FinanceService {
   Future<List<Account>> getAccounts();
   Future<List<Transaction>> getTransactions(String accountId);
   Future<void> addTransaction(Transaction transaction);
+  Future<void> deleteTransactions(List<String> ids);
 }
 
 class SupabaseFinanceService implements FinanceService {
@@ -65,5 +66,14 @@ class SupabaseFinanceService implements FinanceService {
       'category': transaction.category,
       'date': transaction.date.toIso8601String(),
     });
+  }
+
+  @override
+  Future<void> deleteTransactions(List<String> ids) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+    if (ids.isEmpty) return;
+
+    await _client.from('transactions').delete().filter('id', 'in', ids);
   }
 }

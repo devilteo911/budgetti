@@ -6,7 +6,6 @@ import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -50,7 +49,7 @@ class DashboardScreen extends ConsumerWidget {
               error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
               data: (accounts) {
                 final totalBalance = accounts.fold(0.0, (sum, acc) => sum + acc.balance);
-                final formatter = NumberFormat.currency(locale: 'en_US', symbol: '\$'); // Using US formatting for now
+                final formatter = ref.watch(currencyProvider);
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -81,14 +80,17 @@ class DashboardScreen extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                        Container(
-                          decoration: const BoxDecoration(
-                            color: AppTheme.surfaceGreyLight,
-                            shape: BoxShape.circle,
-                          ),
-                          padding: const EdgeInsets.all(8),
-                          child: const Icon(Icons.person, color: AppTheme.primaryGreen),
-                        )
+                          GestureDetector(
+                            onTap: () => context.push('/profile'),
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: AppTheme.surfaceGreyLight,
+                                shape: BoxShape.circle,
+                              ),
+                              padding: const EdgeInsets.all(8),
+                              child: const Icon(Icons.person, color: AppTheme.primaryGreen),
+                            ),
+                          )
                       ],
                     ),
                   ),
@@ -118,7 +120,18 @@ class DashboardScreen extends ConsumerWidget {
                       color: AppTheme.surfaceGrey,
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: const SpendingChart(),
+                    child: accounts.isNotEmpty 
+                      ? Consumer(
+                          builder: (context, ref, child) {
+                             final transactionsAsync = ref.watch(transactionsProvider(accounts.first.id));
+                             return transactionsAsync.when(
+                               data: (transactions) => SpendingChart(transactions: transactions),
+                               loading: () => const Center(child: CircularProgressIndicator()),
+                               error: (_, __) => const Center(child: Text("Error loading chart")),
+                             );
+                          }
+                        )
+                      : const Center(child: Text("No accounts")),
                   ),
 
                   const SizedBox(height: 32),

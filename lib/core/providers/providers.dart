@@ -2,6 +2,7 @@ import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final financeServiceProvider = Provider<FinanceService>((ref) => SupabaseFinanceService());
@@ -30,4 +31,11 @@ final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   } catch (e) {
     return null; // Profile doesn't exist yet
   }
+});
+
+final currencyProvider = Provider<NumberFormat>((ref) {
+  final profileAsync = ref.watch(userProfileProvider);
+  final currencyCode = profileAsync.value?['currency'] as String? ?? 'EUR';
+  
+  return NumberFormat.simpleCurrency(name: currencyCode);
 });
