@@ -7,11 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:budgetti/core/services/ocr_service.dart';
 
 class AddTransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
+  final bool triggerScan;
   
-  const AddTransactionModal({super.key, this.transaction});
+  const AddTransactionModal({super.key, this.transaction, this.triggerScan = false});
 
   @override
   ConsumerState<AddTransactionModal> createState() => _AddTransactionModalState();
@@ -19,6 +22,9 @@ class AddTransactionModal extends ConsumerStatefulWidget {
 
 class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  final _ocrService = OcrService();
+  final _picker = ImagePicker();
+  bool _isScanning = false;
   
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
@@ -48,7 +54,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       _selectedTags = List.from(t.tags);
     }
     
+    
     _animationController.forward();
+
+    if (widget.triggerScan) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scanReceipt();
+      });
+    }
   }
 
 
@@ -57,7 +70,42 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     _amountController.dispose();
     _descriptionController.dispose();
     _animationController.dispose();
+    _ocrService.dispose();
     super.dispose();
+  }
+
+  Future<void> _scanReceipt() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    if (image == null) return;
+
+    setState(() => _isScanning = true);
+    try {
+      final result = await _ocrService.recognizeReceipt(image.path);
+      
+      if (result.amount != null) {
+        _amountController.text = result.amount!.toStringAsFixed(2);
+      }
+      if (result.merchant != null) {
+        _descriptionController.text = result.merchant!;
+      }
+      if (result.date != null) {
+        _selectedDate = result.date!;
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Receipt scanned successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('OCR Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isScanning = false);
+    }
   }
 
   void _submit() async {
@@ -233,10 +281,23 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildAnimatedItem(0, 
-                Text(
-                  widget.transaction != null ? "Edit Transaction" : "New Transaction",
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 48), // Spacer for centering title
+                    Text(
+                      widget.transaction != null ? "Edit Transaction" : "New Transaction",
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    _isScanning 
+                      ? const SizedBox(width: 48, height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                      : IconButton(
+                          onPressed: _scanReceipt,
+                          icon: const Icon(Icons.document_scanner, color: AppTheme.primaryGreen),
+                          tooltip: "Scan Receipt",
+                        ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),

@@ -1,4 +1,6 @@
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/features/transactions/add_transaction_modal.dart';
+import 'package:budgetti/core/services/motion_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,6 +18,35 @@ class ScaffoldWithNavBar extends StatefulWidget {
 
 class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
   int _previousIndex = 0;
+  late MotionService _motionService;
+
+  @override
+  void initState() {
+    super.initState();
+    _motionService = MotionService(onTwistDetected: _onTwistDetected);
+    _motionService.startListening();
+  }
+
+  @override
+  void dispose() {
+    _motionService.stopListening();
+    super.dispose();
+  }
+
+  void _onTwistDetected() {
+    // Only trigger if a modal is not already showing (optional but safer)
+    if (!mounted) return;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.surfaceGrey,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => const AddTransactionModal(triggerScan: true),
+    );
+  }
 
   @override
   void didUpdateWidget(ScaffoldWithNavBar oldWidget) {
