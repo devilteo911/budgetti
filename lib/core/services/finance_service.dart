@@ -2,6 +2,7 @@ import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart' as model;
 import 'package:budgetti/models/transaction.dart';
+import 'package:budgetti/models/tag.dart' as model_tag;
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,11 +10,16 @@ abstract class FinanceService {
   Future<List<Account>> getAccounts();
   Future<List<Transaction>> getTransactions(String accountId);
   Future<void> addTransaction(Transaction transaction);
+  Future<void> updateTransaction(Transaction transaction);
   Future<void> deleteTransactions(List<String> ids);
   Future<List<model.Category>> getCategories();
   Future<void> addCategory(model.Category category);
   Future<void> updateCategory(model.Category category);
   Future<void> deleteCategory(String id);
+  Future<List<model_tag.Tag>> getTags();
+  Future<void> addTag(model_tag.Tag tag);
+  Future<void> updateTag(model_tag.Tag tag);
+  Future<void> deleteTag(String id);
 }
 
 class SupabaseFinanceService implements FinanceService {
@@ -75,7 +81,22 @@ class SupabaseFinanceService implements FinanceService {
       'description': transaction.description,
       'category': transaction.category,
       'date': transaction.date.toIso8601String(),
+      'tags': transaction.tags,
     });
+  }
+
+  @override
+  Future<void> updateTransaction(Transaction transaction) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    await _client.from('transactions').update({
+      'amount': transaction.amount,
+      'description': transaction.description,
+      'category': transaction.category,
+      'date': transaction.date.toIso8601String(),
+      'tags': transaction.tags,
+    }).eq('id', transaction.id);
   }
 
   @override
@@ -133,5 +154,40 @@ class SupabaseFinanceService implements FinanceService {
   @override
   Future<void> deleteCategory(String id) async {
     await (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go();
+  }
+
+  @override
+  Future<List<model_tag.Tag>> getTags() async {
+    // Seed and get tags
+    await _db.seedIfEmpty();
+    final driftTags = await _db.select(_db.tags).get();
+    
+    return driftTags.map((t) => model_tag.Tag(
+      id: t.id,
+      name: t.name,
+      colorHex: t.colorHex,
+    )).toList();
+  }
+
+  @override
+  Future<void> addTag(model_tag.Tag tag) async {
+    await _db.into(_db.tags).insert(TagsCompanion.insert(
+      id: tag.id,
+      name: tag.name,
+      colorHex: tag.colorHex,
+    ));
+  }
+
+  @override
+  Future<void> updateTag(model_tag.Tag tag) async {
+    await (_db.update(_db.tags)..where((t) => t.id.equals(tag.id))).write(TagsCompanion(
+      name: Value(tag.name),
+      colorHex: Value(tag.colorHex),
+    ));
+  }
+
+  @override
+  Future<void> deleteTag(String id) async {
+    await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
   }
 }

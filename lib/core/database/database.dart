@@ -17,18 +17,34 @@ class Categories extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Categories])
+class Tags extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  IntColumn get colorHex => integer()();
+  
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Categories, Tags])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (Migrator m) async {
       await m.createAll();
       await _seedCategories();
+      await _seedTags();
+    },
+    onUpgrade: (Migrator m, int from, int to) async {
+      if (from < 2) {
+        await m.createTable(tags);
+        await _seedTags();
+      }
     },
   );
 
@@ -62,11 +78,36 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<void> _seedTags() async {
+    final defaults = [
+      (name: 'Vacation', color: 0xFFE91E63),
+      (name: 'Family', color: 0xFF9C27B0),
+      (name: 'Work', color: 0xFF3F51B5),
+      (name: 'Personal', color: 0xFF00BCD4),
+      (name: 'Gift', color: 0xFFFF5722),
+    ];
+
+    await batch((batch) {
+      batch.insertAll(tags, defaults.map((d) {
+        return TagsCompanion.insert(
+          id: DateTime.now().millisecondsSinceEpoch.toString() + d.name,
+          name: d.name,
+          colorHex: d.color,
+        );
+      }));
+    });
+  }
+
   /// Seeds default categories if the table is empty
   Future<void> seedIfEmpty() async {
     final count = await (select(categories)..limit(1)).get();
     if (count.isEmpty) {
       await _seedCategories();
+    }
+    
+    final tagCount = await (select(tags)..limit(1)).get();
+    if (tagCount.isEmpty) {
+      await _seedTags();
     }
   }
 }

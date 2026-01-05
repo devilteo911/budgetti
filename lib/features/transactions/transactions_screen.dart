@@ -1,6 +1,8 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/models/transaction.dart';
+import 'package:budgetti/models/tag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -65,67 +67,92 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     }
   }
 
+  void _editSelected(List<Transaction> allTransactions) {
+    if (_selectedIds.length != 1) return;
+    
+    final transactionToEdit = allTransactions.firstWhere(
+      (t) => _selectedIds.contains(t.id),
+    );
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.backgroundBlack,
+      isScrollControlled: true,
+      builder: (context) => AddTransactionModal(transaction: transactionToEdit),
+    ).then((_) {
+      setState(() => _selectedIds.clear());
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionsProvider('1'));
 
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: transactionsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
-            error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
-            data: (transactions) {
-              if (transactions.isEmpty) {
-                return const Center(child: Text("No transactions yet", style: TextStyle(color: AppTheme.textGrey)));
-              }
-              
-              final grouped = _groupTransactionsByDate(transactions);
-              return ListView.builder(
-                padding: const EdgeInsets.only(top: 16, bottom: 24),
-                itemCount: grouped.length,
-                itemBuilder: (context, index) {
-                  final date = grouped.keys.elementAt(index);
-                  final dayTransactions = grouped[date]!;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                          _formatDateHeader(date),
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: AppTheme.textGrey,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
-                              ),
-                        ),
-                      ),
-                      ...dayTransactions.map((t) => _TransactionItem(
-                        transaction: t,
-                        isSelected: _selectedIds.contains(t.id),
-                        onLongPress: () => _toggleSelection(t.id), // Enter selection mode
-                        onTap: () {
-                          if (_isSelectionMode) {
-                            _toggleSelection(t.id);
-                          }
-                          // Else: Show details (not implemented yet)
-                        },
-                      )),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-        ),
+    return transactionsAsync.when(
+      loading: () => Scaffold(
+        appBar: _buildAppBar(null),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       ),
+      error: (err, stack) => Scaffold(
+        appBar: _buildAppBar(null),
+        body: Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+      ),
+      data: (transactions) {
+        return Scaffold(
+          appBar: _buildAppBar(transactions),
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: transactions.isEmpty
+                  ? const Center(child: Text("No transactions yet", style: TextStyle(color: AppTheme.textGrey)))
+                  : Builder(
+                      builder: (context) {
+                        final grouped = _groupTransactionsByDate(transactions);
+                        return ListView.builder(
+                          padding: const EdgeInsets.only(top: 16, bottom: 24),
+                          itemCount: grouped.length,
+                          itemBuilder: (context, index) {
+                            final date = grouped.keys.elementAt(index);
+                            final dayTransactions = grouped[date]!;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  child: Text(
+                                    _formatDateHeader(date),
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                          color: AppTheme.textGrey,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.2,
+                                        ),
+                                  ),
+                                ),
+                                ...dayTransactions.map((t) => _TransactionItem(
+                                  transaction: t,
+                                  isSelected: _selectedIds.contains(t.id),
+                                  onLongPress: () => _toggleSelection(t.id), // Enter selection mode
+                                  onTap: () {
+                                    if (_isSelectionMode) {
+                                      _toggleSelection(t.id);
+                                    }
+                                    // Else: Show details (not implemented yet)
+                                  },
+                                )),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(List<Transaction>? transactions) {
     if (_isSelectionMode) {
       return AppBar(
         backgroundColor: AppTheme.backgroundBlack,
@@ -135,6 +162,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         ),
         title: Text("${_selectedIds.length} Selected"),
         actions: [
+          if (_selectedIds.length == 1 && transactions != null)
+            IconButton(
+              icon: const Icon(Icons.edit, color: AppTheme.primaryGreen),
+              onPressed: () => _editSelected(transactions),
+            ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: _deleteSelected,
@@ -193,6 +225,17 @@ class _TransactionItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isIncome = transaction.amount > 0;
     final formatter = ref.watch(currencyProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
+    
+    // Find the category color
+    Color? categoryColor;
+    categoriesAsync.whenData((categories) {
+      final category = categories.firstWhere(
+        (c) => c.name == transaction.category,
+        orElse: () => categories.first,
+      );
+      categoryColor = Color(category.colorHex);
+    });
 
     return GestureDetector(
       onLongPress: onLongPress,
@@ -201,9 +244,17 @@ class _TransactionItem extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGrey,
+          color: isSelected 
+            ? AppTheme.primaryGreen.withValues(alpha: 0.1) 
+            : categoryColor != null 
+              ? categoryColor!.withValues(alpha: 0.08)
+              : AppTheme.surfaceGrey,
           borderRadius: BorderRadius.circular(16),
-          border: isSelected ? Border.all(color: AppTheme.primaryGreen, width: 2) : null,
+          border: isSelected 
+            ? Border.all(color: AppTheme.primaryGreen, width: 2) 
+            : categoryColor != null
+              ? Border.all(color: categoryColor!.withValues(alpha: 0.3), width: 1)
+              : null,
         ),
         child: Row(
           children: [
@@ -211,14 +262,18 @@ class _TransactionItem extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primaryGreen : AppTheme.surfaceGreyLight,
+                color: isSelected 
+                  ? AppTheme.primaryGreen 
+                  : categoryColor != null
+                    ? categoryColor!.withValues(alpha: 0.2)
+                    : AppTheme.surfaceGreyLight,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: isSelected 
                 ? const Icon(Icons.check, color: AppTheme.backgroundBlack, size: 20)
                 : Icon(
                     isIncome ? Icons.arrow_downward : Icons.shopping_bag_outlined,
-                    color: isIncome ? AppTheme.primaryGreen : Colors.white,
+                    color: categoryColor ?? (isIncome ? AppTheme.primaryGreen : Colors.white),
                     size: 20,
                   ),
             ),
@@ -234,13 +289,58 @@ class _TransactionItem extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Text(
                     transaction.category, 
-                    style: const TextStyle(color: AppTheme.textGrey, fontSize: 14)
+                    style: TextStyle(
+                      color: categoryColor?.withValues(alpha: 0.8) ?? AppTheme.textGrey, 
+                      fontSize: 14
+                    )
                   ),
+                  if (transaction.tags.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final tagsAsync = ref.watch(tagsProvider);
+                        return tagsAsync.maybeWhen(
+                          data: (allTags) => Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: transaction.tags.map((tagName) {
+                              final tag = allTags.firstWhere(
+                                (t) => t.name == tagName,
+                                orElse: () => Tag(id: '', name: tagName, colorHex: 0xFF9E9E9E),
+                              );
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Color(tag.colorHex).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: Color(tag.colorHex).withValues(alpha: 0.3),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  tag.name,
+                                  style: TextStyle(
+                                    color: Color(tag.colorHex),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          orElse: () => const SizedBox.shrink(),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
             Text(
-              isIncome ? "+${formatter.format(transaction.amount)}" : formatter.format(transaction.amount.abs()),
+              isIncome 
+                ? "+${formatter.format(transaction.amount)}" 
+                : "-${formatter.format(transaction.amount.abs())}",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: isIncome ? AppTheme.primaryGreen : Colors.white,

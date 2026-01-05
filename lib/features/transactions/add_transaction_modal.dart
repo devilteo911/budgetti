@@ -1,6 +1,7 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
+import 'package:budgetti/models/tag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +9,9 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 class AddTransactionModal extends ConsumerStatefulWidget {
-  const AddTransactionModal({super.key});
+  final Transaction? transaction;
+  
+  const AddTransactionModal({super.key, this.transaction});
 
   @override
   ConsumerState<AddTransactionModal> createState() => _AddTransactionModalState();
@@ -22,6 +25,22 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
   bool _isExpense = true;
   String _selectedCategory = 'Groceries';
   DateTime _selectedDate = DateTime.now();
+  List<String> _selectedTags = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // If editing, populate fields
+    if (widget.transaction != null) {
+      final t = widget.transaction!;
+      _amountController.text = t.amount.abs().toString();
+      _descriptionController.text = t.description;
+      _selectedCategory = t.category;
+      _selectedDate = t.date;
+      _isExpense = t.amount < 0;
+      _selectedTags = List.from(t.tags);
+    }
+  }
 
 
   @override
@@ -37,16 +56,21 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
       final finalAmount = _isExpense ? -amount : amount;
 
       final transaction = Transaction(
-        id: const Uuid().v4(),
+        id: widget.transaction?.id ?? const Uuid().v4(),
         accountId: '1', // Hardcoded main wallet for now
         amount: finalAmount,
         date: _selectedDate,
         description: _descriptionController.text,
         category: _selectedCategory,
+        tags: _selectedTags,
       );
 
       final service = ref.read(financeServiceProvider);
-      await service.addTransaction(transaction);
+      if (widget.transaction != null) {
+        await service.updateTransaction(transaction);
+      } else {
+        await service.addTransaction(transaction);
+      }
 
       // Refresh providers to update UI
       ref.invalidate(accountsProvider);
@@ -55,7 +79,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaction added')),
+          SnackBar(content: Text(widget.transaction != null ? 'Transaction updated' : 'Transaction added')),
         );
       }
     }
@@ -168,17 +192,17 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
       ),
       child: Form(
         key: _formKey,
-        child: SizedBox(
-          height: 600, // Fixed height or use dynamic
+        child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                "New Transaction",
+                widget.transaction != null ? "Edit Transaction" : "New Transaction",
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 16),
               const SizedBox(height: 24),
               
               // Type Selector
@@ -334,7 +358,61 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                 ),
               ),
           
-              const Spacer(),
+              const SizedBox(height: 16),
+
+              // Tags Selector
+              Consumer(
+                builder: (context, ref, child) {
+                  final tagsAsync = ref.watch(tagsProvider);
+                  return tagsAsync.when(
+                    data: (tags) {
+                      if (tags.isEmpty) return const SizedBox.shrink();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("Tags", style: TextStyle(color: AppTheme.textGrey, fontSize: 14)),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: tags.map((Tag tag) {
+                              final isSelected = _selectedTags.contains(tag.name);
+                              return FilterChip(
+                                label: Text(tag.name),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _selectedTags.add(tag.name);
+                                    } else {
+                                      _selectedTags.remove(tag.name);
+                                    }
+                                  });
+                                },
+                                backgroundColor: AppTheme.surfaceGrey,
+                                selectedColor: Color(tag.colorHex).withValues(alpha: 0.3),
+                                checkmarkColor: Color(tag.colorHex),
+                                labelStyle: TextStyle(
+                                  color: isSelected ? Color(tag.colorHex) : Colors.white,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: BorderSide(
+                                    color: isSelected ? Color(tag.colorHex) : Colors.transparent,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      );
+                    },
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
           
               // Submit
               SizedBox(
@@ -346,7 +424,10 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text("Add Transaction", style: TextStyle(color: AppTheme.backgroundBlack, fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    widget.transaction != null ? "Update Transaction" : "Add Transaction",
+                    style: const TextStyle(color: AppTheme.backgroundBlack, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

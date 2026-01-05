@@ -1,8 +1,9 @@
-import 'package:budgetti/core/database/database.dart' hide Category;
+import 'package:budgetti/core/database/database.dart' hide Category, Tag;
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/transaction.dart';
+import 'package:budgetti/models/tag.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,6 +28,11 @@ final transactionsProvider = FutureProvider.family<List<Transaction>, String>((r
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
   final service = ref.watch(financeServiceProvider);
   return service.getCategories();
+});
+
+final tagsProvider = FutureProvider<List<Tag>>((ref) async {
+  final service = ref.watch(financeServiceProvider);
+  return service.getTags();
 });
 
 final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
