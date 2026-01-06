@@ -381,8 +381,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                           validator: (value) {
                             if (value == null || value.isEmpty) return 'Enter amount';
                             final sanitized = value.replaceAll(',', '.');
-                            if (double.tryParse(sanitized) == null)
+                            if (double.tryParse(sanitized) == null) {
                               return 'Invalid';
+                            }
                             return null;
                           },
                         ),

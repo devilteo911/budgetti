@@ -51,11 +51,11 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(categories, categories.description);
         } catch (e) {
           // Ignore if the column already exists (can happen during failed/partial migrations)
-          print(
-            'Note: Could not add description column, it might already exist: $e',
-          );
         }
       }
+    },
+    beforeOpen: (details) async {
+      await _seedIfEmpty();
     },
   );
 
@@ -110,7 +110,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Seeds default categories if the table is empty
-  Future<void> seedIfEmpty() async {
+  Future<void> _seedIfEmpty() async {
     final count = await (select(categories)..limit(1)).get();
     if (count.isEmpty) {
       await _seedCategories();

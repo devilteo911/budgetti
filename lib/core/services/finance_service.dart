@@ -42,7 +42,7 @@ class SupabaseFinanceService implements FinanceService {
       if (user == null) return [];
 
       final List<dynamic> data = await _client
-          .from('accounts')
+          .from('wallets')
           .select()
           .eq('user_id', user.id);
 
@@ -89,7 +89,7 @@ class SupabaseFinanceService implements FinanceService {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('User not logged in');
 
-    await _client.from('accounts').insert({
+    await _client.from('wallets').insert({
       ...account.toJson(),
       'user_id': user.id,
     });
@@ -101,7 +101,7 @@ class SupabaseFinanceService implements FinanceService {
     if (user == null) throw Exception('User not logged in');
 
     await _client
-        .from('accounts')
+        .from('wallets')
         .update({...account.toJson()})
         .eq('id', account.id);
   }
@@ -111,7 +111,7 @@ class SupabaseFinanceService implements FinanceService {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('User not logged in');
 
-    await _client.from('accounts').delete().eq('id', id);
+    await _client.from('wallets').delete().eq('id', id);
   }
 
   @override
@@ -168,9 +168,6 @@ class SupabaseFinanceService implements FinanceService {
 
   @override
   Future<List<model.Category>> getCategories() async {
-    // Seed default categories if table is empty
-    await _db.seedIfEmpty();
-    
     final driftCategories = await _db.select(_db.categories).get();
     
     // Sort manually or via query. Query order is better.
@@ -219,8 +216,6 @@ class SupabaseFinanceService implements FinanceService {
 
   @override
   Future<List<model_tag.Tag>> getTags() async {
-    // Seed and get tags
-    await _db.seedIfEmpty();
     final driftTags = await _db.select(_db.tags).get();
     
     return driftTags.map((t) => model_tag.Tag(

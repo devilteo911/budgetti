@@ -189,7 +189,7 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
               title: const Text("Set as Default", style: TextStyle(color: Colors.white)),
               value: _isDefault,
               onChanged: (val) => setState(() => _isDefault = val),
-              activeColor: AppTheme.primaryGreen,
+              activeThumbColor: AppTheme.primaryGreen,
             ),
             const SizedBox(height: 24),
             ElevatedButton(

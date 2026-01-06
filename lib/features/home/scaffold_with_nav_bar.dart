@@ -17,20 +17,31 @@ class ScaffoldWithNavBar extends StatefulWidget {
   State<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
 }
 
-class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
+class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBindingObserver {
   late MotionService _motionService;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _motionService = MotionService(onTwistDetected: _onTwistDetected);
     _motionService.startListening();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _motionService.stopListening();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _motionService.stopListening();
+    } else if (state == AppLifecycleState.resumed) {
+      _motionService.startListening();
+    }
   }
 
   void _onTwistDetected() {
