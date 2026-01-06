@@ -79,7 +79,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final budgetsAsync = ref.watch(budgetsProvider);
-    final transactionsAsync = ref.watch(transactionsProvider('1'));
+    final transactionsAsync = ref.watch(transactionsProvider(null));
     final currencyFormatter = ref.watch(currencyProvider);
 
     return Scaffold(

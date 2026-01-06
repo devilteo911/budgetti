@@ -23,7 +23,7 @@ final accountsProvider = FutureProvider<List<Account>>((ref) async {
   return service.getAccounts();
 });
 
-final transactionsProvider = FutureProvider.family<List<Transaction>, String>((ref, accountId) async {
+final transactionsProvider = FutureProvider.family<List<Transaction>, String?>((ref, accountId) async {
   try {
     final service = ref.watch(financeServiceProvider);
     return await service.getTransactions(accountId);
@@ -156,7 +156,7 @@ final transactionFiltersProvider =
         TransactionFiltersNotifier.new);
 
 final filteredTransactionsProvider =
-    FutureProvider.family<List<Transaction>, String>((ref, accountId) async {
+    FutureProvider.family<List<Transaction>, String?>((ref, accountId) async {
   final transactions = await ref.watch(transactionsProvider(accountId).future);
   final filters = ref.watch(transactionFiltersProvider);
 
@@ -187,3 +187,12 @@ final filteredTransactionsProvider =
     return true;
   }).toList();
 });
+
+class SelectedWalletId extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? id) => state = id;
+}
+
+final selectedWalletIdProvider = NotifierProvider<SelectedWalletId, String?>(SelectedWalletId.new);

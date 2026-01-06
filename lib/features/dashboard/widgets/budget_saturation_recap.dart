@@ -9,7 +9,7 @@ class BudgetSaturationRecap extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final budgetsAsync = ref.watch(budgetsProvider);
-    final transactionsAsync = ref.watch(transactionsProvider('1'));
+    final transactionsAsync = ref.watch(transactionsProvider(null));
     final categoriesAsync = ref.watch(categoriesProvider);
     final currencyFormatter = ref.watch(currencyProvider);
 

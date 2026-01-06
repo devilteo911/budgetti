@@ -126,11 +126,18 @@ class DashboardScreen extends ConsumerWidget {
                   );
                 }
 
-                final totalBalance = accounts.fold(0.0, (sum, acc) => sum + acc.balance);
                 final formatter = ref.watch(currencyProvider);
+                
+                // Use selected wallet or default to ALL (null)
+                final selectedWalletId = ref.watch(selectedWalletIdProvider);
+                
+                // Calculate balance based on selection
+                double totalBalance;
+                // Always show combined balance on Dashboard
+                totalBalance = accounts.fold(0.0, (sum, acc) => sum + acc.balance);
 
-                // Watch transactions for the first account to calculate trend
-                final transactionsAsync = ref.watch(transactionsProvider(accounts.first.id)); // Assuming single account
+                // Watch transactions for ALL accounts (ignore selectedWalletId on Dashboard)
+                final transactionsAsync = ref.watch(transactionsProvider(null));
                 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -267,12 +274,12 @@ class DashboardScreen extends ConsumerWidget {
                   const BudgetSaturationRecap(),
 
                   const SizedBox(height: 32),
-                  // Recent Transactions Mock (Should be real mostly)
-                  // We'll just fetch transactions for the first account for now
+                  // Recent Transactions
                   if (accounts.isNotEmpty)
                     Consumer(
                       builder: (context, ref, child) {
-                        final transactionsAsync = ref.watch(transactionsProvider(accounts.first.id));
+                        final selectedWalletId = ref.watch(selectedWalletIdProvider);
+                        final transactionsAsync = ref.watch(transactionsProvider(null));
                         final categoriesAsync = ref.watch(categoriesProvider);
                         
                         return transactionsAsync.when(

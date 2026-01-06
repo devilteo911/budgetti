@@ -42,7 +42,7 @@ class Transaction {
 
     return Transaction(
       id: (json['id'] ?? const Uuid().v4()).toString(),
-      accountId: '1',
+      accountId: (json['account_id'] ?? '1').toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       date: json['date'] != null ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now() : DateTime.now(),
       description: (json['description'] ?? '').toString(),
@@ -53,6 +53,7 @@ class Transaction {
 
   Map<String, dynamic> toJson() {
     return {
+      'account_id': accountId,
       'amount': amount,
       'description': description,
       'category': category,

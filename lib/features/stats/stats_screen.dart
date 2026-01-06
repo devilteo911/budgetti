@@ -19,7 +19,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final transactionsAsync = ref.watch(transactionsProvider('1'));
+    final transactionsAsync = ref.watch(transactionsProvider(null));
     final categoriesAsync = ref.watch(categoriesProvider);
     final currencyFormatter = ref.watch(currencyProvider);
 

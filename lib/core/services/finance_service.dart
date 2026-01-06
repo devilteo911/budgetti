@@ -6,13 +6,14 @@ import 'package:budgetti/models/tag.dart' as model_tag;
 import 'package:budgetti/models/budget.dart' as model_budget;
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 abstract class FinanceService {
   Future<List<Account>> getAccounts();
   Future<void> addAccount(Account account);
   Future<void> updateAccount(Account account);
   Future<void> deleteAccount(String id);
-  Future<List<Transaction>> getTransactions(String accountId);
+  Future<List<Transaction>> getTransactions(String? accountId);
   Future<void> addTransaction(Transaction transaction);
   Future<void> updateTransaction(Transaction transaction);
   Future<void> deleteTransactions(List<String> ids);
@@ -41,14 +42,61 @@ class SupabaseFinanceService implements FinanceService {
       final user = _client.auth.currentUser;
       if (user == null) return [];
 
-      final List<dynamic> data = await _client
+      // Fetch wallets
+      final List<dynamic> walletsData = await _client
           .from('wallets')
           .select()
           .eq('user_id', user.id);
 
-      final accounts = data.map((json) => Account.fromJson(json)).toList();
+      final accounts = walletsData.map((json) => Account.fromJson(json)).toList();
 
-      if (accounts.isNotEmpty) return accounts;
+      if (accounts.isNotEmpty) {
+        // Fetch all transaction amounts to calculate live balances
+        final List<dynamic> transData = await _client
+            .from('transactions')
+            .select('account_id, amount')
+            .eq('user_id', user.id);
+        
+        // Group sums by account_id
+        final Map<String, double> transactionSums = {};
+        bool hasOrphanedTransactions = false;
+        double orphanedSum = 0;
+
+        for (var item in transData) {
+          final rawAccId = item['account_id'];
+          final amt = (item['amount'] as num).toDouble();
+          
+          if (rawAccId == null) {
+            hasOrphanedTransactions = true;
+            orphanedSum += amt;
+          } else {
+            final accId = rawAccId.toString();
+            transactionSums[accId] = (transactionSums[accId] ?? 0.0) + amt;
+          }
+        }
+
+        final List<Account> resultAccounts = accounts.map((acc) {
+          final sum = transactionSums[acc.id] ?? 0.0;
+          return acc.copyWith(balance: acc.initialBalance + sum);
+        }).toList();
+
+        // If there are orphaned transactions, we MUST include the "Main Wallet" (ID '1')
+        // so that the DropdownButton doesn't crash in AddTransactionModal
+        if (hasOrphanedTransactions) {
+          // Check if '1' is already in accounts (unlikely if they came from 'wallets' table)
+          if (!resultAccounts.any((a) => a.id == '1')) {
+            resultAccounts.add(Account(
+              id: '1',
+              name: 'Main Wallet',
+              balance: orphanedSum,
+              currency: 'EUR',
+              providerName: 'Supabase',
+            ));
+          }
+        }
+
+        return resultAccounts;
+      }
 
       // Fallback if no specific accounts are defined: calculate from transactions
       final List<dynamic> transData = await _client
@@ -100,6 +148,27 @@ class SupabaseFinanceService implements FinanceService {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('User not logged in');
 
+    if (account.id == '1') {
+      // "Main Wallet" is a client-side fallback. If the user edits it, we "realize" it into a persistent wallet.
+      final newId = const Uuid().v4();
+      
+      // 1. Create the new wallet
+      await _client.from('wallets').insert({
+        ...account.toJson(),
+        'id': newId, // Override '1' with real UUID
+        'user_id': user.id,
+      });
+
+      // 2. Migrate all legacy transactions to this new wallet
+      await _client
+          .from('transactions')
+          .update({'account_id': newId})
+          .eq('user_id', user.id)
+          .filter('account_id', 'is', null);
+          
+      return;
+    }
+
     await _client
         .from('wallets')
         .update({...account.toJson()})
@@ -111,19 +180,36 @@ class SupabaseFinanceService implements FinanceService {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('User not logged in');
 
+    if (id == '1') {
+      // Cannot delete the fallback wallet directly as it doesn't exist.
+      // We could delete all unassigned transactions, but that's risky.
+      // For now, just ignore or throw.
+      return;
+    }
+
     await _client.from('wallets').delete().eq('id', id);
   }
 
   @override
-  Future<List<Transaction>> getTransactions(String accountId) async {
+  Future<List<Transaction>> getTransactions(String? accountId) async {
     final user = _client.auth.currentUser;
     if (user == null) return [];
 
-    final List<dynamic> data = await _client
+    var query = _client
         .from('transactions')
         .select()
-        .eq('user_id', user.id)
-        .order('date', ascending: false);
+        .eq('user_id', user.id);
+
+    if (accountId != null) {
+      if (accountId == '1') {
+        // '1' is the local fallback ID, which maps to NULL in Supabase UUID column
+        query = query.filter('account_id', 'is', null);
+      } else {
+        query = query.eq('account_id', accountId);
+      }
+    }
+
+    final List<dynamic> data = await query.order('date', ascending: false);
 
     return data.map((json) => Transaction.fromJson(json)).toList();
   }
@@ -135,6 +221,7 @@ class SupabaseFinanceService implements FinanceService {
 
     await _client.from('transactions').insert({
       'user_id': user.id,
+      'account_id': transaction.accountId == '1' ? null : transaction.accountId,
       'amount': transaction.amount,
       'description': transaction.description,
       'category': transaction.category,
@@ -149,6 +236,7 @@ class SupabaseFinanceService implements FinanceService {
     if (user == null) throw Exception('User not logged in');
 
     await _client.from('transactions').update({
+      'account_id': transaction.accountId == '1' ? null : transaction.accountId,
       'amount': transaction.amount,
       'description': transaction.description,
       'category': transaction.category,

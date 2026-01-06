@@ -41,7 +41,7 @@ class Account {
     return Account(
       id: json['id'],
       name: json['name'],
-      balance: (json['balance'] as num).toDouble(),
+      balance: (json['balance'] as num?)?.toDouble() ?? (json['initial_balance'] as num?)?.toDouble() ?? 0.0,
       initialBalance: (json['initial_balance'] as num?)?.toDouble() ?? 0.0,
       currency: json['currency'],
       providerName: json['provider_name'] ?? 'Supabase',
@@ -53,10 +53,9 @@ class Account {
     return {
       'id': id,
       'name': name,
-      'balance': balance,
+      // 'balance' and 'provider_name' are not stored in the wallets table
       'initial_balance': initialBalance,
       'currency': currency,
-      'provider_name': providerName,
       'is_default': isDefault,
     };
   }

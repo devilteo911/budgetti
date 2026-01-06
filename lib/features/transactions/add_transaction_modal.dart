@@ -34,6 +34,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
   String _selectedCategory = 'Groceries';
   DateTime _selectedDate = DateTime.now();
   List<String> _selectedTags = [];
+  String? _selectedAccountId;
 
   @override
   void initState() {
@@ -52,8 +53,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       _selectedDate = t.date;
       _isExpense = t.amount < 0;
       _selectedTags = List.from(t.tags);
+      _selectedAccountId = t.accountId;
     }
-    
     
     _animationController.forward();
 
@@ -63,7 +64,22 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       });
     }
   }
-
+  
+  // Helper to find default account if _selectedAccountId is null
+  void _initializeDefaultAccount(List<dynamic> accounts) {
+    if (_selectedAccountId != null) return;
+    if (accounts.isEmpty) {
+      _selectedAccountId = '1'; // Fallback
+      return;
+    }
+    
+    try {
+      final defaultAccount = accounts.firstWhere((a) => a.isDefault, orElse: () => accounts.first);
+      _selectedAccountId = defaultAccount.id;
+    } catch (_) {
+      _selectedAccountId = '1';
+    }
+  }
 
   @override
   void dispose() {
@@ -110,12 +126,20 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
+      if (_selectedAccountId == null) {
+        // Should not happen if accounts are loaded, but just in case
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a wallet')),
+        );
+        return;
+      }
+
       final amount = double.parse(_amountController.text.replaceAll(',', '.'));
       final finalAmount = _isExpense ? -amount : amount;
 
       final transaction = Transaction(
         id: widget.transaction?.id ?? const Uuid().v4(),
-        accountId: '1', // Hardcoded main wallet for now
+        accountId: _selectedAccountId!, 
         amount: finalAmount,
         date: _selectedDate,
         description: _descriptionController.text,
@@ -132,7 +156,11 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
       // Refresh providers to update UI
       ref.invalidate(accountsProvider);
-      ref.invalidate(transactionsProvider('1'));
+      ref.invalidate(transactionsProvider(_selectedAccountId!));
+      if (widget.transaction != null && widget.transaction!.accountId != _selectedAccountId) {
+         // Also invalidate the old account if it changed
+         ref.invalidate(transactionsProvider(widget.transaction!.accountId));
+      }
 
       if (mounted) {
         context.pop();
@@ -333,9 +361,71 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                 ),
               ),
               const SizedBox(height: 24),
+
+              // Wallet Selector
+              _buildAnimatedItem(2, 
+                Consumer(
+                  builder: (context, ref, child) {
+                    final accountsAsync = ref.watch(accountsProvider);
+                    
+                    return accountsAsync.when(
+                      data: (accounts) {
+                        if (accounts.isNotEmpty) {
+                          if (_selectedAccountId == null) {
+                            // Defer state update
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                               if (mounted) setState(() => _initializeDefaultAccount(accounts));
+                            });
+                          } else if (!accounts.any((a) => a.id == _selectedAccountId)) {
+                            // The wallet we thought we had is gone. Default to the first one available.
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                               if (mounted) setState(() => _selectedAccountId = accounts.first.id);
+                            });
+                          }
+                        }
+
+                        return InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: "Wallet",
+                            labelStyle: const TextStyle(color: AppTheme.textGrey),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            prefixIcon: const Icon(Icons.account_balance_wallet, color: AppTheme.primaryGreen),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedAccountId,
+                              dropdownColor: AppTheme.surfaceGrey,
+                              style: const TextStyle(color: Colors.white),
+                              icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textGrey),
+                              items: accounts.map((account) {
+                                return DropdownMenuItem<String>(
+                                  value: account.id,
+                                  child: Text(
+                                    account.name,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                setState(() => _selectedAccountId = val);
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      loading: () => const Center(child: LinearProgressIndicator(color: AppTheme.primaryGreen)),
+                      error: (_, __) => const Text("Failed to load wallets", style: TextStyle(color: Colors.red)),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
           
               // Amount
-              _buildAnimatedItem(2, 
+              _buildAnimatedItem(3, 
                 Container(
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceGrey,
@@ -395,7 +485,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               const SizedBox(height: 24),
           
               // Description
-              _buildAnimatedItem(3, 
+              _buildAnimatedItem(4, 
                 TextFormField(
                   controller: _descriptionController,
                   style: const TextStyle(color: Colors.white),
@@ -412,7 +502,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               const SizedBox(height: 16),
           
               // Date Picker Row
-              _buildAnimatedItem(4, 
+              _buildAnimatedItem(5, 
                 InkWell(
                   onTap: _pickDate,
                   borderRadius: BorderRadius.circular(12),
@@ -438,7 +528,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               const SizedBox(height: 16),
           
               // Category Picker Row
-              _buildAnimatedItem(5, 
+              _buildAnimatedItem(6, 
                 InkWell(
                   onTap: _showCategoryPicker,
                   borderRadius: BorderRadius.circular(12),
@@ -471,7 +561,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               const SizedBox(height: 16),
  
               // Tags Selector
-              _buildAnimatedItem(6, 
+              _buildAnimatedItem(7, 
                 Consumer(
                   builder: (context, ref, child) {
                     final tagsAsync = ref.watch(tagsProvider);
@@ -527,7 +617,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               const SizedBox(height: 24),
           
               // Submit
-              _buildAnimatedItem(7, 
+              _buildAnimatedItem(8, 
                 Row(
                   children: [
                     Expanded(

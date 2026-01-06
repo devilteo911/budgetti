@@ -1,12 +1,13 @@
-import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
-import 'package:budgetti/features/transactions/add_transaction_modal.dart';
-import 'package:budgetti/features/transactions/transaction_filter_sheet.dart';
-import 'package:budgetti/models/transaction.dart';
-import 'package:budgetti/models/tag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/models/transaction.dart';
+import 'package:budgetti/models/tag.dart';
+import 'package:budgetti/features/transactions/add_transaction_modal.dart';
+import 'package:budgetti/features/transactions/transaction_filter_sheet.dart';
+import 'package:budgetti/features/settings/wallets_screen.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -90,22 +91,25 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const accountId = '1';
-    final transactionsAsync = ref.watch(filteredTransactionsProvider(accountId));
+    final accountsAsync = ref.watch(accountsProvider);
+    final selectedWalletId = ref.watch(selectedWalletIdProvider);
+    
+    // Fetch transactions for selected wallet (or ALL if null)
+    final transactionsAsync = ref.watch(filteredTransactionsProvider(selectedWalletId));
     final filters = ref.watch(transactionFiltersProvider);
 
     return transactionsAsync.when(
       loading: () => Scaffold(
-        appBar: _buildAppBar(null),
+        appBar: _buildAppBar(null, accountsAsync.value ?? []),
         body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       ),
       error: (err, stack) => Scaffold(
-        appBar: _buildAppBar(null),
+        appBar: _buildAppBar(null, accountsAsync.value ?? []),
         body: Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
       ),
       data: (transactions) {
         return Scaffold(
-          appBar: _buildAppBar(transactions),
+          appBar: _buildAppBar(transactions, accountsAsync.value ?? []),
           body: SafeArea(
             child: Column(
               children: [
@@ -166,7 +170,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(List<Transaction>? transactions) {
+  PreferredSizeWidget _buildAppBar(List<Transaction>? transactions, List<dynamic> accounts) {
     if (_isSelectionMode) {
       return AppBar(
         backgroundColor: AppTheme.backgroundBlack,
@@ -188,14 +192,48 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         ],
       );
     }
+    
+    final selectedWalletId = ref.watch(selectedWalletIdProvider);
+
     return AppBar(
-      title: Text(
-        "Transactions",
-        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textWhite,
+      title: accounts.isEmpty 
+          ? const Text("Transactions", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+          : DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: selectedWalletId, // null = All Wallets
+                dropdownColor: AppTheme.surfaceGrey,
+                icon: const Icon(Icons.arrow_drop_down, color: AppTheme.primaryGreen),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textWhite,
+                    ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text("All Wallets"),
+                  ),
+                  ...accounts.map<DropdownMenuItem<String?>>((account) {
+                    return DropdownMenuItem<String?>(
+                      value: account.id,
+                      child: Text(account.name),
+                    );
+                  }),
+                  const DropdownMenuItem<String?>(
+                    value: '__MANAGE__',
+                    child: Text("Manage Wallets...", style: TextStyle(fontStyle: FontStyle.italic, color: AppTheme.primaryGreen)),
+                  ),
+                ],
+                onChanged: (String? newValue) {
+                  if (newValue == '__MANAGE__') {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const WalletsScreen()),
+                    );
+                  } else {
+                    ref.read(selectedWalletIdProvider.notifier).set(newValue);
+                  }
+                },
+              ),
             ),
-      ),
       actions: [
         IconButton(
           icon: Icon(
