@@ -194,44 +194,31 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     }
     
     final selectedWalletId = ref.watch(selectedWalletIdProvider);
+    final selectedAccount = accounts.where((a) => a.id == selectedWalletId).firstOrNull;
 
     return AppBar(
+      titleSpacing: 16,
       title: accounts.isEmpty 
           ? const Text("Transactions", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-          : DropdownButtonHideUnderline(
-              child: DropdownButton<String?>(
-                value: selectedWalletId, // null = All Wallets
-                dropdownColor: AppTheme.surfaceGrey,
-                icon: const Icon(Icons.arrow_drop_down, color: AppTheme.primaryGreen),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textWhite,
+          : InkWell(
+              onTap: () => _showWalletFilterSheet(context, ref, accounts),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 0, right: 8, top: 4, bottom: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      selectedAccount?.name ?? "All Wallets",
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textWhite,
+                          ),
                     ),
-                items: [
-                  const DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text("All Wallets"),
-                  ),
-                  ...accounts.map<DropdownMenuItem<String?>>((account) {
-                    return DropdownMenuItem<String?>(
-                      value: account.id,
-                      child: Text(account.name),
-                    );
-                  }),
-                  const DropdownMenuItem<String?>(
-                    value: '__MANAGE__',
-                    child: Text("Manage Wallets...", style: TextStyle(fontStyle: FontStyle.italic, color: AppTheme.primaryGreen)),
-                  ),
-                ],
-                onChanged: (String? newValue) {
-                  if (newValue == '__MANAGE__') {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const WalletsScreen()),
-                    );
-                  } else {
-                    ref.read(selectedWalletIdProvider.notifier).set(newValue);
-                  }
-                },
+                    const SizedBox(width: 4),
+                    const Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryGreen),
+                  ],
+                ),
               ),
             ),
       actions: [
@@ -283,6 +270,102 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => const TransactionFilterSheet(),
+    );
+  }
+
+  void _showWalletFilterSheet(BuildContext context, WidgetRef ref, List<dynamic> accounts) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surfaceGrey,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final selectedWalletId = ref.watch(selectedWalletIdProvider);
+        final currencyFormatter = ref.watch(currencyProvider);
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 24, bottom: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.textGrey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Filter by Wallet",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: selectedWalletId == null ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGreyLight,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.all_inclusive, color: selectedWalletId == null ? AppTheme.primaryGreen : AppTheme.textGrey),
+                      ),
+                      title: Text("All Wallets", style: TextStyle(color: Colors.white, fontWeight: selectedWalletId == null ? FontWeight.bold : FontWeight.normal)),
+                      trailing: selectedWalletId == null ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
+                      onTap: () {
+                        ref.read(selectedWalletIdProvider.notifier).set(null);
+                        Navigator.pop(context);
+                      },
+                    ),
+                    const Divider(color: AppTheme.surfaceGreyLight, indent: 16, endIndent: 16),
+                    ...accounts.map((account) {
+                      final isSelected = account.id == selectedWalletId;
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGreyLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.account_balance_wallet, color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey),
+                        ),
+                        title: Text(account.name, style: TextStyle(color: Colors.white, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                        subtitle: Text(currencyFormatter.format(account.balance), style: TextStyle(color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey)),
+                        trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
+                        onTap: () {
+                          ref.read(selectedWalletIdProvider.notifier).set(account.id);
+                          Navigator.pop(context);
+                        },
+                      );
+                    }),
+                    const Divider(color: AppTheme.surfaceGreyLight, indent: 16, endIndent: 16),
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                      leading: const Icon(Icons.settings, color: AppTheme.textGrey),
+                      title: const Text("Manage Wallets...", style: TextStyle(color: AppTheme.textGrey, fontStyle: FontStyle.italic)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const WalletsScreen()),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

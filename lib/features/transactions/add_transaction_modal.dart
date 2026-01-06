@@ -200,22 +200,34 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
         return Consumer(
           builder: (context, ref, child) {
             final categoriesAsync = ref.watch(categoriesProvider);
             
             return Container(
-              padding: const EdgeInsets.symmetric(vertical: 20),
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.textGrey.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     "Select Category",
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   const SizedBox(height: 16),
-                  Expanded(
+                  Flexible(
                     child: categoriesAsync.when(
                       data: (categories) {
                          // Filter by type
@@ -223,8 +235,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                          if (filtered.isEmpty) return const Center(child: Text("No categories found", style: TextStyle(color: AppTheme.textGrey)));
 
                          return ListView.separated(
+                          shrinkWrap: true,
                           itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const Divider(color: AppTheme.textGrey, height: 1),
+                          separatorBuilder: (context, index) => const Divider(color: AppTheme.surfaceGreyLight, height: 1),
                           itemBuilder: (context, index) {
                             final cat = filtered[index];
                             return ListTile(
@@ -232,7 +245,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                               leading: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Color(cat.colorHex).withValues(alpha: 0.2),
+                                  color: Color(cat.colorHex).withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -245,12 +258,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 setState(() => _selectedCategory = cat.name);
                                 Navigator.of(context).pop();
                               },
-                              trailing: _selectedCategory == cat.name ? const Icon(Icons.check, color: AppTheme.primaryGreen) : null,
+                              trailing: _selectedCategory == cat.name ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
                             );
                           },
                         );
                       },
-                      loading: () => const Center(child: CircularProgressIndicator()),
+                      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
                       error: (e, s) => Center(child: Text("Error: $e", style: TextStyle(color: Colors.red))),
                     ),
                   ),
@@ -258,6 +271,83 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showWalletPicker(List<dynamic> accounts) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surfaceGrey,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.only(top: 24, bottom: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.textGrey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Select Wallet",
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: accounts.map((account) {
+                    final isSelected = account.id == _selectedAccountId;
+                    final currencyFormatter = ref.watch(currencyProvider);
+
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGreyLight,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.account_balance_wallet,
+                          color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        account.name,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      subtitle: Text(
+                        currencyFormatter.format(account.balance),
+                        style: TextStyle(color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey),
+                      ),
+                      trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
+                      onTap: () {
+                        setState(() => _selectedAccountId = account.id);
+                        Navigator.of(context).pop();
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         );
       },
     );
@@ -384,34 +474,25 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                           }
                         }
 
-                        return InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: "Wallet",
-                            labelStyle: const TextStyle(color: AppTheme.textGrey),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        final selectedAccount = accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
+
+                        return InkWell(
+                          onTap: () => _showWalletPicker(accounts),
+                          borderRadius: BorderRadius.circular(12),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: "Wallet",
+                              labelStyle: const TextStyle(color: AppTheme.textGrey),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              prefixIcon: const Icon(Icons.account_balance_wallet, color: AppTheme.primaryGreen),
+                              suffixIcon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.textGrey),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                             ),
-                            prefixIcon: const Icon(Icons.account_balance_wallet, color: AppTheme.primaryGreen),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedAccountId,
-                              dropdownColor: AppTheme.surfaceGrey,
-                              style: const TextStyle(color: Colors.white),
-                              icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textGrey),
-                              items: accounts.map((account) {
-                                return DropdownMenuItem<String>(
-                                  value: account.id,
-                                  child: Text(
-                                    account.name,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                setState(() => _selectedAccountId = val);
-                              },
+                            child: Text(
+                              selectedAccount?.name ?? "Select Wallet",
+                              style: const TextStyle(color: Colors.white, fontSize: 16),
                             ),
                           ),
                         );

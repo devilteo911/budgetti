@@ -62,6 +62,78 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (mounted) context.go('/login');
   }
 
+  void _showCurrencyPicker(String currentCurrency) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surfaceGrey,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.textGrey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Select Currency",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              ..._currencies.map((c) {
+                final isSelected = c['code'] == currentCurrency;
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGreyLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        c['symbol']!,
+                        style: TextStyle(
+                          color: isSelected ? AppTheme.primaryGreen : Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    c['name']!,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: Text(c['code']!, style: const TextStyle(color: AppTheme.textGrey)),
+                  trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _updateCurrency(c['code']);
+                  },
+                );
+              }),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
@@ -175,32 +247,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Currency Dropdown
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceGrey,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("Currency", style: TextStyle(color: Colors.white, fontSize: 16)),
-                        DropdownButton<String>(
-                          value: currency,
-                          dropdownColor: AppTheme.surfaceGrey,
-                          underline: const SizedBox(),
-                          icon: const Icon(Icons.arrow_drop_down, color: AppTheme.primaryGreen),
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                          items: _currencies.map((c) {
-                            return DropdownMenuItem(
-                              value: c['code'],
-                              child: Text("${c['symbol']}  ${c['code']} (${c['name']})"),
-                            );
-                          }).toList(),
-                          onChanged: _isLoading ? null : _updateCurrency,
-                        ),
-                      ],
+                  // Currency Selector
+                  InkWell(
+                    onTap: () => _showCurrencyPicker(currency),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceGrey,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("Currency", style: TextStyle(color: Colors.white, fontSize: 16)),
+                          Row(
+                            children: [
+                              Text(
+                                currency,
+                                style: const TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.keyboard_arrow_down, color: AppTheme.textGrey),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
