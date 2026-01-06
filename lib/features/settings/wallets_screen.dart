@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:budgetti/features/settings/widgets/wallet_skeleton.dart';
+import 'package:budgetti/core/widgets/skeleton.dart';
 
 class WalletsScreen extends ConsumerWidget {
   const WalletsScreen({super.key});
@@ -68,7 +70,14 @@ class WalletsScreen extends ConsumerWidget {
               );
             },
           ),
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+          loading: () => ShimmerLoading(
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: 5,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) => const WalletItemSkeleton(),
+            ),
+          ),
           error: (err, stack) => Center(child: Text('Error: $err')),
         ),
       ),

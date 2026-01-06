@@ -1,5 +1,7 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/widgets/skeleton.dart';
+import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,7 +32,7 @@ class BudgetSaturationRecap extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         budgetsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+          loading: () => const ShimmerLoading(child: BudgetSaturationRecapSkeleton()),
           error: (err, _) => Text("Error: $err", style: const TextStyle(color: Colors.red)),
           data: (budgets) {
             if (budgets.isEmpty || budgets.every((b) => b.limit == 0)) {
@@ -51,11 +53,11 @@ class BudgetSaturationRecap extends ConsumerWidget {
             }
 
             return transactionsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+              loading: () => const ShimmerLoading(child: BudgetSaturationRecapSkeleton()),
               error: (err, _) => Text("Error: $err"),
               data: (transactions) {
                 return categoriesAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+                  loading: () => const ShimmerLoading(child: BudgetSaturationRecapSkeleton()),
                   error: (err, _) => Text("Error: $err"),
                   data: (categories) {
                     // Calculate current month spending

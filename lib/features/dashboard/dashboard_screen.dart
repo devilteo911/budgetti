@@ -1,8 +1,10 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/dashboard/widgets/budget_saturation_recap.dart';
+import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
+import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,7 +37,7 @@ class DashboardScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: userProfileAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+          loading: () => const ShimmerLoading(child: DashboardSkeleton()),
           error: (err, stack) => Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -83,7 +85,7 @@ class DashboardScreen extends ConsumerWidget {
             final username = profile['username'] as String;
             
             return accountsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+              loading: () => const ShimmerLoading(child: DashboardSkeleton()),
               error: (err, stack) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -239,19 +241,14 @@ class DashboardScreen extends ConsumerWidget {
                             ],
                       );
                     },
-                        loading: () => Row(
-                          children: [
-                            Expanded(
-                              child: SummaryCard(
-                                title: "Total Balance",
-                                amount: formatter.format(totalBalance),
-                                trend: "...",
-                                isPositive: true,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(child: SizedBox()),
-                          ],
+                        loading: () => ShimmerLoading(
+                          child: Row(
+                            children: const [
+                              Expanded(child: SummaryCardSkeleton()),
+                              SizedBox(width: 12),
+                              Expanded(child: SummaryCardSkeleton()),
+                            ],
+                          ),
                         ),
                         error: (_, __) => Row(
                           children: [
@@ -320,10 +317,26 @@ class DashboardScreen extends ConsumerWidget {
                             loading: () => const Center(child: CircularProgressIndicator()),
                             error: (_, __) => const SizedBox.shrink(),
                           ),
-                          loading: () => const Center(child: Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: CircularProgressIndicator(),
-                          )),
+                          loading: () => ShimmerLoading(
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "Recent Transactions",
+                                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.textWhite,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                ...List.generate(3, (index) => const TransactionItemSkeleton()),
+                              ],
+                            ),
+                          ),
                           error: (e, s) => const SizedBox.shrink(),
                         );
                       },

@@ -1,5 +1,7 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/widgets/skeleton.dart';
+import 'package:budgetti/features/budget/widgets/budget_skeleton.dart';
 import 'package:budgetti/models/budget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -120,17 +122,17 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
         ],
       ),
       body: categoriesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+        loading: () => const ShimmerLoading(child: BudgetScreenSkeleton()),
         error: (err, _) => Center(child: Text("Error: $err")),
         data: (categories) {
           final expenseCategories = categories.where((c) => c.type == 'expense').toList();
           
           return budgetsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+            loading: () => const ShimmerLoading(child: BudgetScreenSkeleton()),
             error: (err, _) => Center(child: Text("Error: $err")),
             data: (budgets) {
               return transactionsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+                loading: () => const ShimmerLoading(child: BudgetScreenSkeleton()),
                 error: (err, _) => Center(child: Text("Error: $err")),
                 data: (transactions) {
                   // Calculate current month spending per category

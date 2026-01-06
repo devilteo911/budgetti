@@ -8,6 +8,8 @@ import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/features/transactions/transaction_filter_sheet.dart';
 import 'package:budgetti/features/settings/wallets_screen.dart';
+import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
+import 'package:budgetti/core/widgets/skeleton.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -101,7 +103,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     return transactionsAsync.when(
       loading: () => Scaffold(
         appBar: _buildAppBar(null, accountsAsync.value ?? []),
-        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+        body: ShimmerLoading(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
+            itemCount: 10,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) => const TransactionItemSkeleton(),
+          ),
+        ),
       ),
       error: (err, stack) => Scaffold(
         appBar: _buildAppBar(null, accountsAsync.value ?? []),
