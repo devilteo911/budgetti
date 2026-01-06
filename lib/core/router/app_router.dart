@@ -5,6 +5,7 @@ import 'package:budgetti/features/auth/onboarding_screen.dart';
 import 'package:budgetti/features/dashboard/dashboard_screen.dart';
 import 'package:budgetti/features/profile/profile_screen.dart';
 import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
+import 'package:budgetti/features/home/widgets/branch_animation_wrapper.dart';
 import 'package:budgetti/features/transactions/transactions_screen.dart';
 import 'package:budgetti/features/stats/stats_screen.dart';
 import 'package:budgetti/features/budget/budget_screen.dart';
@@ -29,9 +30,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const OnboardingScreen(),
       ),
       // ShellRoute for Bottom Navigation
-      StatefulShellRoute.indexedStack(
+      StatefulShellRoute(
         builder: (context, state, navigationShell) {
           return ScaffoldWithNavBar(navigationShell: navigationShell);
+        },
+        navigatorContainerBuilder: (context, navigationShell, children) {
+          return BranchAnimationWrapper(
+            currentIndex: navigationShell.currentIndex,
+            child: children[navigationShell.currentIndex],
+          );
         },
         branches: [
           StatefulShellBranch(

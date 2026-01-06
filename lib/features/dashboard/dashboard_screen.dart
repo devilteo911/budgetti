@@ -4,6 +4,7 @@ import 'package:budgetti/features/dashboard/widgets/budget_saturation_recap.dart
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,6 +19,7 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          HapticFeedback.heavyImpact();
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,

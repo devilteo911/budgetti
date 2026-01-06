@@ -2,6 +2,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -55,7 +56,10 @@ class TagsScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.primaryGreen,
-        onPressed: () => _showTagEditor(context, ref, null),
+        onPressed: () {
+          HapticFeedback.heavyImpact();
+          _showTagEditor(context, ref, null);
+        },
         child: const Icon(Icons.add, color: AppTheme.backgroundBlack),
       ),
     );

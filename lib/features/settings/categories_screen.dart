@@ -3,6 +3,7 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/settings/widgets/category_editor_modal.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class CategoriesScreen extends ConsumerWidget {
@@ -39,7 +40,10 @@ class CategoriesScreen extends ConsumerWidget {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showEditor(context, ref),
+        onPressed: () {
+          HapticFeedback.heavyImpact();
+          _showEditor(context, ref);
+        },
         backgroundColor: AppTheme.primaryGreen,
         child: const Icon(Icons.add, color: AppTheme.backgroundBlack),
       ),
@@ -55,7 +59,10 @@ class CategoriesScreen extends ConsumerWidget {
                   const Text("No categories yet", style: TextStyle(color: AppTheme.textGrey)),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () => _showEditor(context, ref),
+                    onPressed: () {
+                      HapticFeedback.heavyImpact();
+                      _showEditor(context, ref);
+                    },
                     child: const Text("Create your first category"),
                   )
                 ],

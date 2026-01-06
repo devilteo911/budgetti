@@ -266,20 +266,21 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     final formatter = ref.watch(currencyProvider);
     final currencySymbol = formatter.currencySymbol;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 24,
-      ),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return RepaintBoundary(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 24,
+        ),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               _buildAnimatedItem(0, 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -586,6 +587,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
             ],
           ),
         ),
+      ),
       ),
     );
   }
