@@ -12,6 +12,7 @@ class Categories extends Table {
   IntColumn get iconCode => integer()();
   IntColumn get colorHex => integer()();
   TextColumn get type => text()(); // 'income' or 'expense'
+  TextColumn get description => text().nullable()();
   
   @override
   Set<Column> get primaryKey => {id};
@@ -31,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -44,6 +45,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await m.createTable(tags);
         await _seedTags();
+      }
+      if (from < 3) {
+        await m.addColumn(categories, categories.description);
       }
     },
   );

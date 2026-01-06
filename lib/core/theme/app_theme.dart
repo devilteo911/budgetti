@@ -29,6 +29,9 @@ class AppTheme {
       backgroundColor: backgroundBlack,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
+      toolbarHeight: 80,
+      titleSpacing: 24,
+      centerTitle: false,
     ),
     textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).apply(
       bodyColor: textWhite,

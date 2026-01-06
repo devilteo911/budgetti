@@ -6,6 +6,7 @@ class Category {
   final int iconCode;
   final int colorHex;
   final String type; // 'income' or 'expense'
+  final String? description;
 
   Category({
     required this.id,
@@ -14,6 +15,7 @@ class Category {
     required this.iconCode,
     required this.colorHex,
     required this.type,
+    this.description,
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,7 @@ class Category {
       iconCode: json['icon_code'],
       colorHex: json['color_hex'],
       type: json['type'],
+      description: json['description'],
     );
   }
 
@@ -34,6 +37,7 @@ class Category {
       'icon_code': iconCode,
       'color_hex': colorHex,
       'type': type,
+      'description': description,
     };
   }
 }

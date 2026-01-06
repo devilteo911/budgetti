@@ -58,8 +58,26 @@ class $CategoriesTable extends Categories
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, iconCode, colorHex, type];
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    iconCode,
+    colorHex,
+    type,
+    description,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -109,6 +127,15 @@ class $CategoriesTable extends Categories
     } else if (isInserting) {
       context.missing(_typeMeta);
     }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -138,6 +165,10 @@ class $CategoriesTable extends Categories
         DriftSqlType.string,
         data['${effectivePrefix}type'],
       )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
     );
   }
 
@@ -153,12 +184,14 @@ class Category extends DataClass implements Insertable<Category> {
   final int iconCode;
   final int colorHex;
   final String type;
+  final String? description;
   const Category({
     required this.id,
     required this.name,
     required this.iconCode,
     required this.colorHex,
     required this.type,
+    this.description,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -168,6 +201,9 @@ class Category extends DataClass implements Insertable<Category> {
     map['icon_code'] = Variable<int>(iconCode);
     map['color_hex'] = Variable<int>(colorHex);
     map['type'] = Variable<String>(type);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
     return map;
   }
 
@@ -178,6 +214,9 @@ class Category extends DataClass implements Insertable<Category> {
       iconCode: Value(iconCode),
       colorHex: Value(colorHex),
       type: Value(type),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
     );
   }
 
@@ -192,6 +231,7 @@ class Category extends DataClass implements Insertable<Category> {
       iconCode: serializer.fromJson<int>(json['iconCode']),
       colorHex: serializer.fromJson<int>(json['colorHex']),
       type: serializer.fromJson<String>(json['type']),
+      description: serializer.fromJson<String?>(json['description']),
     );
   }
   @override
@@ -203,6 +243,7 @@ class Category extends DataClass implements Insertable<Category> {
       'iconCode': serializer.toJson<int>(iconCode),
       'colorHex': serializer.toJson<int>(colorHex),
       'type': serializer.toJson<String>(type),
+      'description': serializer.toJson<String?>(description),
     };
   }
 
@@ -212,12 +253,14 @@ class Category extends DataClass implements Insertable<Category> {
     int? iconCode,
     int? colorHex,
     String? type,
+    Value<String?> description = const Value.absent(),
   }) => Category(
     id: id ?? this.id,
     name: name ?? this.name,
     iconCode: iconCode ?? this.iconCode,
     colorHex: colorHex ?? this.colorHex,
     type: type ?? this.type,
+    description: description.present ? description.value : this.description,
   );
   Category copyWithCompanion(CategoriesCompanion data) {
     return Category(
@@ -226,6 +269,9 @@ class Category extends DataClass implements Insertable<Category> {
       iconCode: data.iconCode.present ? data.iconCode.value : this.iconCode,
       colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
       type: data.type.present ? data.type.value : this.type,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
     );
   }
 
@@ -236,13 +282,15 @@ class Category extends DataClass implements Insertable<Category> {
           ..write('name: $name, ')
           ..write('iconCode: $iconCode, ')
           ..write('colorHex: $colorHex, ')
-          ..write('type: $type')
+          ..write('type: $type, ')
+          ..write('description: $description')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, iconCode, colorHex, type);
+  int get hashCode =>
+      Object.hash(id, name, iconCode, colorHex, type, description);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -251,7 +299,8 @@ class Category extends DataClass implements Insertable<Category> {
           other.name == this.name &&
           other.iconCode == this.iconCode &&
           other.colorHex == this.colorHex &&
-          other.type == this.type);
+          other.type == this.type &&
+          other.description == this.description);
 }
 
 class CategoriesCompanion extends UpdateCompanion<Category> {
@@ -260,6 +309,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<int> iconCode;
   final Value<int> colorHex;
   final Value<String> type;
+  final Value<String?> description;
   final Value<int> rowid;
   const CategoriesCompanion({
     this.id = const Value.absent(),
@@ -267,6 +317,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.iconCode = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.type = const Value.absent(),
+    this.description = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CategoriesCompanion.insert({
@@ -275,6 +326,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     required int iconCode,
     required int colorHex,
     required String type,
+    this.description = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -287,6 +339,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Expression<int>? iconCode,
     Expression<int>? colorHex,
     Expression<String>? type,
+    Expression<String>? description,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -295,6 +348,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       if (iconCode != null) 'icon_code': iconCode,
       if (colorHex != null) 'color_hex': colorHex,
       if (type != null) 'type': type,
+      if (description != null) 'description': description,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -305,6 +359,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Value<int>? iconCode,
     Value<int>? colorHex,
     Value<String>? type,
+    Value<String?>? description,
     Value<int>? rowid,
   }) {
     return CategoriesCompanion(
@@ -313,6 +368,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       iconCode: iconCode ?? this.iconCode,
       colorHex: colorHex ?? this.colorHex,
       type: type ?? this.type,
+      description: description ?? this.description,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -335,6 +391,9 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     if (type.present) {
       map['type'] = Variable<String>(type.value);
     }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -349,6 +408,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('iconCode: $iconCode, ')
           ..write('colorHex: $colorHex, ')
           ..write('type: $type, ')
+          ..write('description: $description, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -627,6 +687,7 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       required int iconCode,
       required int colorHex,
       required String type,
+      Value<String?> description,
       Value<int> rowid,
     });
 typedef $$CategoriesTableUpdateCompanionBuilder =
@@ -636,6 +697,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<int> iconCode,
       Value<int> colorHex,
       Value<String> type,
+      Value<String?> description,
       Value<int> rowid,
     });
 
@@ -670,6 +732,11 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<String> get type => $composableBuilder(
     column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -707,6 +774,11 @@ class $$CategoriesTableOrderingComposer
     column: $table.type,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -732,6 +804,11 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
 }
 
 class $$CategoriesTableTableManager
@@ -767,6 +844,7 @@ class $$CategoriesTableTableManager
                 Value<int> iconCode = const Value.absent(),
                 Value<int> colorHex = const Value.absent(),
                 Value<String> type = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion(
                 id: id,
@@ -774,6 +852,7 @@ class $$CategoriesTableTableManager
                 iconCode: iconCode,
                 colorHex: colorHex,
                 type: type,
+                description: description,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -783,6 +862,7 @@ class $$CategoriesTableTableManager
                 required int iconCode,
                 required int colorHex,
                 required String type,
+                Value<String?> description = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion.insert(
                 id: id,
@@ -790,6 +870,7 @@ class $$CategoriesTableTableManager
                 iconCode: iconCode,
                 colorHex: colorHex,
                 type: type,
+                description: description,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

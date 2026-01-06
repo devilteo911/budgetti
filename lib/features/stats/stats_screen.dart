@@ -1,9 +1,11 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/category.dart';
+import 'package:budgetti/features/stats/category_details_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -22,11 +24,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final currencyFormatter = ref.watch(currencyProvider);
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: AppTheme.backgroundBlack,
         appBar: AppBar(
-          backgroundColor: AppTheme.backgroundBlack,
           title: Text(
             "Stats",
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -34,7 +35,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               color: AppTheme.textWhite,
             ),
           ),
-          centerTitle: false,
           bottom: const TabBar(
             indicatorColor: AppTheme.primaryGreen,
             labelColor: AppTheme.primaryGreen,
@@ -42,6 +42,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             tabs: [
               Tab(text: "Distribution"),
               Tab(text: "Prediction"),
+              Tab(text: "Yearly"),
             ],
           ),
         ),
@@ -74,6 +75,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                     currencyFormatter,
                   ),
                   _buildPredictionTab(expenses, categories, currencyFormatter),
+                  _buildMonthlyTableTab(transactions, currencyFormatter),
                 ],
               );
             },
@@ -177,11 +179,32 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           ),
           const SizedBox(height: 32),
           ...sortedCategoryEntries.map(
-            (entry) => _buildCategoryRow(
-              entry,
-              categories,
-              totalExpenses,
-              currencyFormatter,
+            (entry) => GestureDetector(
+              onTap: () {
+                final category = categories.firstWhere(
+                  (c) => c.name == entry.key,
+                  orElse: () => Category(
+                    id: '',
+                    userId: '',
+                    name: entry.key,
+                    iconCode: Icons.help_outline.codePoint,
+                    colorHex: 0xFF9E9E9E,
+                    type: 'expense',
+                  ),
+                );
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        CategoryDetailsScreen(category: category),
+                  ),
+                );
+              },
+              child: _buildCategoryRow(
+                entry,
+                categories,
+                totalExpenses,
+                currencyFormatter,
+              ),
             ),
           ),
         ],
@@ -330,6 +353,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             decoration: BoxDecoration(
               color: Color(category.colorHex).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Color(category.colorHex).withValues(alpha: 0.3),
+              ),
             ),
             child: Icon(
               IconData(category.iconCode, fontFamily: 'MaterialIcons'),
@@ -369,6 +395,124 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyTableTab(
+    List<dynamic> transactions,
+    dynamic currencyFormatter,
+  ) {
+    // Group transactions by month
+    final monthlyData = <String, Map<String, double>>{};
+
+    for (var t in transactions) {
+      final monthKey = DateFormat('yyyy-MM').format(t.date);
+      if (!monthlyData.containsKey(monthKey)) {
+        monthlyData[monthKey] = {'earned': 0.0, 'spent': 0.0};
+      }
+
+      if (t.amount > 0) {
+        monthlyData[monthKey]!['earned'] =
+            monthlyData[monthKey]!['earned']! + t.amount;
+      } else {
+        monthlyData[monthKey]!['spent'] =
+            monthlyData[monthKey]!['spent']! + t.amount.abs();
+      }
+    }
+
+    final sortedMonths = monthlyData.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceGrey,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.surfaceGreyLight, width: 1),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: DataTable(
+            horizontalMargin: 16,
+            columnSpacing: 24,
+            headingRowColor: WidgetStateProperty.all(AppTheme.surfaceGreyLight),
+            columns: const [
+              DataColumn(
+                label: Text(
+                  "Month",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  "Earned",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                numeric: true,
+              ),
+              DataColumn(
+                label: Text(
+                  "Spent",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                numeric: true,
+              ),
+              DataColumn(
+                label: Text(
+                  "Ratio",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                numeric: true,
+              ),
+            ],
+            rows: sortedMonths.map((monthKey) {
+              final data = monthlyData[monthKey]!;
+              final earned = data['earned']!;
+              final spent = data['spent']!;
+              final overspent = spent > earned;
+              final ratioStr = earned > 0
+                  ? "${(spent / earned * 100).toStringAsFixed(0)}%"
+                  : "-";
+
+              final displayDate = DateFormat(
+                'MMM yyyy',
+              ).format(DateTime.parse("$monthKey-01"));
+
+              return DataRow(
+                color: WidgetStateProperty.resolveWith<Color?>((states) {
+                  return overspent
+                      ? Colors.red.withValues(alpha: 0.08)
+                      : Colors.green.withValues(alpha: 0.08);
+                }),
+                cells: [
+                  DataCell(
+                    Text(
+                      displayDate,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      currencyFormatter.format(earned),
+                      style: const TextStyle(color: AppTheme.primaryGreen),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      currencyFormatter.format(spent),
+                      style: TextStyle(
+                        color: overspent ? Colors.redAccent : Colors.white,
+                      ),
+                    ),
+                  ),
+                  DataCell(Text(ratioStr)),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
       ),
     );
   }

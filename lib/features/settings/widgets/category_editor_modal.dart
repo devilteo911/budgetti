@@ -50,6 +50,7 @@ class CategoryEditorModal extends ConsumerStatefulWidget {
 
 class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
   final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
   late int _selectedColor;
   late int _selectedIcon;
   late String _type;
@@ -63,6 +64,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
       _selectedColor = widget.category!.colorHex;
       _selectedIcon = widget.category!.iconCode;
       _type = widget.category!.type;
+      _descriptionController.text = widget.category!.description ?? '';
     } else {
       _selectedColor = _colors[0];
       _selectedIcon = _icons[0].codePoint;
@@ -73,6 +75,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
   @override
   void dispose() {
     _nameController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -85,6 +88,9 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
         iconCode: _selectedIcon,
         colorHex: _selectedColor,
         type: _type,
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
       );
       widget.onSave(newCategory);
       context.pop();
@@ -123,6 +129,19 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                   prefixIcon: Icon(Icons.label, color: AppTheme.textGrey),
                 ),
                 validator: (val) => val == null || val.isEmpty ? 'Enter name' : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Description
+              TextFormField(
+                controller: _descriptionController,
+                style: const TextStyle(color: Colors.white),
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: "Description (Optional)",
+                  prefixIcon: Icon(Icons.description, color: AppTheme.textGrey),
+                  hintText: "Enter a brief description",
+                ),
               ),
               const SizedBox(height: 16),
 

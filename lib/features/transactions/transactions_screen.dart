@@ -189,7 +189,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       );
     }
     return AppBar(
-      backgroundColor: AppTheme.backgroundBlack,
       title: Text(
         "Transactions",
         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -197,7 +196,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               color: AppTheme.textWhite,
             ),
       ),
-      centerTitle: false,
       actions: [
         IconButton(
           icon: Icon(

@@ -68,7 +68,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Profile & Settings"),
-        backgroundColor: AppTheme.backgroundBlack,
       ),
       body: SafeArea(
         child: profileAsync.when(

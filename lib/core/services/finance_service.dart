@@ -131,6 +131,7 @@ class SupabaseFinanceService implements FinanceService {
       iconCode: c.iconCode,
       colorHex: c.colorHex,
       type: c.type,
+            description: c.description,
     )).toList();
   }
 
@@ -142,6 +143,7 @@ class SupabaseFinanceService implements FinanceService {
       iconCode: category.iconCode,
       colorHex: category.colorHex,
       type: category.type,
+            description: Value(category.description),
     ));
   }
 
@@ -152,6 +154,7 @@ class SupabaseFinanceService implements FinanceService {
       iconCode: Value(category.iconCode),
       colorHex: Value(category.colorHex),
       type: Value(category.type),
+        description: Value(category.description),
     ));
   }
 
