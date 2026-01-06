@@ -3,6 +3,8 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:budgetti/core/services/persistence_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,8 +14,15 @@ Future<void> main() async {
     url: 'https://weothkvnaixuhmrxyjoo.supabase.co',
     anonKey: 'sb_publishable_8OhKK0gBTYX3qu8ux4nrGw_NerMCfbc',
   );
+  
+  final prefs = await SharedPreferences.getInstance();
 
-  runApp(const ProviderScope(child: BudgettiApp()));
+  runApp(
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const BudgettiApp(),
+    ),
+  );
 }
 
 class BudgettiApp extends ConsumerWidget {

@@ -9,6 +9,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class FinanceService {
   Future<List<Account>> getAccounts();
+  Future<void> addAccount(Account account);
+  Future<void> updateAccount(Account account);
+  Future<void> deleteAccount(String id);
   Future<List<Transaction>> getTransactions(String accountId);
   Future<void> addTransaction(Transaction transaction);
   Future<void> updateTransaction(Transaction transaction);
@@ -34,30 +37,81 @@ class SupabaseFinanceService implements FinanceService {
 
   @override
   Future<List<Account>> getAccounts() async {
-    final user = _client.auth.currentUser;
-    if (user == null) return [];
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return [];
 
-    // Calculate total balance from transactions
-    final List<dynamic> data = await _client
-        .from('transactions')
-        .select('amount')
-        .eq('user_id', user.id);
-    
-    double total = 0;
-    for (var item in data) {
-      total += (item['amount'] as num).toDouble();
+      final List<dynamic> data = await _client
+          .from('accounts')
+          .select()
+          .eq('user_id', user.id);
+
+      final accounts = data.map((json) => Account.fromJson(json)).toList();
+
+      if (accounts.isNotEmpty) return accounts;
+
+      // Fallback if no specific accounts are defined: calculate from transactions
+      final List<dynamic> transData = await _client
+          .from('transactions')
+          .select('amount')
+          .eq('user_id', user.id);
+
+      double total = 0;
+      for (var item in transData) {
+        total += (item['amount'] as num).toDouble();
+      }
+
+      return [
+        Account(
+          id: '1',
+          name: 'Main Wallet',
+          balance: total,
+          currency: 'EUR',
+          providerName: 'Supabase',
+        ),
+      ];
+    } catch (e) {
+      // If table missing or offline, fallback to a safe state
+      return [
+        Account(
+          id: '1',
+          name: 'Main Wallet (Offline)',
+          balance: 0.0,
+          currency: 'EUR',
+          providerName: 'Local Cache',
+        ),
+      ];
     }
+  }
 
-    // Return a single "Main Wallet" account for now
-    return [
-      Account(
-        id: '1',
-        name: 'Main Wallet',
-        balance: total,
-        currency: 'EUR', // Default currency
-        providerName: 'Supabase',
-      )
-    ];
+  @override
+  Future<void> addAccount(Account account) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    await _client.from('accounts').insert({
+      ...account.toJson(),
+      'user_id': user.id,
+    });
+  }
+
+  @override
+  Future<void> updateAccount(Account account) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    await _client
+        .from('accounts')
+        .update({...account.toJson()})
+        .eq('id', account.id);
+  }
+
+  @override
+  Future<void> deleteAccount(String id) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    await _client.from('accounts').delete().eq('id', id);
   }
 
   @override

@@ -47,7 +47,14 @@ class AppDatabase extends _$AppDatabase {
         await _seedTags();
       }
       if (from < 3) {
-        await m.addColumn(categories, categories.description);
+        try {
+          await m.addColumn(categories, categories.description);
+        } catch (e) {
+          // Ignore if the column already exists (can happen during failed/partial migrations)
+          print(
+            'Note: Could not add description column, it might already exist: $e',
+          );
+        }
       }
     },
   );

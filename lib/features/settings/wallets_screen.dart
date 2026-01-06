@@ -213,8 +213,10 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
                     id: const Uuid().v4(),
                     name: name,
                     initialBalance: amount,
+                      balance: amount,
                     isDefault: _isDefault,
                     currency: profile?['currency'] ?? 'EUR',
+                      providerName: 'Supabase',
                   ));
                 }
                 ref.invalidate(accountsProvider);

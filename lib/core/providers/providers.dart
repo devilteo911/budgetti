@@ -9,6 +9,7 @@ import 'package:budgetti/models/budget.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:budgetti/core/services/persistence_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 
@@ -23,8 +24,12 @@ final accountsProvider = FutureProvider<List<Account>>((ref) async {
 });
 
 final transactionsProvider = FutureProvider.family<List<Transaction>, String>((ref, accountId) async {
-  final service = ref.watch(financeServiceProvider);
-  return service.getTransactions(accountId);
+  try {
+    final service = ref.watch(financeServiceProvider);
+    return await service.getTransactions(accountId);
+  } catch (e) {
+    return [];
+  }
 });
 
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
@@ -38,8 +43,12 @@ final tagsProvider = FutureProvider<List<Tag>>((ref) async {
 });
 
 final budgetsProvider = FutureProvider<List<Budget>>((ref) async {
-  final service = ref.watch(financeServiceProvider);
-  return service.getBudgets();
+  try {
+    final service = ref.watch(financeServiceProvider);
+    return await service.getBudgets();
+  } catch (e) {
+    return [];
+  }
 });
 
 final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
@@ -67,9 +76,17 @@ final currencyProvider = Provider<NumberFormat>((ref) {
 
 class BalanceVisibility extends Notifier<bool> {
   @override
-  bool build() => true;
+  bool build() {
+    final persistenceService = ref.read(persistenceServiceProvider);
+    return persistenceService.getBalanceVisibility();
+  }
 
-  void toggle() => state = !state;
+  void toggle() async {
+    final newValue = !state;
+    state = newValue;
+    final persistenceService = ref.read(persistenceServiceProvider);
+    await persistenceService.setBalanceVisibility(newValue);
+  }
 }
 
 final balanceVisibilityProvider = NotifierProvider<BalanceVisibility, bool>(BalanceVisibility.new);

@@ -36,7 +36,40 @@ class DashboardScreen extends ConsumerWidget {
       body: SafeArea(
         child: userProfileAsync.when(
           loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
-          error: (err, stack) => Center(child: Text('Error: $err')),
+          error: (err, stack) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off, size: 64, color: AppTheme.textGrey),
+                const SizedBox(height: 16),
+                const Text(
+                  "Connectivity Issue",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Unable to reach the server. Please check your connection.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textGrey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(userProfileProvider),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                  ),
+                  child: const Text(
+                    "Retry",
+                    style: TextStyle(color: AppTheme.backgroundBlack),
+                  ),
+                ),
+              ],
+            ),
+          ),
           data: (profile) {
             // Check if profile exists, if not redirect to onboarding
             if (profile == null) {
@@ -51,8 +84,48 @@ class DashboardScreen extends ConsumerWidget {
             
             return accountsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
-              error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+              error: (err, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.sync_problem,
+                      size: 64,
+                      color: AppTheme.textGrey,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Sync Failed",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => ref.invalidate(accountsProvider),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryGreen,
+                      ),
+                      child: const Text(
+                        "Retry",
+                        style: TextStyle(color: AppTheme.backgroundBlack),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               data: (accounts) {
+                if (accounts.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "No accounts found",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  );
+                }
+
                 final totalBalance = accounts.fold(0.0, (sum, acc) => sum + acc.balance);
                 final formatter = ref.watch(currencyProvider);
 
@@ -106,10 +179,23 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  // Summary Card
+                      // Summary Cards Row
                   transactionsAsync.when(
                     data: (transactions) {
                       final now = DateTime.now();
+                          final currentMonth = now.month;
+                          final currentYear = now.year;
+
+                          // Monthly Expenses calculation
+                          final monthlyExpenses = transactions
+                              .where(
+                                (t) =>
+                                    t.date.month == currentMonth &&
+                                    t.date.year == currentYear &&
+                                    t.amount < 0,
+                              )
+                              .fold(0.0, (sum, t) => sum + t.amount.abs());
+
                       final last30Days = now.subtract(const Duration(days: 30));
                       final netFlow = transactions
                           .where((t) => t.date.isAfter(last30Days))
@@ -119,26 +205,60 @@ class DashboardScreen extends ConsumerWidget {
                       final sign = isPositive ? "+" : "";
                       final isVisible = ref.watch(balanceVisibilityProvider);
                       
-                      return SummaryCard(
-                        title: "Total Balance",
-                        amount: formatter.format(totalBalance),
-                        trend: "$sign${formatter.format(netFlow)} this month",
-                        isPositive: isPositive,
-                        isVisible: isVisible,
-                        onToggleVisibility: () => ref.read(balanceVisibilityProvider.notifier).toggle(),
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: SummaryCard(
+                                  title: "Total Balance",
+                                  amount: formatter.format(totalBalance),
+                                  trend: "$sign${formatter.format(netFlow)}",
+                                  isPositive: isPositive,
+                                  isVisible: isVisible,
+                                  onToggleVisibility: () => ref
+                                      .read(balanceVisibilityProvider.notifier)
+                                      .toggle(),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: SummaryCard(
+                                  title: "Monthly Expenses",
+                                  amount: formatter.format(monthlyExpenses),
+                                  trend: "This month",
+                                  isPositive: false,
+                                  isVisible: true,
+                                ),
+                              ),
+                            ],
                       );
                     },
-                    loading: () => SummaryCard(
-                      title: "Total Balance", 
-                      amount: formatter.format(totalBalance),
-                      trend: "Calculating...",
-                      isPositive: true,
-                    ),
-                    error: (_, __) => SummaryCard(
-                      title: "Total Balance",
-                      amount: formatter.format(totalBalance),
-                      trend: "Unavailable",
-                      isPositive: false,
+                        loading: () => Row(
+                          children: [
+                            Expanded(
+                              child: SummaryCard(
+                                title: "Total Balance",
+                                amount: formatter.format(totalBalance),
+                                trend: "...",
+                                isPositive: true,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(child: SizedBox()),
+                          ],
+                        ),
+                        error: (_, __) => Row(
+                          children: [
+                            Expanded(
+                              child: SummaryCard(
+                                title: "Total Balance",
+                                amount: formatter.format(totalBalance),
+                                trend: "Error",
+                                isPositive: false,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(child: SizedBox()),
+                          ],
                     ),
                   ),
                   const SizedBox(height: 32),
