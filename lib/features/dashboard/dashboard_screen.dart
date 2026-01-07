@@ -131,7 +131,7 @@ class DashboardScreen extends ConsumerWidget {
                 final formatter = ref.watch(currencyProvider);
                 
                 // Use selected wallet or default to ALL (null)
-                final selectedWalletId = ref.watch(selectedWalletIdProvider);
+            
                 
                 // Calculate balance based on selection
                 double totalBalance;
@@ -275,7 +275,7 @@ class DashboardScreen extends ConsumerWidget {
                   if (accounts.isNotEmpty)
                     Consumer(
                       builder: (context, ref, child) {
-                        final selectedWalletId = ref.watch(selectedWalletIdProvider);
+                    
                         final transactionsAsync = ref.watch(transactionsProvider(null));
                         final categoriesAsync = ref.watch(categoriesProvider);
                         

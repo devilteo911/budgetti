@@ -1,21 +1,20 @@
 import 'package:budgetti/core/database/database.dart';
-import 'package:budgetti/models/account.dart';
+import 'package:budgetti/models/account.dart' as model_account;
 import 'package:budgetti/models/category.dart' as model;
-import 'package:budgetti/models/transaction.dart';
+import 'package:budgetti/models/transaction.dart' as model_txn;
 import 'package:budgetti/models/tag.dart' as model_tag;
 import 'package:budgetti/models/budget.dart' as model_budget;
 import 'package:drift/drift.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 abstract class FinanceService {
-  Future<List<Account>> getAccounts();
-  Future<void> addAccount(Account account);
-  Future<void> updateAccount(Account account);
+  Future<List<model_account.Account>> getAccounts();
+  Future<void> addAccount(model_account.Account account);
+  Future<void> updateAccount(model_account.Account account);
   Future<void> deleteAccount(String id);
-  Future<List<Transaction>> getTransactions(String? accountId);
-  Future<void> addTransaction(Transaction transaction);
-  Future<void> updateTransaction(Transaction transaction);
+  Future<List<model_txn.Transaction>> getTransactions(String? accountId);
+  Future<void> addTransaction(model_txn.Transaction transaction);
+  Future<void> updateTransaction(model_txn.Transaction transaction);
   Future<void> deleteTransactions(List<String> ids);
   Future<List<model.Category>> getCategories();
   Future<void> addCategory(model.Category category);
@@ -30,259 +29,158 @@ abstract class FinanceService {
   Future<void> deleteBudget(String id);
 }
 
-class SupabaseFinanceService implements FinanceService {
-  final _client = Supabase.instance.client;
+class LocalFinanceService implements FinanceService {
   final AppDatabase _db;
 
-  SupabaseFinanceService(this._db);
+  LocalFinanceService(this._db);
 
   @override
-  Future<List<Account>> getAccounts() async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) return [];
+  Future<List<model_account.Account>> getAccounts() async {
+    // 1. Fetch all accounts not deleted
+    final accountsDb = await (_db.select(_db.accounts)..where((tbl) => tbl.isDeleted.equals(false))).get();
 
-      // Fetch wallets
-      final List<dynamic> walletsData = await _client
-          .from('wallets')
-          .select()
-          .eq('user_id', user.id);
-
-      final accounts = walletsData.map((json) => Account.fromJson(json)).toList();
-
-      if (accounts.isNotEmpty) {
-        // Fetch all transaction amounts to calculate live balances
-        final List<dynamic> transData = await _client
-            .from('transactions')
-            .select('account_id, amount')
-            .eq('user_id', user.id);
-        
-        // Group sums by account_id
-        final Map<String, double> transactionSums = {};
-        bool hasOrphanedTransactions = false;
-        double orphanedSum = 0;
-
-        for (var item in transData) {
-          final rawAccId = item['account_id'];
-          final amt = (item['amount'] as num).toDouble();
-          
-          if (rawAccId == null) {
-            hasOrphanedTransactions = true;
-            orphanedSum += amt;
-          } else {
-            final accId = rawAccId.toString();
-            transactionSums[accId] = (transactionSums[accId] ?? 0.0) + amt;
-          }
-        }
-
-        final List<Account> resultAccounts = accounts.map((acc) {
-          final sum = transactionSums[acc.id] ?? 0.0;
-          return acc.copyWith(balance: acc.initialBalance + sum);
-        }).toList();
-
-        // If there are orphaned transactions, we MUST include the "Main Wallet" (ID '1')
-        // so that the DropdownButton doesn't crash in AddTransactionModal
-        if (hasOrphanedTransactions) {
-          // Check if '1' is already in accounts (unlikely if they came from 'wallets' table)
-          if (!resultAccounts.any((a) => a.id == '1')) {
-            resultAccounts.add(Account(
-              id: '1',
-              name: 'Main Wallet',
-              balance: orphanedSum,
-              currency: 'EUR',
-              providerName: 'Supabase',
-            ));
-          }
-        }
-
-        return resultAccounts;
-      }
-
-      // Fallback if no specific accounts are defined: calculate from transactions
-      final List<dynamic> transData = await _client
-          .from('transactions')
-          .select('amount')
-          .eq('user_id', user.id);
-
-      double total = 0;
-      for (var item in transData) {
-        total += (item['amount'] as num).toDouble();
-      }
-
-      return [
-        Account(
-          id: '1',
-          name: 'Main Wallet',
-          balance: total,
-          currency: 'EUR',
-          providerName: 'Supabase',
-        ),
-      ];
-    } catch (e) {
-      // If table missing or offline, fallback to a safe state
-      return [
-        Account(
-          id: '1',
-          name: 'Main Wallet (Offline)',
-          balance: 0.0,
-          currency: 'EUR',
-          providerName: 'Local Cache',
-        ),
-      ];
+    // 2. Calculate balances dynamically from transactions
+    // Fetch all active transactions
+    final transactionsDb = await (_db.select(_db.transactions)..where((tbl) => tbl.isDeleted.equals(false))).get();
+    
+    final Map<String, double> transactionSums = {};
+    
+    for (var t in transactionsDb) {
+      final accId = t.accountId ?? '1'; // Default to Main Wallet if null
+      transactionSums[accId] = (transactionSums[accId] ?? 0.0) + t.amount;
     }
+
+    return accountsDb.map((acc) {
+      final sum = transactionSums[acc.id] ?? 0.0;
+      return model_account.Account(
+        id: acc.id,
+        name: acc.name,
+        // db.balance acts as initial balance
+        balance: acc.balance + sum, 
+        currency: acc.currency,
+        providerName: acc.providerName ?? 'Local',
+        initialBalance: acc.balance,
+      );
+    }).toList();
   }
 
   @override
-  Future<void> addAccount(Account account) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
-
-    await _client.from('wallets').insert({
-      ...account.toJson(),
-      'user_id': user.id,
-    });
+  Future<void> addAccount(model_account.Account account) async {
+    await _db.into(_db.accounts).insert(AccountsCompanion.insert(
+      id: account.id.isEmpty ? const Uuid().v4() : account.id,
+      name: account.name,
+      balance: Value(account.balance), // Storing initial balance
+      currency: Value(account.currency),
+      providerName: Value(account.providerName),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 
   @override
-  Future<void> updateAccount(Account account) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
-
-    if (account.id == '1') {
-      // "Main Wallet" is a client-side fallback. If the user edits it, we "realize" it into a persistent wallet.
-      final newId = const Uuid().v4();
-      
-      // 1. Create the new wallet
-      await _client.from('wallets').insert({
-        ...account.toJson(),
-        'id': newId, // Override '1' with real UUID
-        'user_id': user.id,
-      });
-
-      // 2. Migrate all legacy transactions to this new wallet
-      await _client
-          .from('transactions')
-          .update({'account_id': newId})
-          .eq('user_id', user.id)
-          .filter('account_id', 'is', null);
-          
-      return;
-    }
-
-    await _client
-        .from('wallets')
-        .update({...account.toJson()})
-        .eq('id', account.id);
+  Future<void> updateAccount(model_account.Account account) async {
+    await (_db.update(_db.accounts)..where((t) => t.id.equals(account.id))).write(AccountsCompanion(
+      name: Value(account.name),
+      balance: Value(account.initialBalance), // Update initial balance
+      currency: Value(account.currency),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 
   @override
   Future<void> deleteAccount(String id) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
-
-    if (id == '1') {
-      // Cannot delete the fallback wallet directly as it doesn't exist.
-      // We could delete all unassigned transactions, but that's risky.
-      // For now, just ignore or throw.
-      return;
-    }
-
-    await _client.from('wallets').delete().eq('id', id);
+    await (_db.update(_db.accounts)..where((t) => t.id.equals(id))).write(AccountsCompanion(
+      isDeleted: const Value(true),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 
   @override
-  Future<List<Transaction>> getTransactions(String? accountId) async {
-    final user = _client.auth.currentUser;
-    if (user == null) return [];
-
-    var query = _client
-        .from('transactions')
-        .select()
-        .eq('user_id', user.id);
+  Future<List<model_txn.Transaction>> getTransactions(String? accountId) async {
+    var query = _db.select(_db.transactions)
+      ..where((tbl) => tbl.isDeleted.equals(false));
 
     if (accountId != null) {
-      if (accountId == '1') {
-        // '1' is the local fallback ID, which maps to NULL in Supabase UUID column
-        query = query.filter('account_id', 'is', null);
-      } else {
-        query = query.eq('account_id', accountId);
-      }
+      query.where((tbl) => tbl.accountId.equals(accountId));
     }
 
-    final List<dynamic> data = await query.order('date', ascending: false);
+    final result = await (query..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)])).get();
 
-    return data.map((json) => Transaction.fromJson(json)).toList();
+    return result.map((t) => model_txn.Transaction(
+      id: t.id,
+      accountId: t.accountId ?? '1',
+      amount: t.amount,
+      description: t.description,
+      category: t.category,
+      date: t.date,
+      tags: t.tags ?? [],
+    )).toList();
   }
 
   @override
-  Future<void> addTransaction(Transaction transaction) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
-
-    await _client.from('transactions').insert({
-      'user_id': user.id,
-      'account_id': transaction.accountId == '1' ? null : transaction.accountId,
-      'amount': transaction.amount,
-      'description': transaction.description,
-      'category': transaction.category,
-      'date': transaction.date.toIso8601String(),
-      'tags': transaction.tags,
-    });
+  Future<void> addTransaction(model_txn.Transaction transaction) async {
+    await _db.into(_db.transactions).insert(TransactionsCompanion.insert(
+      id: transaction.id.isEmpty ? const Uuid().v4() : transaction.id,
+      accountId: Value(transaction.accountId),
+      amount: transaction.amount,
+      description: transaction.description,
+      category: transaction.category,
+      date: transaction.date,
+      tags: Value(transaction.tags),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 
   @override
-  Future<void> updateTransaction(Transaction transaction) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
-
-    await _client.from('transactions').update({
-      'account_id': transaction.accountId == '1' ? null : transaction.accountId,
-      'amount': transaction.amount,
-      'description': transaction.description,
-      'category': transaction.category,
-      'date': transaction.date.toIso8601String(),
-      'tags': transaction.tags,
-    }).eq('id', transaction.id);
+  Future<void> updateTransaction(model_txn.Transaction transaction) async {
+    await (_db.update(_db.transactions)..where((t) => t.id.equals(transaction.id))).write(TransactionsCompanion(
+      accountId: Value(transaction.accountId),
+      amount: Value(transaction.amount),
+      description: Value(transaction.description),
+      category: Value(transaction.category),
+      date: Value(transaction.date),
+      tags: Value(transaction.tags),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 
   @override
   Future<void> deleteTransactions(List<String> ids) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
     if (ids.isEmpty) return;
-
-    await _client.from('transactions').delete().filter('id', 'in', ids);
+    await (_db.update(_db.transactions)..where((t) => t.id.isIn(ids))).write(TransactionsCompanion(
+      isDeleted: const Value(true),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 
   @override
   Future<List<model.Category>> getCategories() async {
-    final driftCategories = await _db.select(_db.categories).get();
-    
-    // Sort manually or via query. Query order is better.
-    // .get() returns List<Category> (drift)
-    // Map to model.Category
-    driftCategories.sort((a, b) => a.name.compareTo(b.name));
+    final result = await (_db.select(_db.categories)
+      ..where((tbl) => tbl.isDeleted.equals(false))
+      ..orderBy([(t) => OrderingTerm(expression: t.name)])
+    ).get();
 
-    return driftCategories.map((c) => model.Category(
+    return result.map((c) => model.Category(
       id: c.id,
-      userId: 'local', 
+      userId: c.userId ?? 'local',
       name: c.name,
       iconCode: c.iconCode,
       colorHex: c.colorHex,
       type: c.type,
-            description: c.description,
+      description: c.description,
     )).toList();
   }
 
   @override
   Future<void> addCategory(model.Category category) async {
     await _db.into(_db.categories).insert(CategoriesCompanion.insert(
-      id: category.id,
+      id: category.id.isEmpty ? const Uuid().v4() : category.id,
       name: category.name,
       iconCode: category.iconCode,
       colorHex: category.colorHex,
       type: category.type,
-            description: Value(category.description),
+      description: Value(category.description),
+      userId: Value(category.userId), 
+      lastUpdated: Value(DateTime.now()),
     ));
   }
 
@@ -293,21 +191,28 @@ class SupabaseFinanceService implements FinanceService {
       iconCode: Value(category.iconCode),
       colorHex: Value(category.colorHex),
       type: Value(category.type),
-        description: Value(category.description),
+      description: Value(category.description),
+      lastUpdated: Value(DateTime.now()),
     ));
   }
 
   @override
   Future<void> deleteCategory(String id) async {
-    await (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go();
+    await (_db.update(_db.categories)..where((t) => t.id.equals(id))).write(CategoriesCompanion(
+      isDeleted: const Value(true),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 
   @override
   Future<List<model_tag.Tag>> getTags() async {
-    final driftTags = await _db.select(_db.tags).get();
-    
-    return driftTags.map((t) => model_tag.Tag(
+    final result = await (_db.select(_db.tags)
+      ..where((tbl) => tbl.isDeleted.equals(false))
+    ).get();
+
+    return result.map((t) => model_tag.Tag(
       id: t.id,
+      userId: t.userId ?? 'local',
       name: t.name,
       colorHex: t.colorHex,
     )).toList();
@@ -316,9 +221,11 @@ class SupabaseFinanceService implements FinanceService {
   @override
   Future<void> addTag(model_tag.Tag tag) async {
     await _db.into(_db.tags).insert(TagsCompanion.insert(
-      id: tag.id,
+      id: tag.id.isEmpty ? const Uuid().v4() : tag.id,
       name: tag.name,
       colorHex: tag.colorHex,
+      userId: Value(tag.userId),
+      lastUpdated: Value(DateTime.now()),
     ));
   }
 
@@ -327,42 +234,61 @@ class SupabaseFinanceService implements FinanceService {
     await (_db.update(_db.tags)..where((t) => t.id.equals(tag.id))).write(TagsCompanion(
       name: Value(tag.name),
       colorHex: Value(tag.colorHex),
+      lastUpdated: Value(DateTime.now()),
     ));
   }
 
   @override
   Future<void> deleteTag(String id) async {
-    await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
+    await (_db.update(_db.tags)..where((t) => t.id.equals(id))).write(TagsCompanion(
+      isDeleted: const Value(true),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 
   @override
   Future<List<model_budget.Budget>> getBudgets() async {
-    final user = _client.auth.currentUser;
-    if (user == null) return [];
+    final result = await (_db.select(_db.budgets)
+      ..where((tbl) => tbl.isDeleted.equals(false))
+    ).get();
 
-    final List<dynamic> data = await _client
-        .from('budgets')
-        .select()
-        .eq('user_id', user.id);
-
-    return data.map((json) => model_budget.Budget.fromJson(json)).toList();
+    return result.map((b) => model_budget.Budget(
+      id: b.id,
+      category: b.category,
+      userId: b.userId ?? 'local',
+      limit: b.limitAmount,
+      period: b.period,
+    )).toList();
   }
 
   @override
   Future<void> upsertBudget(model_budget.Budget budget) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('User not logged in');
+    // Check if exists
+    final exists = await (_db.select(_db.budgets)
+      ..where((tbl) => tbl.category.equals(budget.category) & tbl.period.equals(budget.period) & tbl.isDeleted.equals(false))
+    ).getSingleOrNull();
 
-    await _client.from('budgets').upsert({
-      'user_id': user.id,
-      'category': budget.category,
-      'limit_amount': budget.limit,
-      'period': budget.period,
-    }, onConflict: 'user_id, category, period');
+    if (exists != null) {
+        await (_db.update(_db.budgets)..where((t) => t.id.equals(exists.id))).write(BudgetsCompanion(
+        limitAmount: Value(budget.limit),
+        lastUpdated: Value(DateTime.now()),
+      ));
+    } else {
+      await _db.into(_db.budgets).insert(BudgetsCompanion.insert(
+        id: const Uuid().v4(),
+        category: budget.category,
+        limitAmount: budget.limit,
+        period: budget.period,
+        lastUpdated: Value(DateTime.now()),
+      ));
+    }
   }
 
   @override
   Future<void> deleteBudget(String id) async {
-    await _client.from('budgets').delete().eq('id', id);
+    await (_db.update(_db.budgets)..where((t) => t.id.equals(id))).write(BudgetsCompanion(
+      isDeleted: const Value(true),
+      lastUpdated: Value(DateTime.now()),
+    ));
   }
 }

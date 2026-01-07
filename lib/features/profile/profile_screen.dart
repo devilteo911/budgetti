@@ -40,17 +40,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       ref.invalidate(userProfileProvider);
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("Currency updated")),
-        );
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Currency updated")));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text("Error: $e")),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -59,7 +58,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _signOut() async {
     setState(() => _isLoading = true);
     await Supabase.instance.client.auth.signOut();
-    if (mounted) context.go('/login');
+    if (!mounted) return;
+    context.go('/login');
   }
 
   void _showCurrencyPicker(String currentCurrency) {
@@ -150,147 +150,416 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             final username = profile?['username'] as String? ?? 'User';
             final currency = profile?['currency'] as String? ?? 'EUR';
 
-            return Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Profile Header
-                  Center(
-                    child: Column(
-                      children: [
-                        Hero(
-                          tag: 'profile-image',
-                          child: const CircleAvatar(
-                            radius: 50,
-                            backgroundColor: AppTheme.surfaceGrey,
-                            child: Icon(Icons.person, size: 50, color: AppTheme.primaryGreen),
+            return SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Profile Header
+                    Center(
+                      child: Column(
+                        children: [
+                          Hero(
+                            tag: 'profile-image',
+                            child: const CircleAvatar(
+                              radius: 50,
+                              backgroundColor: AppTheme.surfaceGrey,
+                              child: Icon(
+                                Icons.person,
+                                size: 50,
+                                color: AppTheme.primaryGreen,
+                              ),
+                            ),
                           ),
+                          const SizedBox(height: 16),
+                          Text(
+                            username,
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+
+                    // Settings
+                    Text(
+                      "Settings",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppTheme.textGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Manage Accounts
+                    InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const WalletsScreen(),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          username,
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Manage Accounts",
+                              style: TextStyle(
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              color: AppTheme.textGrey,
+                              size: 16,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-
-                  // Settings
-                  Text("Settings", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.textGrey)),
-                  const SizedBox(height: 16),
-
-                  // Manage Accounts
-                  InkWell(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletsScreen())),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceGrey,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text("Manage Accounts", style: TextStyle(color: Colors.white, fontSize: 16)),
-                          Icon(Icons.arrow_forward_ios, color: AppTheme.textGrey, size: 16),
-                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // Manage Categories
-                  InkWell(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CategoriesScreen())),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceGrey,
-                        borderRadius: BorderRadius.circular(12),
+                    // Manage Categories
+                    InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const CategoriesScreen(),
+                        ),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text("Manage Categories", style: TextStyle(color: Colors.white, fontSize: 16)),
-                          Icon(Icons.arrow_forward_ios, color: AppTheme.textGrey, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Manage Tags
-                  InkWell(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TagsScreen())),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceGrey,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text("Manage Tags", style: TextStyle(color: Colors.white, fontSize: 16)),
-                          Icon(Icons.arrow_forward_ios, color: AppTheme.textGrey, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Currency Selector
-                  InkWell(
-                    onTap: () => _showCurrencyPicker(currency),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceGrey,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text("Currency", style: TextStyle(color: Colors.white, fontSize: 16)),
-                          Row(
-                            children: [
-                              Text(
-                                currency,
-                                style: const TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 16),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Manage Categories",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
                               ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.keyboard_arrow_down, color: AppTheme.textGrey),
-                            ],
-                          ),
-                        ],
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              color: AppTheme.textGrey,
+                              size: 16,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
 
-                  const Spacer(),
-                  
-                  // Sign Out
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: _isLoading ? null : _signOut,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                    // Manage Tags
+                    InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const TagsScreen()),
                       ),
-                      child: const Text("Sign Out", style: TextStyle(color: Colors.red, fontSize: 16)),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Manage Tags",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              color: AppTheme.textGrey,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+
+                    // Currency Selector
+                    InkWell(
+                      onTap: () => _showCurrencyPicker(currency),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Currency",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  currency,
+                                  style: const TextStyle(
+                                    color: AppTheme.primaryGreen,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: AppTheme.textGrey,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Data Management
+                    Text(
+                      "Data Management",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppTheme.textGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Sync with Supabase
+                    // Import from Cloud
+                    InkWell(
+                      onTap: _isLoading
+                          ? null
+                          : () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                await ref
+                                    .read(syncServiceProvider)
+                                    .importFromCloud();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Import completed successfully",
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("Import failed: $e"),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (context.mounted) {
+                                  setState(() => _isLoading = false);
+                                }
+                              }
+                            },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Import from Cloud",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Icon(
+                              Icons.cloud_download,
+                              color: AppTheme.primaryGreen,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Export to Cloud
+                    InkWell(
+                      onTap: _isLoading
+                          ? null
+                          : () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                await ref
+                                    .read(syncServiceProvider)
+                                    .exportToCloud();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Export completed successfully",
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("Export failed: $e"),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (context.mounted) {
+                                  setState(() => _isLoading = false);
+                                }
+                              }
+                            },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Export to Cloud",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Icon(
+                              Icons.cloud_upload,
+                              color: AppTheme.primaryGreen,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Export Backup
+                    InkWell(
+                      onTap: _isLoading
+                          ? null
+                          : () async {
+                              setState(() => _isLoading = true);
+                              try {
+                                await ref
+                                    .read(backupServiceProvider)
+                                    .exportDatabase();
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Backup failed: $e")),
+                                );
+                              } finally {
+                                if (mounted) setState(() => _isLoading = false);
+                              }
+                            },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Export Backup (JSON)",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Icon(
+                              Icons.download,
+                              color: AppTheme.primaryGreen,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 48),
+
+                    // Sign Out
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _isLoading ? null : _signOut,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text(
+                          "Sign Out",
+                          style: TextStyle(color: Colors.red, fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },

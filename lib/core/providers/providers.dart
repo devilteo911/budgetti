@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:budgetti/core/database/database.dart' hide Category, Tag;
+import 'package:budgetti/core/database/database.dart'
+    hide Category, Tag, Account, Transaction, Budget;
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart';
@@ -10,12 +11,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
+import 'package:budgetti/core/services/sync_service.dart';
+import 'package:budgetti/core/services/backup_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 
+final syncServiceProvider = Provider<SyncService>((ref) {
+  final db = ref.watch(databaseProvider);
+  return SyncService(db);
+});
+
+final backupServiceProvider = Provider<BackupService>((ref) {
+  final db = ref.watch(databaseProvider);
+  return BackupService(db);
+});
+
 final financeServiceProvider = Provider<FinanceService>((ref) {
   final db = ref.watch(databaseProvider);
-  return SupabaseFinanceService(db);
+  return LocalFinanceService(db);
 });
 
 final accountsProvider = FutureProvider<List<Account>>((ref) async {

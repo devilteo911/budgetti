@@ -4,6 +4,7 @@ import 'package:budgetti/models/tag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 class TagsScreen extends ConsumerWidget {
@@ -190,15 +191,19 @@ class _TagEditorModalState extends State<_TagEditorModal> {
                 final service = ref.read(financeServiceProvider);
                 final navigator = Navigator.of(context);
 
+                final userId =
+                    Supabase.instance.client.auth.currentUser?.id ?? 'local';
                 if (widget.tag != null) {
                   await service.updateTag(Tag(
                     id: widget.tag!.id,
+                      userId: userId,
                     name: name,
                     colorHex: _selectedColor,
                   ));
                 } else {
                   await service.addTag(Tag(
                     id: const Uuid().v4(),
+                      userId: userId,
                     name: name,
                     colorHex: _selectedColor,
                   ));

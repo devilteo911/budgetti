@@ -495,7 +495,12 @@ class _TransactionItem extends ConsumerWidget {
                       ...transaction.tags.map((tagName) {
                         final tag = allTags.firstWhere(
                           (t) => t.name == tagName,
-                          orElse: () => Tag(id: '', name: tagName, colorHex: 0xFF9E9E9E),
+                          orElse: () => Tag(
+                            id: '',
+                            userId: 'local',
+                            name: tagName,
+                            colorHex: 0xFF9E9E9E,
+                          ),
                         );
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
