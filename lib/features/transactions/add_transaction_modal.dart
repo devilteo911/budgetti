@@ -154,9 +154,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         await service.addTransaction(transaction);
       }
 
-      // Refresh providers to update UI
+      // Refresh providers to update UI across the app
       ref.invalidate(accountsProvider);
       ref.invalidate(transactionsProvider(_selectedAccountId!));
+      ref.invalidate(
+        transactionsProvider(null),
+      ); // Refresh ALL transactions (Dashboard, Stats)
+      ref.invalidate(budgetsProvider); // Refresh budgets state
+      
       if (widget.transaction != null && widget.transaction!.accountId != _selectedAccountId) {
          // Also invalidate the old account if it changed
          ref.invalidate(transactionsProvider(widget.transaction!.accountId));
@@ -390,7 +395,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
           bottom: MediaQuery.of(context).viewInsets.bottom,
           left: 16,
           right: 16,
-          top: 24,
+          top: 16,
         ),
         child: Form(
           key: _formKey,
@@ -415,8 +420,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
               
               // Type Selector
               _buildAnimatedItem(1, 
@@ -450,7 +454,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
               // Wallet Selector
               _buildAnimatedItem(2, 
@@ -479,20 +483,59 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                         return InkWell(
                           onTap: () => _showWalletPicker(accounts),
                           borderRadius: BorderRadius.circular(12),
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: "Wallet",
-                              labelStyle: const TextStyle(color: AppTheme.textGrey),
-                              border: OutlineInputBorder(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceGrey,
                                 borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppTheme.textGrey.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
                               ),
-                              prefixIcon: const Icon(Icons.account_balance_wallet, color: AppTheme.primaryGreen),
-                              suffixIcon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.textGrey),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            ),
-                            child: Text(
-                              selectedAccount?.name ?? "Select Wallet",
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.account_balance_wallet,
+                                    color: AppTheme.primaryGreen,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          "Wallet",
+                                          style: TextStyle(
+                                            color: AppTheme.textGrey,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          selectedAccount?.name ??
+                                              "Select Wallet",
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.keyboard_arrow_down,
+                                    color: AppTheme.textGrey,
+                                    size: 20,
+                                  ),
+                                ],
                             ),
                           ),
                         );
@@ -503,7 +546,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   },
                 ),
               ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
           
               // Amount
               _buildAnimatedItem(3, 
@@ -511,14 +554,19 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceGrey,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: AppTheme.textGrey.withValues(alpha: 0.3),
+                      ),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Row(
                     children: [
                       // Currency indicator
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryGreen.withValues(alpha: 0.2),
                           borderRadius: const BorderRadius.only(
@@ -546,7 +594,10 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                             hintText: "0.00",
                             hintStyle: TextStyle(color: AppTheme.textGrey.withValues(alpha: 0.5)),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                             filled: false,
                           ),
                           validator: (value) {
@@ -563,83 +614,161 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
           
               // Description
               _buildAnimatedItem(4, 
-                TextFormField(
-                  controller: _descriptionController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: "Description",
-                    prefixIcon: Icon(Icons.edit, color: AppTheme.textGrey),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Enter description';
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-          
-              // Date Picker Row
-              _buildAnimatedItem(5, 
-                InkWell(
-                  onTap: _pickDate,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                  Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.textGrey),
+                      color: AppTheme.surfaceGrey,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.textGrey.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: AppTheme.textGrey),
+                        const Icon(
+                          Icons.edit,
+                          color: AppTheme.textGrey,
+                          size: 20,
+                        ),
                         const SizedBox(width: 12),
-                        Text(
-                          DateFormat.yMMMd().format(_selectedDate),
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-          
-              // Category Picker Row
-              _buildAnimatedItem(6, 
-                InkWell(
-                  onTap: _showCategoryPicker,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.textGrey),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.category, color: AppTheme.textGrey),
-                            const SizedBox(width: 12),
-                            Text(
-                              _selectedCategory,
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _descriptionController,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
                             ),
-                          ],
+                            decoration: const InputDecoration(
+                              hintText: "Description",
+                              hintStyle: TextStyle(
+                                color: AppTheme.textGrey,
+                                fontSize: 16,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
+                              isDense: true,
+                              filled: false,
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty)
+                                return 'Enter description';
+                              return null;
+                            },
+                          ),
                         ),
-                        const Icon(Icons.arrow_drop_down, color: AppTheme.textGrey),
                       ],
                     ),
-                  ),
+                ),
+              ),
+                const SizedBox(height: 12),
+          
+                // Date and Category Picker Row (Inline)
+              _buildAnimatedItem(5, 
+                  Row(
+                    children: [
+                      // Date Picker
+                      Expanded(
+                        child: InkWell(
+                          onTap: _pickDate,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceGrey,
+                              border: Border.all(
+                                color: AppTheme.textGrey.withValues(alpha: 0.3),
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today,
+                                  color: AppTheme.textGrey,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    DateFormat.yMMMd().format(_selectedDate),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Category Picker
+                      Expanded(
+                        child: InkWell(
+                          onTap: _showCategoryPicker,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceGrey,
+                              border: Border.all(
+                                color: AppTheme.textGrey.withValues(alpha: 0.3),
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.category,
+                                  color: AppTheme.textGrey,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    _selectedCategory,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.arrow_drop_down,
+                                  color: AppTheme.textGrey,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                 ),
               ),
           
-              const SizedBox(height: 16),
+                const SizedBox(height: 12),
  
               // Tags Selector
               _buildAnimatedItem(7, 
@@ -695,7 +824,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   },
                 ),
               ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
           
               // Submit
               _buildAnimatedItem(8, 
