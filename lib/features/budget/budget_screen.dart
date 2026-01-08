@@ -2,9 +2,12 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/features/budget/widgets/budget_skeleton.dart';
+import 'package:budgetti/features/budget/set_budget_modal.dart';
 import 'package:budgetti/models/budget.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 enum BudgetSort { alphabetical, amountAsc, amountDesc }
 
@@ -19,62 +22,24 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
   BudgetSort _sortBy = BudgetSort.alphabetical;
 
   void _showSetBudgetDialog(String categoryName, double currentLimit) {
-    final controller = TextEditingController(text: currentLimit > 0 ? currentLimit.toStringAsFixed(2) : '');
-    
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceGrey,
-        title: Text("Set Budget for $categoryName", style: const TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: "Enter monthly limit",
-            hintStyle: TextStyle(color: AppTheme.textGrey.withValues(alpha: 0.5)),
-            prefixIcon: const Icon(Icons.euro, color: AppTheme.primaryGreen),
-            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.textGrey)),
-            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryGreen)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel", style: TextStyle(color: AppTheme.textGrey)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newLimit = double.tryParse(controller.text) ?? 0.0;
-              Navigator.pop(context);
-              await _saveBudget(categoryName, newLimit);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
-            child: const Text("Save", style: TextStyle(color: Colors.black)),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: AppTheme.surfaceGrey,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SetBudgetModal(
+        categoryName: categoryName,
+        currentLimit: currentLimit,
       ),
     );
   }
 
-  Future<void> _saveBudget(String category, double limit) async {
-    try {
-      final service = ref.read(financeServiceProvider);
-      await service.upsertBudget(Budget(
-        id: '', // Will be ignored by upsert on server
-        userId: '', // Handled by service
-        category: category,
-        limit: limit,
-      ));
-      ref.invalidate(budgetsProvider);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error saving budget: $e")),
-        );
-      }
-    } finally {
-    }
+  Color _getStatusColor(double percentage) {
+    if (percentage < 0.75) return AppTheme.primaryGreen;
+    if (percentage < 1.0) return Colors.orangeAccent;
+    return Colors.redAccent;
   }
 
   @override
@@ -97,7 +62,6 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
         actions: [
           PopupMenuButton<BudgetSort>(
             icon: const Icon(Icons.sort, color: AppTheme.primaryGreen),
-            // backgroundColor: AppTheme.surfaceGrey, // Removed due to lint error
             color: AppTheme.surfaceGrey,
             onSelected: (sort) {
               setState(() {
@@ -169,7 +133,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                         0,
                         (sum, c) => sum + (categorySpending[c.name] ?? 0),
                       );
-                  final totalSaturation = totalBudget > 0
+                  final totalUtilization = totalBudget > 0
                       ? (totalSpentOnBudgeted / totalBudget).clamp(0.0, 1.0)
                       : 0.0;
 
@@ -213,34 +177,12 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                       SliverPadding(
                         padding: const EdgeInsets.all(16),
                         sliver: SliverToBoxAdapter(
-                          child: IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  child: _buildSummaryCard(
-                                    context,
-                                    "Total Budget",
-                                    currencyFormatter.format(totalBudget),
-                                    Icons.account_balance_wallet_outlined,
-                                    AppTheme.primaryGreen,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildSummaryCard(
-                                    context,
-                                    "Saturation",
-                                    "${(totalSaturation * 100).toStringAsFixed(1)}%",
-                                    Icons.pie_chart_outline,
-                                    totalSaturation > 0.9
-                                        ? Theme.of(context).colorScheme.error
-                                        : AppTheme.primaryGreen,
-                                    subtitle: "of total limits",
-                                  ),
-                                ),
-                              ],
-                            ),
+                          child: _buildOverviewCard(
+                            context,
+                            totalSpentOnBudgeted,
+                            totalBudget,
+                            totalUtilization,
+                            currencyFormatter,
                           ),
                         ),
                       ),
@@ -263,22 +205,25 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                             );
                             final spent =
                                 categorySpending[category.name] ?? 0.0;
-                            final percent = budget.limit > 0
+                            final hasLimit = budget.limit > 0;
+                            final percent = hasLimit
                                 ? (spent / budget.limit).clamp(0.0, 1.0)
                                 : 0.0;
-                            final isOverBudget =
-                                spent > budget.limit && budget.limit > 0;
+                            final statusColor = hasLimit
+                                ? _getStatusColor(spent / budget.limit)
+                                : AppTheme.textGrey;
 
                             return Card(
                               color: AppTheme.surfaceGrey,
-                              margin: const EdgeInsets.only(bottom: 16),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 side: BorderSide(
-                                  color: Color(
-                                    category.colorHex,
-                                  ).withValues(alpha: 0.3),
-                                  width: 1.5,
+                                  color: AppTheme.textGrey.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  width: 1,
                                 ),
                               ),
                               child: InkWell(
@@ -296,13 +241,13 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                       Row(
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.all(8),
+                                            padding: const EdgeInsets.all(10),
                                             decoration: BoxDecoration(
                                               color: Color(
                                                 category.colorHex,
-                                              ).withValues(alpha: 0.1),
+                                              ).withValues(alpha: 0.15),
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(12),
                                             ),
                                             child: Icon(
                                               IconData(
@@ -310,6 +255,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                                 fontFamily: 'MaterialIcons',
                                               ),
                                               color: Color(category.colorHex),
+                                              size: 20,
                                             ),
                                           ),
                                           const SizedBox(width: 12),
@@ -318,68 +264,70 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                               category.name,
                                               style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 18,
+                                                fontSize: 16,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                           ),
-                                          Text(
-                                            budget.limit > 0
-                                                ? currencyFormatter.format(
-                                                    budget.limit,
-                                                  )
-                                                : "No limit",
-                                            style: TextStyle(
-                                              color: budget.limit > 0
-                                                  ? AppTheme.primaryGreen
-                                                  : AppTheme.textGrey,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                hasLimit
+                                                    ? "${currencyFormatter.format(spent)} / ${currencyFormatter.format(budget.limit)}"
+                                                    : currencyFormatter.format(
+                                                        spent,
+                                                      ),
+                                                style: TextStyle(
+                                                  color: statusColor,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                              if (!hasLimit)
+                                                const Text(
+                                                  "No limit",
+                                                  style: TextStyle(
+                                                    color: AppTheme.textGrey,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            "Spent: ${currencyFormatter.format(spent)}",
-                                            style: TextStyle(
-                                              color: isOverBudget
-                                                  ? Theme.of(
-                                                      context,
-                                                    ).colorScheme.error
-                                                  : AppTheme.textGrey,
+                                      if (hasLimit) ...[
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              "${((spent / budget.limit) * 100).toStringAsFixed(0)}% used",
+                                              style: TextStyle(
+                                                color: statusColor.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                                fontSize: 12,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            "${(percent * 100).toStringAsFixed(0)}%",
-                                            style: TextStyle(
-                                              color: isOverBudget
-                                                  ? Theme.of(
-                                                      context,
-                                                    ).colorScheme.error
-                                                  : AppTheme.textGrey,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: percent,
-                                          backgroundColor:
-                                              AppTheme.backgroundBlack,
-                                          color: isOverBudget
-                                              ? Theme.of(
-                                                  context,
-                                                ).colorScheme.error
-                                              : AppTheme.primaryGreen,
-                                          minHeight: 8,
+                                          ],
                                         ),
-                                      ),
+                                        const SizedBox(height: 6),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          child: LinearProgressIndicator(
+                                            value: percent,
+                                            backgroundColor:
+                                                AppTheme.backgroundBlack,
+                                            color: statusColor,
+                                            minHeight: 6,
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -400,67 +348,126 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     );
   }
 
-  Widget _buildSummaryCard(
+  Widget _buildOverviewCard(
     BuildContext context,
-    String title,
-    String value,
-    IconData icon,
-    Color color, {
-    String? subtitle,
-  }) {
+    double spent,
+    double limit,
+    double utilization,
+    NumberFormat formatter,
+  ) {
+    final statusColor = _getStatusColor(utilization);
+    
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppTheme.surfaceGrey,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2), width: 1.5),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AppTheme.textGrey.withValues(alpha: 0.1),
+          width: 1,
+        ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            "Overall Utilization",
+            style: TextStyle(
+              color: AppTheme.textGrey,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 24),
           SizedBox(
-            height: 24,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            height: 160,
+            child: Stack(
               children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppTheme.textGrey,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                PieChart(
+                  PieChartData(
+                    sectionsSpace: 0,
+                    centerSpaceRadius: 65,
+                    startDegreeOffset: -90,
+                    sections: [
+                      PieChartSectionData(
+                        color: statusColor,
+                        value: utilization * 100,
+                        title: '',
+                        radius: 12,
+                      ),
+                      PieChartSectionData(
+                        color: AppTheme.backgroundBlack,
+                        value: (1 - utilization) * 100,
+                        title: '',
+                        radius: 10,
+                      ),
+                    ],
+                  ),
+                ),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formatter.format(spent),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        "of ${formatter.format(limit)} limit",
+                        style: const TextStyle(
+                          color: AppTheme.textGrey,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: AppTheme.textGrey.withValues(alpha: 0.6),
-                fontSize: 10,
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildMetricItem(
+                "Utilization",
+                "${(utilization * 100).toStringAsFixed(1)}%",
+                statusColor,
               ),
-            ),
-          ],
+              const SizedBox(width: 48),
+              _buildMetricItem(
+                "Remaining",
+                formatter.format((limit - spent).clamp(0, double.infinity)),
+                limit - spent > 0 ? AppTheme.primaryGreen : Colors.redAccent,
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMetricItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: AppTheme.textGrey, fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }

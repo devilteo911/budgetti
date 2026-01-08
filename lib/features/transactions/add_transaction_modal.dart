@@ -659,8 +659,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                               filled: false,
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty)
+                              if (value == null || value.isEmpty) {
                                 return 'Enter description';
+                              }
                               return null;
                             },
                           ),
