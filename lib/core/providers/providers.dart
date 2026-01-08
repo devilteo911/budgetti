@@ -26,9 +26,18 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService(db);
 });
 
+// Provider that tracks current user ID and updates when auth state changes
+final currentUserIdProvider = Provider<String>((ref) {
+  // Watch userProfileProvider to trigger updates on auth changes
+  ref.watch(userProfileProvider);
+  return Supabase.instance.client.auth.currentUser?.id ?? 'local';
+});
+
 final financeServiceProvider = Provider<FinanceService>((ref) {
   final db = ref.watch(databaseProvider);
-  return LocalFinanceService(db);
+  // Watch currentUserIdProvider so this recreates when user changes
+  final userId = ref.watch(currentUserIdProvider);
+  return LocalFinanceService(db, userId);
 });
 
 final accountsProvider = FutureProvider<List<Account>>((ref) async {

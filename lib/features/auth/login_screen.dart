@@ -1,5 +1,6 @@
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -24,10 +25,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       if (_isSignUp) {
         await supabase.auth.signUp(email: email, password: password);
+        // Navigate to onboarding to set username
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Account created! Please likely verify your email (if enabled) or just log in.')),
-          );
+          context.go('/onboarding');
         }
       } else {
         await supabase.auth.signInWithPassword(email: email, password: password);

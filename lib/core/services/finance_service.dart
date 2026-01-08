@@ -31,17 +31,123 @@ abstract class FinanceService {
 
 class LocalFinanceService implements FinanceService {
   final AppDatabase _db;
+  final String _userId;
+  bool _initialized = false;
 
-  LocalFinanceService(this._db);
+  LocalFinanceService(this._db, this._userId);
+
+  /// Ensures user has default data (account, categories, tags)
+  Future<void> _ensureUserDefaults() async {
+    if (_initialized) return;
+    _initialized = true;
+
+    // Check if user has any accounts
+    final accountCount =
+        await (_db.select(_db.accounts)
+              ..where((tbl) => tbl.userId.equals(_userId))
+              ..limit(1))
+            .get();
+
+    if (accountCount.isEmpty) {
+      // Create Main Wallet for this user
+      await _db
+          .into(_db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              id: '${_userId}_main',
+              name: 'Main Wallet',
+              balance: const Value(0.0),
+              currency: const Value('EUR'),
+              providerName: const Value('Local'),
+              userId: Value(_userId),
+              lastUpdated: Value(DateTime.now()),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+
+      // Create default categories for this user
+      final defaultCategories = [
+        // Expenses
+        (name: 'Groceries', icon: 57954, color: 0xFF4CAF50, type: 'expense'),
+        (name: 'Transport', icon: 57675, color: 0xFF2196F3, type: 'expense'),
+        (name: 'Dining', icon: 57924, color: 0xFFFF9800, type: 'expense'),
+        (name: 'Shopping', icon: 59600, color: 0xFF9C27B0, type: 'expense'),
+        (
+          name: 'Entertainment',
+          icon: 58022,
+          color: 0xFFFF5722,
+          type: 'expense',
+        ),
+        (name: 'Health', icon: 58009, color: 0xFFF44336, type: 'expense'),
+        (name: 'Bills', icon: 59469, color: 0xFF607D8B, type: 'expense'),
+        // Income
+        (name: 'Salary', icon: 57357, color: 0xFF009688, type: 'income'),
+        (name: 'Freelance', icon: 59647, color: 0xFF3F51B5, type: 'income'),
+        (name: 'Investments', icon: 60232, color: 0xFF673AB7, type: 'income'),
+      ];
+
+      await _db.batch((batch) {
+        batch.insertAll(
+          _db.categories,
+          defaultCategories.map((d) {
+            return CategoriesCompanion.insert(
+              id: '${_userId}_cat_${d.name}',
+              name: d.name,
+              iconCode: d.icon,
+              colorHex: d.color,
+              type: d.type,
+              userId: Value(_userId),
+              lastUpdated: Value(DateTime.now()),
+            );
+          }),
+        );
+      });
+
+      // Create default tags for this user
+      final defaultTags = [
+        (name: 'Vacation', color: 0xFFE91E63),
+        (name: 'Family', color: 0xFF9C27B0),
+        (name: 'Work', color: 0xFF3F51B5),
+        (name: 'Personal', color: 0xFF00BCD4),
+        (name: 'Gift', color: 0xFFFF5722),
+      ];
+
+      await _db.batch((batch) {
+        batch.insertAll(
+          _db.tags,
+          defaultTags.map((d) {
+            return TagsCompanion.insert(
+              id: '${_userId}_tag_${d.name}',
+              name: d.name,
+              colorHex: d.color,
+              userId: Value(_userId),
+              lastUpdated: Value(DateTime.now()),
+            );
+          }),
+        );
+      });
+    }
+  }
 
   @override
   Future<List<model_account.Account>> getAccounts() async {
-    // 1. Fetch all accounts not deleted
-    final accountsDb = await (_db.select(_db.accounts)..where((tbl) => tbl.isDeleted.equals(false))).get();
+    // Ensure user has default data on first access
+    await _ensureUserDefaults();
+
+    // 1. Fetch all accounts not deleted for this user
+    final accountsDb =
+        await (_db.select(_db.accounts)..where(
+              (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
+            ))
+            .get();
 
     // 2. Calculate balances dynamically from transactions
-    // Fetch all active transactions
-    final transactionsDb = await (_db.select(_db.transactions)..where((tbl) => tbl.isDeleted.equals(false))).get();
+    // Fetch all active transactions for this user
+    final transactionsDb =
+        await (_db.select(_db.transactions)..where(
+              (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
+            ))
+            .get();
     
     final Map<String, double> transactionSums = {};
     
@@ -72,6 +178,7 @@ class LocalFinanceService implements FinanceService {
       balance: Value(account.balance), // Storing initial balance
       currency: Value(account.currency),
       providerName: Value(account.providerName),
+            userId: Value(_userId),
       lastUpdated: Value(DateTime.now()),
     ));
   }
@@ -97,7 +204,7 @@ class LocalFinanceService implements FinanceService {
   @override
   Future<List<model_txn.Transaction>> getTransactions(String? accountId) async {
     var query = _db.select(_db.transactions)
-      ..where((tbl) => tbl.isDeleted.equals(false));
+      ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
 
     if (accountId != null) {
       query.where((tbl) => tbl.accountId.equals(accountId));
@@ -126,6 +233,7 @@ class LocalFinanceService implements FinanceService {
       category: transaction.category,
       date: transaction.date,
       tags: Value(transaction.tags),
+            userId: Value(_userId),
       lastUpdated: Value(DateTime.now()),
     ));
   }
@@ -155,7 +263,10 @@ class LocalFinanceService implements FinanceService {
   @override
   Future<List<model.Category>> getCategories() async {
     final result = await (_db.select(_db.categories)
-      ..where((tbl) => tbl.isDeleted.equals(false))
+              ..where(
+                (tbl) =>
+                    tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
+              )
       ..orderBy([(t) => OrderingTerm(expression: t.name)])
     ).get();
 
@@ -207,7 +318,9 @@ class LocalFinanceService implements FinanceService {
   @override
   Future<List<model_tag.Tag>> getTags() async {
     final result = await (_db.select(_db.tags)
-      ..where((tbl) => tbl.isDeleted.equals(false))
+      ..where(
+              (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
+            )
     ).get();
 
     return result.map((t) => model_tag.Tag(
@@ -249,7 +362,9 @@ class LocalFinanceService implements FinanceService {
   @override
   Future<List<model_budget.Budget>> getBudgets() async {
     final result = await (_db.select(_db.budgets)
-      ..where((tbl) => tbl.isDeleted.equals(false))
+      ..where(
+              (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
+            )
     ).get();
 
     return result.map((b) => model_budget.Budget(
@@ -263,9 +378,15 @@ class LocalFinanceService implements FinanceService {
 
   @override
   Future<void> upsertBudget(model_budget.Budget budget) async {
-    // Check if exists
+    // Check if exists for this user
     final exists = await (_db.select(_db.budgets)
-      ..where((tbl) => tbl.category.equals(budget.category) & tbl.period.equals(budget.period) & tbl.isDeleted.equals(false))
+      ..where(
+              (tbl) =>
+                  tbl.category.equals(budget.category) &
+                  tbl.period.equals(budget.period) &
+                  tbl.userId.equals(_userId) &
+                  tbl.isDeleted.equals(false),
+            )
     ).getSingleOrNull();
 
     if (exists != null) {
@@ -279,6 +400,7 @@ class LocalFinanceService implements FinanceService {
         category: budget.category,
         limitAmount: budget.limit,
         period: budget.period,
+              userId: Value(_userId),
         lastUpdated: Value(DateTime.now()),
       ));
     }

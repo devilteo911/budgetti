@@ -63,7 +63,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Welcome Setup")),
+      appBar: AppBar(title: const Text("Who are you?")),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -78,7 +78,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              "This is how you'll be identified in the app.",
+              "Tell us what to call you in the app.",
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textGrey),
               textAlign: TextAlign.center,
             ),
