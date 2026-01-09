@@ -18,6 +18,59 @@ class TagsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text("Manage Tags"),
         backgroundColor: AppTheme.backgroundBlack,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'restore') {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: AppTheme.surfaceGrey,
+                    title: const Text(
+                      "Restore Defaults?",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    content: const Text(
+                      "This will restore default tags (Vacation, Family, etc.) if they were deleted or modified. Your custom tags will not be affected.",
+                      style: TextStyle(color: AppTheme.textGrey),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text("Cancel"),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text(
+                          "Restore",
+                          style: TextStyle(color: AppTheme.primaryGreen),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true) {
+                  await ref.read(financeServiceProvider).restoreDefaultTags();
+                  ref.invalidate(tagsProvider);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Default tags restored")),
+                    );
+                  }
+                }
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'restore',
+                  child: Text("Restore Defaults"),
+                ),
+              ];
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: tagsAsync.when(

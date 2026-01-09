@@ -27,6 +27,8 @@ abstract class FinanceService {
   Future<List<model_budget.Budget>> getBudgets();
   Future<void> upsertBudget(model_budget.Budget budget);
   Future<void> deleteBudget(String id);
+  Future<void> restoreDefaultCategories();
+  Future<void> restoreDefaultTags();
 }
 
 class LocalFinanceService implements FinanceService {
@@ -34,7 +36,32 @@ class LocalFinanceService implements FinanceService {
   final String _userId;
   bool _initialized = false;
 
+  static const List<({String name, int icon, int color, String type})>
+  _defaultCategories = [
+    // Expenses
+    (name: 'Groceries', icon: 57954, color: 0xFF4CAF50, type: 'expense'),
+    (name: 'Transport', icon: 57675, color: 0xFF2196F3, type: 'expense'),
+    (name: 'Dining', icon: 57924, color: 0xFFFF9800, type: 'expense'),
+    (name: 'Shopping', icon: 59600, color: 0xFF9C27B0, type: 'expense'),
+    (name: 'Entertainment', icon: 58022, color: 0xFFFF5722, type: 'expense'),
+    (name: 'Health', icon: 58009, color: 0xFFF44336, type: 'expense'),
+    (name: 'Bills', icon: 59469, color: 0xFF607D8B, type: 'expense'),
+    // Income
+    (name: 'Salary', icon: 57357, color: 0xFF009688, type: 'income'),
+    (name: 'Freelance', icon: 59647, color: 0xFF3F51B5, type: 'income'),
+    (name: 'Investments', icon: 60232, color: 0xFF673AB7, type: 'income'),
+  ];
+
+  static const List<({String name, int color})> _defaultTags = [
+    (name: 'Vacation', color: 0xFFE91E63),
+    (name: 'Family', color: 0xFF9C27B0),
+    (name: 'Work', color: 0xFF3F51B5),
+    (name: 'Personal', color: 0xFF00BCD4),
+    (name: 'Gift', color: 0xFFFF5722),
+  ];
+
   LocalFinanceService(this._db, this._userId);
+
 
   /// Ensures user has default data (account, categories, tags)
   Future<void> _ensureUserDefaults() async {
@@ -66,30 +93,10 @@ class LocalFinanceService implements FinanceService {
           );
 
       // Create default categories for this user
-      final defaultCategories = [
-        // Expenses
-        (name: 'Groceries', icon: 57954, color: 0xFF4CAF50, type: 'expense'),
-        (name: 'Transport', icon: 57675, color: 0xFF2196F3, type: 'expense'),
-        (name: 'Dining', icon: 57924, color: 0xFFFF9800, type: 'expense'),
-        (name: 'Shopping', icon: 59600, color: 0xFF9C27B0, type: 'expense'),
-        (
-          name: 'Entertainment',
-          icon: 58022,
-          color: 0xFFFF5722,
-          type: 'expense',
-        ),
-        (name: 'Health', icon: 58009, color: 0xFFF44336, type: 'expense'),
-        (name: 'Bills', icon: 59469, color: 0xFF607D8B, type: 'expense'),
-        // Income
-        (name: 'Salary', icon: 57357, color: 0xFF009688, type: 'income'),
-        (name: 'Freelance', icon: 59647, color: 0xFF3F51B5, type: 'income'),
-        (name: 'Investments', icon: 60232, color: 0xFF673AB7, type: 'income'),
-      ];
-
       await _db.batch((batch) {
         batch.insertAll(
           _db.categories,
-          defaultCategories.map((d) {
+          _defaultCategories.map((d) {
             return CategoriesCompanion.insert(
               id: '${_userId}_cat_${d.name}',
               name: d.name,
@@ -104,18 +111,10 @@ class LocalFinanceService implements FinanceService {
       });
 
       // Create default tags for this user
-      final defaultTags = [
-        (name: 'Vacation', color: 0xFFE91E63),
-        (name: 'Family', color: 0xFF9C27B0),
-        (name: 'Work', color: 0xFF3F51B5),
-        (name: 'Personal', color: 0xFF00BCD4),
-        (name: 'Gift', color: 0xFFFF5722),
-      ];
-
       await _db.batch((batch) {
         batch.insertAll(
           _db.tags,
-          defaultTags.map((d) {
+          _defaultTags.map((d) {
             return TagsCompanion.insert(
               id: '${_userId}_tag_${d.name}',
               name: d.name,
@@ -290,7 +289,7 @@ class LocalFinanceService implements FinanceService {
       colorHex: category.colorHex,
       type: category.type,
       description: Value(category.description),
-      userId: Value(category.userId), 
+            userId: Value(_userId), 
       lastUpdated: Value(DateTime.now()),
     ));
   }
@@ -337,7 +336,7 @@ class LocalFinanceService implements FinanceService {
       id: tag.id.isEmpty ? const Uuid().v4() : tag.id,
       name: tag.name,
       colorHex: tag.colorHex,
-      userId: Value(tag.userId),
+            userId: Value(_userId),
       lastUpdated: Value(DateTime.now()),
     ));
   }
@@ -412,5 +411,50 @@ class LocalFinanceService implements FinanceService {
       isDeleted: const Value(true),
       lastUpdated: Value(DateTime.now()),
     ));
+  }
+
+  @override
+  Future<void> restoreDefaultCategories() async {
+    await _db.batch((batch) {
+      for (final d in _defaultCategories) {
+        batch.insert(
+          _db.categories,
+          CategoriesCompanion.insert(
+            id: '${_userId}_cat_${d.name}',
+            name: d.name,
+            iconCode: d.icon,
+            colorHex: d.color,
+            type: d.type,
+            userId: Value(_userId),
+            lastUpdated: Value(DateTime.now()),
+          ),
+          mode: InsertMode.replace, // Upsert
+        );
+      }
+    });
+
+    // Ensure they are not marked as deleted (in case they were deleted before)
+    // The replace defined above might not handle partial updates like un-deleting if the row exists but isDeleted=true?
+    // Actually Drift's InsertMode.replace replaces the *whole row*,
+    // effectively resetting everything including isDeleted back to false (default).
+  }
+
+  @override
+  Future<void> restoreDefaultTags() async {
+    await _db.batch((batch) {
+      for (final d in _defaultTags) {
+        batch.insert(
+          _db.tags,
+          TagsCompanion.insert(
+            id: '${_userId}_tag_${d.name}',
+            name: d.name,
+            colorHex: d.color,
+            userId: Value(_userId),
+            lastUpdated: Value(DateTime.now()),
+          ),
+          mode: InsertMode.replace,
+        );
+      }
+    });
   }
 }

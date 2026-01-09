@@ -38,6 +38,63 @@ class CategoriesScreen extends ConsumerWidget {
         title: const Text("Manage Categories", style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.backgroundBlack,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'restore') {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: AppTheme.surfaceGrey,
+                    title: const Text(
+                      "Restore Defaults?",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    content: const Text(
+                      "This will restore default categories (Groceries, Transport, etc.) if they were deleted or modified. Your custom categories will not be affected.",
+                      style: TextStyle(color: AppTheme.textGrey),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text("Cancel"),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text(
+                          "Restore",
+                          style: TextStyle(color: AppTheme.primaryGreen),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true) {
+                  await ref
+                      .read(financeServiceProvider)
+                      .restoreDefaultCategories();
+                  ref.invalidate(categoriesProvider);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Default categories restored"),
+                      ),
+                    );
+                  }
+                }
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'restore',
+                  child: Text("Restore Defaults"),
+                ),
+              ];
+            },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
