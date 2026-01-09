@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -770,6 +772,121 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                             Icon(
                               Icons.download,
+                              color: AppTheme.primaryGreen,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Import Backup
+                    InkWell(
+                      onTap: _isLoading
+                          ? null
+                          : () async {
+                              try {
+                                final result = await FilePicker.platform
+                                    .pickFiles(
+                                      type: FileType.custom,
+                                      allowedExtensions: ['json'],
+                                    );
+
+                                if (result != null && context.mounted) {
+                                  final file = File(result.files.single.path!);
+
+                                  // Confirm
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      backgroundColor: AppTheme.surfaceGrey,
+                                      title: const Text(
+                                        "Import Backup",
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      content: const Text(
+                                        "This will REPLACE all your current data with the backup. This action cannot be undone.\n\nAre you sure?",
+                                        style: TextStyle(color: Colors.white70),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text("Cancel"),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text(
+                                            "Import",
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    setState(() => _isLoading = true);
+                                    await ref
+                                        .read(backupServiceProvider)
+                                        .importDatabase(file);
+
+                                    // Invalidate providers to refresh UI
+                                    ref.invalidate(transactionsProvider);
+                                    ref.invalidate(categoriesProvider);
+                                    ref.invalidate(tagsProvider);
+                                    ref.invalidate(accountsProvider);
+                                    ref.invalidate(budgetsProvider);
+
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            "Backup imported successfully",
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("Import failed: $e"),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) setState(() => _isLoading = false);
+                              }
+                            },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Import Backup (JSON)",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Icon(
+                              Icons.restore,
                               color: AppTheme.primaryGreen,
                               size: 20,
                             ),
