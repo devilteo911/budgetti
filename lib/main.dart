@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:budgetti/core/services/persistence_service.dart';
+import 'package:budgetti/core/services/notification_service.dart';
+import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/services/notification_logic.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,10 +18,23 @@ Future<void> main() async {
   );
   
   final prefs = await SharedPreferences.getInstance();
+  
+  final notificationService = NotificationService();
+  await notificationService.init();
+
+
+  final container = ProviderContainer(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      notificationServiceProvider.overrideWithValue(notificationService),
+    ],
+  );
+
+  // Schedule daily reminder on startup
+  await container.read(notificationLogicProvider).updateDailyReminder();
 
   runApp(
-    ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    UncontrolledProviderScope(container: container,
       child: const BudgettiApp(),
     ),
   );

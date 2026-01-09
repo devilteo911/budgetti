@@ -7,6 +7,7 @@ import 'package:budgetti/features/settings/tags_screen.dart';
 import 'package:budgetti/features/settings/wallets_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:budgetti/core/services/notification_logic.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -17,6 +18,28 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoading = false;
+  bool _permissionMissing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissionStatus();
+  }
+
+  Future<void> _checkPermissionStatus() async {
+    final granted = await ref
+        .read(notificationServiceProvider)
+        .isPermissionGranted();
+    final enabledInSettings = ref
+        .read(persistenceServiceProvider)
+        .getNotificationsEnabled();
+
+    if (enabledInSettings && !granted) {
+      if (mounted) {
+        setState(() => _permissionMissing = true);
+      }
+    }
+  }
 
   final List<Map<String, String>> _currencies = [
     {'code': 'EUR', 'symbol': '€', 'name': 'Euro'},
@@ -137,6 +160,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
+    final persistence = ref.watch(persistenceServiceProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -354,6 +378,219 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                     const SizedBox(height: 32),
 
+                    // Notifications Settings
+                    Text(
+                      "Notifications",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppTheme.textGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    if (_permissionMissing)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: InkWell(
+                          onTap: () async {
+                            final granted = await ref
+                                .read(notificationServiceProvider)
+                                .requestPermissions();
+                            if (granted) {
+                              setState(() => _permissionMissing = false);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.orange.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Colors.orange,
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    "Notification permissions are not granted. Tap to fix.",
+                                    style: TextStyle(
+                                      color: Colors.orange,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    _buildNotificationToggle(
+                      "Push Notifications",
+                      "Enable or disable all notifications",
+                      Icons.notifications,
+                      persistence.getNotificationsEnabled(),
+                      (value) async {
+                        try {
+                          if (value) {
+                            final granted = await ref
+                                .read(notificationServiceProvider)
+                                .requestPermissions();
+                            if (!granted) {
+                              setState(() => _permissionMissing = true);
+                              return;
+                            }
+                            setState(() => _permissionMissing = false);
+                          }
+                          await persistence.setNotificationsEnabled(value);
+                          if (mounted) setState(() {});
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: $e")),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    _buildNotificationToggle(
+                      "Budget Alerts",
+                      "Notify when reaching budget limits",
+                      Icons.account_balance,
+                      persistence.getBudgetAlertsEnabled(),
+                      (value) async {
+                        try {
+                          await persistence.setBudgetAlertsEnabled(value);
+                          if (mounted) setState(() {});
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: $e")),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    _buildNotificationToggle(
+                      "Daily Reminder",
+                      "Remind me to log expenses daily",
+                      Icons.today,
+                      persistence.getDailyReminderEnabled(),
+                      (value) async {
+                        try {
+                          await persistence.setDailyReminderEnabled(value);
+                          await ref
+                              .read(notificationLogicProvider)
+                              .updateDailyReminder();
+                          if (mounted) setState(() {});
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Error: $e")),
+                            );
+                          }
+                        }
+                      },
+                    ),
+
+                    if (persistence.getDailyReminderEnabled()) ...[
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () async {
+                          final timeStr = persistence.getDailyReminderTime();
+                          final bits = timeStr.split(":");
+                          final initialTime = TimeOfDay(
+                            hour: int.tryParse(bits[0]) ?? 20,
+                            minute: int.tryParse(bits[1]) ?? 0,
+                          );
+
+                          final pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: initialTime,
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.dark(
+                                    primary: AppTheme.primaryGreen,
+                                    onPrimary: AppTheme.backgroundBlack,
+                                    surface: AppTheme.surfaceGrey,
+                                    onSurface: Colors.white,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+
+                          if (pickedTime != null) {
+                            final newTimeStr =
+                                "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
+                            try {
+                              await persistence.setDailyReminderTime(
+                                newTimeStr,
+                              );
+                              await ref
+                                  .read(notificationLogicProvider)
+                                  .updateDailyReminder();
+                              if (mounted) setState(() {});
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      "Error updating reminder: $e",
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceGrey,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Reminder Time",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                persistence.getDailyReminderTime(),
+                                style: const TextStyle(
+                                  color: AppTheme.primaryGreen,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 32),
+
                     // Data Management
                     Text(
                       "Data Management",
@@ -564,6 +801,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationToggle(
+    String title,
+    String subtitle,
+    IconData icon,
+    bool value,
+    Function(bool) onChanged,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceGrey,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.primaryGreen, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppTheme.textGrey,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppTheme.primaryGreen,
+            activeTrackColor: AppTheme.primaryGreen.withValues(alpha: 0.3),
+            inactiveThumbColor: AppTheme.textGrey,
+            inactiveTrackColor: AppTheme.surfaceGreyLight,
+          ),
+        ],
       ),
     );
   }
