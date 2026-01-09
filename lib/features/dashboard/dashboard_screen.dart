@@ -10,11 +10,34 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissions();
+  }
+
+  Future<void> _checkPermissions() async {
+    final persistence = ref.read(persistenceServiceProvider);
+    final notificationService = ref.read(notificationServiceProvider);
+
+    if (persistence.getNotificationsEnabled()) {
+      final granted = await notificationService.isPermissionGranted();
+      if (!granted) {
+        await notificationService.requestPermissions();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
     final userProfileAsync = ref.watch(userProfileProvider);
 

@@ -13,6 +13,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/sync_service.dart';
 import 'package:budgetti/core/services/backup_service.dart';
+import 'package:budgetti/core/services/notification_service.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError();
+});
+
+final persistenceServiceProvider = Provider<PersistenceService>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return PersistenceService(prefs);
+});
 
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 
@@ -24,6 +36,10 @@ final syncServiceProvider = Provider<SyncService>((ref) {
 final backupServiceProvider = Provider<BackupService>((ref) {
   final db = ref.watch(databaseProvider);
   return BackupService(db);
+});
+
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  return NotificationService();
 });
 
 // Provider that tracks current user ID and updates when auth state changes

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
+import 'package:budgetti/core/services/notification_logic.dart';
 
 class AddTransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
@@ -153,6 +154,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       } else {
         await service.addTransaction(transaction);
       }
+
+      // Check for budget alerts
+      ref.read(notificationLogicProvider).checkBudgetAlerts(transaction);
 
       // Refresh providers to update UI across the app
       ref.invalidate(accountsProvider);
