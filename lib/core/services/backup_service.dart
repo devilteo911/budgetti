@@ -39,4 +39,75 @@ class BackupService {
     // ignore: deprecated_member_use
     await Share.shareXFiles([XFile(file.path)], text: 'Budgetti Backup');
   }
+
+  Future<void> importDatabase(File file) async {
+    final jsonString = await file.readAsString();
+    final data = jsonDecode(jsonString) as Map<String, dynamic>;
+
+    // 1. Validate keys
+    final requiredKeys = [
+      'accounts',
+      'transactions',
+      'categories',
+      'tags',
+      'budgets',
+    ];
+    for (var key in requiredKeys) {
+      if (!data.containsKey(key)) {
+        throw Exception('Invalid backup file: Missing $key');
+      }
+    }
+
+    // 2. Parse data
+    final accounts = (data['accounts'] as List)
+        .map((e) => Account.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final transactions = (data['transactions'] as List).map((e) {
+      try {
+        final map = e as Map<String, dynamic>;
+        // Robust handling for tags list
+        if (map['tags'] != null) {
+          if (map['tags'] is List) {
+            // Explicitly cast to List<String>
+            map['tags'] = List<String>.from(map['tags'] as List);
+          } else {
+            // Fallback for unexpected types
+            map['tags'] = [];
+          }
+        }
+        return Transaction.fromJson(map);
+      } catch (e) {
+        print('Error parsing transaction: $e');
+        rethrow;
+      }
+    }).toList();
+    final categories = (data['categories'] as List)
+        .map((e) => Category.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final tags = (data['tags'] as List)
+        .map((e) => Tag.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final budgets = (data['budgets'] as List)
+        .map((e) => Budget.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    // 3. Replace data in transaction
+    await _db.transaction(() async {
+      // Clear all tables
+      await _db.delete(_db.transactions).go();
+      await _db.delete(_db.budgets).go();
+      await _db.delete(_db.accounts).go();
+      await _db.delete(_db.categories).go();
+      await _db.delete(_db.tags).go();
+
+      // Insert new data
+      await _db.batch((batch) {
+        batch.insertAll(_db.accounts, accounts);
+        batch.insertAll(_db.categories, categories);
+        batch.insertAll(_db.tags, tags);
+        batch.insertAll(_db.budgets, budgets);
+        batch.insertAll(_db.transactions, transactions);
+      });
+    });
+  }
 }
