@@ -100,11 +100,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _handleGoogleSignIn() async {
     try {
       await ref.read(googleDriveServiceProvider).signIn();
-    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Sign in failed: $e')));
+        ).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully connected to Google Drive'),
+            backgroundColor: AppTheme.primaryGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        String errorMessage = 'Sign in failed';
+        final errorString = e.toString();
+
+        if (errorString.contains('apiException: 10') ||
+            errorString.contains('DEVELOPER_ERROR')) {
+          errorMessage =
+              'Google Sign-In is not configured. Please check the setup guide (GOOGLE_DRIVE_SETUP.md) for instructions.';
+        } else if (errorString.contains('cancelled')) {
+          errorMessage = 'Sign-in was cancelled';
+        } else if (errorString.contains('network')) {
+          errorMessage = 'Network error. Check your internet connection.';
+        } else {
+          errorMessage = 'Sign in failed: ${e.toString()}';
+        }
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: errorString.contains('apiException: 10')
+                ? SnackBarAction(
+                    label: 'Help',
+                    textColor: Colors.white,
+                    onPressed: () {
+                      // Could open the setup documentation or show a dialog
+                    },
+                  )
+                : null,
+          ),
+        );
       }
     }
   }
