@@ -2,15 +2,37 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:budgetti/core/database/database.dart';
 
+import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 class BackupService {
   final AppDatabase _db;
+  final GoogleDriveService _driveService;
 
-  BackupService(this._db);
+  BackupService(this._db, this._driveService);
 
   Future<void> exportDatabase() async {
+    final file = await _createBackupFile();
+    // ignore: deprecated_member_use
+    await Share.shareXFiles([XFile(file.path)], text: 'Budgetti Backup');
+  }
+
+  Future<void> backupToDrive() async {
+    final file = await _createBackupFile();
+    await _driveService.uploadBackup(file);
+  }
+
+  Future<void> restoreFromDrive(String fileId) async {
+    final tempDir = await getTemporaryDirectory();
+    final file = await _driveService.downloadBackup(
+      fileId,
+      '${tempDir.path}/restore_${DateTime.now().millisecondsSinceEpoch}.json',
+    );
+    await importDatabase(file);
+  }
+
+  Future<File> _createBackupFile() async {
     // 1. Fetch all data
     final accounts = await _db.select(_db.accounts).get();
     final transactions = await _db.select(_db.transactions).get();
@@ -34,10 +56,7 @@ class BackupService {
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/budgetti_backup_${DateTime.now().millisecondsSinceEpoch}.json');
     await file.writeAsString(jsonString);
-
-    // 4. Share
-    // ignore: deprecated_member_use
-    await Share.shareXFiles([XFile(file.path)], text: 'Budgetti Backup');
+    return file;
   }
 
   Future<void> importDatabase(File file) async {

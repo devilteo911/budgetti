@@ -14,6 +14,7 @@ import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/sync_service.dart';
 import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
+import 'package:budgetti/core/services/google_drive_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,9 +34,14 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   return SyncService(db);
 });
 
+final googleDriveServiceProvider = Provider<GoogleDriveService>((ref) {
+  return GoogleDriveService();
+});
+
 final backupServiceProvider = Provider<BackupService>((ref) {
   final db = ref.watch(databaseProvider);
-  return BackupService(db);
+  final driveService = ref.watch(googleDriveServiceProvider);
+  return BackupService(db, driveService);
 });
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {

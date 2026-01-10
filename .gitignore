@@ -43,3 +43,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Google Services (DO NOT commit these files with real credentials)
+# Remove these lines only if you're using Firebase and want to commit config files
+# google-services.json
+# GoogleService-Info.plist
+
+# Keep documentation files
+!*.md
+!README.md
+!GOOGLE_DRIVE_SETUP.md
+!QUICK_START.md
+!SETUP_CHECKLIST.md

@@ -45,5 +45,19 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- TODO: Replace with your iOS URL scheme from Google Cloud Console -->
+				<!-- After creating iOS OAuth client, add the reversed client ID here -->
+				<!-- Example: com.googleusercontent.apps.123456789-abcdefghijklmnop -->
+				<string>com.googleusercontent.apps.REPLACE-WITH-YOUR-CLIENT-ID</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
