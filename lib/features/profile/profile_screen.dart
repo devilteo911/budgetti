@@ -1,5 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -21,11 +25,24 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoading = false;
   bool _permissionMissing = false;
+  GoogleSignInAccount? _googleUser;
+  StreamSubscription<GoogleSignInAccount?>? _googleUserSubscription;
 
   @override
   void initState() {
     super.initState();
     _checkPermissionStatus();
+    final driveService = ref.read(googleDriveServiceProvider);
+    _googleUserSubscription = driveService.onCurrentUserChanged.listen((user) {
+      if (mounted) setState(() => _googleUser = user);
+    });
+    driveService.signInSilently();
+  }
+
+  @override
+  void dispose() {
+    _googleUserSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkPermissionStatus() async {
@@ -75,6 +92,111 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    try {
+      await ref.read(googleDriveServiceProvider).signIn();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Sign in failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _handleGoogleSignOut() async {
+    await ref.read(googleDriveServiceProvider).signOut();
+  }
+
+  Future<void> _backupToDrive() async {
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(backupServiceProvider).backupToDrive();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Backup successful')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _restoreFromDrive() async {
+    setState(() => _isLoading = true);
+    try {
+      final driveService = ref.read(googleDriveServiceProvider);
+      final backups = await driveService.listBackups();
+
+      if (!mounted) return;
+
+      if (backups.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No backups found')));
+        return;
+      }
+
+      // Show dialog to pick backup
+      final selectedFile = await showDialog<drive.File>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppTheme.surfaceGrey,
+          title: const Text(
+            'Select Backup',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: backups.length,
+              itemBuilder: (context, index) {
+                final file = backups[index];
+                return ListTile(
+                  title: Text(
+                    file.name ?? 'Unknown',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  subtitle: Text(
+                    file.createdTime?.toString() ?? '',
+                    style: const TextStyle(color: AppTheme.textGrey),
+                  ),
+                  onTap: () => Navigator.pop(context, file),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      if (selectedFile != null && selectedFile.id != null) {
+        await ref
+            .read(backupServiceProvider)
+            .restoreFromDrive(selectedFile.id!);
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Restore successful')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -588,6 +710,162 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ],
                           ),
                         ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 32),
+
+                    // Google Drive Backup
+                    Text(
+                      "Google Drive Backup",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppTheme.textGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    if (_googleUser == null)
+                      InkWell(
+                        onTap: _handleGoogleSignIn,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceGrey,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Connect Google Drive",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Icon(
+                                Icons.add_to_drive,
+                                color: AppTheme.primaryGreen,
+                                size: 20,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else ...[
+                      // User Info & Disconnect
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.primaryGreen),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppTheme.primaryGreen,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Connected",
+                                    style: TextStyle(
+                                      color: AppTheme.primaryGreen,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  if (_googleUser!.email.isNotEmpty)
+                                    Text(
+                                      _googleUser!.email,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _handleGoogleSignOut,
+                              icon: const Icon(Icons.logout, color: Colors.red),
+                              tooltip: 'Disconnect',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Backup & Restore Actions
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: _isLoading ? null : _backupToDrive,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceGrey,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  children: [
+                                    const Icon(
+                                      Icons.cloud_upload,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      "Backup",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: _isLoading ? null : _restoreFromDrive,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceGrey,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  children: [
+                                    const Icon(
+                                      Icons.cloud_download,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      "Restore",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
 
