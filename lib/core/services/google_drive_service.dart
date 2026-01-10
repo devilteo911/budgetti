@@ -17,19 +17,27 @@ class GoogleDriveService {
 
   GoogleSignInAccount? _currentUser;
 
-  // Expose current user
+  // Expose current user - synchronously returns the current state
   GoogleSignInAccount? get currentUser => _currentUser;
 
+  // Stream that emits when user state changes
+  // NOTE: This stream from GoogleSignIn plugin may not emit immediately after signIn()
   Stream<GoogleSignInAccount?> get onCurrentUserChanged =>
       _googleSignIn.onCurrentUserChanged;
 
   Future<void> signIn() async {
     try {
-      _currentUser = await _googleSignIn.signIn();
-      if (_currentUser == null) {
+      final user = await _googleSignIn.signIn();
+      if (user == null) {
         throw Exception('Sign-in was cancelled by user');
       }
+
+      // CRITICAL: Update our local state immediately
+      _currentUser = user;
       debugPrint('Successfully signed in: ${_currentUser!.email}');
+
+      // Note: The onCurrentUserChanged stream should also emit, but we update
+      // _currentUser immediately to ensure synchronous access via currentUser getter
     } on Exception catch (e) {
       debugPrint('Error signing in: $e');
       _handleSignInError(e);

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:budgetti/core/services/google_drive_service.dart';
@@ -32,11 +33,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void initState() {
     super.initState();
     _checkPermissionStatus();
+    _initializeGoogleDriveState();
+  }
+
+  void _initializeGoogleDriveState() {
     final driveService = ref.read(googleDriveServiceProvider);
+
+    // CRITICAL FIX: Set initial state from current user (if already signed in)
+    _googleUser = driveService.currentUser;
+
+    // Listen to future changes
     _googleUserSubscription = driveService.onCurrentUserChanged.listen((user) {
-      if (mounted) setState(() => _googleUser = user);
+      if (mounted) {
+        setState(() {
+          _googleUser = user;
+        });
+        debugPrint('Google Drive user state changed: ${user?.email ?? "signed out"}');
+      }
     });
-    driveService.signInSilently();
+
+    // Attempt silent sign-in if not already signed in
+    if (_googleUser == null) {
+      driveService.signInSilently();
+    }
   }
 
   @override
@@ -99,8 +118,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _handleGoogleSignIn() async {
     try {
-      await ref.read(googleDriveServiceProvider).signIn();
+      final driveService = ref.read(googleDriveServiceProvider);
+      await driveService.signIn();
+
+      // CRITICAL FIX: Immediately update local state after successful sign-in
+      // This ensures the UI updates right away, even if the stream hasn't emitted yet
       if (mounted) {
+        setState(() {
+          _googleUser = driveService.currentUser;
+        });
+
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(
@@ -151,6 +178,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _handleGoogleSignOut() async {
     await ref.read(googleDriveServiceProvider).signOut();
+
+    // Update local state immediately after sign-out
+    if (mounted) {
+      setState(() {
+        _googleUser = null;
+      });
+    }
   }
 
   Future<void> _backupToDrive() async {
