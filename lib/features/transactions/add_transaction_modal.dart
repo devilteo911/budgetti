@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:budgetti/core/services/ocr_service.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 
 class AddTransactionModal extends ConsumerStatefulWidget {
@@ -23,7 +22,6 @@ class AddTransactionModal extends ConsumerStatefulWidget {
 
 class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  final _ocrService = OcrService();
   final _picker = ImagePicker();
   bool _isScanning = false;
   
@@ -87,7 +85,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     _amountController.dispose();
     _descriptionController.dispose();
     _animationController.dispose();
-    _ocrService.dispose();
     super.dispose();
   }
 
@@ -97,7 +94,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
     setState(() => _isScanning = true);
     try {
-      final result = await _ocrService.recognizeReceipt(image.path);
+      final ocrService = ref.read(ocrServiceProvider);
+      final result = await ocrService.recognizeReceipt(image.path);
       
       if (result.amount != null) {
         _amountController.text = result.amount!.toStringAsFixed(2);
