@@ -6,6 +6,7 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
+import 'package:budgetti/features/transactions/transaction_detail_screen.dart';
 import 'package:budgetti/features/transactions/transaction_filter_sheet.dart';
 import 'package:budgetti/features/settings/wallets_screen.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
@@ -245,6 +246,19 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                       onTap: () {
                                         if (_isSelectionMode) {
                                           _toggleSelection(item.id);
+                                        } else {
+                                          // Navigate to Fast Categorization
+                                          final originalIndex = transactions
+                                              .indexOf(item);
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  TransactionDetailScreen(
+                                                    transactions: transactions,
+                                                    initialIndex: originalIndex,
+                                                  ),
+                                            ),
+                                          );
                                         }
                                       },
                                     );
@@ -355,6 +369,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       margin: const EdgeInsets.only(bottom: 8, top: 4),
       child: ListView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
         children: [
           if (filters.dateRange != null)
             _ActiveFilterChip(
