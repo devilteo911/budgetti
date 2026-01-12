@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
-import 'package:budgetti/core/services/sync_service.dart';
+
 import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
@@ -31,10 +31,7 @@ final persistenceServiceProvider = Provider<PersistenceService>((ref) {
 
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 
-final syncServiceProvider = Provider<SyncService>((ref) {
-  final db = ref.watch(databaseProvider);
-  return SyncService(db);
-});
+
 
 final googleDriveServiceProvider = Provider<GoogleDriveService>((ref) {
   return GoogleDriveService();
