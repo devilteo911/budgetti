@@ -28,8 +28,8 @@ class ImportService {
             id: const Uuid().v4(),
             accountId: '', // To be filled by user selection
             amount: amount,
-            date: date,
-            description: (memo != null && memo.isNotEmpty) ? memo : (payee ?? 'Imported Transaction'),
+              date: _determineDate(memo, date) ?? DateTime.now(),
+              description: _determineDescription(memo, payee),
             category: category ?? 'Uncategorized',
             tags: [],
           ));
@@ -123,5 +123,51 @@ class ImportService {
     
     // Manual fallback for yy vs yyyy ambiguity if DateFormat fails or assumes 1900s for short years sometimes
     return null;
+  }
+
+  DateTime? _determineDate(String? memo, DateTime? defaultDate) {
+    if (memo != null && memo.isNotEmpty) {
+      // Look for "Data dd/MM/yy" or "Data dd/MM/yyyy"
+      final dateRegex = RegExp(
+        r'MData\s+(\d{1,2}/\d{1,2}/\d{2,4})',
+        caseSensitive: false,
+      );
+      final match = dateRegex.firstMatch(memo);
+      if (match != null && match.group(1) != null) {
+        final extractedDateStr = match.group(1)!;
+        final parsed = _parseDate(extractedDateStr);
+        if (parsed != null) return parsed;
+      }
+    }
+    return defaultDate;
+  }
+
+  String _determineDescription(String? memo, String? payee) {
+    if (memo != null && memo.isNotEmpty) {
+      // Case 1: Esercente ... Imp.in
+      // Example: ... Esercente:   Iper Conad Imp.in ...
+      final esercenteRegex = RegExp(
+        r'Esercente:\s*(.*?)\s*Imp\.in',
+        caseSensitive: false,
+      );
+      final match1 = esercenteRegex.firstMatch(memo);
+      if (match1 != null && match1.group(1) != null) {
+        return match1.group(1)!.trim();
+      }
+
+      // Case 2: A Favore ... Codice Mandato
+      // Example: ... A Favore Iliad Codice Mandato ...
+      final favoreRegex = RegExp(
+        r'A Favore\s*(.*?)\s*Codice Mandato',
+        caseSensitive: false,
+      );
+      final match2 = favoreRegex.firstMatch(memo);
+      if (match2 != null && match2.group(1) != null) {
+        return match2.group(1)!.trim();
+      }
+
+      return memo;
+    }
+    return payee ?? 'Imported Transaction';
   }
 }

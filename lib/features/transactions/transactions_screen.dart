@@ -279,6 +279,26 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               icon: const Icon(Icons.edit, color: AppTheme.primaryGreen),
               onPressed: () => _editSelected(transactions),
             ),
+          if (transactions != null)
+            IconButton(
+              icon: Icon(
+                _selectedIds.length == transactions.length
+                    ? Icons.deselect_outlined
+                    : Icons.select_all,
+                color: AppTheme.primaryGreen,
+              ),
+              onPressed: () {
+                setState(() {
+                  final allIds = transactions.map((t) => t.id).toSet();
+                  if (_selectedIds.length == transactions.length &&
+                      _selectedIds.containsAll(allIds)) {
+                    _selectedIds.clear();
+                  } else {
+                    _selectedIds.addAll(allIds);
+                  }
+                });
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: _deleteSelected,
