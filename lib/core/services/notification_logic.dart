@@ -34,7 +34,7 @@ class NotificationLogic {
     if (budget == null || budget.limit <= 0) return;
 
     // 2. Calculate current month spending for this category
-    final transactions = await _financeService.getTransactions(null);
+    final transactions = await _financeService.getTransactions();
     final currentMonthSpending = transactions
         .where((t) =>
             t.category == categoryName &&

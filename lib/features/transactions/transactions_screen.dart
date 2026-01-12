@@ -27,7 +27,27 @@ class TransactionsScreen extends ConsumerStatefulWidget {
 
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   final Set<String> _selectedIds = {};
+  final ScrollController _scrollController = ScrollController();
   bool get _isSelectionMode => _selectedIds.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(paginatedTransactionsProvider.notifier).loadMore();
+    }
+  }
 
   void _toggleSelection(String id) {
     setState(() {
@@ -68,7 +88,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         setState(() {
           _selectedIds.clear();
         });
-        ref.invalidate(transactionsProvider);
+        ref.invalidate(paginatedTransactionsProvider); // Refresh balance
         ref.invalidate(accountsProvider); // Refresh balance
       } catch (e) {
         if (mounted) {
@@ -101,14 +121,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
-    final selectedWalletId = ref.watch(selectedWalletIdProvider);
-    
-    // Fetch transactions for selected wallet (or ALL if null)
-    final transactionsAsync = ref.watch(filteredTransactionsProvider(selectedWalletId));
+    final paginatedState = ref.watch(paginatedTransactionsProvider);
+    final transactions = paginatedState.transactions;
     final filters = ref.watch(transactionFiltersProvider);
 
-    return transactionsAsync.when(
-      loading: () => Scaffold(
+    if (paginatedState.isLoading && transactions.isEmpty) {
+      return Scaffold(
         appBar: _buildAppBar(null, accountsAsync.value ?? []),
         body: ShimmerLoading(
           child: ListView.separated(
@@ -118,24 +136,36 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             itemBuilder: (context, index) => const TransactionItemSkeleton(),
           ),
         ),
-      ),
-      error: (err, stack) => Scaffold(
+      );
+    }
+
+    if (paginatedState.error != null && transactions.isEmpty) {
+      return Scaffold(
         appBar: _buildAppBar(null, accountsAsync.value ?? []),
-        body: Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
-      ),
-      data: (transactions) {
-        return Scaffold(
-          appBar: _buildAppBar(transactions, accountsAsync.value ?? []),
-          body: SafeArea(
-            child: Column(
-              children: [
-                if (!filters.isEmpty) _buildActiveFilters(filters),
-                Expanded(
-                  child: transactions.isEmpty
-                      ? const Center(
-                          child: Text("No transactions found",
-                              style: TextStyle(color: AppTheme.textGrey)))
-                      : Builder(
+        body: Center(
+          child: Text(
+            'Error: ${paginatedState.error}',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: _buildAppBar(transactions, accountsAsync.value ?? []),
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (!filters.isEmpty) _buildActiveFilters(filters),
+            Expanded(
+              child: transactions.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No transactions found",
+                        style: TextStyle(color: AppTheme.textGrey),
+                      ),
+                    )
+                  : Builder(
                           builder: (context) {
                             final grouped = _groupTransactionsByDate(transactions);
                             final sortedDates = grouped.keys.toList()
@@ -166,16 +196,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                             // Add bottom padding item
                             flatList.add(const SizedBox(height: 80));
 
-                            final scrollController = ScrollController();
-
                             return DraggableScrollbar.semicircle(
-                              controller: scrollController,
+                          controller: _scrollController,
                               backgroundColor: AppTheme.surfaceGrey,
                               labelTextBuilder: (double offset) {
                                 if (sortedDates.isEmpty) return const Text("");
 
                                 final totalScrollable =
-                                    scrollController.position.maxScrollExtent;
+                                _scrollController.position.maxScrollExtent;
                                 final current = offset;
 
                                 if (totalScrollable == 0)
@@ -194,13 +222,20 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                 final index = (fraction * (flatList.length - 1))
                                     .floor();
 
-                                final date =
-                                    dateIndices[index] ?? sortedDates.first;
+                            var labelDate = DateTime.now();
 
+                            int nearestHeader = -1;
+                            for (var idx in dateIndices.keys) {
+                              if (idx <= index && idx > nearestHeader)
+                                nearestHeader = idx;
+                            }
+                            if (nearestHeader != -1)
+                              labelDate = dateIndices[nearestHeader]!;
+                                
                                 return Text(
                                   DateFormat(
                                     'MMM yyyy',
-                                  ).format(date).toUpperCase(),
+                              ).format(labelDate).toUpperCase(),
                                   style: const TextStyle(
                                     color: Colors.black,
                                     fontWeight: FontWeight.bold,
@@ -208,12 +243,23 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                 );
                               },
                               child: ListView.builder(
-                                controller: scrollController,
+                            controller: _scrollController,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0,
+                              horizontal: 16.0,
+                              vertical: 16
                                 ),
-                                itemCount: flatList.length,
+                            itemCount:
+                                flatList.length +
+                                (paginatedState.hasMore ? 1 : 0),
                                 itemBuilder: (context, index) {
+                              if (index == flatList.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 32.0),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              }
                                   final item = flatList[index];
                                   if (item is Widget)
                                     return item; // SizedBox padding
@@ -272,9 +318,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 ),
               ],
             ),
-          ),
-        );
-      },
+      ),
     );
   }
 

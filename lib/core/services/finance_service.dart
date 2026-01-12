@@ -12,7 +12,15 @@ abstract class FinanceService {
   Future<void> addAccount(model_account.Account account);
   Future<void> updateAccount(model_account.Account account);
   Future<void> deleteAccount(String id);
-  Future<List<model_txn.Transaction>> getTransactions(String? accountId);
+  Future<List<model_txn.Transaction>> getTransactions({
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<String>? categories,
+    List<String>? tags,
+    int? limit,
+    int? offset,
+  });
   Future<void> addTransaction(model_txn.Transaction transaction);
   Future<void> updateTransaction(model_txn.Transaction transaction);
   Future<void> deleteTransactions(List<String> ids);
@@ -201,7 +209,15 @@ class LocalFinanceService implements FinanceService {
   }
 
   @override
-  Future<List<model_txn.Transaction>> getTransactions(String? accountId) async {
+  Future<List<model_txn.Transaction>> getTransactions({
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<String>? categories,
+    List<String>? tags,
+    int? limit,
+    int? offset,
+  }) async {
     var query = _db.select(_db.transactions)
       ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
 
@@ -209,9 +225,49 @@ class LocalFinanceService implements FinanceService {
       query.where((tbl) => tbl.accountId.equals(accountId));
     }
 
-    final result = await (query..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)])).get();
+    if (startDate != null || endDate != null) {
+      query.where(
+        (tbl) => tbl.date.isBetween(
+          Constant(startDate ?? DateTime(1900)),
+          Constant(endDate ?? DateTime(2100)),
+        ),
+      );
+    }
 
-    return result.map((t) => model_txn.Transaction(
+    if (categories != null && categories.isNotEmpty) {
+      query.where((tbl) => tbl.category.isIn(categories));
+    }
+
+    // Tag filtering: Since tags are stored as a JSON list in a text column,
+    // we use a simple LIKE approach for simplicity if drift doesn't support json_each easily here.
+    // However, for better accuracy with JSON, we'd need custom expressions.
+    // For now, let's use a basic isIn if we can, but since it's a mapped list,
+    // filtering by 'any tag in list' is a bit complex in pure Drift without custom SQL.
+    // Let's implement a basic version that filters in memory for tags if needed,
+    // or use a more efficient SQL if possible.
+    // Actually, SQLite has json_each. Let's see if we can do it.
+    // For now, let's keep it simple: if tags are provided, filter the result set.
+    // WAIT, better to stay consistent: I'll filter date and category in DB, and tags in memory for now if needed,
+    // OR try to use a LIKE based approach which works 99% of the time for simple JSON.
+    if (tags != null && tags.isNotEmpty) {
+      // Very basic approach: if any of the tags is in the JSON string
+      // This is not perfect but works for simple cases.
+      // Better approach: filter in-memory after fetching or use custom expression.
+    }
+
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+    ]);
+
+    if (limit != null) {
+      query.limit(limit, offset: offset);
+    }
+
+    final result = await query.get();
+
+    var txns = result
+        .map(
+          (t) => model_txn.Transaction(
       id: t.id,
       accountId: t.accountId ?? '1',
       amount: t.amount,
@@ -220,6 +276,15 @@ class LocalFinanceService implements FinanceService {
       date: t.date,
       tags: t.tags ?? [],
     )).toList();
+
+    // Secondary filtering for tags if provided
+    if (tags != null && tags.isNotEmpty) {
+      txns = txns
+          .where((t) => t.tags.any((tag) => tags.contains(tag)))
+          .toList();
+    }
+
+    return txns;
   }
 
   @override
