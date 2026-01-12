@@ -2591,6 +2591,1655 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
   }
 }
 
+class $BankConnectionsTable extends BankConnections
+    with TableInfo<$BankConnectionsTable, BankConnection> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BankConnectionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _institutionIdMeta = const VerificationMeta(
+    'institutionId',
+  );
+  @override
+  late final GeneratedColumn<String> institutionId = GeneratedColumn<String>(
+    'institution_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _institutionNameMeta = const VerificationMeta(
+    'institutionName',
+  );
+  @override
+  late final GeneratedColumn<String> institutionName = GeneratedColumn<String>(
+    'institution_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _accountHolderNameMeta = const VerificationMeta(
+    'accountHolderName',
+  );
+  @override
+  late final GeneratedColumn<String> accountHolderName =
+      GeneratedColumn<String>(
+        'account_holder_name',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _accountNumberMaskedMeta =
+      const VerificationMeta('accountNumberMasked');
+  @override
+  late final GeneratedColumn<String> accountNumberMasked =
+      GeneratedColumn<String>(
+        'account_number_masked',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _requisitionIdMeta = const VerificationMeta(
+    'requisitionId',
+  );
+  @override
+  late final GeneratedColumn<String> requisitionId = GeneratedColumn<String>(
+    'requisition_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _walletIdMeta = const VerificationMeta(
+    'walletId',
+  );
+  @override
+  late final GeneratedColumn<String> walletId = GeneratedColumn<String>(
+    'wallet_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSyncAtMeta = const VerificationMeta(
+    'lastSyncAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncAt = GeneratedColumn<DateTime>(
+    'last_sync_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _accessValidUntilMeta = const VerificationMeta(
+    'accessValidUntil',
+  );
+  @override
+  late final GeneratedColumn<DateTime> accessValidUntil =
+      GeneratedColumn<DateTime>(
+        'access_valid_until',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    institutionId,
+    institutionName,
+    accountHolderName,
+    accountNumberMasked,
+    requisitionId,
+    walletId,
+    status,
+    lastSyncAt,
+    createdAt,
+    accessValidUntil,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bank_connections';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BankConnection> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('institution_id')) {
+      context.handle(
+        _institutionIdMeta,
+        institutionId.isAcceptableOrUnknown(
+          data['institution_id']!,
+          _institutionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_institutionIdMeta);
+    }
+    if (data.containsKey('institution_name')) {
+      context.handle(
+        _institutionNameMeta,
+        institutionName.isAcceptableOrUnknown(
+          data['institution_name']!,
+          _institutionNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_institutionNameMeta);
+    }
+    if (data.containsKey('account_holder_name')) {
+      context.handle(
+        _accountHolderNameMeta,
+        accountHolderName.isAcceptableOrUnknown(
+          data['account_holder_name']!,
+          _accountHolderNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_accountHolderNameMeta);
+    }
+    if (data.containsKey('account_number_masked')) {
+      context.handle(
+        _accountNumberMaskedMeta,
+        accountNumberMasked.isAcceptableOrUnknown(
+          data['account_number_masked']!,
+          _accountNumberMaskedMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_accountNumberMaskedMeta);
+    }
+    if (data.containsKey('requisition_id')) {
+      context.handle(
+        _requisitionIdMeta,
+        requisitionId.isAcceptableOrUnknown(
+          data['requisition_id']!,
+          _requisitionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_requisitionIdMeta);
+    }
+    if (data.containsKey('wallet_id')) {
+      context.handle(
+        _walletIdMeta,
+        walletId.isAcceptableOrUnknown(data['wallet_id']!, _walletIdMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('last_sync_at')) {
+      context.handle(
+        _lastSyncAtMeta,
+        lastSyncAt.isAcceptableOrUnknown(
+          data['last_sync_at']!,
+          _lastSyncAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('access_valid_until')) {
+      context.handle(
+        _accessValidUntilMeta,
+        accessValidUntil.isAcceptableOrUnknown(
+          data['access_valid_until']!,
+          _accessValidUntilMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BankConnection map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BankConnection(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      institutionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}institution_id'],
+      )!,
+      institutionName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}institution_name'],
+      )!,
+      accountHolderName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_holder_name'],
+      )!,
+      accountNumberMasked: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_number_masked'],
+      )!,
+      requisitionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}requisition_id'],
+      )!,
+      walletId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}wallet_id'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      lastSyncAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_sync_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      accessValidUntil: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}access_valid_until'],
+      ),
+    );
+  }
+
+  @override
+  $BankConnectionsTable createAlias(String alias) {
+    return $BankConnectionsTable(attachedDatabase, alias);
+  }
+}
+
+class BankConnection extends DataClass implements Insertable<BankConnection> {
+  final String id;
+  final String userId;
+  final String institutionId;
+  final String institutionName;
+  final String accountHolderName;
+  final String accountNumberMasked;
+  final String requisitionId;
+  final String? walletId;
+  final String status;
+  final DateTime? lastSyncAt;
+  final DateTime createdAt;
+  final DateTime? accessValidUntil;
+  const BankConnection({
+    required this.id,
+    required this.userId,
+    required this.institutionId,
+    required this.institutionName,
+    required this.accountHolderName,
+    required this.accountNumberMasked,
+    required this.requisitionId,
+    this.walletId,
+    required this.status,
+    this.lastSyncAt,
+    required this.createdAt,
+    this.accessValidUntil,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['institution_id'] = Variable<String>(institutionId);
+    map['institution_name'] = Variable<String>(institutionName);
+    map['account_holder_name'] = Variable<String>(accountHolderName);
+    map['account_number_masked'] = Variable<String>(accountNumberMasked);
+    map['requisition_id'] = Variable<String>(requisitionId);
+    if (!nullToAbsent || walletId != null) {
+      map['wallet_id'] = Variable<String>(walletId);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || lastSyncAt != null) {
+      map['last_sync_at'] = Variable<DateTime>(lastSyncAt);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || accessValidUntil != null) {
+      map['access_valid_until'] = Variable<DateTime>(accessValidUntil);
+    }
+    return map;
+  }
+
+  BankConnectionsCompanion toCompanion(bool nullToAbsent) {
+    return BankConnectionsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      institutionId: Value(institutionId),
+      institutionName: Value(institutionName),
+      accountHolderName: Value(accountHolderName),
+      accountNumberMasked: Value(accountNumberMasked),
+      requisitionId: Value(requisitionId),
+      walletId: walletId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(walletId),
+      status: Value(status),
+      lastSyncAt: lastSyncAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncAt),
+      createdAt: Value(createdAt),
+      accessValidUntil: accessValidUntil == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accessValidUntil),
+    );
+  }
+
+  factory BankConnection.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BankConnection(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      institutionId: serializer.fromJson<String>(json['institutionId']),
+      institutionName: serializer.fromJson<String>(json['institutionName']),
+      accountHolderName: serializer.fromJson<String>(json['accountHolderName']),
+      accountNumberMasked: serializer.fromJson<String>(
+        json['accountNumberMasked'],
+      ),
+      requisitionId: serializer.fromJson<String>(json['requisitionId']),
+      walletId: serializer.fromJson<String?>(json['walletId']),
+      status: serializer.fromJson<String>(json['status']),
+      lastSyncAt: serializer.fromJson<DateTime?>(json['lastSyncAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      accessValidUntil: serializer.fromJson<DateTime?>(
+        json['accessValidUntil'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'institutionId': serializer.toJson<String>(institutionId),
+      'institutionName': serializer.toJson<String>(institutionName),
+      'accountHolderName': serializer.toJson<String>(accountHolderName),
+      'accountNumberMasked': serializer.toJson<String>(accountNumberMasked),
+      'requisitionId': serializer.toJson<String>(requisitionId),
+      'walletId': serializer.toJson<String?>(walletId),
+      'status': serializer.toJson<String>(status),
+      'lastSyncAt': serializer.toJson<DateTime?>(lastSyncAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'accessValidUntil': serializer.toJson<DateTime?>(accessValidUntil),
+    };
+  }
+
+  BankConnection copyWith({
+    String? id,
+    String? userId,
+    String? institutionId,
+    String? institutionName,
+    String? accountHolderName,
+    String? accountNumberMasked,
+    String? requisitionId,
+    Value<String?> walletId = const Value.absent(),
+    String? status,
+    Value<DateTime?> lastSyncAt = const Value.absent(),
+    DateTime? createdAt,
+    Value<DateTime?> accessValidUntil = const Value.absent(),
+  }) => BankConnection(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    institutionId: institutionId ?? this.institutionId,
+    institutionName: institutionName ?? this.institutionName,
+    accountHolderName: accountHolderName ?? this.accountHolderName,
+    accountNumberMasked: accountNumberMasked ?? this.accountNumberMasked,
+    requisitionId: requisitionId ?? this.requisitionId,
+    walletId: walletId.present ? walletId.value : this.walletId,
+    status: status ?? this.status,
+    lastSyncAt: lastSyncAt.present ? lastSyncAt.value : this.lastSyncAt,
+    createdAt: createdAt ?? this.createdAt,
+    accessValidUntil: accessValidUntil.present
+        ? accessValidUntil.value
+        : this.accessValidUntil,
+  );
+  BankConnection copyWithCompanion(BankConnectionsCompanion data) {
+    return BankConnection(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      institutionId: data.institutionId.present
+          ? data.institutionId.value
+          : this.institutionId,
+      institutionName: data.institutionName.present
+          ? data.institutionName.value
+          : this.institutionName,
+      accountHolderName: data.accountHolderName.present
+          ? data.accountHolderName.value
+          : this.accountHolderName,
+      accountNumberMasked: data.accountNumberMasked.present
+          ? data.accountNumberMasked.value
+          : this.accountNumberMasked,
+      requisitionId: data.requisitionId.present
+          ? data.requisitionId.value
+          : this.requisitionId,
+      walletId: data.walletId.present ? data.walletId.value : this.walletId,
+      status: data.status.present ? data.status.value : this.status,
+      lastSyncAt: data.lastSyncAt.present
+          ? data.lastSyncAt.value
+          : this.lastSyncAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      accessValidUntil: data.accessValidUntil.present
+          ? data.accessValidUntil.value
+          : this.accessValidUntil,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BankConnection(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('institutionId: $institutionId, ')
+          ..write('institutionName: $institutionName, ')
+          ..write('accountHolderName: $accountHolderName, ')
+          ..write('accountNumberMasked: $accountNumberMasked, ')
+          ..write('requisitionId: $requisitionId, ')
+          ..write('walletId: $walletId, ')
+          ..write('status: $status, ')
+          ..write('lastSyncAt: $lastSyncAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('accessValidUntil: $accessValidUntil')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    institutionId,
+    institutionName,
+    accountHolderName,
+    accountNumberMasked,
+    requisitionId,
+    walletId,
+    status,
+    lastSyncAt,
+    createdAt,
+    accessValidUntil,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BankConnection &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.institutionId == this.institutionId &&
+          other.institutionName == this.institutionName &&
+          other.accountHolderName == this.accountHolderName &&
+          other.accountNumberMasked == this.accountNumberMasked &&
+          other.requisitionId == this.requisitionId &&
+          other.walletId == this.walletId &&
+          other.status == this.status &&
+          other.lastSyncAt == this.lastSyncAt &&
+          other.createdAt == this.createdAt &&
+          other.accessValidUntil == this.accessValidUntil);
+}
+
+class BankConnectionsCompanion extends UpdateCompanion<BankConnection> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<String> institutionId;
+  final Value<String> institutionName;
+  final Value<String> accountHolderName;
+  final Value<String> accountNumberMasked;
+  final Value<String> requisitionId;
+  final Value<String?> walletId;
+  final Value<String> status;
+  final Value<DateTime?> lastSyncAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> accessValidUntil;
+  final Value<int> rowid;
+  const BankConnectionsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.institutionId = const Value.absent(),
+    this.institutionName = const Value.absent(),
+    this.accountHolderName = const Value.absent(),
+    this.accountNumberMasked = const Value.absent(),
+    this.requisitionId = const Value.absent(),
+    this.walletId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.lastSyncAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.accessValidUntil = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BankConnectionsCompanion.insert({
+    required String id,
+    required String userId,
+    required String institutionId,
+    required String institutionName,
+    required String accountHolderName,
+    required String accountNumberMasked,
+    required String requisitionId,
+    this.walletId = const Value.absent(),
+    required String status,
+    this.lastSyncAt = const Value.absent(),
+    required DateTime createdAt,
+    this.accessValidUntil = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       institutionId = Value(institutionId),
+       institutionName = Value(institutionName),
+       accountHolderName = Value(accountHolderName),
+       accountNumberMasked = Value(accountNumberMasked),
+       requisitionId = Value(requisitionId),
+       status = Value(status),
+       createdAt = Value(createdAt);
+  static Insertable<BankConnection> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? institutionId,
+    Expression<String>? institutionName,
+    Expression<String>? accountHolderName,
+    Expression<String>? accountNumberMasked,
+    Expression<String>? requisitionId,
+    Expression<String>? walletId,
+    Expression<String>? status,
+    Expression<DateTime>? lastSyncAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? accessValidUntil,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (institutionId != null) 'institution_id': institutionId,
+      if (institutionName != null) 'institution_name': institutionName,
+      if (accountHolderName != null) 'account_holder_name': accountHolderName,
+      if (accountNumberMasked != null)
+        'account_number_masked': accountNumberMasked,
+      if (requisitionId != null) 'requisition_id': requisitionId,
+      if (walletId != null) 'wallet_id': walletId,
+      if (status != null) 'status': status,
+      if (lastSyncAt != null) 'last_sync_at': lastSyncAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (accessValidUntil != null) 'access_valid_until': accessValidUntil,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BankConnectionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<String>? institutionId,
+    Value<String>? institutionName,
+    Value<String>? accountHolderName,
+    Value<String>? accountNumberMasked,
+    Value<String>? requisitionId,
+    Value<String?>? walletId,
+    Value<String>? status,
+    Value<DateTime?>? lastSyncAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? accessValidUntil,
+    Value<int>? rowid,
+  }) {
+    return BankConnectionsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      institutionId: institutionId ?? this.institutionId,
+      institutionName: institutionName ?? this.institutionName,
+      accountHolderName: accountHolderName ?? this.accountHolderName,
+      accountNumberMasked: accountNumberMasked ?? this.accountNumberMasked,
+      requisitionId: requisitionId ?? this.requisitionId,
+      walletId: walletId ?? this.walletId,
+      status: status ?? this.status,
+      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
+      createdAt: createdAt ?? this.createdAt,
+      accessValidUntil: accessValidUntil ?? this.accessValidUntil,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (institutionId.present) {
+      map['institution_id'] = Variable<String>(institutionId.value);
+    }
+    if (institutionName.present) {
+      map['institution_name'] = Variable<String>(institutionName.value);
+    }
+    if (accountHolderName.present) {
+      map['account_holder_name'] = Variable<String>(accountHolderName.value);
+    }
+    if (accountNumberMasked.present) {
+      map['account_number_masked'] = Variable<String>(
+        accountNumberMasked.value,
+      );
+    }
+    if (requisitionId.present) {
+      map['requisition_id'] = Variable<String>(requisitionId.value);
+    }
+    if (walletId.present) {
+      map['wallet_id'] = Variable<String>(walletId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (lastSyncAt.present) {
+      map['last_sync_at'] = Variable<DateTime>(lastSyncAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (accessValidUntil.present) {
+      map['access_valid_until'] = Variable<DateTime>(accessValidUntil.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BankConnectionsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('institutionId: $institutionId, ')
+          ..write('institutionName: $institutionName, ')
+          ..write('accountHolderName: $accountHolderName, ')
+          ..write('accountNumberMasked: $accountNumberMasked, ')
+          ..write('requisitionId: $requisitionId, ')
+          ..write('walletId: $walletId, ')
+          ..write('status: $status, ')
+          ..write('lastSyncAt: $lastSyncAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('accessValidUntil: $accessValidUntil, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncedTransactionsTable extends SyncedTransactions
+    with TableInfo<$SyncedTransactionsTable, SyncedTransaction> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncedTransactionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _amountMeta = const VerificationMeta('amount');
+  @override
+  late final GeneratedColumn<double> amount = GeneratedColumn<double>(
+    'amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<List<String>?, String> tags =
+      GeneratedColumn<String>(
+        'tags',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<List<String>?>($SyncedTransactionsTable.$convertertagsn);
+  static const VerificationMeta _bankTransactionIdMeta = const VerificationMeta(
+    'bankTransactionId',
+  );
+  @override
+  late final GeneratedColumn<String> bankTransactionId =
+      GeneratedColumn<String>(
+        'bank_transaction_id',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _merchantNameMeta = const VerificationMeta(
+    'merchantName',
+  );
+  @override
+  late final GeneratedColumn<String> merchantName = GeneratedColumn<String>(
+    'merchant_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _suggestedCategoryMeta = const VerificationMeta(
+    'suggestedCategory',
+  );
+  @override
+  late final GeneratedColumn<String> suggestedCategory =
+      GeneratedColumn<String>(
+        'suggested_category',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _categorizationConfidenceMeta =
+      const VerificationMeta('categorizationConfidence');
+  @override
+  late final GeneratedColumn<double> categorizationConfidence =
+      GeneratedColumn<double>(
+        'categorization_confidence',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _bankConnectionIdMeta = const VerificationMeta(
+    'bankConnectionId',
+  );
+  @override
+  late final GeneratedColumn<String> bankConnectionId = GeneratedColumn<String>(
+    'bank_connection_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    accountId,
+    amount,
+    description,
+    category,
+    date,
+    tags,
+    bankTransactionId,
+    syncStatus,
+    merchantName,
+    syncedAt,
+    suggestedCategory,
+    categorizationConfidence,
+    bankConnectionId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'synced_transactions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncedTransaction> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('amount')) {
+      context.handle(
+        _amountMeta,
+        amount.isAcceptableOrUnknown(data['amount']!, _amountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_amountMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_descriptionMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('bank_transaction_id')) {
+      context.handle(
+        _bankTransactionIdMeta,
+        bankTransactionId.isAcceptableOrUnknown(
+          data['bank_transaction_id']!,
+          _bankTransactionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_bankTransactionIdMeta);
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_syncStatusMeta);
+    }
+    if (data.containsKey('merchant_name')) {
+      context.handle(
+        _merchantNameMeta,
+        merchantName.isAcceptableOrUnknown(
+          data['merchant_name']!,
+          _merchantNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_merchantNameMeta);
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_syncedAtMeta);
+    }
+    if (data.containsKey('suggested_category')) {
+      context.handle(
+        _suggestedCategoryMeta,
+        suggestedCategory.isAcceptableOrUnknown(
+          data['suggested_category']!,
+          _suggestedCategoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('categorization_confidence')) {
+      context.handle(
+        _categorizationConfidenceMeta,
+        categorizationConfidence.isAcceptableOrUnknown(
+          data['categorization_confidence']!,
+          _categorizationConfidenceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bank_connection_id')) {
+      context.handle(
+        _bankConnectionIdMeta,
+        bankConnectionId.isAcceptableOrUnknown(
+          data['bank_connection_id']!,
+          _bankConnectionIdMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncedTransaction map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncedTransaction(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      amount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}amount'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date'],
+      )!,
+      tags: $SyncedTransactionsTable.$convertertagsn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}tags'],
+        ),
+      ),
+      bankTransactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bank_transaction_id'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+      merchantName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}merchant_name'],
+      )!,
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      )!,
+      suggestedCategory: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}suggested_category'],
+      ),
+      categorizationConfidence: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}categorization_confidence'],
+      ),
+      bankConnectionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bank_connection_id'],
+      ),
+    );
+  }
+
+  @override
+  $SyncedTransactionsTable createAlias(String alias) {
+    return $SyncedTransactionsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<List<String>, String> $convertertags =
+      const ListStringConverter();
+  static TypeConverter<List<String>?, String?> $convertertagsn =
+      NullAwareTypeConverter.wrap($convertertags);
+}
+
+class SyncedTransaction extends DataClass
+    implements Insertable<SyncedTransaction> {
+  final String id;
+  final String userId;
+  final String accountId;
+  final double amount;
+  final String description;
+  final String category;
+  final DateTime date;
+  final List<String>? tags;
+  final String bankTransactionId;
+  final String syncStatus;
+  final String merchantName;
+  final DateTime syncedAt;
+  final String? suggestedCategory;
+  final double? categorizationConfidence;
+  final String? bankConnectionId;
+  const SyncedTransaction({
+    required this.id,
+    required this.userId,
+    required this.accountId,
+    required this.amount,
+    required this.description,
+    required this.category,
+    required this.date,
+    this.tags,
+    required this.bankTransactionId,
+    required this.syncStatus,
+    required this.merchantName,
+    required this.syncedAt,
+    this.suggestedCategory,
+    this.categorizationConfidence,
+    this.bankConnectionId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['account_id'] = Variable<String>(accountId);
+    map['amount'] = Variable<double>(amount);
+    map['description'] = Variable<String>(description);
+    map['category'] = Variable<String>(category);
+    map['date'] = Variable<DateTime>(date);
+    if (!nullToAbsent || tags != null) {
+      map['tags'] = Variable<String>(
+        $SyncedTransactionsTable.$convertertagsn.toSql(tags),
+      );
+    }
+    map['bank_transaction_id'] = Variable<String>(bankTransactionId);
+    map['sync_status'] = Variable<String>(syncStatus);
+    map['merchant_name'] = Variable<String>(merchantName);
+    map['synced_at'] = Variable<DateTime>(syncedAt);
+    if (!nullToAbsent || suggestedCategory != null) {
+      map['suggested_category'] = Variable<String>(suggestedCategory);
+    }
+    if (!nullToAbsent || categorizationConfidence != null) {
+      map['categorization_confidence'] = Variable<double>(
+        categorizationConfidence,
+      );
+    }
+    if (!nullToAbsent || bankConnectionId != null) {
+      map['bank_connection_id'] = Variable<String>(bankConnectionId);
+    }
+    return map;
+  }
+
+  SyncedTransactionsCompanion toCompanion(bool nullToAbsent) {
+    return SyncedTransactionsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      accountId: Value(accountId),
+      amount: Value(amount),
+      description: Value(description),
+      category: Value(category),
+      date: Value(date),
+      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
+      bankTransactionId: Value(bankTransactionId),
+      syncStatus: Value(syncStatus),
+      merchantName: Value(merchantName),
+      syncedAt: Value(syncedAt),
+      suggestedCategory: suggestedCategory == null && nullToAbsent
+          ? const Value.absent()
+          : Value(suggestedCategory),
+      categorizationConfidence: categorizationConfidence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(categorizationConfidence),
+      bankConnectionId: bankConnectionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bankConnectionId),
+    );
+  }
+
+  factory SyncedTransaction.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncedTransaction(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      accountId: serializer.fromJson<String>(json['accountId']),
+      amount: serializer.fromJson<double>(json['amount']),
+      description: serializer.fromJson<String>(json['description']),
+      category: serializer.fromJson<String>(json['category']),
+      date: serializer.fromJson<DateTime>(json['date']),
+      tags: serializer.fromJson<List<String>?>(json['tags']),
+      bankTransactionId: serializer.fromJson<String>(json['bankTransactionId']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+      merchantName: serializer.fromJson<String>(json['merchantName']),
+      syncedAt: serializer.fromJson<DateTime>(json['syncedAt']),
+      suggestedCategory: serializer.fromJson<String?>(
+        json['suggestedCategory'],
+      ),
+      categorizationConfidence: serializer.fromJson<double?>(
+        json['categorizationConfidence'],
+      ),
+      bankConnectionId: serializer.fromJson<String?>(json['bankConnectionId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'accountId': serializer.toJson<String>(accountId),
+      'amount': serializer.toJson<double>(amount),
+      'description': serializer.toJson<String>(description),
+      'category': serializer.toJson<String>(category),
+      'date': serializer.toJson<DateTime>(date),
+      'tags': serializer.toJson<List<String>?>(tags),
+      'bankTransactionId': serializer.toJson<String>(bankTransactionId),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+      'merchantName': serializer.toJson<String>(merchantName),
+      'syncedAt': serializer.toJson<DateTime>(syncedAt),
+      'suggestedCategory': serializer.toJson<String?>(suggestedCategory),
+      'categorizationConfidence': serializer.toJson<double?>(
+        categorizationConfidence,
+      ),
+      'bankConnectionId': serializer.toJson<String?>(bankConnectionId),
+    };
+  }
+
+  SyncedTransaction copyWith({
+    String? id,
+    String? userId,
+    String? accountId,
+    double? amount,
+    String? description,
+    String? category,
+    DateTime? date,
+    Value<List<String>?> tags = const Value.absent(),
+    String? bankTransactionId,
+    String? syncStatus,
+    String? merchantName,
+    DateTime? syncedAt,
+    Value<String?> suggestedCategory = const Value.absent(),
+    Value<double?> categorizationConfidence = const Value.absent(),
+    Value<String?> bankConnectionId = const Value.absent(),
+  }) => SyncedTransaction(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    accountId: accountId ?? this.accountId,
+    amount: amount ?? this.amount,
+    description: description ?? this.description,
+    category: category ?? this.category,
+    date: date ?? this.date,
+    tags: tags.present ? tags.value : this.tags,
+    bankTransactionId: bankTransactionId ?? this.bankTransactionId,
+    syncStatus: syncStatus ?? this.syncStatus,
+    merchantName: merchantName ?? this.merchantName,
+    syncedAt: syncedAt ?? this.syncedAt,
+    suggestedCategory: suggestedCategory.present
+        ? suggestedCategory.value
+        : this.suggestedCategory,
+    categorizationConfidence: categorizationConfidence.present
+        ? categorizationConfidence.value
+        : this.categorizationConfidence,
+    bankConnectionId: bankConnectionId.present
+        ? bankConnectionId.value
+        : this.bankConnectionId,
+  );
+  SyncedTransaction copyWithCompanion(SyncedTransactionsCompanion data) {
+    return SyncedTransaction(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      amount: data.amount.present ? data.amount.value : this.amount,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      category: data.category.present ? data.category.value : this.category,
+      date: data.date.present ? data.date.value : this.date,
+      tags: data.tags.present ? data.tags.value : this.tags,
+      bankTransactionId: data.bankTransactionId.present
+          ? data.bankTransactionId.value
+          : this.bankTransactionId,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+      merchantName: data.merchantName.present
+          ? data.merchantName.value
+          : this.merchantName,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+      suggestedCategory: data.suggestedCategory.present
+          ? data.suggestedCategory.value
+          : this.suggestedCategory,
+      categorizationConfidence: data.categorizationConfidence.present
+          ? data.categorizationConfidence.value
+          : this.categorizationConfidence,
+      bankConnectionId: data.bankConnectionId.present
+          ? data.bankConnectionId.value
+          : this.bankConnectionId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncedTransaction(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('accountId: $accountId, ')
+          ..write('amount: $amount, ')
+          ..write('description: $description, ')
+          ..write('category: $category, ')
+          ..write('date: $date, ')
+          ..write('tags: $tags, ')
+          ..write('bankTransactionId: $bankTransactionId, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('merchantName: $merchantName, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('suggestedCategory: $suggestedCategory, ')
+          ..write('categorizationConfidence: $categorizationConfidence, ')
+          ..write('bankConnectionId: $bankConnectionId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    accountId,
+    amount,
+    description,
+    category,
+    date,
+    tags,
+    bankTransactionId,
+    syncStatus,
+    merchantName,
+    syncedAt,
+    suggestedCategory,
+    categorizationConfidence,
+    bankConnectionId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncedTransaction &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.accountId == this.accountId &&
+          other.amount == this.amount &&
+          other.description == this.description &&
+          other.category == this.category &&
+          other.date == this.date &&
+          other.tags == this.tags &&
+          other.bankTransactionId == this.bankTransactionId &&
+          other.syncStatus == this.syncStatus &&
+          other.merchantName == this.merchantName &&
+          other.syncedAt == this.syncedAt &&
+          other.suggestedCategory == this.suggestedCategory &&
+          other.categorizationConfidence == this.categorizationConfidence &&
+          other.bankConnectionId == this.bankConnectionId);
+}
+
+class SyncedTransactionsCompanion extends UpdateCompanion<SyncedTransaction> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<String> accountId;
+  final Value<double> amount;
+  final Value<String> description;
+  final Value<String> category;
+  final Value<DateTime> date;
+  final Value<List<String>?> tags;
+  final Value<String> bankTransactionId;
+  final Value<String> syncStatus;
+  final Value<String> merchantName;
+  final Value<DateTime> syncedAt;
+  final Value<String?> suggestedCategory;
+  final Value<double?> categorizationConfidence;
+  final Value<String?> bankConnectionId;
+  final Value<int> rowid;
+  const SyncedTransactionsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.amount = const Value.absent(),
+    this.description = const Value.absent(),
+    this.category = const Value.absent(),
+    this.date = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.bankTransactionId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.merchantName = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.suggestedCategory = const Value.absent(),
+    this.categorizationConfidence = const Value.absent(),
+    this.bankConnectionId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncedTransactionsCompanion.insert({
+    required String id,
+    required String userId,
+    required String accountId,
+    required double amount,
+    required String description,
+    required String category,
+    required DateTime date,
+    this.tags = const Value.absent(),
+    required String bankTransactionId,
+    required String syncStatus,
+    required String merchantName,
+    required DateTime syncedAt,
+    this.suggestedCategory = const Value.absent(),
+    this.categorizationConfidence = const Value.absent(),
+    this.bankConnectionId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       accountId = Value(accountId),
+       amount = Value(amount),
+       description = Value(description),
+       category = Value(category),
+       date = Value(date),
+       bankTransactionId = Value(bankTransactionId),
+       syncStatus = Value(syncStatus),
+       merchantName = Value(merchantName),
+       syncedAt = Value(syncedAt);
+  static Insertable<SyncedTransaction> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? accountId,
+    Expression<double>? amount,
+    Expression<String>? description,
+    Expression<String>? category,
+    Expression<DateTime>? date,
+    Expression<String>? tags,
+    Expression<String>? bankTransactionId,
+    Expression<String>? syncStatus,
+    Expression<String>? merchantName,
+    Expression<DateTime>? syncedAt,
+    Expression<String>? suggestedCategory,
+    Expression<double>? categorizationConfidence,
+    Expression<String>? bankConnectionId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (accountId != null) 'account_id': accountId,
+      if (amount != null) 'amount': amount,
+      if (description != null) 'description': description,
+      if (category != null) 'category': category,
+      if (date != null) 'date': date,
+      if (tags != null) 'tags': tags,
+      if (bankTransactionId != null) 'bank_transaction_id': bankTransactionId,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (merchantName != null) 'merchant_name': merchantName,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (suggestedCategory != null) 'suggested_category': suggestedCategory,
+      if (categorizationConfidence != null)
+        'categorization_confidence': categorizationConfidence,
+      if (bankConnectionId != null) 'bank_connection_id': bankConnectionId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncedTransactionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<String>? accountId,
+    Value<double>? amount,
+    Value<String>? description,
+    Value<String>? category,
+    Value<DateTime>? date,
+    Value<List<String>?>? tags,
+    Value<String>? bankTransactionId,
+    Value<String>? syncStatus,
+    Value<String>? merchantName,
+    Value<DateTime>? syncedAt,
+    Value<String?>? suggestedCategory,
+    Value<double?>? categorizationConfidence,
+    Value<String?>? bankConnectionId,
+    Value<int>? rowid,
+  }) {
+    return SyncedTransactionsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      accountId: accountId ?? this.accountId,
+      amount: amount ?? this.amount,
+      description: description ?? this.description,
+      category: category ?? this.category,
+      date: date ?? this.date,
+      tags: tags ?? this.tags,
+      bankTransactionId: bankTransactionId ?? this.bankTransactionId,
+      syncStatus: syncStatus ?? this.syncStatus,
+      merchantName: merchantName ?? this.merchantName,
+      syncedAt: syncedAt ?? this.syncedAt,
+      suggestedCategory: suggestedCategory ?? this.suggestedCategory,
+      categorizationConfidence:
+          categorizationConfidence ?? this.categorizationConfidence,
+      bankConnectionId: bankConnectionId ?? this.bankConnectionId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (amount.present) {
+      map['amount'] = Variable<double>(amount.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    if (tags.present) {
+      map['tags'] = Variable<String>(
+        $SyncedTransactionsTable.$convertertagsn.toSql(tags.value),
+      );
+    }
+    if (bankTransactionId.present) {
+      map['bank_transaction_id'] = Variable<String>(bankTransactionId.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (merchantName.present) {
+      map['merchant_name'] = Variable<String>(merchantName.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (suggestedCategory.present) {
+      map['suggested_category'] = Variable<String>(suggestedCategory.value);
+    }
+    if (categorizationConfidence.present) {
+      map['categorization_confidence'] = Variable<double>(
+        categorizationConfidence.value,
+      );
+    }
+    if (bankConnectionId.present) {
+      map['bank_connection_id'] = Variable<String>(bankConnectionId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncedTransactionsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('accountId: $accountId, ')
+          ..write('amount: $amount, ')
+          ..write('description: $description, ')
+          ..write('category: $category, ')
+          ..write('date: $date, ')
+          ..write('tags: $tags, ')
+          ..write('bankTransactionId: $bankTransactionId, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('merchantName: $merchantName, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('suggestedCategory: $suggestedCategory, ')
+          ..write('categorizationConfidence: $categorizationConfidence, ')
+          ..write('bankConnectionId: $bankConnectionId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2599,6 +4248,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $BudgetsTable budgets = $BudgetsTable(this);
+  late final $BankConnectionsTable bankConnections = $BankConnectionsTable(
+    this,
+  );
+  late final $SyncedTransactionsTable syncedTransactions =
+      $SyncedTransactionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2609,6 +4263,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     accounts,
     transactions,
     budgets,
+    bankConnections,
+    syncedTransactions,
   ];
 }
 
@@ -3890,6 +5546,777 @@ typedef $$BudgetsTableProcessedTableManager =
       Budget,
       PrefetchHooks Function()
     >;
+typedef $$BankConnectionsTableCreateCompanionBuilder =
+    BankConnectionsCompanion Function({
+      required String id,
+      required String userId,
+      required String institutionId,
+      required String institutionName,
+      required String accountHolderName,
+      required String accountNumberMasked,
+      required String requisitionId,
+      Value<String?> walletId,
+      required String status,
+      Value<DateTime?> lastSyncAt,
+      required DateTime createdAt,
+      Value<DateTime?> accessValidUntil,
+      Value<int> rowid,
+    });
+typedef $$BankConnectionsTableUpdateCompanionBuilder =
+    BankConnectionsCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<String> institutionId,
+      Value<String> institutionName,
+      Value<String> accountHolderName,
+      Value<String> accountNumberMasked,
+      Value<String> requisitionId,
+      Value<String?> walletId,
+      Value<String> status,
+      Value<DateTime?> lastSyncAt,
+      Value<DateTime> createdAt,
+      Value<DateTime?> accessValidUntil,
+      Value<int> rowid,
+    });
+
+class $$BankConnectionsTableFilterComposer
+    extends Composer<_$AppDatabase, $BankConnectionsTable> {
+  $$BankConnectionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get institutionId => $composableBuilder(
+    column: $table.institutionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get institutionName => $composableBuilder(
+    column: $table.institutionName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountHolderName => $composableBuilder(
+    column: $table.accountHolderName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountNumberMasked => $composableBuilder(
+    column: $table.accountNumberMasked,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get requisitionId => $composableBuilder(
+    column: $table.requisitionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get walletId => $composableBuilder(
+    column: $table.walletId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get accessValidUntil => $composableBuilder(
+    column: $table.accessValidUntil,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BankConnectionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BankConnectionsTable> {
+  $$BankConnectionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get institutionId => $composableBuilder(
+    column: $table.institutionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get institutionName => $composableBuilder(
+    column: $table.institutionName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountHolderName => $composableBuilder(
+    column: $table.accountHolderName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountNumberMasked => $composableBuilder(
+    column: $table.accountNumberMasked,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get requisitionId => $composableBuilder(
+    column: $table.requisitionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get walletId => $composableBuilder(
+    column: $table.walletId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get accessValidUntil => $composableBuilder(
+    column: $table.accessValidUntil,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BankConnectionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BankConnectionsTable> {
+  $$BankConnectionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get institutionId => $composableBuilder(
+    column: $table.institutionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get institutionName => $composableBuilder(
+    column: $table.institutionName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get accountHolderName => $composableBuilder(
+    column: $table.accountHolderName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get accountNumberMasked => $composableBuilder(
+    column: $table.accountNumberMasked,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get requisitionId => $composableBuilder(
+    column: $table.requisitionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get walletId =>
+      $composableBuilder(column: $table.walletId, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get accessValidUntil => $composableBuilder(
+    column: $table.accessValidUntil,
+    builder: (column) => column,
+  );
+}
+
+class $$BankConnectionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BankConnectionsTable,
+          BankConnection,
+          $$BankConnectionsTableFilterComposer,
+          $$BankConnectionsTableOrderingComposer,
+          $$BankConnectionsTableAnnotationComposer,
+          $$BankConnectionsTableCreateCompanionBuilder,
+          $$BankConnectionsTableUpdateCompanionBuilder,
+          (
+            BankConnection,
+            BaseReferences<
+              _$AppDatabase,
+              $BankConnectionsTable,
+              BankConnection
+            >,
+          ),
+          BankConnection,
+          PrefetchHooks Function()
+        > {
+  $$BankConnectionsTableTableManager(
+    _$AppDatabase db,
+    $BankConnectionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BankConnectionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BankConnectionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BankConnectionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> institutionId = const Value.absent(),
+                Value<String> institutionName = const Value.absent(),
+                Value<String> accountHolderName = const Value.absent(),
+                Value<String> accountNumberMasked = const Value.absent(),
+                Value<String> requisitionId = const Value.absent(),
+                Value<String?> walletId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime?> lastSyncAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> accessValidUntil = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BankConnectionsCompanion(
+                id: id,
+                userId: userId,
+                institutionId: institutionId,
+                institutionName: institutionName,
+                accountHolderName: accountHolderName,
+                accountNumberMasked: accountNumberMasked,
+                requisitionId: requisitionId,
+                walletId: walletId,
+                status: status,
+                lastSyncAt: lastSyncAt,
+                createdAt: createdAt,
+                accessValidUntil: accessValidUntil,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required String institutionId,
+                required String institutionName,
+                required String accountHolderName,
+                required String accountNumberMasked,
+                required String requisitionId,
+                Value<String?> walletId = const Value.absent(),
+                required String status,
+                Value<DateTime?> lastSyncAt = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> accessValidUntil = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BankConnectionsCompanion.insert(
+                id: id,
+                userId: userId,
+                institutionId: institutionId,
+                institutionName: institutionName,
+                accountHolderName: accountHolderName,
+                accountNumberMasked: accountNumberMasked,
+                requisitionId: requisitionId,
+                walletId: walletId,
+                status: status,
+                lastSyncAt: lastSyncAt,
+                createdAt: createdAt,
+                accessValidUntil: accessValidUntil,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BankConnectionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BankConnectionsTable,
+      BankConnection,
+      $$BankConnectionsTableFilterComposer,
+      $$BankConnectionsTableOrderingComposer,
+      $$BankConnectionsTableAnnotationComposer,
+      $$BankConnectionsTableCreateCompanionBuilder,
+      $$BankConnectionsTableUpdateCompanionBuilder,
+      (
+        BankConnection,
+        BaseReferences<_$AppDatabase, $BankConnectionsTable, BankConnection>,
+      ),
+      BankConnection,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncedTransactionsTableCreateCompanionBuilder =
+    SyncedTransactionsCompanion Function({
+      required String id,
+      required String userId,
+      required String accountId,
+      required double amount,
+      required String description,
+      required String category,
+      required DateTime date,
+      Value<List<String>?> tags,
+      required String bankTransactionId,
+      required String syncStatus,
+      required String merchantName,
+      required DateTime syncedAt,
+      Value<String?> suggestedCategory,
+      Value<double?> categorizationConfidence,
+      Value<String?> bankConnectionId,
+      Value<int> rowid,
+    });
+typedef $$SyncedTransactionsTableUpdateCompanionBuilder =
+    SyncedTransactionsCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<String> accountId,
+      Value<double> amount,
+      Value<String> description,
+      Value<String> category,
+      Value<DateTime> date,
+      Value<List<String>?> tags,
+      Value<String> bankTransactionId,
+      Value<String> syncStatus,
+      Value<String> merchantName,
+      Value<DateTime> syncedAt,
+      Value<String?> suggestedCategory,
+      Value<double?> categorizationConfidence,
+      Value<String?> bankConnectionId,
+      Value<int> rowid,
+    });
+
+class $$SyncedTransactionsTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncedTransactionsTable> {
+  $$SyncedTransactionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<List<String>?, List<String>, String>
+  get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get bankTransactionId => $composableBuilder(
+    column: $table.bankTransactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get merchantName => $composableBuilder(
+    column: $table.merchantName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get suggestedCategory => $composableBuilder(
+    column: $table.suggestedCategory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get categorizationConfidence => $composableBuilder(
+    column: $table.categorizationConfidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bankConnectionId => $composableBuilder(
+    column: $table.bankConnectionId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncedTransactionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncedTransactionsTable> {
+  $$SyncedTransactionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bankTransactionId => $composableBuilder(
+    column: $table.bankTransactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get merchantName => $composableBuilder(
+    column: $table.merchantName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get suggestedCategory => $composableBuilder(
+    column: $table.suggestedCategory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get categorizationConfidence => $composableBuilder(
+    column: $table.categorizationConfidence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bankConnectionId => $composableBuilder(
+    column: $table.bankConnectionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncedTransactionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncedTransactionsTable> {
+  $$SyncedTransactionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<double> get amount =>
+      $composableBuilder(column: $table.amount, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<List<String>?, String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
+
+  GeneratedColumn<String> get bankTransactionId => $composableBuilder(
+    column: $table.bankTransactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get merchantName => $composableBuilder(
+    column: $table.merchantName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get suggestedCategory => $composableBuilder(
+    column: $table.suggestedCategory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get categorizationConfidence => $composableBuilder(
+    column: $table.categorizationConfidence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get bankConnectionId => $composableBuilder(
+    column: $table.bankConnectionId,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncedTransactionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncedTransactionsTable,
+          SyncedTransaction,
+          $$SyncedTransactionsTableFilterComposer,
+          $$SyncedTransactionsTableOrderingComposer,
+          $$SyncedTransactionsTableAnnotationComposer,
+          $$SyncedTransactionsTableCreateCompanionBuilder,
+          $$SyncedTransactionsTableUpdateCompanionBuilder,
+          (
+            SyncedTransaction,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncedTransactionsTable,
+              SyncedTransaction
+            >,
+          ),
+          SyncedTransaction,
+          PrefetchHooks Function()
+        > {
+  $$SyncedTransactionsTableTableManager(
+    _$AppDatabase db,
+    $SyncedTransactionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncedTransactionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncedTransactionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncedTransactionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> accountId = const Value.absent(),
+                Value<double> amount = const Value.absent(),
+                Value<String> description = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+                Value<List<String>?> tags = const Value.absent(),
+                Value<String> bankTransactionId = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<String> merchantName = const Value.absent(),
+                Value<DateTime> syncedAt = const Value.absent(),
+                Value<String?> suggestedCategory = const Value.absent(),
+                Value<double?> categorizationConfidence = const Value.absent(),
+                Value<String?> bankConnectionId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncedTransactionsCompanion(
+                id: id,
+                userId: userId,
+                accountId: accountId,
+                amount: amount,
+                description: description,
+                category: category,
+                date: date,
+                tags: tags,
+                bankTransactionId: bankTransactionId,
+                syncStatus: syncStatus,
+                merchantName: merchantName,
+                syncedAt: syncedAt,
+                suggestedCategory: suggestedCategory,
+                categorizationConfidence: categorizationConfidence,
+                bankConnectionId: bankConnectionId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required String accountId,
+                required double amount,
+                required String description,
+                required String category,
+                required DateTime date,
+                Value<List<String>?> tags = const Value.absent(),
+                required String bankTransactionId,
+                required String syncStatus,
+                required String merchantName,
+                required DateTime syncedAt,
+                Value<String?> suggestedCategory = const Value.absent(),
+                Value<double?> categorizationConfidence = const Value.absent(),
+                Value<String?> bankConnectionId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncedTransactionsCompanion.insert(
+                id: id,
+                userId: userId,
+                accountId: accountId,
+                amount: amount,
+                description: description,
+                category: category,
+                date: date,
+                tags: tags,
+                bankTransactionId: bankTransactionId,
+                syncStatus: syncStatus,
+                merchantName: merchantName,
+                syncedAt: syncedAt,
+                suggestedCategory: suggestedCategory,
+                categorizationConfidence: categorizationConfidence,
+                bankConnectionId: bankConnectionId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncedTransactionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncedTransactionsTable,
+      SyncedTransaction,
+      $$SyncedTransactionsTableFilterComposer,
+      $$SyncedTransactionsTableOrderingComposer,
+      $$SyncedTransactionsTableAnnotationComposer,
+      $$SyncedTransactionsTableCreateCompanionBuilder,
+      $$SyncedTransactionsTableUpdateCompanionBuilder,
+      (
+        SyncedTransaction,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncedTransactionsTable,
+          SyncedTransaction
+        >,
+      ),
+      SyncedTransaction,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3903,4 +6330,8 @@ class $AppDatabaseManager {
       $$TransactionsTableTableManager(_db, _db.transactions);
   $$BudgetsTableTableManager get budgets =>
       $$BudgetsTableTableManager(_db, _db.budgets);
+  $$BankConnectionsTableTableManager get bankConnections =>
+      $$BankConnectionsTableTableManager(_db, _db.bankConnections);
+  $$SyncedTransactionsTableTableManager get syncedTransactions =>
+      $$SyncedTransactionsTableTableManager(_db, _db.syncedTransactions);
 }

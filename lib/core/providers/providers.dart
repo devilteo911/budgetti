@@ -16,6 +16,8 @@ import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
+import 'package:budgetti/core/services/gocardless_service.dart';
+import 'package:budgetti/core/services/bank_sync_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,6 +56,18 @@ final ocrServiceProvider = Provider<OcrService>((ref) {
   final service = OcrService(persistenceService);
   ref.onDispose(service.dispose);
   return service;
+});
+
+final gocardlessServiceProvider = Provider<GocardlessService>((ref) {
+  final persistenceService = ref.watch(persistenceServiceProvider);
+  return GocardlessService(persistenceService);
+});
+
+final bankSyncServiceProvider = Provider<BankSyncService>((ref) {
+  final gocardless = ref.watch(gocardlessServiceProvider);
+  final db = ref.watch(databaseProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  return BankSyncService(gocardless, db, userId);
 });
 
 // Provider that tracks current user ID and updates when auth state changes

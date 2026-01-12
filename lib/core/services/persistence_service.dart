@@ -68,5 +68,47 @@ class PersistenceService {
 
   Future<void> setOcrEngine(String engine) =>
       _prefs.setString(_ocrEngineKey, engine);
+
+  // GoCardless Bank Sync Settings
+  static const _gocardlessAccessTokenKey = 'gocardless_access_token';
+  static const _gocardlessRefreshTokenKey = 'gocardless_refresh_token';
+  static const _gocardlessSecretIdKey = 'gocardless_secret_id';
+  static const _gocardlessSecretKeyKey = 'gocardless_secret_key';
+  static const _syncDaysBackKey = 'sync_days_back';
+  static const _autoSyncEnabledKey = 'auto_sync_enabled';
+
+  String? getGocardlessAccessToken() =>
+      _prefs.getString(_gocardlessAccessTokenKey);
+  Future<void> setGocardlessAccessToken(String token) =>
+      _prefs.setString(_gocardlessAccessTokenKey, token);
+
+  String? getGocardlessRefreshToken() =>
+      _prefs.getString(_gocardlessRefreshTokenKey);
+  Future<void> setGocardlessRefreshToken(String token) =>
+      _prefs.setString(_gocardlessRefreshTokenKey, token);
+
+  String? getGocardlessSecretId() => _prefs.getString(_gocardlessSecretIdKey);
+  Future<void> setGocardlessSecretId(String id) =>
+      _prefs.setString(_gocardlessSecretIdKey, id);
+
+  String? getGocardlessSecretKey() => _prefs.getString(_gocardlessSecretKeyKey);
+  Future<void> setGocardlessSecretKey(String key) =>
+      _prefs.setString(_gocardlessSecretKeyKey, key);
+
+  int getSyncDaysBack() => _prefs.getInt(_syncDaysBackKey) ?? 90;
+  Future<void> setSyncDaysBack(int days) =>
+      _prefs.setInt(_syncDaysBackKey, days);
+
+  bool getAutoSyncEnabled() => _prefs.getBool(_autoSyncEnabledKey) ?? false;
+  Future<void> setAutoSyncEnabled(bool enabled) =>
+      _prefs.setBool(_autoSyncEnabledKey, enabled);
+
+  // Clear all GoCardless settings
+  Future<void> clearGocardlessSettings() async {
+    await _prefs.remove(_gocardlessAccessTokenKey);
+    await _prefs.remove(_gocardlessRefreshTokenKey);
+    await _prefs.remove(_gocardlessSecretIdKey);
+    await _prefs.remove(_gocardlessSecretKeyKey);
+  }
 }
 

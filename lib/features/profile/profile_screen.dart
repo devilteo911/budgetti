@@ -16,6 +16,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
+import 'package:budgetti/features/bank_sync/pending_transactions_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -712,6 +713,122 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                     // Receipt Scanning Engine Helper
                     _buildOcrSettings(persistence),
+
+                    const SizedBox(height: 32),
+
+                    // Bank Sync Section
+                    Text(
+                      "Bank Sync",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppTheme.textGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Bank Sync Settings
+                    InkWell(
+                      onTap: () => context.push('/bank-sync-settings'),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Bank Sync Settings",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              color: AppTheme.textGrey,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Pending Transactions
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final pendingAsync = ref.watch(
+                          pendingTransactionsProvider,
+                        );
+                        final count = pendingAsync.maybeWhen(
+                          data: (transactions) => transactions.length,
+                          orElse: () => 0,
+                        );
+
+                        return InkWell(
+                          onTap: () => context.push('/pending-transactions'),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceGrey,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  "Pending Transactions",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    if (count > 0)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryGreen,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          count.toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.arrow_forward_ios,
+                                      color: AppTheme.textGrey,
+                                      size: 16,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
 
                     const SizedBox(height: 32),
 

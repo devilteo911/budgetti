@@ -4,8 +4,12 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
+import 'package:budgetti/models/bank_connection.dart' as model;
+import 'package:budgetti/models/synced_transaction.dart';
+import 'package:uuid/uuid.dart';
 
 part 'database.g.dart';
+part 'database_extensions.dart';
 
 // Converters
 class ListStringConverter extends TypeConverter<List<String>, String> {
@@ -108,12 +112,63 @@ class Budgets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Categories, Tags, Accounts, Transactions, Budgets])
+class BankConnections extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get institutionId => text()();
+  TextColumn get institutionName => text()();
+  TextColumn get accountHolderName => text()();
+  TextColumn get accountNumberMasked => text()();
+  TextColumn get requisitionId => text()();
+  TextColumn get walletId => text().nullable()();
+  TextColumn get status => text()(); // 'active', 'expired', 'error'
+  DateTimeColumn get lastSyncAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get accessValidUntil => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class SyncedTransactions extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get accountId => text()();
+  RealColumn get amount => real()();
+  TextColumn get description => text()();
+  TextColumn get category => text()();
+  DateTimeColumn get date => dateTime()();
+  TextColumn get tags => text().map(const ListStringConverter()).nullable()();
+
+  // Bank sync specific fields
+  TextColumn get bankTransactionId => text()();
+  TextColumn get syncStatus => text()(); // 'pending', 'approved', 'discarded'
+  TextColumn get merchantName => text()();
+  DateTimeColumn get syncedAt => dateTime()();
+  TextColumn get suggestedCategory => text().nullable()();
+  RealColumn get categorizationConfidence => real().nullable()();
+  TextColumn get bankConnectionId => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(
+  tables: [
+    Categories,
+    Tags,
+    Accounts,
+    Transactions,
+    Budgets,
+    BankConnections,
+    SyncedTransactions,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5; // Incremented from 4
+  int get schemaVersion => 6; // Incremented from 5
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -175,6 +230,11 @@ class AppDatabase extends _$AppDatabase {
         }
 
         await _seedMainAccount();
+      }
+      if (from < 6) {
+        // Add bank sync tables
+        await m.createTable(bankConnections);
+        await m.createTable(syncedTransactions);
       }
     },
     beforeOpen: (details) async {

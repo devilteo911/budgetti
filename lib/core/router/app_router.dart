@@ -9,6 +9,8 @@ import 'package:budgetti/features/home/widgets/branch_animation_wrapper.dart';
 import 'package:budgetti/features/transactions/transactions_screen.dart';
 import 'package:budgetti/features/stats/stats_screen.dart';
 import 'package:budgetti/features/budget/budget_screen.dart';
+import 'package:budgetti/features/bank_sync/bank_sync_settings_screen.dart';
+import 'package:budgetti/features/bank_sync/pending_transactions_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,6 +30,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/bank-sync-settings',
+        builder: (context, state) => const BankSyncSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/pending-transactions',
+        builder: (context, state) => const PendingTransactionsScreen(),
       ),
       // ShellRoute for Bottom Navigation
       StatefulShellRoute(
