@@ -10,6 +10,12 @@ import 'package:budgetti/features/transactions/transaction_filter_sheet.dart';
 import 'package:budgetti/features/settings/wallets_screen.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
+import 'package:draggable_scrollbar/draggable_scrollbar.dart';
+
+class _DateHeader {
+  final String title;
+  _DateHeader({required this.title});
+}
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -131,19 +137,92 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       : Builder(
                           builder: (context) {
                             final grouped = _groupTransactionsByDate(transactions);
-                            return ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              itemCount: grouped.length,
-                              itemBuilder: (context, index) {
-                                final date = grouped.keys.elementAt(index);
-                                final dayTransactions = grouped[date]!;
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                            final sortedDates = grouped.keys.toList()
+                              ..sort((a, b) => b.compareTo(a));
+                            
+                            // Flatten the list into items (Headers + Transactions)
+                            final flatList = <dynamic>[];
+                            final dateIndices =
+                                <
+                                  int,
+                                  DateTime
+                                >{}; // Map cumulative index to Date (for scrollbar)
+
+                            for (var date in sortedDates) {
+                              // Add Header
+                              dateIndices[flatList.length] = date;
+                              flatList.add(
+                                _DateHeader(title: _formatDateHeader(date)),
+                              );
+
+                              // Add Transactions
+                              for (var t in grouped[date]!) {
+                                dateIndices[flatList.length] = date;
+                                flatList.add(t);
+                              }
+                            }
+
+                            // Add bottom padding item
+                            flatList.add(const SizedBox(height: 80));
+
+                            final scrollController = ScrollController();
+
+                            return DraggableScrollbar.semicircle(
+                              controller: scrollController,
+                              backgroundColor: AppTheme.surfaceGrey,
+                              labelTextBuilder: (double offset) {
+                                if (sortedDates.isEmpty) return const Text("");
+
+                                final totalScrollable =
+                                    scrollController.position.maxScrollExtent;
+                                final current = offset;
+
+                                if (totalScrollable == 0)
+                                  return Text(
+                                    DateFormat(
+                                      'MMM yyyy',
+                                    ).format(sortedDates.first),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  );
+
+                                final fraction = (current / totalScrollable)
+                                    .clamp(0.0, 1.0);
+                                final index = (fraction * (flatList.length - 1))
+                                    .floor();
+
+                                final date =
+                                    dateIndices[index] ?? sortedDates.first;
+
+                                return Text(
+                                  DateFormat(
+                                    'MMM yyyy',
+                                  ).format(date).toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                );
+                              },
+                              child: ListView.builder(
+                                controller: scrollController,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                ),
+                                itemCount: flatList.length,
+                                itemBuilder: (context, index) {
+                                  final item = flatList[index];
+                                  if (item is Widget)
+                                    return item; // SizedBox padding
+                                  if (item is _DateHeader) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                       child: Text(
-                                        _formatDateHeader(date),
+                                        item.title,
                                         style: Theme.of(context)
                                             .textTheme
                                             .titleSmall
@@ -153,20 +232,26 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                               letterSpacing: 1.2,
                                             ),
                                       ),
-                                    ),
-                                    ...dayTransactions.map((t) => _TransactionItem(
-                                      transaction: t,
-                                      isSelected: _selectedIds.contains(t.id),
-                                      onLongPress: () => _toggleSelection(t.id),
+                                    );
+                                  }
+                                  if (item is Transaction) {
+                                    return _TransactionItem(
+                                      transaction: item,
+                                      isSelected: _selectedIds.contains(
+                                        item.id,
+                                      ),
+                                      onLongPress: () =>
+                                          _toggleSelection(item.id),
                                       onTap: () {
                                         if (_isSelectionMode) {
-                                          _toggleSelection(t.id);
+                                          _toggleSelection(item.id);
                                         }
                                       },
-                                    )),
-                                  ],
-                                );
-                              },
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
                             );
                           },
                         ),
@@ -567,3 +652,5 @@ class _ActiveFilterChip extends StatelessWidget {
     );
   }
 }
+
+

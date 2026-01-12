@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/features/settings/categories_screen.dart';
 import 'package:budgetti/features/settings/tags_screen.dart';
 import 'package:budgetti/features/settings/wallets_screen.dart';
+import 'package:budgetti/features/import/import_transactions_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
@@ -1378,6 +1379,108 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                             Icon(
                               Icons.restore,
+                              color: AppTheme.primaryGreen,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Import Quicken (QIF)
+                    InkWell(
+                      onTap: _isLoading
+                          ? null
+                          : () async {
+                              try {
+                                final result = await FilePicker.platform
+                                    .pickFiles(type: FileType.any);
+
+                                if (result != null && context.mounted) {
+                                  final file = File(result.files.single.path!);
+
+                                  // Basic extension check
+                                  if (!file.path.toLowerCase().endsWith(
+                                    '.qif',
+                                  )) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          "Please select a .qif file",
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  setState(() => _isLoading = true);
+
+                                  try {
+                                    final transactions = await ref
+                                        .read(importServiceProvider)
+                                        .parseQifFile(file);
+
+                                    if (context.mounted) {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              ImportTransactionsScreen(
+                                                transactions: transactions,
+                                              ),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            "Error parsing file: $e",
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted)
+                                      setState(() => _isLoading = false);
+                                  }
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("Error picking file: $e"),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceGrey,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Import Quicken (QIF)",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Icon(
+                              Icons.file_upload,
                               color: AppTheme.primaryGreen,
                               size: 20,
                             ),

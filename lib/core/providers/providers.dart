@@ -18,6 +18,7 @@ import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:budgetti/core/services/import_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError();
@@ -54,6 +55,10 @@ final ocrServiceProvider = Provider<OcrService>((ref) {
   final service = OcrService(persistenceService);
   ref.onDispose(service.dispose);
   return service;
+});
+
+final importServiceProvider = Provider<ImportService>((ref) {
+  return ImportService();
 });
 
 // Provider that tracks current user ID and updates when auth state changes
@@ -172,7 +177,15 @@ class TransactionFilterState {
 
 class TransactionFiltersNotifier extends Notifier<TransactionFilterState> {
   @override
-  TransactionFilterState build() => TransactionFilterState();
+  TransactionFilterState build() {
+    final now = DateTime.now();
+    return TransactionFilterState(
+      dateRange: DateTimeRange(
+        start: DateTime(now.year, 1, 1),
+        end: DateTime(now.year, 12, 31),
+      ),
+    );
+  }
 
   void setDateRange(DateTimeRange? range) {
     state = state.copyWith(dateRange: () => range);

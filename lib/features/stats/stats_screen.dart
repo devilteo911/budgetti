@@ -16,6 +16,7 @@ class StatsScreen extends ConsumerStatefulWidget {
 
 class _StatsScreenState extends ConsumerState<StatsScreen> {
   int touchedIndex = -1;
+  int _selectedYear = DateTime.now().year;
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +29,40 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
       child: Scaffold(
         backgroundColor: AppTheme.backgroundBlack,
         appBar: AppBar(
-          title: Text(
-            "Stats",
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textWhite,
-            ),
+          title: Row(
+            children: [
+              Text(
+                "Stats",
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textWhite,
+                ),
+              ),
+              const Spacer(),
+              // Year Selector
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_left,
+                  color: AppTheme.primaryGreen,
+                ),
+                onPressed: () => setState(() => _selectedYear--),
+              ),
+              Text(
+                "$_selectedYear",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_right,
+                  color: AppTheme.primaryGreen,
+                ),
+                onPressed: () => setState(() => _selectedYear++),
+              ),
+            ],
           ),
           bottom: const TabBar(
             indicatorColor: AppTheme.primaryGreen,
@@ -41,8 +70,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             unselectedLabelColor: AppTheme.textGrey,
             tabs: [
               Tab(text: "Distribution"),
+              Tab(text: "Mo. Breakdown"), // Renamed from Yearly
               Tab(text: "Prediction"),
-              Tab(text: "Yearly"),
             ],
           ),
         ),
@@ -51,18 +80,24 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             child: CircularProgressIndicator(color: AppTheme.primaryGreen),
           ),
           error: (err, _) => Center(child: Text("Error: $err")),
-          data: (transactions) => categoriesAsync.when(
+          data: (allTransactions) => categoriesAsync.when(
             loading: () => const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryGreen),
             ),
             error: (err, _) => Center(child: Text("Error categories: $err")),
             data: (categories) {
+              // Filter by Selected Year
+              final transactions = allTransactions
+                  .where((t) => t.date.year == _selectedYear)
+                  .toList();
+              
               final expenses = transactions.where((t) => t.amount < 0).toList();
-              if (expenses.isEmpty) {
-                return const Center(
+              
+              if (expenses.isEmpty && transactions.isEmpty) {
+                return Center(
                   child: Text(
-                    "No expenses to show",
-                    style: TextStyle(color: AppTheme.textGrey),
+                    "No transactions in $_selectedYear",
+                    style: const TextStyle(color: AppTheme.textGrey),
                   ),
                 );
               }
@@ -74,8 +109,27 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                     categories,
                     currencyFormatter,
                   ),
-                  _buildPredictionTab(expenses, categories, currencyFormatter),
                   _buildMonthlyTableTab(transactions, currencyFormatter),
+                   // Prediction only makes sense for current year/month usually, 
+                   // or maybe "Predicted" for the selected year's average? 
+                  // The current prediction logic is "Predict end of CURRENT month".
+                  // If looking at past year, prediction is irrelevant.
+                  // Let's show a disabled message or just hide it.
+                  // For now, let's just show it. If year is current, it works.
+                  // If year is past, it shows 0 or weird data if no transactions in current month match selected year (which is impossible).
+                  // Wait, prediction logic uses DateTime.now().
+                  _selectedYear == DateTime.now().year
+                      ? _buildPredictionTab(
+                          expenses,
+                          categories,
+                          currencyFormatter,
+                        )
+                      : const Center(
+                          child: Text(
+                            "Prediction available for current year only",
+                            style: TextStyle(color: AppTheme.textGrey),
+                          ),
+                        ),
                 ],
               );
             },
