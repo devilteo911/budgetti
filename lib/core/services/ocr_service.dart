@@ -1,4 +1,8 @@
+import 'dart:ui';
+
+import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:mobile_ocr/mobile_ocr_plugin.dart';
 
 class ReceiptOcrResult {
   final String? merchant;
@@ -8,33 +12,84 @@ class ReceiptOcrResult {
   ReceiptOcrResult({this.merchant, this.amount, this.date});
 
   @override
-  String toString() => 'Merchant: $merchant, Amount: $amount, Date: $date';
+  String toString() => 'Merchant: \$merchant, Amount: \$amount, Date: \$date';
+}
+
+/// Helper class to abstract differences between MLKit and MobileOCR
+class _OcrLine {
+  final String text;
+  final Rect boundingBox;
+
+  _OcrLine(this.text, this.boundingBox);
 }
 
 class OcrService {
-  final _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+  final PersistenceService _persistenceService;
+  final _mlKitRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+  final _mobileOcr = MobileOcr();
+
+  OcrService(this._persistenceService);
 
   Future<ReceiptOcrResult> recognizeReceipt(String imagePath) async {
+    final engine = _persistenceService.getOcrEngine();
+
+    if (engine == 'mobile_ocr') {
+      return _recognizeWithMobileOcr(imagePath);
+    } else {
+      return _recognizeWithMlKit(imagePath);
+    }
+  }
+
+  Future<ReceiptOcrResult> _recognizeWithMlKit(String imagePath) async {
     final inputImage = InputImage.fromFilePath(imagePath);
-    final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
+    final RecognizedText recognizedText = await _mlKitRecognizer.processImage(
+      inputImage,
+    );
 
-    String? merchant;
-    double? totalAmount;
-    DateTime? date;
-
-    final List<TextLine> allLines = [];
+    final List<_OcrLine> allLines = [];
     for (TextBlock block in recognizedText.blocks) {
-      allLines.addAll(block.lines);
+      for (TextLine line in block.lines) {
+        allLines.add(_OcrLine(line.text, line.boundingBox));
+      }
     }
 
     if (allLines.isEmpty) return ReceiptOcrResult();
+
+    return _processLines(allLines);
+  }
+
+  Future<ReceiptOcrResult> _recognizeWithMobileOcr(String imagePath) async {
+    try {
+      // Ensure models are ready (downloads on first run on Android)
+      await _mobileOcr.prepareModels();
+
+      final textBlocks = await _mobileOcr.detectText(imagePath: imagePath);
+
+      final List<_OcrLine> allLines = textBlocks.map((block) {
+        return _OcrLine(block.text, block.boundingBox);
+      }).toList();
+
+      if (allLines.isEmpty) return ReceiptOcrResult();
+
+      return _processLines(allLines);
+    } catch (e) {
+      // Fallback or error handling
+      print('MobileOCR failed: \$e');
+      return ReceiptOcrResult();
+    }
+  }
+
+  ReceiptOcrResult _processLines(List<_OcrLine> allLines) {
+    String? merchant;
+    double? totalAmount;
+    DateTime? date;
 
     final List<String> lineTexts = allLines.map((l) => l.text.trim()).toList();
 
     // 1. Try to find Merchant (Often the first line with real text)
     for (var line in lineTexts) {
       if (line.length > 3 &&
-          !RegExp(r'^\d+$', multiLine: true).hasMatch(line)) {
+          !RegExp(r'^\d+\$', multiLine: true).hasMatch(line)) {
         merchant = line;
         break;
       }
@@ -53,7 +108,7 @@ class OcrService {
     );
   }
 
-  double? _extractAmount(List<TextLine> lines) {
+  double? _extractAmount(List<_OcrLine> lines) {
     // Look for bingo keywords
     final bingoKeywords = RegExp(
       r'(TOTALE COMPLESSIVO|TOTALE EURO|TOTALE DOVUTO|TOTAL DUE)',
@@ -119,9 +174,7 @@ class OcrService {
       }
     }
 
-    // 3. Absolute fallback: if no keyword proximity was strong enough,
-    // we already tracked the maxFontHeight across the receipt in step 2.
-    // If we still found nothing, check all lines as a safety.
+    // 3. Absolute fallback
     if (bestAmount == null) {
       for (var line in lines) {
         final amount = _parseDecimal(line.text);
@@ -152,7 +205,7 @@ class OcrService {
   DateTime? _extractDate(List<String> lines) {
     // Look for DD/MM/YY, YYYY-MM-DD, etc.
     final dateRegex = RegExp(r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})');
-    
+
     for (var line in lines) {
       final match = dateRegex.firstMatch(line);
       if (match != null) {
@@ -160,9 +213,8 @@ class OcrService {
         final m = int.tryParse(match.group(2)!) ?? 1;
         var y = int.tryParse(match.group(3)!) ?? DateTime.now().year;
         if (y < 100) y += 2000;
-        
+
         try {
-          // ML Kit often messes up order depending on locale, we'll try to be smart or default to DMY
           return DateTime(y, m, d);
         } catch (_) {}
       }
@@ -171,6 +223,6 @@ class OcrService {
   }
 
   void dispose() {
-    _textRecognizer.close();
+    _mlKitRecognizer.close();
   }
 }

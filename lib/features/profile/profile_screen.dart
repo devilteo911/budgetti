@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:budgetti/core/services/google_drive_service.dart';
+
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +15,7 @@ import 'package:budgetti/features/settings/wallets_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
+import 'package:budgetti/core/services/persistence_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -355,6 +356,140 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Widget _buildOcrSettings(PersistenceService persistence) {
+    final currentEngine = persistence.getOcrEngine();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () {
+            showModalBottomSheet(
+              context: context,
+              backgroundColor: AppTheme.surfaceGrey,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              builder: (context) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppTheme.textGrey.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "Receipt Scanning Engine",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ListTile(
+                        title: const Text(
+                          "Google MLKit (Default)",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        subtitle: const Text(
+                          "Fast, reliable, standard accuracy",
+                          style: TextStyle(color: AppTheme.textGrey),
+                        ),
+                        trailing: currentEngine == 'google_mlkit'
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: AppTheme.primaryGreen,
+                              )
+                            : null,
+                        onTap: () async {
+                          await persistence.setOcrEngine('google_mlkit');
+                          if (mounted) {
+                            Navigator.pop(context);
+                            setState(() {});
+                          }
+                        },
+                      ),
+                      ListTile(
+                        title: const Text(
+                          "Ente Mobile OCR",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        subtitle: const Text(
+                          "Advanced (Experimental), higher accuracy",
+                          style: TextStyle(color: AppTheme.textGrey),
+                        ),
+                        trailing: currentEngine == 'mobile_ocr'
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: AppTheme.primaryGreen,
+                              )
+                            : null,
+                        onTap: () async {
+                          await persistence.setOcrEngine('mobile_ocr');
+                          if (mounted) {
+                            Navigator.pop(context);
+                            setState(() {});
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceGrey,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Receipt Scanner",
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      currentEngine == 'mobile_ocr'
+                          ? "Ente Mobile OCR"
+                          : "Google MLKit",
+                      style: TextStyle(
+                        color: currentEngine == 'mobile_ocr'
+                            ? Colors.orangeAccent
+                            : AppTheme.primaryGreen,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: AppTheme.textGrey,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
@@ -573,6 +708,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Receipt Scanning Engine Helper
+                    _buildOcrSettings(persistence),
 
                     const SizedBox(height: 32),
 
