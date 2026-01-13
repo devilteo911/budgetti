@@ -1,9 +1,8 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
-import 'package:budgetti/features/dashboard/widgets/budget_saturation_recap.dart';
+import 'package:budgetti/features/dashboard/widgets/add_transaction_button.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
-import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,22 +42,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final userProfileAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          HapticFeedback.heavyImpact();
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: AppTheme.surfaceGrey,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            builder: (context) => const AddTransactionModal(),
-          );
-        },
-        backgroundColor: AppTheme.primaryGreen,
-        child: const Icon(Icons.add, color: AppTheme.backgroundBlack),
-      ),
       body: SafeArea(
         child: userProfileAsync.when(
           loading: () => const ShimmerLoading(child: DashboardSkeleton()),
@@ -279,10 +262,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // Budget Saturation recap
-                  const BudgetSaturationRecap(),
-
+                  
+                      // Add New Transaction Button
+                      const AddTransactionButton(),
+ 
                   const SizedBox(height: 32),
                   // Recent Transactions
                   if (accounts.isNotEmpty)

@@ -109,6 +109,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       context: context,
       backgroundColor: AppTheme.backgroundBlack,
       isScrollControlled: true,
+      useRootNavigator: true,
+      barrierColor: Colors.black54,
+      showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

@@ -18,8 +18,20 @@ class WalletsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Manage Accounts"),
+        title: const Text(
+          "Manage Wallets",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: AppTheme.backgroundBlack,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add, color: AppTheme.primaryGreen),
+            onPressed: () {
+              HapticFeedback.heavyImpact();
+              _showWalletEditor(context, ref, null);
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -120,14 +132,6 @@ class WalletsScreen extends ConsumerWidget {
             error: (err, stack) => Center(child: Text('Error: $err')),
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primaryGreen,
-        onPressed: () {
-          HapticFeedback.heavyImpact();
-          _showWalletEditor(context, ref, null);
-        },
-        child: const Icon(Icons.add, color: AppTheme.backgroundBlack),
       ),
     );
   }
