@@ -39,6 +39,13 @@ class CategoriesScreen extends ConsumerWidget {
         backgroundColor: AppTheme.backgroundBlack,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add, color: AppTheme.primaryGreen),
+            onPressed: () {
+              HapticFeedback.heavyImpact();
+              _showEditor(context, ref);
+            },
+          ),
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'restore') {
@@ -95,14 +102,6 @@ class CategoriesScreen extends ConsumerWidget {
             },
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          HapticFeedback.heavyImpact();
-          _showEditor(context, ref);
-        },
-        backgroundColor: AppTheme.primaryGreen,
-        child: const Icon(Icons.add, color: AppTheme.backgroundBlack),
       ),
       body: categoriesAsync.when(
         data: (categories) {

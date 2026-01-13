@@ -6,10 +6,17 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
+import 'package:budgetti/features/transactions/transaction_detail_screen.dart';
 import 'package:budgetti/features/transactions/transaction_filter_sheet.dart';
 import 'package:budgetti/features/settings/wallets_screen.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
+import 'package:draggable_scrollbar/draggable_scrollbar.dart';
+
+class _DateHeader {
+  final String title;
+  _DateHeader({required this.title});
+}
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -20,7 +27,27 @@ class TransactionsScreen extends ConsumerStatefulWidget {
 
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   final Set<String> _selectedIds = {};
+  final ScrollController _scrollController = ScrollController();
   bool get _isSelectionMode => _selectedIds.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(paginatedTransactionsProvider.notifier).loadMore();
+    }
+  }
 
   void _toggleSelection(String id) {
     setState(() {
@@ -61,7 +88,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         setState(() {
           _selectedIds.clear();
         });
-        ref.invalidate(transactionsProvider);
+        ref.invalidate(paginatedTransactionsProvider); // Refresh balance
         ref.invalidate(accountsProvider); // Refresh balance
       } catch (e) {
         if (mounted) {
@@ -82,6 +109,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       context: context,
       backgroundColor: AppTheme.backgroundBlack,
       isScrollControlled: true,
+      useRootNavigator: true,
+      barrierColor: Colors.black54,
+      showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -94,14 +124,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
-    final selectedWalletId = ref.watch(selectedWalletIdProvider);
-    
-    // Fetch transactions for selected wallet (or ALL if null)
-    final transactionsAsync = ref.watch(filteredTransactionsProvider(selectedWalletId));
+    final paginatedState = ref.watch(paginatedTransactionsProvider);
+    final transactions = paginatedState.transactions;
     final filters = ref.watch(transactionFiltersProvider);
 
-    return transactionsAsync.when(
-      loading: () => Scaffold(
+    if (paginatedState.isLoading && transactions.isEmpty) {
+      return Scaffold(
         appBar: _buildAppBar(null, accountsAsync.value ?? []),
         body: ShimmerLoading(
           child: ListView.separated(
@@ -111,71 +139,172 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             itemBuilder: (context, index) => const TransactionItemSkeleton(),
           ),
         ),
-      ),
-      error: (err, stack) => Scaffold(
+      );
+    }
+
+    if (paginatedState.error != null && transactions.isEmpty) {
+      return Scaffold(
         appBar: _buildAppBar(null, accountsAsync.value ?? []),
-        body: Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
-      ),
-      data: (transactions) {
-        return Scaffold(
-          appBar: _buildAppBar(transactions, accountsAsync.value ?? []),
-          body: SafeArea(
-            child: Column(
-              children: [
-                if (!filters.isEmpty) _buildActiveFilters(filters),
-                Expanded(
-                  child: transactions.isEmpty
-                      ? const Center(
-                          child: Text("No transactions found",
-                              style: TextStyle(color: AppTheme.textGrey)))
-                      : Builder(
-                          builder: (context) {
-                            final grouped = _groupTransactionsByDate(transactions);
-                            return ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              itemCount: grouped.length,
+        body: Center(
+          child: Text(
+            'Error: ${paginatedState.error}',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: _buildAppBar(transactions, accountsAsync.value ?? []),
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (!filters.isEmpty) _buildActiveFilters(filters),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  final notifier = ref.read(paginatedTransactionsProvider.notifier);
+                  ref.invalidate(accountsProvider);
+                  await Future.wait([
+                    notifier.refresh(),
+                    ref.read(accountsProvider.future),
+                  ]);
+                },
+                color: AppTheme.primaryGreen,
+                backgroundColor: AppTheme.surfaceGrey,
+                child: transactions.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.6,
+                            child: const Center(
+                              child: Text(
+                                "No transactions found",
+                                style: TextStyle(color: AppTheme.textGrey),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Builder(
+                        builder: (context) {
+                          final grouped = _groupTransactionsByDate(transactions);
+                          final sortedDates = grouped.keys.toList()
+                            ..sort((a, b) => b.compareTo(a));
+                          
+                          final flatList = <dynamic>[];
+                          final dateIndices = <int, DateTime>{};
+
+                          for (var date in sortedDates) {
+                            dateIndices[flatList.length] = date;
+                            flatList.add(_DateHeader(title: _formatDateHeader(date)));
+                            for (var t in grouped[date]!) {
+                              dateIndices[flatList.length] = date;
+                              flatList.add(t);
+                            }
+                          }
+
+                          flatList.add(const SizedBox(height: 80));
+
+                          return DraggableScrollbar.semicircle(
+                            controller: _scrollController,
+                            backgroundColor: AppTheme.surfaceGrey,
+                            labelTextBuilder: (double offset) {
+                              if (sortedDates.isEmpty) return const Text("");
+
+                              final totalScrollable = _scrollController.position.maxScrollExtent;
+                              final current = offset;
+
+                              if (totalScrollable == 0)
+                                return Text(
+                                  DateFormat('MMM yyyy').format(sortedDates.first),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                );
+
+                              final fraction = (current / totalScrollable).clamp(0.0, 1.0);
+                              final index = (fraction * (flatList.length - 1)).floor();
+
+                              var labelDate = DateTime.now();
+                              int nearestHeader = -1;
+                              for (var idx in dateIndices.keys) {
+                                if (idx <= index && idx > nearestHeader)
+                                  nearestHeader = idx;
+                              }
+                              if (nearestHeader != -1)
+                                labelDate = dateIndices[nearestHeader]!;
+                              
+                              return Text(
+                                DateFormat('MMM yyyy').format(labelDate).toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              );
+                            },
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
+                              itemCount: flatList.length + (paginatedState.hasMore ? 1 : 0),
                               itemBuilder: (context, index) {
-                                final date = grouped.keys.elementAt(index);
-                                final dayTransactions = grouped[date]!;
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                      child: Text(
-                                        _formatDateHeader(date),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleSmall
-                                            ?.copyWith(
-                                              color: AppTheme.textGrey,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.2,
-                                            ),
+                                if (index == flatList.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 32.0),
+                                    child: Center(child: CircularProgressIndicator()),
+                                  );
+                                }
+                                final item = flatList[index];
+                                if (item is Widget) return item;
+                                if (item is _DateHeader) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    child: Text(
+                                      item.title,
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        color: AppTheme.textGrey,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
                                       ),
                                     ),
-                                    ...dayTransactions.map((t) => _TransactionItem(
-                                      transaction: t,
-                                      isSelected: _selectedIds.contains(t.id),
-                                      onLongPress: () => _toggleSelection(t.id),
-                                      onTap: () {
-                                        if (_isSelectionMode) {
-                                          _toggleSelection(t.id);
-                                        }
-                                      },
-                                    )),
-                                  ],
-                                );
+                                  );
+                                }
+                                if (item is Transaction) {
+                                  return _TransactionItem(
+                                    transaction: item,
+                                    isSelected: _selectedIds.contains(item.id),
+                                    onLongPress: () => _toggleSelection(item.id),
+                                    onTap: () {
+                                      if (_isSelectionMode) {
+                                        _toggleSelection(item.id);
+                                      } else {
+                                        final originalIndex = transactions.indexOf(item);
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => TransactionDetailScreen(
+                                              transactions: transactions,
+                                              initialIndex: originalIndex,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  );
+                                }
+                                return const SizedBox.shrink();
                               },
-                            );
-                          },
-                        ),
-                ),
-              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
@@ -193,6 +322,26 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             IconButton(
               icon: const Icon(Icons.edit, color: AppTheme.primaryGreen),
               onPressed: () => _editSelected(transactions),
+            ),
+          if (transactions != null)
+            IconButton(
+              icon: Icon(
+                _selectedIds.length == transactions.length
+                    ? Icons.deselect_outlined
+                    : Icons.select_all,
+                color: AppTheme.primaryGreen,
+              ),
+              onPressed: () {
+                setState(() {
+                  final allIds = transactions.map((t) => t.id).toSet();
+                  if (_selectedIds.length == transactions.length &&
+                      _selectedIds.containsAll(allIds)) {
+                    _selectedIds.clear();
+                  } else {
+                    _selectedIds.addAll(allIds);
+                  }
+                });
+              },
             ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
@@ -250,6 +399,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       margin: const EdgeInsets.only(bottom: 8, top: 4),
       child: ListView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
         children: [
           if (filters.dateRange != null)
             _ActiveFilterChip(
@@ -567,3 +717,5 @@ class _ActiveFilterChip extends StatelessWidget {
     );
   }
 }
+
+

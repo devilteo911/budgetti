@@ -6,6 +6,7 @@ class Account {
   final String currency;
   final String providerName; // e.g. "Widiba"
   final bool isDefault;
+  final DateTime? initialBalanceDate;
 
   Account({
     required this.id,
@@ -15,6 +16,7 @@ class Account {
     required this.currency,
     required this.providerName,
     this.isDefault = false,
+    this.initialBalanceDate,
   });
 
   Account copyWith({
@@ -25,6 +27,7 @@ class Account {
     String? currency,
     String? providerName,
     bool? isDefault,
+    DateTime? initialBalanceDate,
   }) {
     return Account(
       id: id ?? this.id,
@@ -34,6 +37,7 @@ class Account {
       currency: currency ?? this.currency,
       providerName: providerName ?? this.providerName,
       isDefault: isDefault ?? this.isDefault,
+      initialBalanceDate: initialBalanceDate ?? this.initialBalanceDate,
     );
   }
 
@@ -46,6 +50,9 @@ class Account {
       currency: json['currency'],
       providerName: json['provider_name'] ?? 'Supabase',
       isDefault: json['is_default'] ?? false,
+      initialBalanceDate: json['initial_balance_date'] != null
+          ? DateTime.parse(json['initial_balance_date'])
+          : null,
     );
   }
 
@@ -57,6 +64,7 @@ class Account {
       'initial_balance': initialBalance,
       'currency': currency,
       'is_default': isDefault,
+      'initial_balance_date': initialBalanceDate?.toIso8601String(),
     };
   }
 }

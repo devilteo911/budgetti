@@ -19,6 +19,13 @@ class TagsScreen extends ConsumerWidget {
         title: const Text("Manage Tags"),
         backgroundColor: AppTheme.backgroundBlack,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add, color: AppTheme.primaryGreen),
+            onPressed: () {
+              HapticFeedback.heavyImpact();
+              _showTagEditor(context, ref, null);
+            },
+          ),
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'restore') {
@@ -107,14 +114,6 @@ class TagsScreen extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
           error: (err, stack) => Center(child: Text('Error: $err')),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primaryGreen,
-        onPressed: () {
-          HapticFeedback.heavyImpact();
-          _showTagEditor(context, ref, null);
-        },
-        child: const Icon(Icons.add, color: AppTheme.backgroundBlack),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:budgetti/models/account.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:budgetti/features/settings/widgets/wallet_skeleton.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
@@ -17,77 +18,120 @@ class WalletsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Manage Accounts"),
+        title: const Text(
+          "Manage Wallets",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: AppTheme.backgroundBlack,
-      ),
-      body: SafeArea(
-        child: accountsAsync.when(
-          data: (accounts) => ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: accounts.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final wallet = accounts[index];
-              final currencyFormatter = ref.watch(currencyProvider);
-              
-              return ListTile(
-                tileColor: AppTheme.surfaceGrey,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.account_balance_wallet, color: AppTheme.primaryGreen),
-                ),
-                title: Text(wallet.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: Text(
-                  "${currencyFormatter.format(wallet.balance)} (${wallet.isDefault ? 'Default Account' : 'Account'})",
-                  style: const TextStyle(color: AppTheme.textGrey),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!wallet.isDefault)
-                      IconButton(
-                        icon: const Icon(Icons.star_border, color: AppTheme.textGrey),
-                        onPressed: () => _setAsDefault(ref, wallet),
-                        tooltip: "Set as default",
-                      )
-                    else
-                      const Icon(Icons.star, color: Colors.amber, size: 24),
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: AppTheme.textGrey),
-                      onPressed: () => _showWalletEditor(context, ref, wallet),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () => _deleteWallet(context, ref, wallet),
-                    ),
-                  ],
-                ),
-              );
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add, color: AppTheme.primaryGreen),
+            onPressed: () {
+              HapticFeedback.heavyImpact();
+              _showWalletEditor(context, ref, null);
             },
           ),
-          loading: () => ShimmerLoading(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: 5,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => const WalletItemSkeleton(),
-            ),
-          ),
-          error: (err, stack) => Center(child: Text('Error: $err')),
-        ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primaryGreen,
-        onPressed: () {
-          HapticFeedback.heavyImpact();
-          _showWalletEditor(context, ref, null);
-        },
-        child: const Icon(Icons.add, color: AppTheme.backgroundBlack),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(accountsProvider);
+            await ref.read(accountsProvider.future);
+          },
+          color: AppTheme.primaryGreen,
+          backgroundColor: AppTheme.surfaceGrey,
+          child: accountsAsync.when(
+            skipLoadingOnRefresh: true,
+            data: (accounts) => ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: accounts.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final wallet = accounts[index];
+                final currencyFormatter = ref.watch(currencyProvider);
+
+                return ListTile(
+                  tileColor: AppTheme.surfaceGrey,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet,
+                      color: AppTheme.primaryGreen,
+                    ),
+                  ),
+                  title: Text(
+                    wallet.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${currencyFormatter.format(wallet.balance)} (${wallet.isDefault ? 'Default Account' : 'Account'})",
+                        style: const TextStyle(color: AppTheme.textGrey),
+                      ),
+                      if (wallet.initialBalanceDate != null)
+                        Text(
+                          "Starting from: ${DateFormat('MMM d, yyyy').format(wallet.initialBalanceDate!)}",
+                          style: const TextStyle(
+                            color: AppTheme.textGrey,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!wallet.isDefault)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.star_border,
+                            color: AppTheme.textGrey,
+                          ),
+                          onPressed: () => _setAsDefault(ref, wallet),
+                          tooltip: "Set as default",
+                        )
+                      else
+                        const Icon(Icons.star, color: Colors.amber, size: 24),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: AppTheme.textGrey),
+                        onPressed: () =>
+                            _showWalletEditor(context, ref, wallet),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.redAccent),
+                        onPressed: () => _deleteWallet(context, ref, wallet),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            loading: () => ShimmerLoading(
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                itemCount: 5,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
+                itemBuilder: (context, index) => const WalletItemSkeleton(),
+              ),
+            ),
+            error: (err, stack) => Center(child: Text('Error: $err')),
+          ),
+        ),
       ),
     );
   }
@@ -144,6 +188,7 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
   bool _isDefault = false;
+  DateTime? _initialBalanceDate;
 
   @override
   void initState() {
@@ -152,6 +197,9 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
       _nameController.text = widget.wallet!.name;
       _amountController.text = widget.wallet!.initialBalance.toString();
       _isDefault = widget.wallet!.isDefault;
+      _initialBalanceDate = widget.wallet!.initialBalanceDate;
+    } else {
+      _initialBalanceDate = DateTime.now();
     }
   }
 
@@ -194,6 +242,48 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
               ),
             ),
             const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                "Starting Date",
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                _initialBalanceDate == null
+                    ? "All transactions"
+                    : DateFormat('MMM d, yyyy').format(_initialBalanceDate!),
+                style: const TextStyle(color: AppTheme.textGrey),
+              ),
+              trailing: const Icon(
+                Icons.calendar_today,
+                color: AppTheme.primaryGreen,
+              ),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _initialBalanceDate ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.dark(
+                          primary: AppTheme.primaryGreen,
+                          onPrimary: AppTheme.backgroundBlack,
+                          surface: AppTheme.surfaceGrey,
+                          onSurface: Colors.white,
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) {
+                  setState(() => _initialBalanceDate = picked);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
             SwitchListTile(
               title: const Text("Set as Default", style: TextStyle(color: Colors.white)),
               value: _isDefault,
@@ -215,6 +305,7 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
                     name: name,
                     initialBalance: amount,
                     isDefault: _isDefault,
+                      initialBalanceDate: _initialBalanceDate,
                   ));
                 } else {
                   final profile = ref.read(userProfileProvider).value;
@@ -224,8 +315,9 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
                     initialBalance: amount,
                       balance: amount,
                     isDefault: _isDefault,
+                      initialBalanceDate: _initialBalanceDate,
                     currency: profile?['currency'] ?? 'EUR',
-                      providerName: 'Supabase',
+                      providerName: 'Local',
                   ));
                 }
                 ref.invalidate(accountsProvider);

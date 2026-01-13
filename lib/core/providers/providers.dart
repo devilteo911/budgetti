@@ -11,13 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
-import 'package:budgetti/core/services/sync_service.dart';
+
 import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:budgetti/core/services/import_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError();
@@ -30,10 +31,7 @@ final persistenceServiceProvider = Provider<PersistenceService>((ref) {
 
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 
-final syncServiceProvider = Provider<SyncService>((ref) {
-  final db = ref.watch(databaseProvider);
-  return SyncService(db);
-});
+
 
 final googleDriveServiceProvider = Provider<GoogleDriveService>((ref) {
   return GoogleDriveService();
@@ -54,6 +52,10 @@ final ocrServiceProvider = Provider<OcrService>((ref) {
   final service = OcrService(persistenceService);
   ref.onDispose(service.dispose);
   return service;
+});
+
+final importServiceProvider = Provider<ImportService>((ref) {
+  return ImportService();
 });
 
 // Provider that tracks current user ID and updates when auth state changes
@@ -78,7 +80,7 @@ final accountsProvider = FutureProvider<List<Account>>((ref) async {
 final transactionsProvider = FutureProvider.family<List<Transaction>, String?>((ref, accountId) async {
   try {
     final service = ref.watch(financeServiceProvider);
-    return await service.getTransactions(accountId);
+    return await service.getTransactions(accountId: accountId);
   } catch (e) {
     return [];
   }
@@ -172,7 +174,15 @@ class TransactionFilterState {
 
 class TransactionFiltersNotifier extends Notifier<TransactionFilterState> {
   @override
-  TransactionFilterState build() => TransactionFilterState();
+  TransactionFilterState build() {
+    final now = DateTime.now();
+    return TransactionFilterState(
+      dateRange: DateTimeRange(
+        start: DateTime(now.year, 1, 1),
+        end: DateTime(now.year, 12, 31),
+      ),
+    );
+  }
 
   void setDateRange(DateTimeRange? range) {
     state = state.copyWith(dateRange: () => range);
@@ -207,38 +217,117 @@ final transactionFiltersProvider =
     NotifierProvider<TransactionFiltersNotifier, TransactionFilterState>(
         TransactionFiltersNotifier.new);
 
-final filteredTransactionsProvider =
-    FutureProvider.family<List<Transaction>, String?>((ref, accountId) async {
-  final transactions = await ref.watch(transactionsProvider(accountId).future);
-  final filters = ref.watch(transactionFiltersProvider);
+final paginatedTransactionsProvider =
+    NotifierProvider<PaginatedTransactionsNotifier, PaginatedTransactionsState>(
+      PaginatedTransactionsNotifier.new,
+    );
 
-  if (filters.isEmpty) return transactions;
+class PaginatedTransactionsState {
+  final List<Transaction> transactions;
+  final bool isLoading;
+  final bool hasMore;
+  final int offset;
+  final bool isRefreshing;
+  final String? error;
 
-  return transactions.where((t) {
-    // Date Filter
-    if (filters.dateRange != null) {
-      if (t.date.isBefore(filters.dateRange!.start) ||
-          t.date.isAfter(filters.dateRange!.end.add(const Duration(days: 1)))) {
-        return false;
-      }
+  PaginatedTransactionsState({
+    required this.transactions,
+    required this.isLoading,
+    required this.hasMore,
+    required this.offset,
+    this.isRefreshing = false,
+    this.error,
+  });
+
+  PaginatedTransactionsState copyWith({
+    List<Transaction>? transactions,
+    bool? isLoading,
+    bool? hasMore,
+    int? offset,
+    bool? isRefreshing,
+    String? error,
+  }) {
+    return PaginatedTransactionsState(
+      transactions: transactions ?? this.transactions,
+      isLoading: isLoading ?? this.isLoading,
+      hasMore: hasMore ?? this.hasMore,
+      offset: offset ?? this.offset,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      error: error,
+    );
+  }
+}
+
+class PaginatedTransactionsNotifier
+    extends Notifier<PaginatedTransactionsState> {
+  static const int _limit = 100;
+
+  @override
+  PaginatedTransactionsState build() {
+    // Watch filters and wallet - this triggers build() when they change
+    ref.watch(transactionFiltersProvider);
+    ref.watch(selectedWalletIdProvider);
+
+    // Use microtask to avoid side-effects during build
+    Future.microtask(() => refresh());
+    
+    return PaginatedTransactionsState(
+      transactions: [],
+      isLoading: true,
+      hasMore: true,
+      offset: 0,
+    );
+  }
+
+  Future<void> refresh() async {
+    state = state.copyWith(
+      isRefreshing: true,
+      isLoading: true,
+      hasMore: true,
+      // NOTE: We don't clear transactions here to avoid skeleton flickering
+    );
+    await _fetchBatch();
+  }
+
+  Future<void> loadMore() async {
+    if (state.isLoading || !state.hasMore) return;
+    await _fetchBatch();
+  }
+
+  Future<void> _fetchBatch() async {
+    final filters = ref.read(transactionFiltersProvider);
+    final walletId = ref.read(selectedWalletIdProvider);
+    final service = ref.read(financeServiceProvider);
+
+    try {
+      final newTxns = await service.getTransactions(
+        accountId: walletId,
+        startDate: filters.dateRange?.start,
+        endDate: filters.dateRange?.end,
+        categories: filters.categories,
+        tags: filters.tags,
+        limit: _limit,
+        offset: state.isRefreshing ? 0 : state.offset,
+      );
+
+      state = state.copyWith(
+        transactions: state.isRefreshing
+            ? newTxns
+            : [...state.transactions, ...newTxns],
+        isLoading: false,
+        isRefreshing: false,
+        offset: (state.isRefreshing ? 0 : state.offset) + newTxns.length,
+        hasMore: newTxns.length == _limit,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        hasMore: false,
+        error: e.toString(),
+      );
     }
-
-    // Category Filter
-    if (filters.categories.isNotEmpty &&
-        !filters.categories.contains(t.category)) {
-      return false;
-    }
-
-    // Tag Filter
-    if (filters.tags.isNotEmpty) {
-      if (!t.tags.any((tag) => filters.tags.contains(tag))) {
-        return false;
-      }
-    }
-
-    return true;
-  }).toList();
-});
+  }
+}
 
 class SelectedWalletId extends Notifier<String?> {
   @override

@@ -30,7 +30,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
   final _descriptionController = TextEditingController();
   
   bool _isExpense = true;
-  String _selectedCategory = 'Groceries';
+  String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   List<String> _selectedTags = [];
   String? _selectedAccountId;
@@ -40,7 +40,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 1000),
     );
     
     // If editing, populate fields
@@ -142,7 +142,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         amount: finalAmount,
         date: _selectedDate,
         description: _descriptionController.text,
-        category: _selectedCategory,
+        category: _selectedCategory ?? 'Uncategorized',
         tags: _selectedTags,
       );
 
@@ -207,6 +207,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -215,8 +216,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
           builder: (context, ref, child) {
             final categoriesAsync = ref.watch(categoriesProvider);
             
-            return Container(
-              padding: const EdgeInsets.symmetric(vertical: 24),
+            return Padding(
+              padding: const EdgeInsets.only(top: 24, bottom: 8),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -239,18 +240,40 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                       data: (categories) {
                          // Filter by type
                          final filtered = categories.where((c) => c.type == (_isExpense ? 'expense' : 'income')).toList();
-                         if (filtered.isEmpty) return const Center(child: Text("No categories found", style: TextStyle(color: AppTheme.textGrey)));
+                        if (filtered.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 32),
+                            child: Center(
+                              child: Text(
+                                "No categories found",
+                                style: TextStyle(color: AppTheme.textGrey),
+                              ),
+                            ),
+                          );
+                        }
 
-                         return ListView.separated(
+                        return ListView.builder(
                           shrinkWrap: true,
                           itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const Divider(color: AppTheme.surfaceGreyLight, height: 1),
                           itemBuilder: (context, index) {
                             final cat = filtered[index];
+                            final isSelected = _selectedCategory == cat.name;
                             return ListTile(
-                              title: Text(cat.name, style: const TextStyle(color: Colors.white)),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 4,
+                              ),
+                              title: Text(
+                                cat.name,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
                               leading: Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
                                   color: Color(cat.colorHex).withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
@@ -265,15 +288,36 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 setState(() => _selectedCategory = cat.name);
                                 Navigator.of(context).pop();
                               },
-                              trailing: _selectedCategory == cat.name ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
+                              trailing: isSelected
+                                  ? const Icon(
+                                      Icons.check_circle,
+                                      color: AppTheme.primaryGreen,
+                                    )
+                                  : null,
                             );
                           },
                         );
                       },
-                      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
-                      error: (e, s) => Center(child: Text("Error: $e", style: TextStyle(color: Colors.red))),
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppTheme.primaryGreen,
+                          ),
+                        ),
+                      ),
+                      error: (e, s) => Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: Text(
+                            "Error: $e",
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 16),
                 ],
               ),
             );
@@ -406,23 +450,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-              _buildAnimatedItem(0, 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const SizedBox(width: 48), // Left spacer
-                    Text(
-                      widget.transaction != null ? "Edit Transaction" : "New Transaction",
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(
-                      width: 48,
-                    ), // Right spacer to keep title centered
-                  ],
-                ),
-              ),
-                const SizedBox(height: 16),
+
               
               // Type Selector
               _buildAnimatedItem(1, 
@@ -435,9 +463,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   onSelectionChanged: (Set<bool> newSelection) {
                     setState(() {
                       _isExpense = newSelection.first;
-                      // Reset category to a default if switching types? For now keep simple.
-                      if (!_isExpense && _selectedCategory == "Groceries") _selectedCategory = "Salary";
-                      if (_isExpense && _selectedCategory == "Salary") _selectedCategory = "Groceries";
+                        _selectedCategory = null; 
                     });
                   },
                   style: ButtonStyle(
@@ -458,168 +484,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               ),
                 const SizedBox(height: 16),
 
-              // Wallet Selector
-              _buildAnimatedItem(2, 
-                Consumer(
-                  builder: (context, ref, child) {
-                    final accountsAsync = ref.watch(accountsProvider);
-                    
-                    return accountsAsync.when(
-                      data: (accounts) {
-                        if (accounts.isNotEmpty) {
-                          if (_selectedAccountId == null) {
-                            // Defer state update
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                               if (mounted) setState(() => _initializeDefaultAccount(accounts));
-                            });
-                          } else if (!accounts.any((a) => a.id == _selectedAccountId)) {
-                            // The wallet we thought we had is gone. Default to the first one available.
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                               if (mounted) setState(() => _selectedAccountId = accounts.first.id);
-                            });
-                          }
-                        }
-
-                        final selectedAccount = accounts.where((a) => a.id == _selectedAccountId).firstOrNull;
-
-                        return InkWell(
-                          onTap: () => _showWalletPicker(accounts),
-                          borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceGrey,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppTheme.textGrey.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                ),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.account_balance_wallet,
-                                    color: AppTheme.primaryGreen,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Text(
-                                          "Wallet",
-                                          style: TextStyle(
-                                            color: AppTheme.textGrey,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          selectedAccount?.name ??
-                                              "Select Wallet",
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.keyboard_arrow_down,
-                                    color: AppTheme.textGrey,
-                                    size: 20,
-                                  ),
-                                ],
-                            ),
-                          ),
-                        );
-                      },
-                      loading: () => const Center(child: LinearProgressIndicator(color: AppTheme.primaryGreen)),
-                      error: (_, __) => const Text("Failed to load wallets", style: TextStyle(color: Colors.red)),
-                    );
-                  },
-                ),
-              ),
-                const SizedBox(height: 16),
-          
-              // Amount
-              _buildAnimatedItem(3, 
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceGrey,
-                    borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.textGrey.withValues(alpha: 0.3),
-                      ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Row(
-                    children: [
-                      // Currency indicator
-                      Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryGreen.withValues(alpha: 0.2),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          currencySymbol,
-                          style: const TextStyle(
-                            color: AppTheme.primaryGreen,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      // Input area
-                      Expanded(
-                        child: TextFormField(
-                          controller: _amountController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                          textAlign: TextAlign.right,
-                          decoration: InputDecoration(
-                            hintText: "0.00",
-                            hintStyle: TextStyle(color: AppTheme.textGrey.withValues(alpha: 0.5)),
-                            border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                            filled: false,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return 'Enter amount';
-                            final sanitized = value.replaceAll(',', '.');
-                            if (double.tryParse(sanitized) == null) {
-                              return 'Invalid';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-                const SizedBox(height: 16),
-          
-              // Description
-              _buildAnimatedItem(4, 
+                // Description
+                _buildAnimatedItem(
+                  2,
                   Container(
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceGrey,
@@ -670,12 +537,233 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                         ),
                       ],
                     ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+          
+                // Wallet & Amount Row
+                _buildAnimatedItem(
+                  3, 
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Wallet Selector
+                        Expanded(
+                          child: Consumer(
+                            builder: (context, ref, child) {
+                              final accountsAsync = ref.watch(accountsProvider);
+
+                              return accountsAsync.when(
+                                data: (accounts) {
+                                  if (accounts.isNotEmpty) {
+                                    if (_selectedAccountId == null) {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (mounted) {
+                                              setState(
+                                                () => _initializeDefaultAccount(
+                                                  accounts,
+                                                ),
+                                              );
+                                            }
+                                          });
+                                    } else if (!accounts.any(
+                                      (a) => a.id == _selectedAccountId,
+                                    )) {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (mounted) {
+                                              setState(
+                                                () => _selectedAccountId =
+                                                    accounts.first.id,
+                                              );
+                                            }
+                                          });
+                                    }
+                                  }
+
+                                  final selectedAccount = accounts
+                                      .where((a) => a.id == _selectedAccountId)
+                                      .firstOrNull;
+
+                                  return InkWell(
+                                    onTap: () => _showWalletPicker(accounts),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.surfaceGrey,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: AppTheme.textGrey.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.account_balance_wallet,
+                                            color: AppTheme.primaryGreen,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              selectedAccount?.name ??
+                                                  "Select Wallet",
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 14,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const Icon(
+                                            Icons.keyboard_arrow_down,
+                                            color: AppTheme.textGrey,
+                                            size: 16,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                                loading: () => Container(
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceGrey,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppTheme.textGrey.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppTheme.primaryGreen,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                error: (_, __) => Container(
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceGrey,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.red.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.error,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Amount Input
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceGrey,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppTheme.textGrey.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Row(
+                              children: [
+                                // Currency indicator
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryGreen.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      currencySymbol,
+                                      style: const TextStyle(
+                                        color: AppTheme.primaryGreen,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Input area
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _amountController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                    decoration: InputDecoration(
+                                      hintText: "0.00",
+                                      hintStyle: TextStyle(
+                                        color: AppTheme.textGrey.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                          ),
+                                      filled: false,
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Enter amount';
+                                      }
+                                      final sanitized = value.replaceAll(
+                                        ',',
+                                        '.',
+                                      );
+                                      if (double.tryParse(sanitized) == null) {
+                                        return 'Invalid';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ),
                 const SizedBox(height: 12),
           
                 // Date and Category Picker Row (Inline)
-              _buildAnimatedItem(5, 
+                _buildAnimatedItem(
+                  4, 
                   Row(
                     children: [
                       // Date Picker
@@ -722,49 +810,146 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                       const SizedBox(width: 12),
                       // Category Picker
                       Expanded(
-                        child: InkWell(
-                          onTap: _showCategoryPicker,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceGrey,
-                              border: Border.all(
-                                color: AppTheme.textGrey.withValues(alpha: 0.3),
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.category,
-                                  color: AppTheme.textGrey,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    _selectedCategory,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final categoriesAsync = ref.watch(
+                              categoriesProvider,
+                            );
+
+                            return categoriesAsync.when(
+                              data: (categories) {
+                                final filtered = categories
+                                    .where(
+                                      (c) =>
+                                          c.type ==
+                                          (_isExpense ? 'expense' : 'income'),
+                                    )
+                                    .toList();
+
+                                if (filtered.isNotEmpty &&
+                                    _selectedCategory == null) {
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (mounted) {
+                                      setState(
+                                        () => _selectedCategory =
+                                            filtered.first.name,
+                                      );
+                                    }
+                                  });
+                                }
+
+                                final selectedCat =
+                                    filtered
+                                        .where(
+                                          (c) => c.name == _selectedCategory,
+                                        )
+                                        .firstOrNull ??
+                                    filtered.firstOrNull;
+
+                                return InkWell(
+                                  onTap: _showCategoryPicker,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 14,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.surfaceGrey,
+                                      border: Border.all(
+                                        color: AppTheme.textGrey.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          selectedCat != null
+                                              ? IconData(
+                                                  selectedCat.iconCode,
+                                                  fontFamily: 'MaterialIcons',
+                                                )
+                                              : Icons.category,
+                                          color: selectedCat != null
+                                              ? Color(selectedCat.colorHex)
+                                              : AppTheme.textGrey,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _selectedCategory ??
+                                                (filtered.isNotEmpty
+                                                    ? filtered.first.name
+                                                    : "Category"),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.keyboard_arrow_down,
+                                          color: AppTheme.textGrey,
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                              loading: () => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceGrey,
+                                  border: Border.all(
+                                    color: AppTheme.textGrey.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryGreen,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.arrow_drop_down,
-                                  color: AppTheme.textGrey,
-                                  size: 20,
+                              ),
+                              error: (_, __) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
                                 ),
-                              ],
-                            ),
-                          ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceGrey,
+                                  border: Border.all(
+                                    color: Colors.red.withValues(alpha: 0.3),
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.error,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -774,7 +959,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                 const SizedBox(height: 12),
  
               // Tags Selector
-              _buildAnimatedItem(7, 
+                _buildAnimatedItem(
+                  5, 
                 Consumer(
                   builder: (context, ref, child) {
                     final tagsAsync = ref.watch(tagsProvider);
@@ -830,7 +1016,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                 const SizedBox(height: 16),
           
               // Submit
-              _buildAnimatedItem(8, 
+                _buildAnimatedItem(
+                  6, 
                 Row(
                   children: [
                     Expanded(

@@ -67,6 +67,9 @@ class Accounts extends Table {
   TextColumn get currency => text().withDefault(const Constant('EUR'))();
   TextColumn get providerName => text().nullable()();
 
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get initialBalanceDate => dateTime().nullable()();
+
   // Sync fields
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastUpdated => dateTime().nullable()();
@@ -113,7 +116,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5; // Incremented from 4
+  int get schemaVersion => 6; // Incremented from 5
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -175,6 +178,14 @@ class AppDatabase extends _$AppDatabase {
         }
 
         await _seedMainAccount();
+      }
+      if (from < 6) {
+        try {
+          await m.addColumn(accounts, accounts.isDefault);
+          await m.addColumn(accounts, accounts.initialBalanceDate);
+        } catch (e) {
+          // Ignore: column might already exist
+        }
       }
     },
     beforeOpen: (details) async {

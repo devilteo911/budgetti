@@ -1,14 +1,14 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
-import 'package:budgetti/features/dashboard/widgets/budget_saturation_recap.dart';
+import 'package:budgetti/features/dashboard/widgets/add_transaction_button.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
-import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -42,22 +42,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final userProfileAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          HapticFeedback.heavyImpact();
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: AppTheme.surfaceGrey,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            builder: (context) => const AddTransactionModal(),
-          );
-        },
-        backgroundColor: AppTheme.primaryGreen,
-        child: const Icon(Icons.add, color: AppTheme.backgroundBlack),
-      ),
       body: SafeArea(
         child: userProfileAsync.when(
           loading: () => const ShimmerLoading(child: DashboardSkeleton()),
@@ -105,8 +89,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final username = profile['username'] as String;
-            
             return accountsAsync.when(
               loading: () => const ShimmerLoading(child: DashboardSkeleton()),
               error: (err, stack) => Center(
@@ -175,23 +157,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Good Evening,",
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                        color: AppTheme.textGrey,
-                                      ),
-                                ),
-                                Text(
-                                  username,
-                                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textWhite,
-                                      ),
-                                ),
-                              ],
+                            Text(
+                              "budgetti",
+                              style: GoogleFonts.bricolageGrotesque(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
+                              ),
                             ),
                           GestureDetector(
                             onTap: () => context.push('/profile'),
@@ -289,10 +262,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // Budget Saturation recap
-                  const BudgetSaturationRecap(),
-
+                  
+                      // Add New Transaction Button
+                      const AddTransactionButton(),
+ 
                   const SizedBox(height: 32),
                   // Recent Transactions
                   if (accounts.isNotEmpty)
