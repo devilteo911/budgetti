@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -105,8 +106,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final username = profile['username'] as String;
-            
             return accountsAsync.when(
               loading: () => const ShimmerLoading(child: DashboardSkeleton()),
               error: (err, stack) => Center(
@@ -175,23 +174,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Good Evening,",
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                        color: AppTheme.textGrey,
-                                      ),
-                                ),
-                                Text(
-                                  username,
-                                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textWhite,
-                                      ),
-                                ),
-                              ],
+                            Text(
+                              "budgetti",
+                              style: GoogleFonts.bricolageGrotesque(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
+                              ),
                             ),
                           GestureDetector(
                             onTap: () => context.push('/profile'),
