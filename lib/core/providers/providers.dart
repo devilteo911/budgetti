@@ -227,6 +227,7 @@ class PaginatedTransactionsState {
   final bool isLoading;
   final bool hasMore;
   final int offset;
+  final bool isRefreshing;
   final String? error;
 
   PaginatedTransactionsState({
@@ -234,6 +235,7 @@ class PaginatedTransactionsState {
     required this.isLoading,
     required this.hasMore,
     required this.offset,
+    this.isRefreshing = false,
     this.error,
   });
 
@@ -242,6 +244,7 @@ class PaginatedTransactionsState {
     bool? isLoading,
     bool? hasMore,
     int? offset,
+    bool? isRefreshing,
     String? error,
   }) {
     return PaginatedTransactionsState(
@@ -249,6 +252,7 @@ class PaginatedTransactionsState {
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
       offset: offset ?? this.offset,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
       error: error,
     );
   }
@@ -265,8 +269,8 @@ class PaginatedTransactionsNotifier
     ref.watch(selectedWalletIdProvider);
 
     // Use microtask to avoid side-effects during build
-    Future.microtask(() => _loadInitial());
-
+    Future.microtask(() => refresh());
+    
     return PaginatedTransactionsState(
       transactions: [],
       isLoading: true,
@@ -275,12 +279,12 @@ class PaginatedTransactionsNotifier
     );
   }
 
-  Future<void> _loadInitial() async {
+  Future<void> refresh() async {
     state = state.copyWith(
+      isRefreshing: true,
       isLoading: true,
-      offset: 0,
-      transactions: [],
       hasMore: true,
+      // NOTE: We don't clear transactions here to avoid skeleton flickering
     );
     await _fetchBatch();
   }
@@ -303,13 +307,16 @@ class PaginatedTransactionsNotifier
         categories: filters.categories,
         tags: filters.tags,
         limit: _limit,
-        offset: state.offset,
+        offset: state.isRefreshing ? 0 : state.offset,
       );
 
       state = state.copyWith(
-        transactions: [...state.transactions, ...newTxns],
+        transactions: state.isRefreshing
+            ? newTxns
+            : [...state.transactions, ...newTxns],
         isLoading: false,
-        offset: state.offset + newTxns.length,
+        isRefreshing: false,
+        offset: (state.isRefreshing ? 0 : state.offset) + newTxns.length,
         hasMore: newTxns.length == _limit,
       );
     } catch (e) {

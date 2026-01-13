@@ -22,77 +22,103 @@ class WalletsScreen extends ConsumerWidget {
         backgroundColor: AppTheme.backgroundBlack,
       ),
       body: SafeArea(
-        child: accountsAsync.when(
-          data: (accounts) => ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: accounts.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final wallet = accounts[index];
-              final currencyFormatter = ref.watch(currencyProvider);
-              
-              return ListTile(
-                tileColor: AppTheme.surfaceGrey,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.account_balance_wallet, color: AppTheme.primaryGreen),
-                ),
-                title: Text(wallet.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "${currencyFormatter.format(wallet.balance)} (${wallet.isDefault ? 'Default Account' : 'Account'})",
-                      style: const TextStyle(color: AppTheme.textGrey),
-                    ),
-                    if (wallet.initialBalanceDate != null)
-                      Text(
-                        "Starting from: ${DateFormat('MMM d, yyyy').format(wallet.initialBalanceDate!)}",
-                        style: const TextStyle(
-                          color: AppTheme.textGrey,
-                          fontSize: 12,
-                        ),
-                      ),
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!wallet.isDefault)
-                      IconButton(
-                        icon: const Icon(Icons.star_border, color: AppTheme.textGrey),
-                        onPressed: () => _setAsDefault(ref, wallet),
-                        tooltip: "Set as default",
-                      )
-                    else
-                      const Icon(Icons.star, color: Colors.amber, size: 24),
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: AppTheme.textGrey),
-                      onPressed: () => _showWalletEditor(context, ref, wallet),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () => _deleteWallet(context, ref, wallet),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          loading: () => ShimmerLoading(
-            child: ListView.separated(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(accountsProvider);
+            await ref.read(accountsProvider.future);
+          },
+          color: AppTheme.primaryGreen,
+          backgroundColor: AppTheme.surfaceGrey,
+          child: accountsAsync.when(
+            skipLoadingOnRefresh: true,
+            data: (accounts) => ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: 5,
+              itemCount: accounts.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => const WalletItemSkeleton(),
+              itemBuilder: (context, index) {
+                final wallet = accounts[index];
+                final currencyFormatter = ref.watch(currencyProvider);
+
+                return ListTile(
+                  tileColor: AppTheme.surfaceGrey,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet,
+                      color: AppTheme.primaryGreen,
+                    ),
+                  ),
+                  title: Text(
+                    wallet.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${currencyFormatter.format(wallet.balance)} (${wallet.isDefault ? 'Default Account' : 'Account'})",
+                        style: const TextStyle(color: AppTheme.textGrey),
+                      ),
+                      if (wallet.initialBalanceDate != null)
+                        Text(
+                          "Starting from: ${DateFormat('MMM d, yyyy').format(wallet.initialBalanceDate!)}",
+                          style: const TextStyle(
+                            color: AppTheme.textGrey,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!wallet.isDefault)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.star_border,
+                            color: AppTheme.textGrey,
+                          ),
+                          onPressed: () => _setAsDefault(ref, wallet),
+                          tooltip: "Set as default",
+                        )
+                      else
+                        const Icon(Icons.star, color: Colors.amber, size: 24),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: AppTheme.textGrey),
+                        onPressed: () =>
+                            _showWalletEditor(context, ref, wallet),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.redAccent),
+                        onPressed: () => _deleteWallet(context, ref, wallet),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
+            loading: () => ShimmerLoading(
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                itemCount: 5,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
+                itemBuilder: (context, index) => const WalletItemSkeleton(),
+              ),
+            ),
+            error: (err, stack) => Center(child: Text('Error: $err')),
           ),
-          error: (err, stack) => Center(child: Text('Error: $err')),
         ),
       ),
       floatingActionButton: FloatingActionButton(

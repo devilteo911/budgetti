@@ -158,166 +158,149 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           children: [
             if (!filters.isEmpty) _buildActiveFilters(filters),
             Expanded(
-              child: transactions.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "No transactions found",
-                        style: TextStyle(color: AppTheme.textGrey),
-                      ),
-                    )
-                  : Builder(
-                          builder: (context) {
-                            final grouped = _groupTransactionsByDate(transactions);
-                            final sortedDates = grouped.keys.toList()
-                              ..sort((a, b) => b.compareTo(a));
-                            
-                            // Flatten the list into items (Headers + Transactions)
-                            final flatList = <dynamic>[];
-                            final dateIndices =
-                                <
-                                  int,
-                                  DateTime
-                                >{}; // Map cumulative index to Date (for scrollbar)
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  final notifier = ref.read(paginatedTransactionsProvider.notifier);
+                  ref.invalidate(accountsProvider);
+                  await Future.wait([
+                    notifier.refresh(),
+                    ref.read(accountsProvider.future),
+                  ]);
+                },
+                color: AppTheme.primaryGreen,
+                backgroundColor: AppTheme.surfaceGrey,
+                child: transactions.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.6,
+                            child: const Center(
+                              child: Text(
+                                "No transactions found",
+                                style: TextStyle(color: AppTheme.textGrey),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Builder(
+                        builder: (context) {
+                          final grouped = _groupTransactionsByDate(transactions);
+                          final sortedDates = grouped.keys.toList()
+                            ..sort((a, b) => b.compareTo(a));
+                          
+                          final flatList = <dynamic>[];
+                          final dateIndices = <int, DateTime>{};
 
-                            for (var date in sortedDates) {
-                              // Add Header
+                          for (var date in sortedDates) {
+                            dateIndices[flatList.length] = date;
+                            flatList.add(_DateHeader(title: _formatDateHeader(date)));
+                            for (var t in grouped[date]!) {
                               dateIndices[flatList.length] = date;
-                              flatList.add(
-                                _DateHeader(title: _formatDateHeader(date)),
-                              );
-
-                              // Add Transactions
-                              for (var t in grouped[date]!) {
-                                dateIndices[flatList.length] = date;
-                                flatList.add(t);
-                              }
+                              flatList.add(t);
                             }
+                          }
 
-                            // Add bottom padding item
-                            flatList.add(const SizedBox(height: 80));
+                          flatList.add(const SizedBox(height: 80));
 
-                            return DraggableScrollbar.semicircle(
-                          controller: _scrollController,
-                              backgroundColor: AppTheme.surfaceGrey,
-                              labelTextBuilder: (double offset) {
-                                if (sortedDates.isEmpty) return const Text("");
+                          return DraggableScrollbar.semicircle(
+                            controller: _scrollController,
+                            backgroundColor: AppTheme.surfaceGrey,
+                            labelTextBuilder: (double offset) {
+                              if (sortedDates.isEmpty) return const Text("");
 
-                                final totalScrollable =
-                                _scrollController.position.maxScrollExtent;
-                                final current = offset;
+                              final totalScrollable = _scrollController.position.maxScrollExtent;
+                              final current = offset;
 
-                                if (totalScrollable == 0)
-                                  return Text(
-                                    DateFormat(
-                                      'MMM yyyy',
-                                    ).format(sortedDates.first),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  );
-
-                                final fraction = (current / totalScrollable)
-                                    .clamp(0.0, 1.0);
-                                final index = (fraction * (flatList.length - 1))
-                                    .floor();
-
-                            var labelDate = DateTime.now();
-
-                            int nearestHeader = -1;
-                            for (var idx in dateIndices.keys) {
-                              if (idx <= index && idx > nearestHeader)
-                                nearestHeader = idx;
-                            }
-                            if (nearestHeader != -1)
-                              labelDate = dateIndices[nearestHeader]!;
-                                
+                              if (totalScrollable == 0)
                                 return Text(
-                                  DateFormat(
-                                    'MMM yyyy',
-                              ).format(labelDate).toUpperCase(),
+                                  DateFormat('MMM yyyy').format(sortedDates.first),
                                   style: const TextStyle(
-                                    color: Colors.black,
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 );
-                              },
-                              child: ListView.builder(
-                            controller: _scrollController,
-                                padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 16
-                                ),
-                            itemCount:
-                                flatList.length +
-                                (paginatedState.hasMore ? 1 : 0),
-                                itemBuilder: (context, index) {
-                              if (index == flatList.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 32.0),
-                                  child: Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                );
+
+                              final fraction = (current / totalScrollable).clamp(0.0, 1.0);
+                              final index = (fraction * (flatList.length - 1)).floor();
+
+                              var labelDate = DateTime.now();
+                              int nearestHeader = -1;
+                              for (var idx in dateIndices.keys) {
+                                if (idx <= index && idx > nearestHeader)
+                                  nearestHeader = idx;
                               }
-                                  final item = flatList[index];
-                                  if (item is Widget)
-                                    return item; // SizedBox padding
-                                  if (item is _DateHeader) {
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
+                              if (nearestHeader != -1)
+                                labelDate = dateIndices[nearestHeader]!;
+                              
+                              return Text(
+                                DateFormat('MMM yyyy').format(labelDate).toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              );
+                            },
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
+                              itemCount: flatList.length + (paginatedState.hasMore ? 1 : 0),
+                              itemBuilder: (context, index) {
+                                if (index == flatList.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 32.0),
+                                    child: Center(child: CircularProgressIndicator()),
+                                  );
+                                }
+                                final item = flatList[index];
+                                if (item is Widget) return item;
+                                if (item is _DateHeader) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    child: Text(
+                                      item.title,
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        color: AppTheme.textGrey,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
                                       ),
-                                      child: Text(
-                                        item.title,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleSmall
-                                            ?.copyWith(
-                                              color: AppTheme.textGrey,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.2,
+                                    ),
+                                  );
+                                }
+                                if (item is Transaction) {
+                                  return _TransactionItem(
+                                    transaction: item,
+                                    isSelected: _selectedIds.contains(item.id),
+                                    onLongPress: () => _toggleSelection(item.id),
+                                    onTap: () {
+                                      if (_isSelectionMode) {
+                                        _toggleSelection(item.id);
+                                      } else {
+                                        final originalIndex = transactions.indexOf(item);
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => TransactionDetailScreen(
+                                              transactions: transactions,
+                                              initialIndex: originalIndex,
                                             ),
-                                      ),
-                                    );
-                                  }
-                                  if (item is Transaction) {
-                                    return _TransactionItem(
-                                      transaction: item,
-                                      isSelected: _selectedIds.contains(
-                                        item.id,
-                                      ),
-                                      onLongPress: () =>
-                                          _toggleSelection(item.id),
-                                      onTap: () {
-                                        if (_isSelectionMode) {
-                                          _toggleSelection(item.id);
-                                        } else {
-                                          // Navigate to Fast Categorization
-                                          final originalIndex = transactions
-                                              .indexOf(item);
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  TransactionDetailScreen(
-                                                    transactions: transactions,
-                                                    initialIndex: originalIndex,
-                                                  ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
+          ],
+        ),
       ),
     );
   }
