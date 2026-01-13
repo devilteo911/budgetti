@@ -1051,6 +1051,32 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
+    'isDefault',
+  );
+  @override
+  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
+    'is_default',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_default" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _initialBalanceDateMeta =
+      const VerificationMeta('initialBalanceDate');
+  @override
+  late final GeneratedColumn<DateTime> initialBalanceDate =
+      GeneratedColumn<DateTime>(
+        'initial_balance_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -1085,6 +1111,8 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     balance,
     currency,
     providerName,
+    isDefault,
+    initialBalanceDate,
     isDeleted,
     lastUpdated,
   ];
@@ -1140,6 +1168,21 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         ),
       );
     }
+    if (data.containsKey('is_default')) {
+      context.handle(
+        _isDefaultMeta,
+        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
+      );
+    }
+    if (data.containsKey('initial_balance_date')) {
+      context.handle(
+        _initialBalanceDateMeta,
+        initialBalanceDate.isAcceptableOrUnknown(
+          data['initial_balance_date']!,
+          _initialBalanceDateMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -1188,6 +1231,14 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         DriftSqlType.string,
         data['${effectivePrefix}provider_name'],
       ),
+      isDefault: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_default'],
+      )!,
+      initialBalanceDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}initial_balance_date'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -1212,6 +1263,8 @@ class Account extends DataClass implements Insertable<Account> {
   final double balance;
   final String currency;
   final String? providerName;
+  final bool isDefault;
+  final DateTime? initialBalanceDate;
   final bool isDeleted;
   final DateTime? lastUpdated;
   const Account({
@@ -1221,6 +1274,8 @@ class Account extends DataClass implements Insertable<Account> {
     required this.balance,
     required this.currency,
     this.providerName,
+    required this.isDefault,
+    this.initialBalanceDate,
     required this.isDeleted,
     this.lastUpdated,
   });
@@ -1236,6 +1291,10 @@ class Account extends DataClass implements Insertable<Account> {
     map['currency'] = Variable<String>(currency);
     if (!nullToAbsent || providerName != null) {
       map['provider_name'] = Variable<String>(providerName);
+    }
+    map['is_default'] = Variable<bool>(isDefault);
+    if (!nullToAbsent || initialBalanceDate != null) {
+      map['initial_balance_date'] = Variable<DateTime>(initialBalanceDate);
     }
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || lastUpdated != null) {
@@ -1256,6 +1315,10 @@ class Account extends DataClass implements Insertable<Account> {
       providerName: providerName == null && nullToAbsent
           ? const Value.absent()
           : Value(providerName),
+      isDefault: Value(isDefault),
+      initialBalanceDate: initialBalanceDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(initialBalanceDate),
       isDeleted: Value(isDeleted),
       lastUpdated: lastUpdated == null && nullToAbsent
           ? const Value.absent()
@@ -1275,6 +1338,10 @@ class Account extends DataClass implements Insertable<Account> {
       balance: serializer.fromJson<double>(json['balance']),
       currency: serializer.fromJson<String>(json['currency']),
       providerName: serializer.fromJson<String?>(json['providerName']),
+      isDefault: serializer.fromJson<bool>(json['isDefault']),
+      initialBalanceDate: serializer.fromJson<DateTime?>(
+        json['initialBalanceDate'],
+      ),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
     );
@@ -1289,6 +1356,8 @@ class Account extends DataClass implements Insertable<Account> {
       'balance': serializer.toJson<double>(balance),
       'currency': serializer.toJson<String>(currency),
       'providerName': serializer.toJson<String?>(providerName),
+      'isDefault': serializer.toJson<bool>(isDefault),
+      'initialBalanceDate': serializer.toJson<DateTime?>(initialBalanceDate),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
     };
@@ -1301,6 +1370,8 @@ class Account extends DataClass implements Insertable<Account> {
     double? balance,
     String? currency,
     Value<String?> providerName = const Value.absent(),
+    bool? isDefault,
+    Value<DateTime?> initialBalanceDate = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> lastUpdated = const Value.absent(),
   }) => Account(
@@ -1310,6 +1381,10 @@ class Account extends DataClass implements Insertable<Account> {
     balance: balance ?? this.balance,
     currency: currency ?? this.currency,
     providerName: providerName.present ? providerName.value : this.providerName,
+    isDefault: isDefault ?? this.isDefault,
+    initialBalanceDate: initialBalanceDate.present
+        ? initialBalanceDate.value
+        : this.initialBalanceDate,
     isDeleted: isDeleted ?? this.isDeleted,
     lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
   );
@@ -1323,6 +1398,10 @@ class Account extends DataClass implements Insertable<Account> {
       providerName: data.providerName.present
           ? data.providerName.value
           : this.providerName,
+      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
+      initialBalanceDate: data.initialBalanceDate.present
+          ? data.initialBalanceDate.value
+          : this.initialBalanceDate,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       lastUpdated: data.lastUpdated.present
           ? data.lastUpdated.value
@@ -1339,6 +1418,8 @@ class Account extends DataClass implements Insertable<Account> {
           ..write('balance: $balance, ')
           ..write('currency: $currency, ')
           ..write('providerName: $providerName, ')
+          ..write('isDefault: $isDefault, ')
+          ..write('initialBalanceDate: $initialBalanceDate, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated')
           ..write(')'))
@@ -1353,6 +1434,8 @@ class Account extends DataClass implements Insertable<Account> {
     balance,
     currency,
     providerName,
+    isDefault,
+    initialBalanceDate,
     isDeleted,
     lastUpdated,
   );
@@ -1366,6 +1449,8 @@ class Account extends DataClass implements Insertable<Account> {
           other.balance == this.balance &&
           other.currency == this.currency &&
           other.providerName == this.providerName &&
+          other.isDefault == this.isDefault &&
+          other.initialBalanceDate == this.initialBalanceDate &&
           other.isDeleted == this.isDeleted &&
           other.lastUpdated == this.lastUpdated);
 }
@@ -1377,6 +1462,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<double> balance;
   final Value<String> currency;
   final Value<String?> providerName;
+  final Value<bool> isDefault;
+  final Value<DateTime?> initialBalanceDate;
   final Value<bool> isDeleted;
   final Value<DateTime?> lastUpdated;
   final Value<int> rowid;
@@ -1387,6 +1474,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.balance = const Value.absent(),
     this.currency = const Value.absent(),
     this.providerName = const Value.absent(),
+    this.isDefault = const Value.absent(),
+    this.initialBalanceDate = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1398,6 +1487,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.balance = const Value.absent(),
     this.currency = const Value.absent(),
     this.providerName = const Value.absent(),
+    this.isDefault = const Value.absent(),
+    this.initialBalanceDate = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1410,6 +1501,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Expression<double>? balance,
     Expression<String>? currency,
     Expression<String>? providerName,
+    Expression<bool>? isDefault,
+    Expression<DateTime>? initialBalanceDate,
     Expression<bool>? isDeleted,
     Expression<DateTime>? lastUpdated,
     Expression<int>? rowid,
@@ -1421,6 +1514,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       if (balance != null) 'balance': balance,
       if (currency != null) 'currency': currency,
       if (providerName != null) 'provider_name': providerName,
+      if (isDefault != null) 'is_default': isDefault,
+      if (initialBalanceDate != null)
+        'initial_balance_date': initialBalanceDate,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (lastUpdated != null) 'last_updated': lastUpdated,
       if (rowid != null) 'rowid': rowid,
@@ -1434,6 +1530,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Value<double>? balance,
     Value<String>? currency,
     Value<String?>? providerName,
+    Value<bool>? isDefault,
+    Value<DateTime?>? initialBalanceDate,
     Value<bool>? isDeleted,
     Value<DateTime?>? lastUpdated,
     Value<int>? rowid,
@@ -1445,6 +1543,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       balance: balance ?? this.balance,
       currency: currency ?? this.currency,
       providerName: providerName ?? this.providerName,
+      isDefault: isDefault ?? this.isDefault,
+      initialBalanceDate: initialBalanceDate ?? this.initialBalanceDate,
       isDeleted: isDeleted ?? this.isDeleted,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       rowid: rowid ?? this.rowid,
@@ -1472,6 +1572,14 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     if (providerName.present) {
       map['provider_name'] = Variable<String>(providerName.value);
     }
+    if (isDefault.present) {
+      map['is_default'] = Variable<bool>(isDefault.value);
+    }
+    if (initialBalanceDate.present) {
+      map['initial_balance_date'] = Variable<DateTime>(
+        initialBalanceDate.value,
+      );
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -1493,6 +1601,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
           ..write('balance: $balance, ')
           ..write('currency: $currency, ')
           ..write('providerName: $providerName, ')
+          ..write('isDefault: $isDefault, ')
+          ..write('initialBalanceDate: $initialBalanceDate, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated, ')
           ..write('rowid: $rowid')
@@ -3107,6 +3217,8 @@ typedef $$AccountsTableCreateCompanionBuilder =
       Value<double> balance,
       Value<String> currency,
       Value<String?> providerName,
+      Value<bool> isDefault,
+      Value<DateTime?> initialBalanceDate,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -3119,6 +3231,8 @@ typedef $$AccountsTableUpdateCompanionBuilder =
       Value<double> balance,
       Value<String> currency,
       Value<String?> providerName,
+      Value<bool> isDefault,
+      Value<DateTime?> initialBalanceDate,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -3160,6 +3274,16 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get providerName => $composableBuilder(
     column: $table.providerName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get initialBalanceDate => $composableBuilder(
+    column: $table.initialBalanceDate,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3213,6 +3337,16 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get initialBalanceDate => $composableBuilder(
+    column: $table.initialBalanceDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -3250,6 +3384,14 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get providerName => $composableBuilder(
     column: $table.providerName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDefault =>
+      $composableBuilder(column: $table.isDefault, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get initialBalanceDate => $composableBuilder(
+    column: $table.initialBalanceDate,
     builder: (column) => column,
   );
 
@@ -3296,6 +3438,8 @@ class $$AccountsTableTableManager
                 Value<double> balance = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<String?> providerName = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+                Value<DateTime?> initialBalanceDate = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3306,6 +3450,8 @@ class $$AccountsTableTableManager
                 balance: balance,
                 currency: currency,
                 providerName: providerName,
+                isDefault: isDefault,
+                initialBalanceDate: initialBalanceDate,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,
@@ -3318,6 +3464,8 @@ class $$AccountsTableTableManager
                 Value<double> balance = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<String?> providerName = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+                Value<DateTime?> initialBalanceDate = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3328,6 +3476,8 @@ class $$AccountsTableTableManager
                 balance: balance,
                 currency: currency,
                 providerName: providerName,
+                isDefault: isDefault,
+                initialBalanceDate: initialBalanceDate,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,

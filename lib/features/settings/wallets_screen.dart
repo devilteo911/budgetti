@@ -4,6 +4,7 @@ import 'package:budgetti/models/account.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:budgetti/features/settings/widgets/wallet_skeleton.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
@@ -42,9 +43,22 @@ class WalletsScreen extends ConsumerWidget {
                   child: const Icon(Icons.account_balance_wallet, color: AppTheme.primaryGreen),
                 ),
                 title: Text(wallet.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: Text(
-                  "${currencyFormatter.format(wallet.balance)} (${wallet.isDefault ? 'Default Account' : 'Account'})",
-                  style: const TextStyle(color: AppTheme.textGrey),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "${currencyFormatter.format(wallet.balance)} (${wallet.isDefault ? 'Default Account' : 'Account'})",
+                      style: const TextStyle(color: AppTheme.textGrey),
+                    ),
+                    if (wallet.initialBalanceDate != null)
+                      Text(
+                        "Starting from: ${DateFormat('MMM d, yyyy').format(wallet.initialBalanceDate!)}",
+                        style: const TextStyle(
+                          color: AppTheme.textGrey,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -144,6 +158,7 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
   bool _isDefault = false;
+  DateTime? _initialBalanceDate;
 
   @override
   void initState() {
@@ -152,6 +167,9 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
       _nameController.text = widget.wallet!.name;
       _amountController.text = widget.wallet!.initialBalance.toString();
       _isDefault = widget.wallet!.isDefault;
+      _initialBalanceDate = widget.wallet!.initialBalanceDate;
+    } else {
+      _initialBalanceDate = DateTime.now();
     }
   }
 
@@ -194,6 +212,48 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
               ),
             ),
             const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                "Starting Date",
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                _initialBalanceDate == null
+                    ? "All transactions"
+                    : DateFormat('MMM d, yyyy').format(_initialBalanceDate!),
+                style: const TextStyle(color: AppTheme.textGrey),
+              ),
+              trailing: const Icon(
+                Icons.calendar_today,
+                color: AppTheme.primaryGreen,
+              ),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _initialBalanceDate ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.dark(
+                          primary: AppTheme.primaryGreen,
+                          onPrimary: AppTheme.backgroundBlack,
+                          surface: AppTheme.surfaceGrey,
+                          onSurface: Colors.white,
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) {
+                  setState(() => _initialBalanceDate = picked);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
             SwitchListTile(
               title: const Text("Set as Default", style: TextStyle(color: Colors.white)),
               value: _isDefault,
@@ -215,6 +275,7 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
                     name: name,
                     initialBalance: amount,
                     isDefault: _isDefault,
+                      initialBalanceDate: _initialBalanceDate,
                   ));
                 } else {
                   final profile = ref.read(userProfileProvider).value;
@@ -224,8 +285,9 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
                     initialBalance: amount,
                       balance: amount,
                     isDefault: _isDefault,
+                      initialBalanceDate: _initialBalanceDate,
                     currency: profile?['currency'] ?? 'EUR',
-                      providerName: 'Supabase',
+                      providerName: 'Local',
                   ));
                 }
                 ref.invalidate(accountsProvider);

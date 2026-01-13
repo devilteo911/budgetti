@@ -76,6 +76,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   drift_dev: ^2.30.0
+  build_runner: ^2.4.9
 dependency_overrides:
   test_api: 0.7.6
   

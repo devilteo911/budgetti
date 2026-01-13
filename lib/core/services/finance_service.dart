@@ -158,9 +158,20 @@ class LocalFinanceService implements FinanceService {
     
     final Map<String, double> transactionSums = {};
     
+    // Create a lookup for initial balance dates
+    final balanceDates = {
+      for (var acc in accountsDb) acc.id: acc.initialBalanceDate,
+    };
+    
     for (var t in transactionsDb) {
-      final accId = t.accountId ?? '1'; // Default to Main Wallet if null
-      transactionSums[accId] = (transactionSums[accId] ?? 0.0) + t.amount;
+      final accId = t.accountId ?? '1';
+      final startDate = balanceDates[accId];
+
+      if (startDate == null ||
+          t.date.isAfter(startDate) ||
+          t.date.isAtSameMomentAs(startDate)) {
+        transactionSums[accId] = (transactionSums[accId] ?? 0.0) + t.amount;
+      }
     }
 
     return accountsDb.map((acc) {
@@ -173,29 +184,51 @@ class LocalFinanceService implements FinanceService {
         currency: acc.currency,
         providerName: acc.providerName ?? 'Local',
         initialBalance: acc.balance,
+        isDefault: acc.isDefault,
+        initialBalanceDate: acc.initialBalanceDate,
       );
     }).toList();
   }
 
   @override
   Future<void> addAccount(model_account.Account account) async {
+    final accountId = account.id.isEmpty ? const Uuid().v4() : account.id;
+
+    if (account.isDefault) {
+      // Unset other defaults
+      await (_db.update(_db.accounts)..where((t) => t.userId.equals(_userId)))
+          .write(const AccountsCompanion(isDefault: Value(false)));
+    }
+
     await _db.into(_db.accounts).insert(AccountsCompanion.insert(
-      id: account.id.isEmpty ? const Uuid().v4() : account.id,
+            id: accountId,
       name: account.name,
       balance: Value(account.balance), // Storing initial balance
       currency: Value(account.currency),
       providerName: Value(account.providerName),
             userId: Value(_userId),
+            isDefault: Value(account.isDefault),
+            initialBalanceDate: Value(account.initialBalanceDate),
       lastUpdated: Value(DateTime.now()),
     ));
   }
 
   @override
   Future<void> updateAccount(model_account.Account account) async {
+    if (account.isDefault) {
+      // Unset other defaults for this user
+      await (_db.update(_db.accounts)..where(
+            (t) => t.userId.equals(_userId) & t.id.equals(account.id).not(),
+          ))
+          .write(const AccountsCompanion(isDefault: Value(false)));
+    }
+
     await (_db.update(_db.accounts)..where((t) => t.id.equals(account.id))).write(AccountsCompanion(
       name: Value(account.name),
       balance: Value(account.initialBalance), // Update initial balance
       currency: Value(account.currency),
+        isDefault: Value(account.isDefault),
+        initialBalanceDate: Value(account.initialBalanceDate),
       lastUpdated: Value(DateTime.now()),
     ));
   }
