@@ -1,0 +1,6 @@
+flutter_native_splash:
+  color: "#cae6d3"
+  image: assets/images/budgetti.png
+  android_12:
+    image: assets/images/budgetti.png
+    color: "#cae6d3"
