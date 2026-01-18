@@ -1320,8 +1320,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       );
                                     }
                                   } finally {
-                                    if (mounted)
+                                    if (mounted) {
                                       setState(() => _isLoading = false);
+                                    }
                                   }
                                 }
                               } catch (e) {
@@ -1433,7 +1434,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppTheme.primaryGreen,
+            activeThumbColor: AppTheme.primaryGreen,
             activeTrackColor: AppTheme.primaryGreen.withValues(alpha: 0.3),
             inactiveThumbColor: AppTheme.textGrey,
             inactiveTrackColor: AppTheme.surfaceGreyLight,

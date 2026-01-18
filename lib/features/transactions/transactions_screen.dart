@@ -216,7 +216,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                               final totalScrollable = _scrollController.position.maxScrollExtent;
                               final current = offset;
 
-                              if (totalScrollable == 0)
+                              if (totalScrollable == 0) {
                                 return Text(
                                   DateFormat('MMM yyyy').format(sortedDates.first),
                                   style: const TextStyle(
@@ -224,6 +224,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 );
+                              }
 
                               final fraction = (current / totalScrollable).clamp(0.0, 1.0);
                               final index = (fraction * (flatList.length - 1)).floor();
@@ -231,11 +232,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                               var labelDate = DateTime.now();
                               int nearestHeader = -1;
                               for (var idx in dateIndices.keys) {
-                                if (idx <= index && idx > nearestHeader)
+                                if (idx <= index && idx > nearestHeader) {
                                   nearestHeader = idx;
+                                }
                               }
-                              if (nearestHeader != -1)
+                              if (nearestHeader != -1) {
                                 labelDate = dateIndices[nearestHeader]!;
+                              }
                               
                               return Text(
                                 DateFormat('MMM yyyy').format(labelDate).toUpperCase(),
