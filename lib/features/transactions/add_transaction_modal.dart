@@ -464,8 +464,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
     return RepaintBoundary(
       child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+        padding: const EdgeInsets.only(
           left: 16,
           right: 16,
           top: 16,
@@ -542,63 +541,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                 // Description
                 _buildAnimatedItem(
                   2,
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceGrey,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.textGrey.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.edit,
-                          color: AppTheme.textGrey,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _descriptionController,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: "Description",
-                              hintStyle: TextStyle(
-                                color: AppTheme.textGrey,
-                                fontSize: 16,
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                vertical: 12,
-                              ),
-                              isDense: true,
-                              filled: false,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Enter description';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _DescriptionField(controller: _descriptionController),
                 ),
                 const SizedBox(height: 16),
           
                 // Wallet & Amount Row
                 _buildAnimatedItem(
-                  3, 
+                  3,
                   IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -712,88 +661,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                         const SizedBox(width: 12),
                         // Amount Input
                         Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppTheme.surfaceGrey,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppTheme.textGrey.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: Row(
-                              children: [
-                                // Currency indicator
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryGreen.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      currencySymbol,
-                                      style: const TextStyle(
-                                        color: AppTheme.primaryGreen,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Input area
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _amountController,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                    textAlign: TextAlign.right,
-                                    decoration: InputDecoration(
-                                      hintText: "0.00",
-                                      hintStyle: TextStyle(
-                                        color: AppTheme.textGrey.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                          ),
-                                      filled: false,
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Enter amount';
-                                      }
-                                      final sanitized = value.replaceAll(
-                                        ',',
-                                        '.',
-                                      );
-                                      if (double.tryParse(sanitized) == null) {
-                                        return 'Invalid';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
+                          child: _AmountField(
+                            controller: _amountController,
+                            currencySymbol: currencySymbol,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 ),
                 if (_type == 'transfer') const SizedBox(height: 12),
                 if (_type == 'transfer')
@@ -1240,11 +1115,137 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   ),
                 ),
                 const SizedBox(height: 24),
+                const _KeyboardSpacer(),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _DescriptionField extends StatelessWidget {
+  final TextEditingController controller;
+
+  const _DescriptionField({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceGrey,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.textGrey.withValues(alpha: 0.3)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.edit, color: AppTheme.textGrey, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              decoration: const InputDecoration(
+                hintText: "Description",
+                hintStyle: TextStyle(color: AppTheme.textGrey, fontSize: 16),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                isDense: true,
+                filled: false,
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Enter description';
+                }
+                return null;
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AmountField extends StatelessWidget {
+  final TextEditingController controller;
+  final String currencySymbol;
+
+  const _AmountField({required this.controller, required this.currencySymbol});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceGrey,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.textGrey.withValues(alpha: 0.3)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryGreen.withValues(alpha: 0.2),
+            ),
+            child: Center(
+              child: Text(
+                currencySymbol,
+                style: const TextStyle(
+                  color: AppTheme.primaryGreen,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.right,
+              decoration: InputDecoration(
+                hintText: "0.00",
+                hintStyle: TextStyle(
+                  color: AppTheme.textGrey.withValues(alpha: 0.5),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                filled: false,
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Enter amount';
+                }
+                final sanitized = value.replaceAll(',', '.');
+                if (double.tryParse(sanitized) == null) {
+                  return 'Invalid';
+                }
+                return null;
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KeyboardSpacer extends StatelessWidget {
+  const _KeyboardSpacer();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(height: MediaQuery.viewInsetsOf(context).bottom);
   }
 }
