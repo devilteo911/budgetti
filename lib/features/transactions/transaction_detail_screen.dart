@@ -130,9 +130,52 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                             ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        DateFormat('MMMM d, yyyy').format(t.date),
-                        style: const TextStyle(color: AppTheme.textGrey, fontSize: 16),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: t.date,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.dark(
+                                    primary: AppTheme.primaryGreen,
+                                    onPrimary: AppTheme.backgroundBlack,
+                                    surface: AppTheme.surfaceGrey,
+                                    onSurface: Colors.white,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null) {
+                            final updated = t.copyWith(date: picked);
+                            await ref
+                                .read(financeServiceProvider)
+                                .updateTransaction(updated);
+                            widget.onTransactionUpdated(updated);
+                            ref.invalidate(transactionsProvider);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          child: Text(
+                            DateFormat('MMMM d, yyyy').format(t.date),
+                            style: const TextStyle(
+                              color: AppTheme.textGrey,
+                              fontSize: 16,
+                              decoration: TextDecoration.underline,
+                              decorationStyle: TextDecorationStyle.dashed,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

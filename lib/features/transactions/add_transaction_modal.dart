@@ -157,7 +157,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         accountId: _selectedAccountId!, 
         toAccountId: _type == 'transfer' ? _selectedToAccountId : null,
         amount:
-            amount, // For transfers we store positive amount, service handles it
+            _type == 'expense' ? -amount.abs() : amount.abs(),
         date: _selectedDate,
         description: _descriptionController.text,
         category: _type == 'transfer'
