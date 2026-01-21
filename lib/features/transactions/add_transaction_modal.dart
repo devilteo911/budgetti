@@ -30,10 +30,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
   final _descriptionController = TextEditingController();
   
   bool _isExpense = true;
+  String _type = 'expense'; // 'expense', 'income', 'transfer'
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   List<String> _selectedTags = [];
   String? _selectedAccountId;
+  String? _selectedToAccountId;
 
   @override
   void initState() {
@@ -50,9 +52,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       _descriptionController.text = t.description;
       _selectedCategory = t.category;
       _selectedDate = t.date;
-      _isExpense = t.amount < 0;
+      _type = t.type;
+      _isExpense =
+          t.type == 'expense' ||
+          (t.type != 'income' && t.type != 'transfer' && t.amount < 0);
       _selectedTags = List.from(t.tags);
       _selectedAccountId = t.accountId;
+      _selectedToAccountId = t.toAccountId;
     }
     
     _animationController.forward();
@@ -134,15 +140,30 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       }
 
       final amount = double.parse(_amountController.text.replaceAll(',', '.'));
-      final finalAmount = _isExpense ? -amount : amount;
+
+      if (_type == 'transfer' &&
+          (_selectedToAccountId == null ||
+              _selectedToAccountId == _selectedAccountId)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a different destination wallet'),
+          ),
+        );
+        return;
+      }
 
       final transaction = Transaction(
         id: widget.transaction?.id ?? const Uuid().v4(),
         accountId: _selectedAccountId!, 
-        amount: finalAmount,
+        toAccountId: _type == 'transfer' ? _selectedToAccountId : null,
+        amount:
+            amount, // For transfers we store positive amount, service handles it
         date: _selectedDate,
         description: _descriptionController.text,
-        category: _selectedCategory ?? 'Uncategorized',
+        category: _type == 'transfer'
+            ? 'Transfer'
+            : (_selectedCategory ?? 'Uncategorized'),
+        type: _type,
         tags: _selectedTags,
       );
 
@@ -167,6 +188,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       if (widget.transaction != null && widget.transaction!.accountId != _selectedAccountId) {
          // Also invalidate the old account if it changed
          ref.invalidate(transactionsProvider(widget.transaction!.accountId));
+      }
+      if (_type == 'transfer' && _selectedToAccountId != null) {
+        ref.invalidate(transactionsProvider(_selectedToAccountId!));
+        if (widget.transaction?.toAccountId != null &&
+            widget.transaction!.toAccountId != _selectedToAccountId) {
+          ref.invalidate(transactionsProvider(widget.transaction!.toAccountId));
+        }
       }
 
       if (mounted) {
@@ -454,22 +482,39 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               
               // Type Selector
               _buildAnimatedItem(1, 
-                SegmentedButton<bool>(
+                  SegmentedButton<String>(
                   segments: const [
-                    ButtonSegment(value: true, label: Text("Expense"), icon: Icon(Icons.arrow_downward)),
-                    ButtonSegment(value: false, label: Text("Income"), icon: Icon(Icons.arrow_upward)),
+                      ButtonSegment(
+                        value: 'expense',
+                        label: Text("Expense"),
+                        icon: Icon(Icons.arrow_downward),
+                      ),
+                      ButtonSegment(
+                        value: 'income',
+                        label: Text("Income"),
+                        icon: Icon(Icons.arrow_upward),
+                      ),
+                      ButtonSegment(
+                        value: 'transfer',
+                        label: Text("Transfer"),
+                        icon: Icon(Icons.swap_horiz),
+                      ),
                   ],
-                  selected: {_isExpense},
-                  onSelectionChanged: (Set<bool> newSelection) {
+                    selected: {_type},
+                    onSelectionChanged: (Set<String> newSelection) {
                     setState(() {
-                      _isExpense = newSelection.first;
+                        _type = newSelection.first;
+                        _isExpense = _type == 'expense';
                         _selectedCategory = null; 
                     });
                   },
                   style: ButtonStyle(
                     backgroundColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
                       if (states.contains(WidgetState.selected)) {
-                        return _isExpense ? Theme.of(context).colorScheme.error : AppTheme.primaryGreen;
+                          if (_type == 'expense')
+                            return Theme.of(context).colorScheme.error;
+                          if (_type == 'income') return AppTheme.primaryGreen;
+                          return Colors.blue;
                       }
                       return AppTheme.surfaceGreyLight;
                     }),
@@ -595,7 +640,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                         color: AppTheme.surfaceGrey,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: AppTheme.textGrey.withValues(
+                                          color:
+                                              (_type == 'transfer' &&
+                                                  _selectedAccountId == null)
+                                              ? Colors.red.withValues(
+                                                  alpha: 0.5,
+                                                )
+                                              : AppTheme.textGrey.withValues(
                                             alpha: 0.3,
                                           ),
                                         ),
@@ -614,7 +665,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                           Expanded(
                                             child: Text(
                                               selectedAccount?.name ??
-                                                  "Select Wallet",
+                                                  (_type == 'transfer'
+                                                      ? "From Wallet"
+                                                      : "Select Wallet"),
                                               style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 14,
@@ -759,6 +812,141 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   ),
                 ),
                 ),
+                if (_type == 'transfer') const SizedBox(height: 12),
+                if (_type == 'transfer')
+                  _buildAnimatedItem(
+                    4,
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final accountsAsync = ref.watch(accountsProvider);
+                        return accountsAsync.when(
+                          data: (accounts) {
+                            final selectedToAccount = accounts
+                                .where((a) => a.id == _selectedToAccountId)
+                                .firstOrNull;
+                            return InkWell(
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  backgroundColor: AppTheme.surfaceGrey,
+                                  isScrollControlled: true,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(24),
+                                    ),
+                                  ),
+                                  builder: (context) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        top: 24,
+                                        bottom: 8,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            "Select Destination Wallet",
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleLarge
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Flexible(
+                                            child: ListView(
+                                              shrinkWrap: true,
+                                              children: accounts.map((account) {
+                                                final isSelected =
+                                                    account.id ==
+                                                    _selectedToAccountId;
+                                                return ListTile(
+                                                  title: Text(
+                                                    account.name,
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: isSelected
+                                                          ? FontWeight.bold
+                                                          : FontWeight.normal,
+                                                    ),
+                                                  ),
+                                                  trailing: isSelected
+                                                      ? const Icon(
+                                                          Icons.check_circle,
+                                                          color: AppTheme
+                                                              .primaryGreen,
+                                                        )
+                                                      : null,
+                                                  onTap: () {
+                                                    setState(
+                                                      () =>
+                                                          _selectedToAccountId =
+                                                              account.id,
+                                                    );
+                                                    Navigator.of(context).pop();
+                                                  },
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surfaceGrey,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: (_selectedToAccountId == null)
+                                        ? Colors.red.withValues(alpha: 0.5)
+                                        : AppTheme.textGrey.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.account_balance_wallet,
+                                      color: Colors.blue,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        selectedToAccount?.name ?? "To Wallet",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.keyboard_arrow_down,
+                                      color: AppTheme.textGrey,
+                                      size: 16,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                          loading: () => const SizedBox.shrink(),
+                          error: (_, __) => const SizedBox.shrink(),
+                        );
+                      },
+                    ),
+                  ),
                 const SizedBox(height: 12),
           
                 // Date and Category Picker Row (Inline)
@@ -809,7 +997,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                       ),
                       const SizedBox(width: 12),
                       // Category Picker
-                      Expanded(
+                      if (_type != 'transfer')
+                        Expanded(
                         child: Consumer(
                           builder: (context, ref, child) {
                             final categoriesAsync = ref.watch(
@@ -822,7 +1011,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     .where(
                                       (c) =>
                                           c.type ==
-                                          (_isExpense ? 'expense' : 'income'),
+                                            (_type == 'expense'
+                                                ? 'expense'
+                                                : 'income'),
                                     )
                                     .toList();
 

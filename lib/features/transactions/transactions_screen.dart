@@ -615,7 +615,9 @@ class _TransactionItem extends ConsumerWidget {
               ),
               child: isSelected 
                 ? const Icon(Icons.check, color: AppTheme.backgroundBlack, size: 20)
-                : Icon(
+                  : transaction.type == 'transfer'
+                  ? const Icon(Icons.swap_horiz, color: Colors.blue, size: 20)
+                  : Icon(
                     category != null 
                       ? IconData(category.iconCode, fontFamily: 'MaterialIcons')
                       : (isIncome ? Icons.arrow_downward : Icons.shopping_bag_outlined),
@@ -681,12 +683,16 @@ class _TransactionItem extends ConsumerWidget {
               ),
             ),
             Text(
-              isIncome 
-                ? "+${formatter.format(transaction.amount)}" 
-                : "-${formatter.format(transaction.amount.abs())}",
+              transaction.type == 'transfer'
+                  ? formatter.format(transaction.amount.abs())
+                  : isIncome
+                  ? "+${formatter.format(transaction.amount)}"
+                  : "-${formatter.format(transaction.amount.abs())}",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isIncome ? AppTheme.primaryGreen : Colors.white,
+                color: transaction.type == 'transfer'
+                    ? Colors.blue
+                    : (isIncome ? AppTheme.primaryGreen : Colors.white),
                 fontSize: 16,
               ),
             ),

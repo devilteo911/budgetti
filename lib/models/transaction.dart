@@ -3,19 +3,23 @@ import 'package:uuid/uuid.dart';
 class Transaction {
   final String id;
   final String accountId;
+  final String? toAccountId;
   final double amount;
   final DateTime date;
   final String description;
   final String category;
+  final String type; // 'income', 'expense', or 'transfer'
   final List<String> tags;
 
   Transaction({
     required this.id,
     required this.accountId,
+    this.toAccountId,
     required this.amount,
     required this.date,
     required this.description,
     required this.category,
+    this.type = 'expense',
     this.tags = const [],
   });
 
@@ -43,10 +47,17 @@ class Transaction {
     return Transaction(
       id: (json['id'] ?? const Uuid().v4()).toString(),
       accountId: (json['account_id'] ?? '1').toString(),
+      toAccountId: json['to_account_id']?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       date: json['date'] != null ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now() : DateTime.now(),
       description: (json['description'] ?? '').toString(),
       category: (json['category'] ?? '').toString(),
+      type:
+          (json['type'] ??
+                  (rawTags != null && (json['amount'] as num? ?? 0) >= 0
+                      ? 'income'
+                      : 'expense'))
+              .toString(),
       tags: tags,
     );
   }
@@ -54,9 +65,11 @@ class Transaction {
   Map<String, dynamic> toJson() {
     return {
       'account_id': accountId,
+      'to_account_id': toAccountId,
       'amount': amount,
       'description': description,
       'category': category,
+      'type': type,
       'date': date.toIso8601String(),
       'tags': tags,
     };
@@ -65,19 +78,23 @@ class Transaction {
   Transaction copyWith({
     String? id,
     String? accountId,
+    String? toAccountId,
     double? amount,
     DateTime? date,
     String? description,
     String? category,
+    String? type,
     List<String>? tags,
   }) {
     return Transaction(
       id: id ?? this.id,
       accountId: accountId ?? this.accountId,
+      toAccountId: toAccountId ?? this.toAccountId,
       amount: amount ?? this.amount,
       date: date ?? this.date,
       description: description ?? this.description,
       category: category ?? this.category,
+      type: type ?? this.type,
       tags: tags ?? this.tags,
     );
   }

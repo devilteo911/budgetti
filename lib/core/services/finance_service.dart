@@ -164,13 +164,30 @@ class LocalFinanceService implements FinanceService {
     };
     
     for (var t in transactionsDb) {
-      final accId = t.accountId ?? '1';
-      final startDate = balanceDates[accId];
+      // Handle source account
+      if (t.accountId != null) {
+        final accId = t.accountId!;
+        final startDate = balanceDates[accId];
+        if (startDate == null ||
+            t.date.isAfter(startDate) ||
+            t.date.isAtSameMomentAs(startDate)) {
+          if (t.type == 'transfer') {
+            transactionSums[accId] = (transactionSums[accId] ?? 0.0) - t.amount;
+          } else {
+            transactionSums[accId] = (transactionSums[accId] ?? 0.0) + t.amount;
+          }
+        }
+      }
 
-      if (startDate == null ||
-          t.date.isAfter(startDate) ||
-          t.date.isAtSameMomentAs(startDate)) {
-        transactionSums[accId] = (transactionSums[accId] ?? 0.0) + t.amount;
+      // Handle destination account for transfers
+      if (t.type == 'transfer' && t.toAccountId != null) {
+        final accId = t.toAccountId!;
+        final startDate = balanceDates[accId];
+        if (startDate == null ||
+            t.date.isAfter(startDate) ||
+            t.date.isAtSameMomentAs(startDate)) {
+          transactionSums[accId] = (transactionSums[accId] ?? 0.0) + t.amount;
+        }
       }
     }
 
@@ -303,9 +320,11 @@ class LocalFinanceService implements FinanceService {
           (t) => model_txn.Transaction(
       id: t.id,
       accountId: t.accountId ?? '1',
+            toAccountId: t.toAccountId,
       amount: t.amount,
       description: t.description,
       category: t.category,
+            type: t.type,
       date: t.date,
       tags: t.tags ?? [],
     )).toList();
@@ -325,9 +344,11 @@ class LocalFinanceService implements FinanceService {
     await _db.into(_db.transactions).insert(TransactionsCompanion.insert(
       id: transaction.id.isEmpty ? const Uuid().v4() : transaction.id,
       accountId: Value(transaction.accountId),
+            toAccountId: Value(transaction.toAccountId),
       amount: transaction.amount,
       description: transaction.description,
       category: transaction.category,
+            type: Value(transaction.type),
       date: transaction.date,
       tags: Value(transaction.tags),
             userId: Value(_userId),
@@ -339,9 +360,11 @@ class LocalFinanceService implements FinanceService {
   Future<void> updateTransaction(model_txn.Transaction transaction) async {
     await (_db.update(_db.transactions)..where((t) => t.id.equals(transaction.id))).write(TransactionsCompanion(
       accountId: Value(transaction.accountId),
+        toAccountId: Value(transaction.toAccountId),
       amount: Value(transaction.amount),
       description: Value(transaction.description),
       category: Value(transaction.category),
+        type: Value(transaction.type),
       date: Value(transaction.date),
       tags: Value(transaction.tags),
       lastUpdated: Value(DateTime.now()),

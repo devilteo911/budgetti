@@ -82,9 +82,13 @@ class Transactions extends Table {
   TextColumn get id => text()();
   TextColumn get userId => text().nullable()();
   TextColumn get accountId => text().nullable()();
+  TextColumn get toAccountId => text().nullable()();
   RealColumn get amount => real()();
   TextColumn get description => text()();
   TextColumn get category => text()();
+  TextColumn get type => text().withDefault(
+    const Constant('expense'),
+  )(); // 'income', 'expense', or 'transfer'
   DateTimeColumn get date => dateTime()();
   TextColumn get tags => text().map(const ListStringConverter()).nullable()();
 
@@ -116,7 +120,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 6; // Incremented from 5
+  int get schemaVersion => 7; // Incremented from 6
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -183,6 +187,14 @@ class AppDatabase extends _$AppDatabase {
         try {
           await m.addColumn(accounts, accounts.isDefault);
           await m.addColumn(accounts, accounts.initialBalanceDate);
+        } catch (e) {
+          // Ignore: column might already exist
+        }
+      }
+      if (from < 7) {
+        try {
+          await m.addColumn(transactions, transactions.toAccountId);
+          await m.addColumn(transactions, transactions.type);
         } catch (e) {
           // Ignore: column might already exist
         }
