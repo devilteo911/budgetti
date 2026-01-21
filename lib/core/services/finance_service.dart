@@ -148,47 +148,67 @@ class LocalFinanceService implements FinanceService {
             ))
             .get();
 
-    // 2. Calculate balances dynamically from transactions
-    // Fetch all active transactions for this user
-    final transactionsDb =
-        await (_db.select(_db.transactions)..where(
-              (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
-            ))
-            .get();
-    
     final Map<String, double> transactionSums = {};
-    
-    // Create a lookup for initial balance dates
-    final balanceDates = {
-      for (var acc in accountsDb) acc.id: acc.initialBalanceDate,
-    };
-    
-    for (var t in transactionsDb) {
-      // Handle source account
-      if (t.accountId != null) {
-        final accId = t.accountId!;
-        final startDate = balanceDates[accId];
-        if (startDate == null ||
-            t.date.isAfter(startDate) ||
-            t.date.isAtSameMomentAs(startDate)) {
-          if (t.type == 'transfer') {
-            transactionSums[accId] = (transactionSums[accId] ?? 0.0) - t.amount;
-          } else {
-            transactionSums[accId] = (transactionSums[accId] ?? 0.0) + t.amount;
-          }
-        }
+
+    for (final acc in accountsDb) {
+      final accId = acc.id;
+      final startDate = acc.initialBalanceDate;
+
+      // Calculate source sums (Income/Expense/Transfer Source)
+      final sourceSumExpr = _db.transactions.type
+          .caseMatch(
+            when: {
+              const Constant('transfer'):
+                  _db.transactions.amount * const Constant(-1.0),
+            },
+            orElse: _db.transactions.amount,
+          )
+          .sum();
+
+      final sourceQuery = _db.selectOnly(_db.transactions)
+        ..addColumns([sourceSumExpr])
+        ..where(
+          _db.transactions.isDeleted.equals(false) &
+              _db.transactions.userId.equals(_userId) &
+              _db.transactions.accountId.equals(accId),
+        );
+
+      if (startDate != null) {
+        sourceQuery.where(
+          _db.transactions.date.isBetween(
+            Constant(startDate),
+            Constant(DateTime(2100)),
+          ),
+        );
       }
 
-      // Handle destination account for transfers
-      if (t.type == 'transfer' && t.toAccountId != null) {
-        final accId = t.toAccountId!;
-        final startDate = balanceDates[accId];
-        if (startDate == null ||
-            t.date.isAfter(startDate) ||
-            t.date.isAtSameMomentAs(startDate)) {
-          transactionSums[accId] = (transactionSums[accId] ?? 0.0) + t.amount;
-        }
+      final sourceRow = await sourceQuery.getSingle();
+      final sourceSum = sourceRow.read(sourceSumExpr) ?? 0.0;
+
+      // Calculate dest sums (Transfer Destination)
+      final destSumExpr = _db.transactions.amount.sum();
+      final destQuery = _db.selectOnly(_db.transactions)
+        ..addColumns([destSumExpr])
+        ..where(
+          _db.transactions.isDeleted.equals(false) &
+              _db.transactions.userId.equals(_userId) &
+              _db.transactions.type.equals('transfer') &
+              _db.transactions.toAccountId.equals(accId),
+        );
+
+      if (startDate != null) {
+        destQuery.where(
+          _db.transactions.date.isBetween(
+            Constant(startDate),
+            Constant(DateTime(2100)),
+          ),
+        );
       }
+
+      final destRow = await destQuery.getSingle();
+      final destSum = destRow.read(destSumExpr) ?? 0.0;
+
+      transactionSums[accId] = sourceSum + destSum;
     }
 
     return accountsDb.map((acc) {
@@ -197,7 +217,7 @@ class LocalFinanceService implements FinanceService {
         id: acc.id,
         name: acc.name,
         // db.balance acts as initial balance
-        balance: acc.balance + sum, 
+        balance: acc.balance + sum,
         currency: acc.currency,
         providerName: acc.providerName ?? 'Local',
         initialBalance: acc.balance,

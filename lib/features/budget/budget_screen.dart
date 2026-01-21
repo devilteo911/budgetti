@@ -46,7 +46,8 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final budgetsAsync = ref.watch(budgetsProvider);
-    final transactionsAsync = ref.watch(transactionsProvider(null));
+    final budgetStatsAsync = ref.watch(budgetStatsProvider);
+    final budgetMap = ref.watch(budgetMapProvider);
     final currencyFormatter = ref.watch(currencyProvider);
 
     return Scaffold(
@@ -93,74 +94,30 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
           
           return budgetsAsync.when(
             loading: () => const ShimmerLoading(child: BudgetScreenSkeleton()),
-            error: (err, _) => Center(child: Text("Error: $err")),
+            error: (err, _) => Center(child: Text("Error Budgets: $err")),
             data: (budgets) {
-              return transactionsAsync.when(
+              return budgetStatsAsync.when(
                 loading: () => const ShimmerLoading(child: BudgetScreenSkeleton()),
-                error: (err, _) => Center(child: Text("Error: $err")),
-                data: (transactions) {
-                  // Calculate current month spending per category
-                  final now = DateTime.now();
-                  final currentMonthTransactions = transactions.where((t) => 
-                    t.date.year == now.year && t.date.month == now.month && t.amount < 0
-                  );
-
-                  final categorySpending = <String, double>{};
-                  for (var t in currentMonthTransactions) {
-                    categorySpending[t.category] = (categorySpending[t.category] ?? 0) + t.amount.abs();
-                  }
-
-                  // Sorting and calculations
+                error: (err, _) => Center(child: Text("Error Stats: $err")),
+                data: (categorySpending) {
+                  // Pre-sorting
                   final totalBudget = budgets.fold<double>(
                     0,
                     (sum, b) => sum + b.limit,
                   );
-                  final categoriesWithBudget = expenseCategories.where((c) {
-                    final budget = budgets.firstWhere(
-                      (b) => b.category == c.name,
-                      orElse: () => Budget(
-                        id: '',
-                        userId: '',
-                        category: c.name,
-                        limit: 0,
-                      ),
-                    );
-                    return budget.limit > 0;
-                  }).toList();
-
-                  final totalSpentOnBudgeted = categoriesWithBudget
-                      .fold<double>(
-                        0,
-                        (sum, c) => sum + (categorySpending[c.name] ?? 0),
-                      );
+                  final totalSpentOnBudgeted = budgets.fold<double>(
+                    0,
+                    (sum, b) => sum + (categorySpending[b.category] ?? 0),
+                  );
+                  
                   final totalUtilization = totalBudget > 0
                       ? (totalSpentOnBudgeted / totalBudget).clamp(0.0, 1.0)
                       : 0.0;
 
                   final sortedCategories = List.from(expenseCategories);
                   sortedCategories.sort((a, b) {
-                    final budgetA = budgets
-                        .firstWhere(
-                          (bg) => bg.category == a.name,
-                          orElse: () => Budget(
-                            id: '',
-                            userId: '',
-                            category: a.name,
-                            limit: 0,
-                          ),
-                        )
-                        .limit;
-                    final budgetB = budgets
-                        .firstWhere(
-                          (bg) => bg.category == b.name,
-                          orElse: () => Budget(
-                            id: '',
-                            userId: '',
-                            category: b.name,
-                            limit: 0,
-                          ),
-                        )
-                        .limit;
+                    final budgetA = budgetMap[a.name]?.limit ?? 0.0;
+                    final budgetB = budgetMap[b.name]?.limit ?? 0.0;
 
                     switch (_sortBy) {
                       case BudgetSort.alphabetical:
@@ -194,15 +151,14 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                             index,
                           ) {
                             final category = sortedCategories[index];
-                            final budget = budgets.firstWhere(
-                              (b) => b.category == category.name,
-                              orElse: () => Budget(
+                            final budget =
+                                budgetMap[category.name] ??
+                                Budget(
                                 id: '',
                                 userId: '',
                                 category: category.name,
-                                limit: 0,
-                              ),
-                            );
+                                  limit: 0,
+                                );
                             final spent =
                                 categorySpending[category.name] ?? 0.0;
                             final hasLimit = budget.limit > 0;

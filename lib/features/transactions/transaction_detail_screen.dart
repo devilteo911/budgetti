@@ -24,15 +24,20 @@ class _TransactionDetailScreenState
     extends ConsumerState<TransactionDetailScreen> {
   late PageController _pageController;
   late List<Transaction> _currentTransactions;
+  late ValueNotifier<int> _currentPageNotifier;
 
   @override
   void initState() {
     super.initState();
     _currentTransactions = widget.transactions;
+    _currentPageNotifier = ValueNotifier<int>(widget.initialIndex);
     _pageController = PageController(initialPage: widget.initialIndex);
     _pageController.addListener(() {
       if (_pageController.hasClients) {
-        setState(() {}); // Rebuild to update AppBar title
+        final newPage = _pageController.page?.round() ?? widget.initialIndex;
+        if (_currentPageNotifier.value != newPage) {
+          _currentPageNotifier.value = newPage;
+        }
       }
     });
   }
@@ -40,6 +45,7 @@ class _TransactionDetailScreenState
   @override
   void dispose() {
     _pageController.dispose();
+    _currentPageNotifier.dispose();
     super.dispose();
   }
 
@@ -48,15 +54,20 @@ class _TransactionDetailScreenState
     return Scaffold(
       backgroundColor: AppTheme.backgroundBlack,
       appBar: AppBar(
-        title: Text(
-          _currentTransactions.isNotEmpty
-              ? _currentTransactions[_pageController.hasClients
-                        ? _pageController.page?.round() ?? widget.initialIndex
-                        : widget.initialIndex]
-                    .description
-              : "Fast Categorization",
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 18),
+        title: ValueListenableBuilder<int>(
+          valueListenable: _currentPageNotifier,
+          builder: (context, index, _) {
+            final description =
+                _currentTransactions.isNotEmpty &&
+                    index < _currentTransactions.length
+                ? _currentTransactions[index].description
+                : "Fast Categorization";
+            return Text(
+              description,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 18),
+            );
+          },
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -96,11 +107,12 @@ class _TransactionPage extends ConsumerStatefulWidget {
 class _TransactionPageState extends ConsumerState<_TransactionPage> {
   @override
   Widget build(BuildContext context) {
-    final categoriesAsync = ref.watch(categoriesProvider);
-    final tagsAsync = ref.watch(tagsProvider);
+    final categories = ref.watch(categoriesProvider).value ?? [];
+    final tags = ref.watch(tagsProvider).value ?? [];
     final currencyFormatter = ref.watch(currencyProvider);
 
     final t = widget.transaction;
+
 
     return SafeArea(
       child: Stack(
@@ -367,16 +379,10 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                categoriesAsync.when(
-                    loading: () => const CircularProgressIndicator(),
-                    error: (err, stack) => Text(
-                      "Error: $err",
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                    data: (categories) => Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: categories.map((category) {
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categories.map((category) {
                         final isSelected =
                             t.category == category.name && t.type != 'transfer';
                         return InkWell(
@@ -459,8 +465,7 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                             ),
                           ),
                         );
-                      }).toList(),
-                    ),
+                  }).toList(),
                   ),
 
                 const SizedBox(height: 32),
@@ -475,13 +480,10 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                tagsAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (tags) => Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: tags.map((tag) {
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: tags.map((tag) {
                       final isSelected = t.tags.contains(tag.name);
                       return FilterChip(
                         label: Text(tag.name),
@@ -512,8 +514,7 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                           ),
                         ),
                       );
-                    }).toList(),
-                  ),
+                  }).toList(),
                 ),
               ],
             ),

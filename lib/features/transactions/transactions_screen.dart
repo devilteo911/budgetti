@@ -13,10 +13,6 @@ import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:draggable_scrollbar/draggable_scrollbar.dart';
 
-class _DateHeader {
-  final String title;
-  _DateHeader({required this.title});
-}
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -189,23 +185,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       )
                     : Builder(
                         builder: (context) {
-                          final grouped = _groupTransactionsByDate(transactions);
-                          final sortedDates = grouped.keys.toList()
-                            ..sort((a, b) => b.compareTo(a));
-                          
-                          final flatList = <dynamic>[];
-                          final dateIndices = <int, DateTime>{};
-
-                          for (var date in sortedDates) {
-                            dateIndices[flatList.length] = date;
-                            flatList.add(_DateHeader(title: _formatDateHeader(date)));
-                            for (var t in grouped[date]!) {
-                              dateIndices[flatList.length] = date;
-                              flatList.add(t);
-                            }
-                          }
-
-                          flatList.add(const SizedBox(height: 80));
+                          final groupedData = ref.watch(
+                            groupedTransactionsProvider,
+                          );
+                          final flatList = groupedData.flatList;
+                          final dateIndices = groupedData.dateIndices;
+                          final sortedDates = groupedData.sortedDates;
 
                           return DraggableScrollbar.semicircle(
                             controller: _scrollController,
@@ -214,31 +199,23 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                               if (sortedDates.isEmpty) return const Text("");
 
                               final totalScrollable = _scrollController.position.maxScrollExtent;
-                              final current = offset;
-
-                              if (totalScrollable == 0) {
+                              if (totalScrollable <= 0) {
                                 return Text(
                                   DateFormat('MMM yyyy').format(sortedDates.first),
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: Colors.black,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 );
                               }
 
-                              final fraction = (current / totalScrollable).clamp(0.0, 1.0);
+                              final fraction = (offset / totalScrollable).clamp(
+                                0.0,
+                                1.0,
+                              );
                               final index = (fraction * (flatList.length - 1)).floor();
-
-                              var labelDate = DateTime.now();
-                              int nearestHeader = -1;
-                              for (var idx in dateIndices.keys) {
-                                if (idx <= index && idx > nearestHeader) {
-                                  nearestHeader = idx;
-                                }
-                              }
-                              if (nearestHeader != -1) {
-                                labelDate = dateIndices[nearestHeader]!;
-                              }
+                              final labelDate =
+                                  dateIndices[index] ?? sortedDates.first;
                               
                               return Text(
                                 DateFormat('MMM yyyy').format(labelDate).toUpperCase(),
@@ -251,7 +228,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                             child: ListView.builder(
                               controller: _scrollController,
                               physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
+                              padding: const EdgeInsets.only(
+                                left: 16.0,
+                                right: 16.0,
+                                top: 16,
+                                bottom: 100,
+                              ),
                               itemCount: flatList.length + (paginatedState.hasMore ? 1 : 0),
                               itemBuilder: (context, index) {
                                 if (index == flatList.length) {
@@ -261,12 +243,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                   );
                                 }
                                 final item = flatList[index];
-                                if (item is Widget) return item;
-                                if (item is _DateHeader) {
+                                if (item is DateTime) {
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                     child: Text(
-                                      item.title,
+                                      _formatDateHeader(item),
                                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                         color: AppTheme.textGrey,
                                         fontWeight: FontWeight.bold,
@@ -531,15 +512,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     );
   }
 
-  Map<DateTime, List<Transaction>> _groupTransactionsByDate(List<Transaction> transactions) {
-     final map = <DateTime, List<Transaction>>{};
-     for (var t in transactions) {
-       final date = DateTime(t.date.year, t.date.month, t.date.day);
-       if (map[date] == null) map[date] = [];
-       map[date]!.add(t);
-     }
-     return map;
-  }
 
   String _formatDateHeader(DateTime date) {
     final now = DateTime.now();
@@ -569,134 +541,156 @@ class _TransactionItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isIncome = transaction.amount > 0;
     final formatter = ref.watch(currencyProvider);
-    final categoriesAsync = ref.watch(categoriesProvider);
-    final tagsAsync = ref.watch(tagsProvider);
+    final categoryMap = ref.watch(categoryMapProvider);
+    final tagMap = ref.watch(tagMapProvider);
     
-    // Find the category 
-    final category = categoriesAsync.value?.firstWhere(
-      (c) => c.name == transaction.category,
-      orElse: () => categoriesAsync.value!.first,
-    );
-
+    final category = categoryMap[transaction.category];
     final categoryColor = category != null ? Color(category.colorHex) : null;
-    final allTags = tagsAsync.value ?? [];
 
-    return GestureDetector(
-      onLongPress: onLongPress,
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected 
-            ? AppTheme.primaryGreen.withValues(alpha: 0.1) 
-            : categoryColor != null 
-              ? categoryColor.withValues(alpha: 0.08)
-              : AppTheme.surfaceGrey,
-          borderRadius: BorderRadius.circular(16),
-          border: isSelected 
-            ? Border.all(color: AppTheme.primaryGreen, width: 2) 
-            : categoryColor != null
-              ? Border.all(color: categoryColor.withValues(alpha: 0.3), width: 1)
-              : null,
-        ),
-        child: Row(
-          children: [
-            // Checkmark or Icon
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isSelected 
-                  ? AppTheme.primaryGreen 
-                  : categoryColor != null
-                    ? categoryColor.withValues(alpha: 0.2)
-                    : AppTheme.surfaceGreyLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: isSelected 
-                ? const Icon(Icons.check, color: AppTheme.backgroundBlack, size: 20)
-                  : transaction.type == 'transfer'
-                  ? const Icon(Icons.swap_horiz, color: Colors.blue, size: 20)
-                  : Icon(
-                    category != null 
-                      ? IconData(category.iconCode, fontFamily: 'MaterialIcons')
-                      : (isIncome ? Icons.arrow_downward : Icons.shopping_bag_outlined),
-                    color: categoryColor ?? (isIncome ? AppTheme.primaryGreen : Colors.white),
-                    size: 20,
-                  ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    transaction.description, 
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      Text(
-                        transaction.category, 
-                        style: TextStyle(
-                          color: categoryColor?.withValues(alpha: 0.8) ?? AppTheme.textGrey, 
-                          fontSize: 14
-                        )
+    return RepaintBoundary(
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.primaryGreen.withValues(alpha: 0.1)
+                : categoryColor != null
+                ? categoryColor.withValues(alpha: 0.08)
+                : AppTheme.surfaceGrey,
+            borderRadius: BorderRadius.circular(16),
+            border: isSelected
+                ? Border.all(color: AppTheme.primaryGreen, width: 2)
+                : categoryColor != null
+                ? Border.all(
+                    color: categoryColor.withValues(alpha: 0.3),
+                    width: 1,
+                  )
+                : null,
+          ),
+          child: Row(
+            children: [
+              // Checkmark or Icon
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primaryGreen
+                      : categoryColor != null
+                      ? categoryColor.withValues(alpha: 0.2)
+                      : AppTheme.surfaceGreyLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: isSelected
+                    ? const Icon(
+                        Icons.check,
+                        color: AppTheme.backgroundBlack,
+                        size: 20,
+                      )
+                    : transaction.type == 'transfer'
+                    ? const Icon(Icons.swap_horiz, color: Colors.blue, size: 20)
+                    : Icon(
+                        category != null
+                            ? IconData(
+                                category.iconCode,
+                                fontFamily: 'MaterialIcons',
+                              )
+                            : (isIncome
+                                  ? Icons.arrow_downward
+                                  : Icons.shopping_bag_outlined),
+                        color:
+                            categoryColor ??
+                            (isIncome ? AppTheme.primaryGreen : Colors.white),
+                        size: 20,
                       ),
-                      ...transaction.tags.map((tagName) {
-                        final tag = allTags.firstWhere(
-                          (t) => t.name == tagName,
-                          orElse: () => Tag(
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      transaction.description,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          transaction.category,
+                          style: TextStyle(
+                            color:
+                                categoryColor?.withValues(alpha: 0.8) ??
+                                AppTheme.textGrey,
+                            fontSize: 14,
+                          ),
+                        ),
+                        ...transaction.tags.map((tagName) {
+                          final tag =
+                              tagMap[tagName] ??
+                              Tag(
                             id: '',
                             userId: 'local',
                             name: tagName,
-                            colorHex: 0xFF9E9E9E,
-                          ),
-                        );
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Color(tag.colorHex).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: Color(tag.colorHex).withValues(alpha: 0.3),
-                              width: 0.5,
+                                colorHex: 0xFF9E9E9E,
+                              );
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
-                          ),
-                          child: Text(
-                            tag.name,
-                            style: TextStyle(
-                              color: Color(tag.colorHex),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                            decoration: BoxDecoration(
+                              color: Color(
+                                tag.colorHex,
+                              ).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: Color(
+                                  tag.colorHex,
+                                ).withValues(alpha: 0.3),
+                                width: 0.5,
+                              ),
                             ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ],
+                            child: Text(
+                              tag.name,
+                              style: TextStyle(
+                                color: Color(tag.colorHex),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Text(
-              transaction.type == 'transfer'
-                  ? formatter.format(transaction.amount.abs())
-                  : isIncome
-                  ? "+${formatter.format(transaction.amount)}"
-                  : "-${formatter.format(transaction.amount.abs())}",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: transaction.type == 'transfer'
-                    ? Colors.blue
-                    : (isIncome ? AppTheme.primaryGreen : Colors.white),
-                fontSize: 16,
+              Text(
+                transaction.type == 'transfer'
+                    ? formatter.format(transaction.amount.abs())
+                    : isIncome
+                    ? "+${formatter.format(transaction.amount)}"
+                    : "-${formatter.format(transaction.amount.abs())}",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: transaction.type == 'transfer'
+                      ? Colors.blue
+                      : (isIncome ? AppTheme.primaryGreen : Colors.white),
+                  fontSize: 16,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

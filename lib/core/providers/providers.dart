@@ -222,6 +222,208 @@ final paginatedTransactionsProvider =
       PaginatedTransactionsNotifier.new,
     );
 
+class GroupedTransactions {
+  final List<dynamic> flatList;
+  final Map<int, DateTime> dateIndices;
+  final List<DateTime> sortedDates;
+
+  GroupedTransactions({
+    required this.flatList,
+    required this.dateIndices,
+    required this.sortedDates,
+  });
+}
+
+final groupedTransactionsProvider = Provider<GroupedTransactions>((ref) {
+  final transactions = ref.watch(paginatedTransactionsProvider).transactions;
+
+  if (transactions.isEmpty) {
+    return GroupedTransactions(flatList: [], dateIndices: {}, sortedDates: []);
+  }
+
+  // 1. Group by date
+  final grouped = <DateTime, List<Transaction>>{};
+  for (var t in transactions) {
+    final date = DateTime(t.date.year, t.date.month, t.date.day);
+    grouped.putIfAbsent(date, () => []).add(t);
+  }
+
+  // 2. Sort dates
+  final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+  // 3. Create flat list with headers
+  final flatList = <dynamic>[];
+  final dateIndices = <int, DateTime>{};
+
+  for (var date in sortedDates) {
+    dateIndices[flatList.length] = date;
+    flatList.add(date); // We'll use the date itself as a header indicator
+    for (var t in grouped[date]!) {
+      dateIndices[flatList.length] = date;
+      flatList.add(t);
+    }
+  }
+
+  return GroupedTransactions(
+    flatList: flatList,
+    dateIndices: dateIndices,
+    sortedDates: sortedDates,
+  );
+});
+
+final categoryMapProvider = Provider<Map<String, Category>>((ref) {
+  final categories = ref.watch(categoriesProvider).value ?? [];
+  return {for (var c in categories) c.name: c};
+});
+
+final tagMapProvider = Provider<Map<String, Tag>>((ref) {
+  final tags = ref.watch(tagsProvider).value ?? [];
+  return {for (var t in tags) t.name: t};
+});
+
+class DashboardStats {
+  final double totalBalance;
+  final double monthlyExpenses;
+  final double netFlow;
+  final List<Transaction> recentTransactions;
+
+  DashboardStats({
+    required this.totalBalance,
+    required this.monthlyExpenses,
+    required this.recentTransactions,
+    required this.netFlow,
+  });
+}
+
+final dashboardStatsProvider = Provider<AsyncValue<DashboardStats>>((ref) {
+  final accountsAsync = ref.watch(accountsProvider);
+  final transactionsAsync = ref.watch(transactionsProvider(null));
+
+  return transactionsAsync.when(
+    loading: () => const AsyncLoading(),
+    error: (err, stack) => AsyncError(err, stack),
+    data: (transactions) {
+      return accountsAsync.when(
+        loading: () => const AsyncLoading(),
+        error: (err, stack) => AsyncError(err, stack),
+        data: (accounts) {
+          final now = DateTime.now();
+          final currentMonth = now.month;
+          final currentYear = now.year;
+          final last30Days = now.subtract(const Duration(days: 30));
+
+          final totalBalance = accounts.fold(
+            0.0,
+            (sum, acc) => sum + acc.balance,
+          );
+
+          final monthlyExpenses = transactions
+              .where(
+                (t) =>
+                    t.date.month == currentMonth &&
+                    t.date.year == currentYear &&
+                    t.amount < 0,
+              )
+              .fold(0.0, (sum, t) => sum + t.amount.abs());
+
+          final netFlow = transactions
+              .where((t) => t.date.isAfter(last30Days))
+              .fold(0.0, (sum, t) => sum + t.amount);
+
+          return AsyncData(
+            DashboardStats(
+              totalBalance: totalBalance,
+              monthlyExpenses: monthlyExpenses,
+              netFlow: netFlow,
+              recentTransactions: transactions.take(10).toList(),
+            ),
+          );
+        },
+      );
+    },
+  );
+});
+
+final budgetMapProvider = Provider<Map<String, Budget>>((ref) {
+  final budgets = ref.watch(budgetsProvider).value ?? [];
+  return {for (var b in budgets) b.category: b};
+});
+
+final budgetStatsProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
+  final transactionsAsync = ref.watch(transactionsProvider(null));
+  final now = DateTime.now();
+
+  return transactionsAsync.whenData((transactions) {
+    final categorySpending = <String, double>{};
+    for (var t in transactions) {
+      if (t.date.year == now.year &&
+          t.date.month == now.month &&
+          t.amount < 0) {
+        categorySpending[t.category] =
+            (categorySpending[t.category] ?? 0) + t.amount.abs();
+      }
+    }
+    return categorySpending;
+  });
+});
+
+class StatsData {
+  final Map<String, double> categoryTotals;
+  final Map<String, Map<String, double>> monthlyBreakdown;
+  final double totalExpenses;
+
+  StatsData({
+    required this.categoryTotals,
+    required this.monthlyBreakdown,
+    required this.totalExpenses,
+  });
+}
+
+final statsDataProvider = Provider.family<AsyncValue<StatsData>, int>((
+  ref,
+  year,
+) {
+  final transactionsAsync = ref.watch(transactionsProvider(null));
+
+  return transactionsAsync.whenData((allTransactions) {
+    final transactions = allTransactions
+        .where((t) => t.date.year == year)
+        .toList();
+    final categoryTotals = <String, double>{};
+    final monthlyBreakdown = <String, Map<String, double>>{};
+    double totalExpenses = 0.0;
+
+    for (var t in transactions) {
+      // Distribution & Total
+      if (t.amount < 0) {
+        categoryTotals[t.category] =
+            (categoryTotals[t.category] ?? 0) + t.amount.abs();
+        totalExpenses += t.amount.abs();
+      }
+
+      // Breakdown
+      final monthKey = DateFormat('yyyy-MM').format(t.date);
+      if (!monthlyBreakdown.containsKey(monthKey)) {
+        monthlyBreakdown[monthKey] = {'earned': 0.0, 'spent': 0.0};
+      }
+
+      if (t.amount > 0) {
+        monthlyBreakdown[monthKey]!['earned'] =
+            monthlyBreakdown[monthKey]!['earned']! + t.amount;
+      } else {
+        monthlyBreakdown[monthKey]!['spent'] =
+            monthlyBreakdown[monthKey]!['spent']! + t.amount.abs();
+      }
+    }
+
+    return StatsData(
+      categoryTotals: categoryTotals,
+      monthlyBreakdown: monthlyBreakdown,
+      totalExpenses: totalExpenses,
+    );
+  });
+});
+
 class PaginatedTransactionsState {
   final List<Transaction> transactions;
   final bool isLoading;

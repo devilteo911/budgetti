@@ -20,8 +20,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final transactionsAsync = ref.watch(transactionsProvider(null));
-    final categoriesAsync = ref.watch(categoriesProvider);
+    final statsAsync = ref.watch(statsDataProvider(_selectedYear));
+    final categoryMap = ref.watch(categoryMapProvider);
     final currencyFormatter = ref.watch(currencyProvider);
 
     return DefaultTabController(
@@ -70,86 +70,63 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             unselectedLabelColor: AppTheme.textGrey,
             tabs: [
               Tab(text: "Distribution"),
-              Tab(text: "Mo. Breakdown"), // Renamed from Yearly
+              Tab(text: "Mo. Breakdown"), 
               Tab(text: "Prediction"),
             ],
           ),
         ),
-        body: transactionsAsync.when(
+        body: statsAsync.when(
           loading: () => const Center(
             child: CircularProgressIndicator(color: AppTheme.primaryGreen),
           ),
           error: (err, _) => Center(child: Text("Error: $err")),
-          data: (allTransactions) => categoriesAsync.when(
-            loading: () => const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryGreen),
-            ),
-            error: (err, _) => Center(child: Text("Error categories: $err")),
-            data: (categories) {
-              // Filter by Selected Year
-              final transactions = allTransactions
-                  .where((t) => t.date.year == _selectedYear)
-                  .toList();
-              
-              final expenses = transactions.where((t) => t.amount < 0).toList();
-              
-              if (expenses.isEmpty && transactions.isEmpty) {
-                return Center(
-                  child: Text(
-                    "No transactions in $_selectedYear",
-                    style: const TextStyle(color: AppTheme.textGrey),
-                  ),
-                );
-              }
-
-              return TabBarView(
-                children: [
-                  _buildDistributionTab(
-                    expenses,
-                    categories,
-                    currencyFormatter,
-                  ),
-                  _buildMonthlyTableTab(transactions, currencyFormatter),
-                   // Prediction only makes sense for current year/month usually, 
-                   // or maybe "Predicted" for the selected year's average? 
-                  // The current prediction logic is "Predict end of CURRENT month".
-                  // If looking at past year, prediction is irrelevant.
-                  // Let's show a disabled message or just hide it.
-                  // For now, let's just show it. If year is current, it works.
-                  // If year is past, it shows 0 or weird data if no transactions in current month match selected year (which is impossible).
-                  // Wait, prediction logic uses DateTime.now().
-                  _selectedYear == DateTime.now().year
-                      ? _buildPredictionTab(
-                          expenses,
-                          categories,
-                          currencyFormatter,
-                        )
-                      : const Center(
-                          child: Text(
-                            "Prediction available for current year only",
-                            style: TextStyle(color: AppTheme.textGrey),
-                          ),
-                        ),
-                ],
+          data: (stats) {
+            if (stats.categoryTotals.isEmpty &&
+                stats.monthlyBreakdown.isEmpty) {
+              return Center(
+                child: Text(
+                  "No transactions in $_selectedYear",
+                  style: const TextStyle(color: AppTheme.textGrey),
+                ),
               );
-            },
-          ),
+            }
+
+            return TabBarView(
+              children: [
+                _buildDistributionTab(
+                  stats.categoryTotals,
+                  categoryMap,
+                  currencyFormatter,
+                ),
+                _buildMonthlyTableTab(
+                  stats.monthlyBreakdown,
+                  currencyFormatter,
+                ),
+                _selectedYear == DateTime.now().year
+                    ? _buildPredictionTab(
+                        stats.categoryTotals,
+                        categoryMap,
+                        currencyFormatter,
+                      )
+                    : const Center(
+                        child: Text(
+                          "Prediction available for current year only",
+                          style: TextStyle(color: AppTheme.textGrey),
+                        ),
+                      ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
   Widget _buildDistributionTab(
-    List<dynamic> expenses,
-    List<Category> categories,
+    Map<String, double> categoryTotals,
+    Map<String, Category> categoryMap,
     dynamic currencyFormatter,
   ) {
-    final categoryTotals = <String, double>{};
-    for (var t in expenses) {
-      categoryTotals[t.category] =
-          (categoryTotals[t.category] ?? 0) + t.amount.abs();
-    }
-
     final sortedCategoryEntries = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
@@ -186,17 +163,16 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 sections: sortedCategoryEntries.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final data = entry.value;
-                  final category = categories.firstWhere(
-                    (c) => c.name == data.key,
-                    orElse: () => Category(
+                  final category =
+                      categoryMap[data.key] ??
+                      Category(
                       id: '',
                       userId: '',
                       name: data.key,
                       iconCode: Icons.help_outline.codePoint,
                       colorHex: 0xFF9E9E9E,
-                      type: 'expense',
-                    ),
-                  );
+                        type: 'expense',
+                      );
                   final isTouched = idx == touchedIndex;
                   final fontSize = isTouched ? 20.0 : 12.0;
                   final radius = isTouched ? 70.0 : 60.0;
@@ -235,17 +211,16 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           ...sortedCategoryEntries.map(
             (entry) => GestureDetector(
               onTap: () {
-                final category = categories.firstWhere(
-                  (c) => c.name == entry.key,
-                  orElse: () => Category(
+                final category =
+                    categoryMap[entry.key] ??
+                    Category(
                     id: '',
                     userId: '',
                     name: entry.key,
                     iconCode: Icons.help_outline.codePoint,
                     colorHex: 0xFF9E9E9E,
-                    type: 'expense',
-                  ),
-                );
+                      type: 'expense',
+                    );
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) =>
@@ -255,7 +230,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               },
               child: _buildCategoryRow(
                 entry,
-                categories,
+                categoryMap,
                 totalExpenses,
                 currencyFormatter,
               ),
@@ -267,21 +242,13 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   }
 
   Widget _buildPredictionTab(
-    List<dynamic> expenses,
-    List<Category> categories,
+    Map<String, double> categoryTotals,
+    Map<String, Category> categoryMap,
     dynamic currencyFormatter,
   ) {
     final now = DateTime.now();
     final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
     final currentDay = now.day;
-
-    final categoryTotals = <String, double>{};
-    for (var t in expenses) {
-      if (t.date.month == now.month && t.date.year == now.year) {
-        categoryTotals[t.category] =
-            (categoryTotals[t.category] ?? 0) + t.amount.abs();
-      }
-    }
 
     final currentTotal = categoryTotals.values.fold(
       0.0,
@@ -359,7 +326,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           ...predictedCategoryEntries.map(
             (entry) => _buildCategoryRow(
               entry,
-              categories,
+              categoryMap,
               predictedTotal,
               currencyFormatter,
               isPrediction: true,
@@ -372,22 +339,21 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
   Widget _buildCategoryRow(
     MapEntry<String, double> entry,
-    List<Category> categories,
+    Map<String, Category> categoryMap,
     double total,
     dynamic currencyFormatter, {
     bool isPrediction = false,
   }) {
-    final category = categories.firstWhere(
-      (c) => c.name == entry.key,
-      orElse: () => Category(
+    final category =
+        categoryMap[entry.key] ??
+        Category(
         id: '',
         userId: '',
         name: entry.key,
         iconCode: Icons.help_outline.codePoint,
         colorHex: 0xFF9E9E9E,
-        type: 'expense',
-      ),
-    );
+          type: 'expense',
+        );
     final percentage = (entry.value / total * 100).toStringAsFixed(1);
 
     return Container(
@@ -454,27 +420,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   }
 
   Widget _buildMonthlyTableTab(
-    List<dynamic> transactions,
+    Map<String, Map<String, double>> monthlyData,
     dynamic currencyFormatter,
   ) {
-    // Group transactions by month
-    final monthlyData = <String, Map<String, double>>{};
-
-    for (var t in transactions) {
-      final monthKey = DateFormat('yyyy-MM').format(t.date);
-      if (!monthlyData.containsKey(monthKey)) {
-        monthlyData[monthKey] = {'earned': 0.0, 'spent': 0.0};
-      }
-
-      if (t.amount > 0) {
-        monthlyData[monthKey]!['earned'] =
-            monthlyData[monthKey]!['earned']! + t.amount;
-      } else {
-        monthlyData[monthKey]!['spent'] =
-            monthlyData[monthKey]!['spent']! + t.amount.abs();
-      }
-    }
-
     final sortedMonths = monthlyData.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 

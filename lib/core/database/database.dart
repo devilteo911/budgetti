@@ -98,6 +98,13 @@ class Transactions extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+
+  // List of indexes for this table
+  List<Index> get indexes => [
+    Index('idx_transactions_date', 'ON transactions (date DESC)'),
+    Index('idx_transactions_account', 'ON transactions (account_id)'),
+    Index('idx_transactions_user', 'ON transactions (user_id)'),
+  ];
 }
 
 class Budgets extends Table {
@@ -120,7 +127,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7; // Incremented from 6
+  int get schemaVersion => 8; // Incremented from 7
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -198,6 +205,23 @@ class AppDatabase extends _$AppDatabase {
         } catch (e) {
           // Ignore: column might already exist
         }
+      }
+      if (from < 8) {
+        try {
+          await m.createIndex(
+            Index('idx_transactions_date', 'ON transactions (date DESC)'),
+          );
+        } catch (_) {}
+        try {
+          await m.createIndex(
+            Index('idx_transactions_account', 'ON transactions (account_id)'),
+          );
+        } catch (_) {}
+        try {
+          await m.createIndex(
+            Index('idx_transactions_user', 'ON transactions (user_id)'),
+          );
+        } catch (_) {}
       }
     },
     beforeOpen: (details) async {

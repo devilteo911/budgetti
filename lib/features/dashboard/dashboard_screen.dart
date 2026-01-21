@@ -133,90 +133,71 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 }
 
                 final formatter = ref.watch(currencyProvider);
+                final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
+                final categoryMap = ref.watch(categoryMapProvider);
                 
-                // Use selected wallet or default to ALL (null)
-            
-                
-                // Calculate balance based on selection
-                double totalBalance;
-                // Always show combined balance on Dashboard
-                totalBalance = accounts.fold(0.0, (sum, acc) => sum + acc.balance);
+                return dashboardStatsAsync.when(
+                  loading: () =>
+                      const ShimmerLoading(child: DashboardSkeleton()),
+                  error: (err, stack) =>
+                      Center(child: Text("Error calculating stats")),
+                  data: (stats) {
+                    final isVisible = ref.watch(balanceVisibilityProvider);
 
-                // Watch transactions for ALL accounts (ignore selectedWalletId on Dashboard)
-                final transactionsAsync = ref.watch(transactionsProvider(null));
-                
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 32.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "budgetti",
-                              style: GoogleFonts.bricolageGrotesque(
-                                color: Colors.white,
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          GestureDetector(
-                            onTap: () => context.push('/profile'),
-                            child: Hero(
-                              tag: 'profile-image',
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: AppTheme.surfaceGreyLight,
-                                  shape: BoxShape.circle,
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 24,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 32.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "budgetti",
+                                  style: GoogleFonts.bricolageGrotesque(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.5,
+                                  ),
                                 ),
-                                padding: const EdgeInsets.all(8),
-                                child: const Icon(Icons.person, color: AppTheme.primaryGreen),
-                              ),
+                                GestureDetector(
+                                  onTap: () => context.push('/profile'),
+                                  child: Hero(
+                                    tag: 'profile-image',
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: AppTheme.surfaceGreyLight,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      padding: const EdgeInsets.all(8),
+                                      child: const Icon(
+                                        Icons.person,
+                                        color: AppTheme.primaryGreen,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                      ],
-                    ),
-                  ),
+                          ),
 
-                      // Summary Cards Row
-                  transactionsAsync.when(
-                    data: (transactions) {
-                      final now = DateTime.now();
-                          final currentMonth = now.month;
-                          final currentYear = now.year;
-
-                          // Monthly Expenses calculation
-                          final monthlyExpenses = transactions
-                              .where(
-                                (t) =>
-                                    t.date.month == currentMonth &&
-                                    t.date.year == currentYear &&
-                                    t.amount < 0,
-                              )
-                              .fold(0.0, (sum, t) => sum + t.amount.abs());
-
-                      final last30Days = now.subtract(const Duration(days: 30));
-                      final netFlow = transactions
-                          .where((t) => t.date.isAfter(last30Days))
-                          .fold(0.0, (sum, t) => sum + t.amount);
-                      
-                      final isPositive = netFlow >= 0;
-                      final sign = isPositive ? "+" : "";
-                      final isVisible = ref.watch(balanceVisibilityProvider);
-                      
-                          return Row(
+                          // Summary Cards Row
+                          Row(
                             children: [
                               Expanded(
                                 child: SummaryCard(
                                   title: "Total Balance",
-                                  amount: formatter.format(totalBalance),
-                                  trend: "$sign${formatter.format(netFlow)}",
-                                  isPositive: isPositive,
+                                  amount: formatter.format(stats.totalBalance),
+                                  trend:
+                                      "${stats.netFlow >= 0 ? "+" : ""}${formatter.format(stats.netFlow)}",
+                                  isPositive: stats.netFlow >= 0,
                                   isVisible: isVisible,
                                   onToggleVisibility: () => ref
                                       .read(balanceVisibilityProvider.notifier)
@@ -227,56 +208,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               Expanded(
                                 child: SummaryCard(
                                   title: "Monthly Expenses",
-                                  amount: formatter.format(monthlyExpenses),
+                                  amount: formatter.format(
+                                    stats.monthlyExpenses,
+                                  ),
                                   trend: "This month",
                                   isPositive: false,
                                   isVisible: true,
                                 ),
                               ),
                             ],
-                      );
-                    },
-                        loading: () => ShimmerLoading(
-                          child: Row(
-                            children: const [
-                              Expanded(child: SummaryCardSkeleton()),
-                              SizedBox(width: 12),
-                              Expanded(child: SummaryCardSkeleton()),
-                            ],
                           ),
-                        ),
-                        error: (_, __) => Row(
-                          children: [
-                            Expanded(
-                              child: SummaryCard(
-                                title: "Total Balance",
-                                amount: formatter.format(totalBalance),
-                                trend: "Error",
-                                isPositive: false,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(child: SizedBox()),
-                          ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  
-                      // Add New Transaction Button
-                      const AddTransactionButton(),
- 
-                  const SizedBox(height: 32),
-                  // Recent Transactions
-                  if (accounts.isNotEmpty)
-                    Consumer(
-                      builder: (context, ref, child) {
-                    
-                        final transactionsAsync = ref.watch(transactionsProvider(null));
-                        final categoriesAsync = ref.watch(categoriesProvider);
-                        
-                        return transactionsAsync.when(
-                          data: (transactions) => categoriesAsync.when(
-                            data: (categories) => Column(
+                          const SizedBox(height: 32),
+
+                          // Add New Transaction Button
+                          const AddTransactionButton(),
+
+                          const SizedBox(height: 32),
+                          // Recent Transactions
+                          RepaintBoundary(
+                            child: Column(
                                   children: [
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -291,11 +241,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 16),
-                                    ...transactions.take(3).map((t) {
-                                      final category = categories.firstWhere(
-                                        (c) => c.name == t.category,
-                                        orElse: () => categories.first,
-                                      );
+                                ...stats.recentTransactions.take(3).map((t) {
+                                  final category =
+                                      categoryMap[t.category] ??
+                                      categoryMap.values.first;
                                       return _buildTransactionItem(
                                         context,
                                         t.description,
@@ -308,36 +257,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       );
                                     }),
                                   ],
-                                ),
-                            loading: () => const Center(child: CircularProgressIndicator()),
-                            error: (_, __) => const SizedBox.shrink(),
-                          ),
-                          loading: () => ShimmerLoading(
-                            child: Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "Recent Transactions",
-                                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: AppTheme.textWhite,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                ...List.generate(3, (index) => const TransactionItemSkeleton()),
-                              ],
                             ),
                           ),
-                          error: (e, s) => const SizedBox.shrink(),
-                        );
-                      },
-                    ),
-                ],
-              ),
+                        ],
+                      ),
+                    );
+                  },
                 );
               },
             );
