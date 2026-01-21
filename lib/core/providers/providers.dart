@@ -281,6 +281,25 @@ final tagMapProvider = Provider<Map<String, Tag>>((ref) {
   return {for (var t in tags) t.name: t};
 });
 
+// Cache providers for colors and icons to avoid per-frame allocations
+final categoryColorCacheProvider = Provider<Map<String, Color>>((ref) {
+  final categories = ref.watch(categoriesProvider).value ?? [];
+  return {for (var c in categories) c.name: Color(c.colorHex)};
+});
+
+final categoryIconCacheProvider = Provider<Map<String, IconData>>((ref) {
+  final categories = ref.watch(categoriesProvider).value ?? [];
+  return {
+    for (var c in categories)
+      c.name: IconData(c.iconCode, fontFamily: 'MaterialIcons')
+  };
+});
+
+final tagColorCacheProvider = Provider<Map<String, Color>>((ref) {
+  final tags = ref.watch(tagsProvider).value ?? [];
+  return {for (var t in tags) t.name: Color(t.colorHex)};
+});
+
 class DashboardStats {
   final double totalBalance;
   final double monthlyExpenses;

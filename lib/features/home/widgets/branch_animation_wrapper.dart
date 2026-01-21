@@ -60,9 +60,10 @@ class _BranchAnimationWrapperState extends State<BranchAnimationWrapper> {
         );
       },
       layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+        // Only keep current child to prevent memory leak from accumulating widgets
+        // AnimatedSwitcher handles transitions internally
         return Stack(
           children: <Widget>[
-            ...previousChildren,
             if (currentChild != null) currentChild,
           ],
         );

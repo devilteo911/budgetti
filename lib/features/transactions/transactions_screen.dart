@@ -258,6 +258,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                 }
                                 if (item is Transaction) {
                                   return _TransactionItem(
+                                    key: ValueKey(item.id),
                                     transaction: item,
                                     isSelected: _selectedIds.contains(item.id),
                                     onLongPress: () => _toggleSelection(item.id),
@@ -531,6 +532,7 @@ class _TransactionItem extends ConsumerWidget {
   final VoidCallback? onTap;
 
   const _TransactionItem({
+    super.key,
     required this.transaction,
     this.isSelected = false,
     this.onLongPress,

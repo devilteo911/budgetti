@@ -134,8 +134,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                 final formatter = ref.watch(currencyProvider);
                 final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
-                final categoryMap = ref.watch(categoryMapProvider);
-                
+                final categoryColors = ref.watch(categoryColorCacheProvider);
+                final categoryIcons = ref.watch(categoryIconCacheProvider);
+
                 return dashboardStatsAsync.when(
                   loading: () =>
                       const ShimmerLoading(child: DashboardSkeleton()),
@@ -242,17 +243,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     ),
                                     const SizedBox(height: 16),
                                 ...stats.recentTransactions.take(3).map((t) {
-                                  final category =
-                                      categoryMap[t.category] ??
-                                      categoryMap.values.first;
+                                  final categoryIcon = categoryIcons[t.category] ?? Icons.category;
+                                  final categoryColor = categoryColors[t.category] ?? Colors.grey;
                                       return _buildTransactionItem(
                                         context,
                                         t.description,
                                         t.category,
                                         formatter.format(t.amount.abs()),
                                         t.date,
-                                        categoryIcon: IconData(category.iconCode, fontFamily: 'MaterialIcons'),
-                                        categoryColor: Color(category.colorHex),
+                                        categoryIcon: categoryIcon,
+                                        categoryColor: categoryColor,
                                         isIncome: t.amount > 0,
                                       );
                                     }),

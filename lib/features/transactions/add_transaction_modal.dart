@@ -22,6 +22,7 @@ class AddTransactionModal extends ConsumerStatefulWidget {
 
 class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  late List<Animation<double>> _itemAnimations;
   final _picker = ImagePicker();
   bool _isScanning = false;
   
@@ -29,8 +30,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   
-  bool _isExpense = true;
   String _type = 'expense'; // 'expense', 'income', 'transfer'
+  bool _isExpense = true;
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   List<String> _selectedTags = [];
@@ -42,8 +43,19 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 600),
     );
+
+    // Pre-calculate animations for items
+    _itemAnimations = List.generate(7, (index) {
+      const double interval = 0.1;
+      final double start = (index * interval).clamp(0.0, 1.0);
+      final double end = (start + 0.4).clamp(0.0, 1.0);
+      return CurvedAnimation(
+        parent: _animationController,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      );
+    });
     
     // If editing, populate fields
     if (widget.transaction != null) {
@@ -61,6 +73,26 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       _selectedToAccountId = t.toAccountId;
     }
     
+    // Initialize defaults immediately if possible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final accounts = ref.read(accountsProvider).value ?? [];
+      if (_selectedAccountId == null) {
+        _initializeDefaultAccount(accounts);
+        if (mounted) setState(() {});
+      }
+
+      // Initialize category if not set
+      if (_type != 'transfer' && _selectedCategory == null) {
+        final categories = ref.read(categoriesProvider).value ?? [];
+        final filtered = categories.where((c) => c.type == _type).toList();
+        if (filtered.isNotEmpty) {
+          _selectedCategory = filtered.first.name;
+          if (mounted) setState(() {});
+        }
+      }
+    });
+
     _animationController.forward();
 
     if (widget.triggerScan) {
@@ -70,19 +102,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     }
   }
   
-  // Helper to find default account if _selectedAccountId is null
   void _initializeDefaultAccount(List<dynamic> accounts) {
-    if (_selectedAccountId != null) return;
-    if (accounts.isEmpty) {
-      _selectedAccountId = '1'; // Fallback
-      return;
-    }
+    if (_selectedAccountId != null || accounts.isEmpty) return;
     
     try {
       final defaultAccount = accounts.firstWhere((a) => a.isDefault, orElse: () => accounts.first);
       _selectedAccountId = defaultAccount.id;
     } catch (_) {
-      _selectedAccountId = '1';
+      _selectedAccountId = accounts.first.id;
     }
   }
 
@@ -177,24 +204,16 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       // Check for budget alerts
       ref.read(notificationLogicProvider).checkBudgetAlerts(transaction);
 
-      // Refresh providers to update UI across the app
+      // Targeted refresh strategy - only refresh what changed
+      // 1. Refresh accounts (balance changed)
       ref.invalidate(accountsProvider);
-      ref.invalidate(transactionsProvider(_selectedAccountId!));
-      ref.invalidate(
-        transactionsProvider(null),
-      ); // Refresh ALL transactions (Dashboard, Stats)
-      ref.invalidate(budgetsProvider); // Refresh budgets state
-      
-      if (widget.transaction != null && widget.transaction!.accountId != _selectedAccountId) {
-         // Also invalidate the old account if it changed
-         ref.invalidate(transactionsProvider(widget.transaction!.accountId));
-      }
-      if (_type == 'transfer' && _selectedToAccountId != null) {
-        ref.invalidate(transactionsProvider(_selectedToAccountId!));
-        if (widget.transaction?.toAccountId != null &&
-            widget.transaction!.toAccountId != _selectedToAccountId) {
-          ref.invalidate(transactionsProvider(widget.transaction!.toAccountId));
-        }
+
+      // 2. Refresh paginated transactions (more efficient than individual providers)
+      ref.invalidate(paginatedTransactionsProvider);
+
+      // 3. Only invalidate budgets if it's an expense/income (not transfer)
+      if (_type != 'transfer') {
+        ref.invalidate(budgetsProvider);
       }
 
       if (mounted) {
@@ -243,31 +262,35 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         return Consumer(
           builder: (context, ref, child) {
             final categoriesAsync = ref.watch(categoriesProvider);
-            
-            return Padding(
-              padding: const EdgeInsets.only(top: 24, bottom: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppTheme.textGrey.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
+            final categoryColors = ref.watch(categoryColorCacheProvider);
+            final categoryIcons = ref.watch(categoryIconCacheProvider);
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 24, bottom: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppTheme.textGrey.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Select Category",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: categoriesAsync.when(
+                    const SizedBox(height: 16),
+                    Text(
+                      "Select Category",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 16),
+                    categoriesAsync.when(
                       data: (categories) {
-                         // Filter by type
-                         final filtered = categories.where((c) => c.type == (_isExpense ? 'expense' : 'income')).toList();
+                        final filtered = categories.where((c) => c.type == (_isExpense ? 'expense' : 'income')).toList();
                         if (filtered.isEmpty) {
                           return const Padding(
                             padding: EdgeInsets.symmetric(vertical: 32),
@@ -280,35 +303,32 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                           );
                         }
 
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
+                        return Expanded(
+                          child: ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (context, index) {
                             final cat = filtered[index];
                             final isSelected = _selectedCategory == cat.name;
+                            final color = categoryColors[cat.name] ?? Colors.grey;
+                            final icon = categoryIcons[cat.name] ?? Icons.category;
                             return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 4,
-                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                               title: Text(
                                 cat.name,
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
                               leading: Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Color(cat.colorHex).withValues(alpha: 0.1),
+                                  color: color.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
-                                  IconData(cat.iconCode, fontFamily: 'MaterialIcons'),
-                                  color: Color(cat.colorHex),
+                                  icon,
+                                  color: color,
                                   size: 20,
                                 ),
                               ),
@@ -316,44 +336,25 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 setState(() => _selectedCategory = cat.name);
                                 Navigator.of(context).pop();
                               },
-                              trailing: isSelected
-                                  ? const Icon(
-                                      Icons.check_circle,
-                                      color: AppTheme.primaryGreen,
-                                    )
-                                  : null,
+                              trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
                             );
                           },
+                        ),
                         );
                       },
-                      loading: () => const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 32),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.primaryGreen,
-                          ),
-                        ),
-                      ),
-                      error: (e, s) => Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Center(
-                          child: Text(
-                            "Error: $e",
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ),
+                      loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppTheme.primaryGreen))),
+                      error: (e, s) => Center(child: Padding(padding: EdgeInsets.all(24), child: Text("Error: $e", style: const TextStyle(color: Colors.red)))),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+                    const SizedBox(height: 16),
+                  ],
+                ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
   void _showWalletPicker(List<dynamic> accounts) {
     showModalBottomSheet(
@@ -364,29 +365,34 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.only(top: 24, bottom: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.textGrey.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.75,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 24, bottom: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.textGrey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "Select Wallet",
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: ListView(
+                const SizedBox(height: 16),
+                Text(
+                  "Select Wallet",
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 16),
+                ListView.builder(
                   shrinkWrap: true,
-                  children: accounts.map((account) {
+                  itemCount: accounts.length,
+                  itemBuilder: (context, index) {
+                    final account = accounts[index];
                     final isSelected = account.id == _selectedAccountId;
                     final currencyFormatter = ref.watch(currencyProvider);
 
@@ -421,34 +427,27 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                         Navigator.of(context).pop();
                       },
                     );
-                  }).toList(),
+                  },
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
+                const SizedBox(height: 16),
+              ],
+            ),
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildAnimatedItem(int index, Widget child) {
-    const double interval = 0.1;
-    final double start = (index * interval).clamp(0.0, 1.0);
-    final double end = (start + 0.4).clamp(0.0, 1.0);
-
     return AnimatedBuilder(
-      animation: _animationController,
+      animation: _itemAnimations[index],
       builder: (context, child) {
-        final double curveValue = CurvedAnimation(
-          parent: _animationController,
-          curve: Interval(start, end, curve: Curves.easeOutBack),
-        ).value;
+        final double curveValue = _itemAnimations[index].value;
 
         return Opacity(
-          opacity: curveValue.clamp(0.0, 1.0),
+          opacity: curveValue,
           child: Transform.translate(
-            offset: Offset(0, 30 * (1 - curveValue)),
+            offset: Offset(0, 20 * (1 - curveValue)),
             child: child,
           ),
         );
@@ -505,7 +504,18 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                     setState(() {
                         _type = newSelection.first;
                         _isExpense = _type == 'expense';
-                        _selectedCategory = null; 
+                        
+                        // Initialize category for new type immediately
+                        final categories =
+                            ref.read(categoriesProvider).value ?? [];
+                        final filtered = categories
+                            .where((c) => c.type == _type)
+                            .toList();
+                        if (filtered.isNotEmpty) {
+                          _selectedCategory = filtered.first.name;
+                        } else {
+                          _selectedCategory = null;
+                        }
                     });
                   },
                   style: ButtonStyle(
@@ -601,33 +611,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
                               return accountsAsync.when(
                                 data: (accounts) {
-                                  if (accounts.isNotEmpty) {
-                                    if (_selectedAccountId == null) {
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                            if (mounted) {
-                                              setState(
-                                                () => _initializeDefaultAccount(
-                                                  accounts,
-                                                ),
-                                              );
-                                            }
-                                          });
-                                    } else if (!accounts.any(
-                                      (a) => a.id == _selectedAccountId,
-                                    )) {
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                            if (mounted) {
-                                              setState(
-                                                () => _selectedAccountId =
-                                                    accounts.first.id,
-                                              );
-                                            }
-                                          });
-                                    }
-                                  }
-
                                   final selectedAccount = accounts
                                       .where((a) => a.id == _selectedAccountId)
                                       .firstOrNull;
@@ -836,14 +819,18 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     ),
                                   ),
                                   builder: (context) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 24,
-                                        bottom: 8,
+                                    return ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxHeight: MediaQuery.of(context).size.height * 0.75,
                                       ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 24,
+                                          bottom: 8,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
                                           Text(
                                             "Select Destination Wallet",
                                             style: Theme.of(context)
@@ -855,10 +842,11 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                                 ),
                                           ),
                                           const SizedBox(height: 16),
-                                          Flexible(
-                                            child: ListView(
-                                              shrinkWrap: true,
-                                              children: accounts.map((account) {
+                                          ListView.builder(
+                                            shrinkWrap: true,
+                                            itemCount: accounts.length,
+                                            itemBuilder: (context, index) {
+                                                final account = accounts[index];
                                                 final isSelected =
                                                     account.id ==
                                                     _selectedToAccountId;
@@ -887,16 +875,15 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                                     );
                                                     Navigator.of(context).pop();
                                                   },
-                                                );
-                                              }).toList(),
-                                            ),
-                                          ),
+                                                ); },
+                                              ),
                                         ],
                                       ),
-                                    );
-                                  },
-                                );
-                              },
+                                    ),
+                                  );
+                                },
+                              );
+                            },
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -1004,6 +991,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                             final categoriesAsync = ref.watch(
                               categoriesProvider,
                             );
+                            final categoryColors = ref.watch(categoryColorCacheProvider);
+                            final categoryIcons = ref.watch(categoryIconCacheProvider);
 
                             return categoriesAsync.when(
                               data: (categories) {
@@ -1017,27 +1006,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     )
                                     .toList();
 
-                                if (filtered.isNotEmpty &&
-                                    _selectedCategory == null) {
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    if (mounted) {
-                                      setState(
-                                        () => _selectedCategory =
-                                            filtered.first.name,
-                                      );
-                                    }
-                                  });
-                                }
-
-                                final selectedCat =
-                                    filtered
-                                        .where(
-                                          (c) => c.name == _selectedCategory,
-                                        )
-                                        .firstOrNull ??
-                                    filtered.firstOrNull;
+                                  final selectedCat =
+                                      filtered
+                                          .where(
+                                            (c) => c.name == _selectedCategory,
+                                          )
+                                          .firstOrNull ??
+                                      filtered.firstOrNull;
 
                                 return InkWell(
                                   onTap: _showCategoryPicker,
@@ -1060,13 +1035,10 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                       children: [
                                         Icon(
                                           selectedCat != null
-                                              ? IconData(
-                                                  selectedCat.iconCode,
-                                                  fontFamily: 'MaterialIcons',
-                                                )
+                                              ? (categoryIcons[selectedCat.name] ?? Icons.category)
                                               : Icons.category,
                                           color: selectedCat != null
-                                              ? Color(selectedCat.colorHex)
+                                              ? (categoryColors[selectedCat.name] ?? AppTheme.textGrey)
                                               : AppTheme.textGrey,
                                           size: 20,
                                         ),
@@ -1151,10 +1123,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
  
               // Tags Selector
                 _buildAnimatedItem(
-                  5, 
-                Consumer(
+                  5,
+                  RepaintBoundary(
+                    child: Consumer(
                   builder: (context, ref, child) {
                     final tagsAsync = ref.watch(tagsProvider);
+                    final tagColors = ref.watch(tagColorCacheProvider);
                     return tagsAsync.when(
                       data: (tags) {
                         if (tags.isEmpty) return const SizedBox.shrink();
@@ -1167,6 +1141,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                               spacing: 8,
                               children: tags.map((Tag tag) {
                                 final isSelected = _selectedTags.contains(tag.name);
+                                final tagColor = tagColors[tag.name] ?? Colors.grey;
                                 return FilterChip(
                                   label: Text(tag.name),
                                   selected: isSelected,
@@ -1180,16 +1155,16 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     });
                                   },
                                   backgroundColor: AppTheme.surfaceGrey,
-                                  selectedColor: Color(tag.colorHex).withValues(alpha: 0.3),
-                                  checkmarkColor: Color(tag.colorHex),
+                                  selectedColor: tagColor.withValues(alpha: 0.3),
+                                  checkmarkColor: tagColor,
                                   labelStyle: TextStyle(
-                                    color: isSelected ? Color(tag.colorHex) : Colors.white,
+                                    color: isSelected ? tagColor : Colors.white,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
                                     side: BorderSide(
-                                      color: isSelected ? Color(tag.colorHex) : Colors.transparent,
+                                      color: isSelected ? tagColor : Colors.transparent,
                                     ),
                                   ),
                                 );
@@ -1204,72 +1179,71 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   },
                 ),
               ),
+                ),
                 const SizedBox(height: 16),
-          
-              // Submit
                 _buildAnimatedItem(
-                  6, 
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _isScanning ? null : _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryGreen,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
+                  6,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isScanning ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryGreen,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            widget.transaction != null
+                                ? "Update Transaction"
+                                : "Add Transaction",
+                            style: const TextStyle(
+                              color: AppTheme.backgroundBlack,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (_isScanning)
+                        const SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.primaryGreen,
+                              strokeWidth: 3,
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          height: 56,
+                          width: 56,
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceGreyLight,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                        ),
-                        child: Text(
-                          widget.transaction != null
-                              ? "Update Transaction"
-                              : "Add Transaction",
-                          style: const TextStyle(
-                            color: AppTheme.backgroundBlack,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                          child: IconButton(
+                            onPressed: _scanReceipt,
+                            icon: const Icon(
+                              Icons.document_scanner,
+                              color: AppTheme.primaryGreen,
+                            ),
+                            tooltip: "Scan Receipt",
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    if (_isScanning)
-                      const SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.primaryGreen,
-                            strokeWidth: 3,
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        height: 56,
-                        width: 56,
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGreyLight,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: IconButton(
-                          onPressed: _scanReceipt,
-                          icon: const Icon(
-                            Icons.document_scanner,
-                            color: AppTheme.primaryGreen,
-                          ),
-                          tooltip: "Scan Receipt",
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-            ],
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
