@@ -240,14 +240,15 @@ final groupedTransactionsProvider = Provider<GroupedTransactions>((ref) {
     return GroupedTransactions(flatList: [], dateIndices: {}, sortedDates: []);
   }
 
-  // 1. Group by date
+  // 1. Group by month
   final grouped = <DateTime, List<Transaction>>{};
   for (var t in transactions) {
-    final date = DateTime(t.date.year, t.date.month, t.date.day);
-    grouped.putIfAbsent(date, () => []).add(t);
+    // Ensure stable keys using UTC for year/month
+    final monthKey = DateTime.utc(t.date.year, t.date.month);
+    grouped.putIfAbsent(monthKey, () => []).add(t);
   }
 
-  // 2. Sort dates
+  // 2. Sort months
   final sortedDates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
   // 3. Create flat list with headers

@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
+import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
+import 'package:budgetti/core/widgets/category_picker_sheet.dart';
 
 class AddTransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
@@ -31,7 +33,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
   final _descriptionController = TextEditingController();
   
   String _type = 'expense'; // 'expense', 'income', 'transfer'
-  bool _isExpense = true;
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   List<String> _selectedTags = [];
@@ -65,9 +66,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       _selectedCategory = t.category;
       _selectedDate = t.date;
       _type = t.type;
-      _isExpense =
-          t.type == 'expense' ||
-          (t.type != 'income' && t.type != 'transfer' && t.amount < 0);
+      _selectedDate = t.date;
+      _type = t.type;
       _selectedTags = List.from(t.tags);
       _selectedAccountId = t.accountId;
       _selectedToAccountId = t.toAccountId;
@@ -255,6 +255,33 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
     }
   }
 
+  void _showWalletPicker(bool isFrom) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surfaceGrey,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return WalletPickerSheet(
+          title: isFrom ? "Select From Wallet" : "Select To Wallet",
+          selectedWalletId: isFrom ? _selectedAccountId : _selectedToAccountId,
+          onWalletSelected: (account) {
+            if (account == null) return;
+            setState(() {
+              if (isFrom) {
+                _selectedAccountId = account.id;
+              } else {
+                _selectedToAccountId = account.id;
+              }
+            });
+          },
+        );
+      },
+    );
+  }
+
   void _showCategoryPicker() {
     showModalBottomSheet(
       context: context,
@@ -264,184 +291,17 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Consumer(
-          builder: (context, ref, child) {
-            final categoriesAsync = ref.watch(categoriesProvider);
-            final categoryColors = ref.watch(categoryColorCacheProvider);
-            final categoryIcons = ref.watch(categoryIconCacheProvider);
-
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.75,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 24, bottom: 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppTheme.textGrey.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Select Category",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 16),
-                    categoriesAsync.when(
-                      data: (categories) {
-                        final filtered = categories.where((c) => c.type == (_isExpense ? 'expense' : 'income')).toList();
-                        if (filtered.isEmpty) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 32),
-                            child: Center(
-                              child: Text(
-                                "No categories found",
-                                style: TextStyle(color: AppTheme.textGrey),
-                              ),
-                            ),
-                          );
-                        }
-
-                        return Expanded(
-                          child: ListView.builder(
-                            itemCount: filtered.length,
-                            itemBuilder: (context, index) {
-                            final cat = filtered[index];
-                            final isSelected = _selectedCategory == cat.name;
-                            final color = categoryColors[cat.name] ?? Colors.grey;
-                            final icon = categoryIcons[cat.name] ?? Icons.category;
-                            return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                              title: Text(
-                                cat.name,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                              leading: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: color.withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  icon,
-                                  color: color,
-                                  size: 20,
-                                ),
-                              ),
-                              onTap: () {
-                                setState(() => _selectedCategory = cat.name);
-                                Navigator.of(context).pop();
-                              },
-                              trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
-                            );
-                          },
-                        ),
-                        );
-                      },
-                      loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppTheme.primaryGreen))),
-                      error: (e, s) => Center(child: Padding(padding: EdgeInsets.all(24), child: Text("Error: $e", style: const TextStyle(color: Colors.red)))),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-  void _showWalletPicker(List<dynamic> accounts) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.surfaceGrey,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.75,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 24, bottom: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppTheme.textGrey.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  "Select Wallet",
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const SizedBox(height: 16),
-                ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: accounts.length,
-                  itemBuilder: (context, index) {
-                    final account = accounts[index];
-                    final isSelected = account.id == _selectedAccountId;
-                    final currencyFormatter = ref.watch(currencyProvider);
-
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primaryGreen.withOpacity(0.1) : AppTheme.surfaceGreyLight,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.account_balance_wallet,
-                          color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey,
-                          size: 20,
-                        ),
-                      ),
-                      title: Text(
-                        account.name,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                      subtitle: Text(
-                        currencyFormatter.format(account.balance),
-                        style: TextStyle(color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey),
-                      ),
-                      trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
-                      onTap: () {
-                        setState(() => _selectedAccountId = account.id);
-                        Navigator.of(context).pop();
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-        ),
-      );
-    },
-  );
-}
+        return CategoryPickerSheet(
+          title: "Select Category",
+          selectedCategoryName: _selectedCategory,
+          type: _type == 'expense' ? 'expense' : 'income',
+          onCategorySelected: (category) {
+            setState(() => _selectedCategory = category.name);
+          },
+        );
+      },
+    );
+  }
 
   Widget _buildAnimatedItem(int index, Widget child) {
     return AnimatedBuilder(
@@ -507,7 +367,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                     onSelectionChanged: (Set<String> newSelection) {
                     setState(() {
                         _type = newSelection.first;
-                        _isExpense = _type == 'expense';
                         
                         // Initialize category for new type immediately
                         final categories =
@@ -525,9 +384,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   style: ButtonStyle(
                     backgroundColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
                       if (states.contains(WidgetState.selected)) {
-                          if (_type == 'expense')
+                          if (_type == 'expense') {
                             return Theme.of(context).colorScheme.error;
-                          if (_type == 'income') return AppTheme.primaryGreen;
+                          }
+                          if (_type == 'income') {
+                            return AppTheme.primaryGreen;
+                          }
                           return Colors.blue;
                       }
                       return AppTheme.surfaceGreyLight;
@@ -570,7 +432,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                       .firstOrNull;
 
                                   return InkWell(
-                                    onTap: () => _showWalletPicker(accounts),
+                                    onTap: () => _showWalletPicker(true),
                                     borderRadius: BorderRadius.circular(12),
                                     child: Container(
                                       decoration: BoxDecoration(
@@ -682,82 +544,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 .where((a) => a.id == _selectedToAccountId)
                                 .firstOrNull;
                             return InkWell(
-                              onTap: () {
-                                showModalBottomSheet(
-                                  context: context,
-                                  backgroundColor: AppTheme.surfaceGrey,
-                                  isScrollControlled: true,
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(24),
-                                    ),
-                                  ),
-                                  builder: (context) {
-                                    return ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxHeight: MediaQuery.of(context).size.height * 0.75,
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 24,
-                                          bottom: 8,
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                          Text(
-                                            "Select Destination Wallet",
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleLarge
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          ListView.builder(
-                                            shrinkWrap: true,
-                                            itemCount: accounts.length,
-                                            itemBuilder: (context, index) {
-                                                final account = accounts[index];
-                                                final isSelected =
-                                                    account.id ==
-                                                    _selectedToAccountId;
-                                                return ListTile(
-                                                  title: Text(
-                                                    account.name,
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight: isSelected
-                                                          ? FontWeight.bold
-                                                          : FontWeight.normal,
-                                                    ),
-                                                  ),
-                                                  trailing: isSelected
-                                                      ? const Icon(
-                                                          Icons.check_circle,
-                                                          color: AppTheme
-                                                              .primaryGreen,
-                                                        )
-                                                      : null,
-                                                  onTap: () {
-                                                    setState(
-                                                      () =>
-                                                          _selectedToAccountId =
-                                                              account.id,
-                                                    );
-                                                    Navigator.of(context).pop();
-                                                  },
-                                                ); },
-                                              ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
+                              onTap: () => _showWalletPicker(false),
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -783,11 +570,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        selectedToAccount?.name ?? "To Wallet",
+                                        selectedToAccount?.name ??
+                                            "Select Destination",
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 14,
                                         ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     const Icon(
