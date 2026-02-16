@@ -2,6 +2,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/features/stats/category_details_screen.dart';
+import 'package:budgetti/features/charts/widgets/spending_bar_chart.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,211 +17,426 @@ class StatsScreen extends ConsumerStatefulWidget {
 
 class _StatsScreenState extends ConsumerState<StatsScreen> {
   int touchedIndex = -1;
-  int _selectedYear = DateTime.now().year;
 
   @override
   Widget build(BuildContext context) {
-    final statsAsync = ref.watch(statsDataProvider(_selectedYear));
+    final period = ref.watch(selectedStatsPeriodProvider);
+    final statsAsync = ref.watch(statsDataProvider(period));
     final categoryMap = ref.watch(categoryMapProvider);
     final currencyFormatter = ref.watch(currencyProvider);
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        backgroundColor: AppTheme.backgroundBlack,
-        appBar: AppBar(
-          title: Row(
-            children: [
-              Text(
-                "Stats",
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textWhite,
-                ),
-              ),
-              const Spacer(),
-              // Year Selector
-              IconButton(
-                icon: const Icon(
-                  Icons.arrow_left,
-                  color: AppTheme.primaryGreen,
-                ),
-                onPressed: () => setState(() => _selectedYear--),
-              ),
-              Text(
-                "$_selectedYear",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.arrow_right,
-                  color: AppTheme.primaryGreen,
-                ),
-                onPressed: () => setState(() => _selectedYear++),
-              ),
-            ],
-          ),
-          bottom: const TabBar(
-            indicatorColor: AppTheme.primaryGreen,
-            labelColor: AppTheme.primaryGreen,
-            unselectedLabelColor: AppTheme.textGrey,
-            tabs: [
-              Tab(text: "Distribution"),
-              Tab(text: "Mo. Breakdown"), 
-              Tab(text: "Prediction"),
-            ],
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundBlack,
+      appBar: AppBar(
+        title: Text(
+          "Stats",
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textWhite,
           ),
         ),
-        body: statsAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppTheme.primaryGreen),
-          ),
-          error: (err, _) => Center(child: Text("Error: $err")),
-          data: (stats) {
-            if (stats.categoryTotals.isEmpty &&
-                stats.monthlyBreakdown.isEmpty) {
-              return Center(
-                child: Text(
-                  "No transactions in $_selectedYear",
-                  style: const TextStyle(color: AppTheme.textGrey),
-                ),
-              );
-            }
-
-            return TabBarView(
-              children: [
-                _buildDistributionTab(
-                  stats.categoryTotals,
-                  categoryMap,
-                  currencyFormatter,
-                ),
-                _buildMonthlyTableTab(
-                  stats.monthlyBreakdown,
-                  currencyFormatter,
-                ),
-                _selectedYear == DateTime.now().year
-                    ? _buildPredictionTab(
-                        stats.categoryTotals,
-                        categoryMap,
-                        currencyFormatter,
-                      )
-                    : const Center(
-                        child: Text(
-                          "Prediction available for current year only",
-                          style: TextStyle(color: AppTheme.textGrey),
-                        ),
-                      ),
-              ],
+        actions: [
+          _buildViewToggle(period),
+          const SizedBox(width: 8),
+          _buildPeriodSelector(period),
+        ],
+      ),
+      body: statsAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+        ),
+        error: (err, _) => Center(child: Text("Error: $err")),
+        data: (stats) {
+          if (stats.categoryTotals.isEmpty && stats.monthlyBreakdown.isEmpty) {
+            return Center(
+              child: Text(
+                "No transactions in ${period.year}",
+                style: const TextStyle(color: AppTheme.textGrey),
+              ),
             );
+          }
+
+          final totalExpenses = stats.totalExpenses;
+
+          return CustomScrollView(
+            slivers: [
+              // 1. Quick Insights Section
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: _buildQuickInsights(stats, currencyFormatter, period),
+                ),
+              ),
+
+              // 2. Spending Trends Header
+              SliverToBoxAdapter(
+                child: _buildSectionHeader(context, "Spending Trends"),
+              ),
+
+              // 3. Spending Trends Chart
+              SliverToBoxAdapter(
+                child: const SizedBox(height: 300, child: SpendingBarChart()),
+              ),
+
+              // 4. Pie Chart Header
+              SliverToBoxAdapter(
+                child: _buildSectionHeader(context, "Category Distribution"),
+              ),
+
+              // 4. Pie Chart
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 300,
+                  child: _buildPieChart(
+                    stats.categoryTotals,
+                    categoryMap,
+                    totalExpenses,
+                  ),
+                ),
+              ),
+
+              // 5. Category Details List
+              _buildCategorySliverList(
+                stats.categoryTotals,
+                categoryMap,
+                totalExpenses,
+                currencyFormatter,
+              ),
+
+              // 6. Monthly Breakdown Header (Only in Yearly Mode)
+              if (period.month == null) ...[
+                SliverToBoxAdapter(child: const SizedBox(height: 24)),
+                SliverToBoxAdapter(
+                  child: _buildSectionHeader(context, "Monthly Breakdown"),
+                ),
+
+                // 7. Monthly Table
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: _buildMonthlyTableTab(
+                      stats.monthlyBreakdown,
+                      currencyFormatter,
+                    ),
+                  ),
+                ),
+              ],
+
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildViewToggle(StatsPeriod period) {
+    final isMonthlyMode = period.month != null;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceGrey,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ToggleItem(
+            label: "Year",
+            isSelected: !isMonthlyMode,
+            onTap: () {
+              ref.read(selectedStatsPeriodProvider.notifier).setMonth(null);
+              ref
+                  .read(chartGranularityProvider.notifier)
+                  .set(ChartGranularity.monthly);
+            },
+          ),
+          _ToggleItem(
+            label: "Month",
+            isSelected: isMonthlyMode,
+            onTap: () {
+              ref
+                  .read(selectedStatsPeriodProvider.notifier)
+                  .setMonth(DateTime.now().month);
+              ref
+                  .read(chartGranularityProvider.notifier)
+                  .set(ChartGranularity.daily);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodSelector(StatsPeriod period) {
+    final isMonthlyMode = period.month != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_left, color: AppTheme.primaryGreen),
+          onPressed: () {
+            if (isMonthlyMode) {
+              if (period.month == 1) {
+                ref
+                    .read(selectedStatsPeriodProvider.notifier)
+                    .setYear(period.year - 1);
+                ref.read(selectedStatsPeriodProvider.notifier).setMonth(12);
+              } else {
+                ref
+                    .read(selectedStatsPeriodProvider.notifier)
+                    .setMonth(period.month! - 1);
+              }
+            } else {
+              ref
+                  .read(selectedStatsPeriodProvider.notifier)
+                  .setYear(period.year - 1);
+            }
           },
+        ),
+        Text(
+          isMonthlyMode
+              ? DateFormat('MMM').format(DateTime(period.year, period.month!))
+              : "${period.year}",
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.arrow_right, color: AppTheme.primaryGreen),
+          onPressed:
+              (isMonthlyMode &&
+                      period.year == DateTime.now().year &&
+                      period.month == DateTime.now().month) ||
+                  (!isMonthlyMode && period.year == DateTime.now().year)
+              ? null
+              : () {
+                  if (isMonthlyMode) {
+                    if (period.month == 12) {
+                      ref
+                          .read(selectedStatsPeriodProvider.notifier)
+                          .setYear(period.year + 1);
+                      ref
+                          .read(selectedStatsPeriodProvider.notifier)
+                          .setMonth(1);
+                    } else {
+                      ref
+                          .read(selectedStatsPeriodProvider.notifier)
+                          .setMonth(period.month! + 1);
+                    }
+                  } else {
+                    ref
+                        .read(selectedStatsPeriodProvider.notifier)
+                        .setYear(period.year + 1);
+                  }
+                },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
   }
 
-  Widget _buildDistributionTab(
+  Widget _buildQuickInsights(
+    StatsData stats,
+    dynamic currencyFormatter,
+    StatsPeriod period,
+  ) {
+    final now = DateTime.now();
+    final totalExpenses = stats.totalExpenses;
+    final isMonthlyMode = period.month != null;
+
+    // Correct Prediction logic: Use current month's spending
+    final monthKey = DateFormat('yyyy-MM').format(now);
+    final currentMonthData = stats.monthlyBreakdown[monthKey];
+    final currentMonthSpent = currentMonthData?['spent'] ?? 0.0;
+
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final currentDay = now.day;
+    final predictedTotal = period.year == now.year && currentMonthSpent > 0
+        ? (currentMonthSpent / currentDay) * daysInMonth
+        : 0.0;
+
+    // Daily Average
+    final daysToDivide = isMonthlyMode
+        ? (period.year == now.year && period.month == now.month
+              ? now.day
+              : DateTime(period.year, period.month! + 1, 0).day)
+        : 365;
+    final dailyAvg = totalExpenses / daysToDivide;
+
+    // Net Flow (Calculated from breakdown)
+    final totalEarned = stats.monthlyBreakdown.values.fold(
+      0.0,
+      (sum, val) => sum + (val['earned'] ?? 0.0),
+    );
+    final netFlow = totalEarned - totalExpenses;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _InsightCard(
+                title: isMonthlyMode
+                    ? "Total Spent"
+                    : "Total Spent (${period.year})",
+                value: currencyFormatter.format(totalExpenses),
+                icon: Icons.account_balance_wallet,
+                color: AppTheme.primaryGreen,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _InsightCard(
+                title: "Daily Avg",
+                value: currencyFormatter.format(dailyAvg),
+                icon: Icons.calendar_today,
+                color: Colors.blueAccent,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _InsightCard(
+                title: "Net Flow",
+                value:
+                    (netFlow >= 0 ? "+" : "") +
+                    currencyFormatter.format(netFlow),
+                icon: Icons.unfold_more,
+                color: netFlow >= 0 ? AppTheme.primaryGreen : Colors.redAccent,
+              ),
+            ),
+            const SizedBox(width: 16),
+            if (period.year == now.year &&
+                (!isMonthlyMode || period.month == now.month) &&
+                predictedTotal > 0)
+              Expanded(
+                child: _InsightCard(
+                  title: "Predicted (This Mo)",
+                  value: currencyFormatter.format(predictedTotal),
+                  icon: Icons.trending_up,
+                  color: Colors.orangeAccent,
+                ),
+              )
+            else
+              const Spacer(),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPieChart(
     Map<String, double> categoryTotals,
     Map<String, Category> categoryMap,
+    double totalExpenses,
+  ) {
+    final sortedCategoryEntries = categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return PieChart(
+      PieChartData(
+        pieTouchData: PieTouchData(
+          touchCallback: (FlTouchEvent event, pieTouchResponse) {
+            setState(() {
+              if (!event.isInterestedForInteractions ||
+                  pieTouchResponse == null ||
+                  pieTouchResponse.touchedSection == null) {
+                touchedIndex = -1;
+                return;
+              }
+              touchedIndex =
+                  pieTouchResponse.touchedSection!.touchedSectionIndex;
+            });
+          },
+        ),
+        borderData: FlBorderData(show: false),
+        sectionsSpace: 4,
+        centerSpaceRadius: 60,
+        sections: sortedCategoryEntries.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final data = entry.value;
+          final category =
+              categoryMap[data.key] ??
+              Category(
+                id: '',
+                userId: '',
+                name: data.key,
+                iconCode: Icons.help_outline.codePoint,
+                colorHex: 0xFF9E9E9E,
+                type: 'expense',
+              );
+          final isTouched = idx == touchedIndex;
+          final fontSize = isTouched ? 18.0 : 12.0;
+          final radius = isTouched ? 70.0 : 60.0;
+          final percentage = (data.value / totalExpenses * 100).toStringAsFixed(
+            1,
+          );
+
+          return PieChartSectionData(
+            color: Color(category.colorHex),
+            value: data.value,
+            title: isTouched ? "$percentage%" : '',
+            radius: radius,
+            titleStyle: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildCategorySliverList(
+    Map<String, double> categoryTotals,
+    Map<String, Category> categoryMap,
+    double totalExpenses,
     dynamic currencyFormatter,
   ) {
     final sortedCategoryEntries = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final totalExpenses = categoryTotals.values.fold(
-      0.0,
-      (sum, val) => sum + val,
-    );
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final entry = sortedCategoryEntries[index];
+          final category =
+              categoryMap[entry.key] ??
+              Category(
+                id: '',
+                userId: '',
+                name: entry.key,
+                iconCode: Icons.help_outline.codePoint,
+                colorHex: 0xFF9E9E9E,
+                type: 'expense',
+              );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          AspectRatio(
-            aspectRatio: 1.3,
-            child: PieChart(
-              PieChartData(
-                pieTouchData: PieTouchData(
-                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                    setState(() {
-                      if (!event.isInterestedForInteractions ||
-                          pieTouchResponse == null ||
-                          pieTouchResponse.touchedSection == null) {
-                        touchedIndex = -1;
-                        return;
-                      }
-                      touchedIndex =
-                          pieTouchResponse.touchedSection!.touchedSectionIndex;
-                    });
-                  },
-                ),
-                borderData: FlBorderData(show: false),
-                sectionsSpace: 4,
-                centerSpaceRadius: 60,
-                sections: sortedCategoryEntries.asMap().entries.map((entry) {
-                  final idx = entry.key;
-                  final data = entry.value;
-                  final category =
-                      categoryMap[data.key] ??
-                      Category(
-                      id: '',
-                      userId: '',
-                      name: data.key,
-                      iconCode: Icons.help_outline.codePoint,
-                      colorHex: 0xFF9E9E9E,
-                        type: 'expense',
-                      );
-                  final isTouched = idx == touchedIndex;
-                  final fontSize = isTouched ? 20.0 : 12.0;
-                  final radius = isTouched ? 70.0 : 60.0;
-                  final percentage = (data.value / totalExpenses * 100)
-                      .toStringAsFixed(1);
-
-                  return PieChartSectionData(
-                    color: Color(category.colorHex),
-                    value: data.value,
-                    title: isTouched ? "$percentage%" : '',
-                    radius: radius,
-                    titleStyle: TextStyle(
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "Total Expenses",
-            style: TextStyle(color: AppTheme.textGrey, fontSize: 16),
-          ),
-          Text(
-            currencyFormatter.format(totalExpenses),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 32),
-          ...sortedCategoryEntries.map(
-            (entry) => GestureDetector(
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: GestureDetector(
               onTap: () {
-                final category =
-                    categoryMap[entry.key] ??
-                    Category(
-                    id: '',
-                    userId: '',
-                    name: entry.key,
-                    iconCode: Icons.help_outline.codePoint,
-                    colorHex: 0xFF9E9E9E,
-                      type: 'expense',
-                    );
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) =>
@@ -235,104 +451,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 currencyFormatter,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPredictionTab(
-    Map<String, double> categoryTotals,
-    Map<String, Category> categoryMap,
-    dynamic currencyFormatter,
-  ) {
-    final now = DateTime.now();
-    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
-    final currentDay = now.day;
-
-    final currentTotal = categoryTotals.values.fold(
-      0.0,
-      (sum, val) => sum + val,
-    );
-    final predictedTotal = (currentTotal / currentDay) * daysInMonth;
-
-    final predictedCategoryEntries = categoryTotals.entries.map((e) {
-      return MapEntry(e.key, (e.value / currentDay) * daysInMonth);
-    }).toList()..sort((a, b) => b.value.compareTo(a.value));
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryGreen.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: AppTheme.primaryGreen.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Column(
-              children: [
-                const Text(
-                  "Predicted Monthly Expense",
-                  style: TextStyle(color: AppTheme.textGrey, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  currencyFormatter.format(predictedTotal),
-                  style: const TextStyle(
-                    color: AppTheme.primaryGreen,
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.trending_up,
-                      color: AppTheme.textGrey,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Based on ${now.day} days of spending",
-                      style: const TextStyle(
-                        color: AppTheme.textGrey,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              "Predicted by Category",
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...predictedCategoryEntries.map(
-            (entry) => _buildCategoryRow(
-              entry,
-              categoryMap,
-              predictedTotal,
-              currencyFormatter,
-              isPrediction: true,
-            ),
-          ),
-        ],
+          );
+        }, childCount: sortedCategoryEntries.length),
       ),
     );
   }
@@ -341,29 +461,27 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     MapEntry<String, double> entry,
     Map<String, Category> categoryMap,
     double total,
-    dynamic currencyFormatter, {
-    bool isPrediction = false,
-  }) {
+    dynamic currencyFormatter,
+  ) {
     final category =
         categoryMap[entry.key] ??
         Category(
-        id: '',
-        userId: '',
-        name: entry.key,
-        iconCode: Icons.help_outline.codePoint,
-        colorHex: 0xFF9E9E9E,
+          id: '',
+          userId: '',
+          name: entry.key,
+          iconCode: Icons.help_outline.codePoint,
+          colorHex: 0xFF9E9E9E,
           type: 'expense',
         );
     final percentage = (entry.value / total * 100).toStringAsFixed(1);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(category.colorHex).withValues(alpha: 0.1),
+        color: Color(category.colorHex).withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Color(category.colorHex).withValues(alpha: 0.2),
+          color: Color(category.colorHex).withOpacity(0.1),
         ),
       ),
       child: Row(
@@ -371,11 +489,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Color(category.colorHex).withValues(alpha: 0.2),
+              color: Color(category.colorHex).withOpacity(0.15),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Color(category.colorHex).withValues(alpha: 0.3),
-              ),
             ),
             child: Icon(
               IconData(category.iconCode, fontFamily: 'MaterialIcons'),
@@ -397,7 +512,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   ),
                 ),
                 Text(
-                  "$percentage% ${isPrediction ? 'of prediction' : ''}",
+                  "$percentage% of total",
                   style: const TextStyle(
                     color: AppTheme.textGrey,
                     fontSize: 12,
@@ -426,16 +541,16 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final sortedMonths = monthlyData.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceGrey,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.surfaceGreyLight, width: 1),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceGrey,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.surfaceGreyLight, width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
           child: DataTable(
             horizontalMargin: 16,
             columnSpacing: 24,
@@ -485,8 +600,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               return DataRow(
                 color: WidgetStateProperty.resolveWith<Color?>((states) {
                   return overspent
-                      ? Colors.red.withValues(alpha: 0.08)
-                      : Colors.green.withValues(alpha: 0.08);
+                      ? Colors.red.withOpacity(0.08)
+                      : Colors.green.withOpacity(0.08);
                 }),
                 cells: [
                   DataCell(
@@ -513,6 +628,90 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 ],
               );
             }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InsightCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _InsightCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(color: AppTheme.textGrey, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToggleItem extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ToggleItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryGreen : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.black : Colors.white,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 12,
           ),
         ),
       ),

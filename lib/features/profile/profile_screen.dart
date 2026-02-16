@@ -363,7 +363,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.textGrey.withValues(alpha: 0.3),
+                  color: AppTheme.textGrey.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -381,7 +381,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGreyLight,
+                      color: isSelected ? AppTheme.primaryGreen.withOpacity(0.1) : AppTheme.surfaceGreyLight,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -442,7 +442,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: AppTheme.textGrey.withValues(alpha: 0.3),
+                          color: AppTheme.textGrey.withOpacity(0.3),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -592,9 +592,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       shape: BoxShape.circle,
                                       color: AppTheme.surfaceGrey,
                                       border: Border.all(
-                                        color: AppTheme.primaryGreen.withValues(
-                                          alpha: 0.2,
-                                        ),
+                                        color: AppTheme.primaryGreen.withOpacity(0.2),
                                         width: 2,
                                       ),
                                     ),
@@ -632,9 +630,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     Positioned.fill(
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.5,
-                                          ),
+                                          color: Colors.black.withOpacity(0.5),
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Center(
@@ -874,10 +870,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.orange.withValues(alpha: 0.1),
+                              color: Colors.orange.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.orange.withValues(alpha: 0.5),
+                                color: Colors.orange.withOpacity(0.5),
                               ),
                             ),
                             child: const Row(
@@ -1569,7 +1565,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             value: value,
             onChanged: onChanged,
             activeThumbColor: AppTheme.primaryGreen,
-            activeTrackColor: AppTheme.primaryGreen.withValues(alpha: 0.3),
+            activeTrackColor: AppTheme.primaryGreen.withOpacity(0.3),
             inactiveThumbColor: AppTheme.textGrey,
             inactiveTrackColor: AppTheme.surfaceGreyLight,
           ),

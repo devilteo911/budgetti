@@ -208,7 +208,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       // 1. Refresh accounts (balance changed)
       ref.invalidate(accountsProvider);
 
-      // 2. Refresh paginated transactions (more efficient than individual providers)
+      // 2. Refresh transactions and paginated list
+      ref.invalidate(transactionsProvider(null));
+      ref.invalidate(transactionsProvider(_selectedAccountId));
+      if (_type == 'transfer' && _selectedToAccountId != null) {
+        ref.invalidate(transactionsProvider(_selectedToAccountId));
+      }
       ref.invalidate(paginatedTransactionsProvider);
 
       // 3. Only invalidate budgets if it's an expense/income (not transfer)
@@ -278,7 +283,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: AppTheme.textGrey.withValues(alpha: 0.3),
+                        color: AppTheme.textGrey.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -323,7 +328,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                               leading: Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.1),
+                                  color: color.withOpacity(0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -378,7 +383,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppTheme.textGrey.withValues(alpha: 0.3),
+                    color: AppTheme.textGrey.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -401,7 +406,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                       leading: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGreyLight,
+                          color: isSelected ? AppTheme.primaryGreen.withOpacity(0.1) : AppTheme.surfaceGreyLight,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -575,12 +580,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                           color:
                                               (_type == 'transfer' &&
                                                   _selectedAccountId == null)
-                                              ? Colors.red.withValues(
-                                                  alpha: 0.5,
-                                                )
-                                              : AppTheme.textGrey.withValues(
-                                            alpha: 0.3,
-                                          ),
+                                              ? Colors.red.withOpacity(0.5)
+                                              : AppTheme.textGrey.withOpacity(0.3),
                                         ),
                                       ),
                                       padding: const EdgeInsets.symmetric(
@@ -622,9 +623,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     color: AppTheme.surfaceGrey,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AppTheme.textGrey.withValues(
-                                        alpha: 0.3,
-                                      ),
+                                      color: AppTheme.textGrey.withOpacity(0.3),
                                     ),
                                   ),
                                   child: const Center(
@@ -643,7 +642,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     color: AppTheme.surfaceGrey,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: Colors.red.withValues(alpha: 0.3),
+                                      color: Colors.red.withOpacity(0.3),
                                     ),
                                   ),
                                   child: const Center(
@@ -770,10 +769,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: (_selectedToAccountId == null)
-                                        ? Colors.red.withValues(alpha: 0.5)
-                                        : AppTheme.textGrey.withValues(
-                                            alpha: 0.3,
-                                          ),
+                                        ? Colors.red.withOpacity(0.5)
+                                        : AppTheme.textGrey.withOpacity(0.3),
                                   ),
                                 ),
                                 child: Row(
@@ -829,7 +826,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                             decoration: BoxDecoration(
                               color: AppTheme.surfaceGrey,
                               border: Border.all(
-                                color: AppTheme.textGrey.withValues(alpha: 0.3),
+                                color: AppTheme.textGrey.withOpacity(0.3),
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -900,9 +897,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     decoration: BoxDecoration(
                                       color: AppTheme.surfaceGrey,
                                       border: Border.all(
-                                        color: AppTheme.textGrey.withValues(
-                                          alpha: 0.3,
-                                        ),
+                                        color: AppTheme.textGrey.withOpacity(0.3),
                                       ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -949,9 +944,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 decoration: BoxDecoration(
                                   color: AppTheme.surfaceGrey,
                                   border: Border.all(
-                                    color: AppTheme.textGrey.withValues(
-                                      alpha: 0.3,
-                                    ),
+                                    color: AppTheme.textGrey.withOpacity(0.3),
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -974,7 +967,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 decoration: BoxDecoration(
                                   color: AppTheme.surfaceGrey,
                                   border: Border.all(
-                                    color: Colors.red.withValues(alpha: 0.3),
+                                    color: Colors.red.withOpacity(0.3),
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -1030,7 +1023,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                     });
                                   },
                                   backgroundColor: AppTheme.surfaceGrey,
-                                  selectedColor: tagColor.withValues(alpha: 0.3),
+                                  selectedColor: tagColor.withOpacity(0.3),
                                   checkmarkColor: tagColor,
                                   labelStyle: TextStyle(
                                     color: isSelected ? tagColor : Colors.white,
@@ -1136,7 +1129,7 @@ class _DescriptionField extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surfaceGrey,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.textGrey.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.textGrey.withOpacity(0.3)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
@@ -1181,7 +1174,7 @@ class _AmountField extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surfaceGrey,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.textGrey.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.textGrey.withOpacity(0.3)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Row(
@@ -1189,7 +1182,7 @@ class _AmountField extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: AppTheme.primaryGreen.withValues(alpha: 0.2),
+              color: AppTheme.primaryGreen.withOpacity(0.2),
             ),
             child: Center(
               child: Text(
@@ -1217,7 +1210,7 @@ class _AmountField extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: "0.00",
                 hintStyle: TextStyle(
-                  color: AppTheme.textGrey.withValues(alpha: 0.5),
+                  color: AppTheme.textGrey.withOpacity(0.5),
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),

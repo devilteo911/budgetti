@@ -71,7 +71,7 @@ class SpendingChart extends StatelessWidget {
               getDrawingHorizontalLine: (value) {
                 // Highlight zero line
                 if (value.abs() < (totalRange / 100)) {
-                   return FlLine(color: Colors.white.withValues(alpha: 0.5), strokeWidth: 1);
+                   return FlLine(color: Colors.white.withOpacity(0.5), strokeWidth: 1);
                 }
                 return FlLine(
                   color: AppTheme.surfaceGreyLight,
@@ -116,10 +116,10 @@ class SpendingChart extends StatelessWidget {
                   show: true,
                   gradient: LinearGradient(
                     colors: [
-                      Colors.red.withValues(alpha: 0.2), 
-                      Colors.red.withValues(alpha: 0.0), // Fade out
-                      AppTheme.primaryGreen.withValues(alpha: 0.0), // Fade in
-                      AppTheme.primaryGreen.withValues(alpha: 0.2)
+                      Colors.red.withOpacity(0.2), 
+                      Colors.red.withOpacity(0.0), // Fade out
+                      AppTheme.primaryGreen.withOpacity(0.0), // Fade in
+                      AppTheme.primaryGreen.withOpacity(0.2)
                     ],
                     stops: [0, clampedZeroPos * 0.9, clampedZeroPos * 1.1, 1],
                     begin: Alignment.bottomCenter,

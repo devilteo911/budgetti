@@ -77,13 +77,12 @@ final accountsProvider = FutureProvider<List<Account>>((ref) async {
   return service.getAccounts();
 });
 
-final transactionsProvider = FutureProvider.family<List<Transaction>, String?>((ref, accountId) async {
-  try {
-    final service = ref.watch(financeServiceProvider);
-    return await service.getTransactions(accountId: accountId);
-  } catch (e) {
-    return [];
-  }
+final transactionsProvider = StreamProvider.family<List<Transaction>, String?>((
+  ref,
+  accountId,
+) {
+  final service = ref.watch(financeServiceProvider);
+  return service.watchTransactions(accountId: accountId);
 });
 
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
@@ -398,16 +397,36 @@ class StatsData {
   });
 }
 
-final statsDataProvider = Provider.family<AsyncValue<StatsData>, int>((
+class StatsPeriod {
+  final int year;
+  final int? month;
+
+  StatsPeriod({required this.year, this.month});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StatsPeriod &&
+          runtimeType == other.runtimeType &&
+          year == other.year &&
+          month == other.month;
+
+  @override
+  int get hashCode => year.hashCode ^ month.hashCode;
+}
+
+final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
   ref,
-  year,
+  period,
 ) {
   final transactionsAsync = ref.watch(transactionsProvider(null));
 
   return transactionsAsync.whenData((allTransactions) {
-    final transactions = allTransactions
-        .where((t) => t.date.year == year)
-        .toList();
+    final transactions = allTransactions.where((t) {
+      if (t.date.year != period.year) return false;
+      if (period.month != null && t.date.month != period.month) return false;
+      return true;
+    }).toList();
     final categoryTotals = <String, double>{};
     final monthlyBreakdown = <String, Map<String, double>>{};
     double totalExpenses = 0.0;
@@ -440,6 +459,78 @@ final statsDataProvider = Provider.family<AsyncValue<StatsData>, int>((
       monthlyBreakdown: monthlyBreakdown,
       totalExpenses: totalExpenses,
     );
+  });
+});
+
+enum ChartGranularity { daily, weekly, monthly }
+
+class ChartGranularityNotifier extends Notifier<ChartGranularity> {
+  @override
+  ChartGranularity build() => ChartGranularity.daily;
+
+  void set(ChartGranularity value) => state = value;
+}
+
+final chartGranularityProvider =
+    NotifierProvider<ChartGranularityNotifier, ChartGranularity>(
+      ChartGranularityNotifier.new,
+    );
+
+class ChartDataPoint {
+  final DateTime label;
+  final double amount;
+
+  ChartDataPoint(this.label, this.amount);
+}
+
+final chartsDataProvider = Provider<AsyncValue<List<ChartDataPoint>>>((ref) {
+  final granularity = ref.watch(chartGranularityProvider);
+  final period = ref.watch(selectedStatsPeriodProvider);
+  final transactionsAsync = ref.watch(transactionsProvider(null));
+
+  return transactionsAsync.whenData((allTransactions) {
+    if (allTransactions.isEmpty) return [];
+
+    final transactions = allTransactions.where((t) {
+      if (t.date.year != period.year) return false;
+      if (period.month != null && t.date.month != period.month) return false;
+      return true;
+    }).toList();
+
+    if (transactions.isEmpty) return [];
+
+    final expenseTransactions = transactions
+        .where((t) => t.amount < 0)
+        .toList();
+    if (expenseTransactions.isEmpty) return [];
+
+    final Map<DateTime, double> groupedData = {};
+
+    for (var t in expenseTransactions) {
+      DateTime key;
+      switch (granularity) {
+        case ChartGranularity.daily:
+          key = DateTime(t.date.year, t.date.month, t.date.day);
+          break;
+        case ChartGranularity.weekly:
+          // Find the beginning of the week (Monday)
+          key = DateTime(
+            t.date.year,
+            t.date.month,
+            t.date.day - (t.date.weekday - 1),
+          );
+          break;
+        case ChartGranularity.monthly:
+          key = DateTime(t.date.year, t.date.month, 1);
+          break;
+      }
+      groupedData[key] = (groupedData[key] ?? 0) + t.amount.abs();
+    }
+
+    final sortedKeys = groupedData.keys.toList()..sort();
+    return sortedKeys
+        .map((key) => ChartDataPoint(key, groupedData[key]!))
+        .toList();
   });
 });
 
@@ -556,5 +647,32 @@ class SelectedWalletId extends Notifier<String?> {
 
   void set(String? id) => state = id;
 }
+
+class SelectedStatsPeriodNotifier extends Notifier<StatsPeriod> {
+  @override
+  StatsPeriod build() =>
+      StatsPeriod(year: DateTime.now().year, month: DateTime.now().month);
+
+  void setYear(int year) {
+    state = StatsPeriod(year: year, month: state.month);
+  }
+
+  void setMonth(int? month) {
+    state = StatsPeriod(year: state.year, month: month);
+  }
+
+  void toggleMode() {
+    if (state.month == null) {
+      state = StatsPeriod(year: state.year, month: DateTime.now().month);
+    } else {
+      state = StatsPeriod(year: state.year, month: null);
+    }
+  }
+}
+
+final selectedStatsPeriodProvider =
+    NotifierProvider<SelectedStatsPeriodNotifier, StatsPeriod>(
+      SelectedStatsPeriodNotifier.new,
+    );
 
 final selectedWalletIdProvider = NotifierProvider<SelectedWalletId, String?>(SelectedWalletId.new);

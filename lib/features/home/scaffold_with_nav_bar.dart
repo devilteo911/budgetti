@@ -81,7 +81,7 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
         selectedIndex: currentIndex,
         onDestinationSelected: _goBranch,
         backgroundColor: AppTheme.backgroundBlack,
-        indicatorColor: AppTheme.primaryGreen.withValues(alpha: 0.2),
+        indicatorColor: AppTheme.primaryGreen.withOpacity(0.2),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),

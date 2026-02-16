@@ -195,7 +195,7 @@ class CategoriesScreen extends ConsumerWidget {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Color(category.colorHex).withValues(alpha: 0.2),
+              color: Color(category.colorHex).withOpacity(0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(

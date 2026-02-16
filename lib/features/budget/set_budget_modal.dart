@@ -128,7 +128,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                 color: AppTheme.surfaceGrey,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppTheme.textGrey.withValues(alpha: 0.3),
+                  color: AppTheme.textGrey.withOpacity(0.3),
                 ),
               ),
               clipBehavior: Clip.antiAlias,
@@ -141,10 +141,10 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                      color: AppTheme.primaryGreen.withOpacity(0.1),
                       border: Border(
                         right: BorderSide(
-                          color: AppTheme.textGrey.withValues(alpha: 0.3),
+                          color: AppTheme.textGrey.withOpacity(0.3),
                         ),
                       ),
                     ),
@@ -172,7 +172,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                       decoration: InputDecoration(
                         hintText: "0.00",
                         hintStyle: TextStyle(
-                          color: AppTheme.textGrey.withValues(alpha: 0.3),
+                          color: AppTheme.textGrey.withOpacity(0.3),
                         ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
@@ -206,7 +206,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                disabledBackgroundColor: AppTheme.primaryGreen.withValues(alpha: 0.3),
+                disabledBackgroundColor: AppTheme.primaryGreen.withOpacity(0.3),
               ),
               child: _isLoading
                   ? const SizedBox(

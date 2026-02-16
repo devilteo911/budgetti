@@ -84,8 +84,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         setState(() {
           _selectedIds.clear();
         });
-        ref.invalidate(paginatedTransactionsProvider); // Refresh balance
-        ref.invalidate(accountsProvider); // Refresh balance
+        ref.invalidate(paginatedTransactionsProvider);
+        ref.invalidate(accountsProvider);
+        ref.invalidate(transactionsProvider(null)); // Refresh charts and stats
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -437,7 +438,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.textGrey.withValues(alpha: 0.3),
+                  color: AppTheme.textGrey.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -456,7 +457,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       leading: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: selectedWalletId == null ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGreyLight,
+                          color: selectedWalletId == null
+                              ? AppTheme.primaryGreen.withOpacity(0.1)
+                              : AppTheme.surfaceGreyLight,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(Icons.all_inclusive, color: selectedWalletId == null ? AppTheme.primaryGreen : AppTheme.textGrey),
@@ -476,7 +479,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                         leading: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primaryGreen.withValues(alpha: 0.1) : AppTheme.surfaceGreyLight,
+                            color: isSelected
+                                ? AppTheme.primaryGreen.withOpacity(0.1)
+                                : AppTheme.surfaceGreyLight,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(Icons.account_balance_wallet, color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey),
@@ -558,16 +563,16 @@ class _TransactionItem extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.primaryGreen.withValues(alpha: 0.1)
+                ? AppTheme.primaryGreen.withOpacity(0.1)
                 : categoryColor != null
-                ? categoryColor.withValues(alpha: 0.08)
+                ? categoryColor.withOpacity(0.08)
                 : AppTheme.surfaceGrey,
             borderRadius: BorderRadius.circular(16),
             border: isSelected
                 ? Border.all(color: AppTheme.primaryGreen, width: 2)
                 : categoryColor != null
                 ? Border.all(
-                    color: categoryColor.withValues(alpha: 0.3),
+                    color: categoryColor.withOpacity(0.3),
                     width: 1,
                   )
                 : null,
@@ -581,7 +586,7 @@ class _TransactionItem extends ConsumerWidget {
                   color: isSelected
                       ? AppTheme.primaryGreen
                       : categoryColor != null
-                      ? categoryColor.withValues(alpha: 0.2)
+                      ? categoryColor.withOpacity(0.2)
                       : AppTheme.surfaceGreyLight,
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -631,7 +636,7 @@ class _TransactionItem extends ConsumerWidget {
                           transaction.category,
                           style: TextStyle(
                             color:
-                                categoryColor?.withValues(alpha: 0.8) ??
+                                categoryColor?.withOpacity(0.8) ??
                                 AppTheme.textGrey,
                             fontSize: 14,
                           ),
@@ -653,12 +658,12 @@ class _TransactionItem extends ConsumerWidget {
                             decoration: BoxDecoration(
                               color: Color(
                                 tag.colorHex,
-                              ).withValues(alpha: 0.15),
+                              ).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: Color(
                                   tag.colorHex,
-                                ).withValues(alpha: 0.3),
+                                ).withOpacity(0.3),
                                 width: 0.5,
                               ),
                             ),
@@ -713,10 +718,10 @@ class _ActiveFilterChip extends StatelessWidget {
         label: Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.primaryGreen)),
         onDeleted: onDeleted,
         deleteIcon: const Icon(Icons.close, size: 14, color: AppTheme.primaryGreen),
-        backgroundColor: AppTheme.primaryGreen.withValues(alpha: 0.1),
+        backgroundColor: AppTheme.primaryGreen.withOpacity(0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: AppTheme.primaryGreen.withValues(alpha: 0.3)),
+          side: BorderSide(color: AppTheme.primaryGreen.withOpacity(0.3)),
         ),
       ),
     );

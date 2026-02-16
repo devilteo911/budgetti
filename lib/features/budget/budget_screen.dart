@@ -176,9 +176,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 side: BorderSide(
-                                  color: AppTheme.textGrey.withValues(
-                                    alpha: 0.1,
-                                  ),
+                                  color: AppTheme.textGrey.withOpacity(0.1),
                                   width: 1,
                                 ),
                               ),
@@ -201,7 +199,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                             decoration: BoxDecoration(
                                               color: Color(
                                                 category.colorHex,
-                                              ).withValues(alpha: 0.15),
+                                              ).withOpacity(0.15),
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                             ),
@@ -262,9 +260,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                             Text(
                                               "${((spent / budget.limit) * 100).toStringAsFixed(0)}% used",
                                               style: TextStyle(
-                                                color: statusColor.withValues(
-                                                  alpha: 0.7,
-                                                ),
+                                                color: statusColor.withOpacity(0.7),
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -319,7 +315,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
         color: AppTheme.surfaceGrey,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppTheme.textGrey.withValues(alpha: 0.1),
+          color: AppTheme.textGrey.withOpacity(0.1),
           width: 1,
         ),
       ),

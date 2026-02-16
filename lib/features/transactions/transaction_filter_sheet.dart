@@ -121,7 +121,7 @@ class TransactionFilterSheet extends ConsumerWidget {
                           selected: isSelected,
                           onSelected: (_) => ref.read(transactionFiltersProvider.notifier).toggleCategory(category.name),
                           backgroundColor: AppTheme.surfaceGrey,
-                          selectedColor: AppTheme.primaryGreen.withValues(alpha: 0.3),
+                          selectedColor: AppTheme.primaryGreen.withOpacity(0.3),
                           checkmarkColor: AppTheme.primaryGreen,
                           labelStyle: TextStyle(
                             color: isSelected ? AppTheme.primaryGreen : Colors.white,
@@ -158,7 +158,7 @@ class TransactionFilterSheet extends ConsumerWidget {
                           selected: isSelected,
                           onSelected: (_) => ref.read(transactionFiltersProvider.notifier).toggleTag(tag.name),
                           backgroundColor: AppTheme.surfaceGrey,
-                          selectedColor: Color(tag.colorHex).withValues(alpha: 0.3),
+                          selectedColor: Color(tag.colorHex).withOpacity(0.3),
                           checkmarkColor: Color(tag.colorHex),
                           labelStyle: TextStyle(
                             color: isSelected ? Color(tag.colorHex) : Colors.white,
@@ -249,7 +249,7 @@ class _FilterChip extends StatelessWidget {
       selected: isSelected,
       onSelected: onSelected,
       backgroundColor: AppTheme.surfaceGrey,
-      selectedColor: AppTheme.primaryGreen.withValues(alpha: 0.3),
+      selectedColor: AppTheme.primaryGreen.withOpacity(0.3),
       labelStyle: TextStyle(
         color: isSelected ? AppTheme.primaryGreen : Colors.white,
         fontSize: 12,

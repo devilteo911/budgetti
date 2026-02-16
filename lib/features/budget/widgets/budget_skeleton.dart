@@ -12,7 +12,7 @@ class BudgetSummaryCardSkeleton extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surfaceGrey,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.surfaceGreyLight.withValues(alpha: 0.2), width: 1.5),
+        border: Border.all(color: AppTheme.surfaceGreyLight.withOpacity(0.2), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,7 +43,7 @@ class BudgetCardSkeleton extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surfaceGrey,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.surfaceGreyLight.withValues(alpha: 0.2), width: 1.5),
+        border: Border.all(color: AppTheme.surfaceGreyLight.withOpacity(0.2), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

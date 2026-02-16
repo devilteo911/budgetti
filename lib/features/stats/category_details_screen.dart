@@ -56,9 +56,9 @@ class CategoryDetailsScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: categoryColor.withValues(alpha: 0.2),
+                    color: categoryColor.withOpacity(0.2),
                     shape: BoxShape.circle,
-                    border: Border.all(color: categoryColor.withValues(alpha: 0.4), width: 2),
+                    border: Border.all(color: categoryColor.withOpacity(0.4), width: 2),
                   ),
                   child: Icon(
                     IconData(category.iconCode, fontFamily: 'MaterialIcons'),
@@ -165,7 +165,7 @@ class CategoryDetailsScreen extends ConsumerWidget {
             backDrawRodData: BackgroundBarChartRodData(
               show: true,
               toY: roundedMax,
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
             ),
           ),
         ],
@@ -254,7 +254,7 @@ class CategoryDetailsScreen extends ConsumerWidget {
             drawVerticalLine: false,
             horizontalInterval: roundedMax / 5,
             getDrawingHorizontalLine: (value) => FlLine(
-              color: AppTheme.surfaceGreyLight.withValues(alpha: 0.2),
+              color: AppTheme.surfaceGreyLight.withOpacity(0.2),
               strokeWidth: 1,
             ),
           ),
@@ -290,7 +290,7 @@ class CategoryDetailsScreen extends ConsumerWidget {
           decoration: BoxDecoration(
             color: AppTheme.surfaceGrey,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.2)),
+            border: Border.all(color: color.withOpacity(0.2)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

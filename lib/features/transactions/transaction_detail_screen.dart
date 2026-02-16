@@ -253,9 +253,7 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                                   Text(
                                     "Quick Transfer",
                                     style: TextStyle(
-                                      color: AppTheme.primaryGreen.withValues(
-                                        alpha: 0.8,
-                                      ),
+                                      color: AppTheme.primaryGreen.withOpacity(0.8),
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -285,11 +283,11 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                     return Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.surfaceGrey.withValues(alpha: 0.5),
+                        color: AppTheme.surfaceGrey.withOpacity(0.5),
                         borderRadius: BorderRadius.circular(12),
                         border: t.type == 'transfer'
                             ? Border.all(
-                                color: Colors.blue.withValues(alpha: 0.3),
+                                color: Colors.blue.withOpacity(0.3),
                                 width: 1,
                               )
                             : null,
@@ -413,14 +411,12 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? Color(category.colorHex)
-                                  : AppTheme.surfaceGrey.withValues(alpha: 0.5),
+                                  : AppTheme.surfaceGrey.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(12),
                               border: isSelected
                                   ? Border.all(color: Colors.white, width: 2)
                                   : Border.all(
-                                      color: AppTheme.textGrey.withValues(
-                                        alpha: 0.1,
-                                      ),
+                                      color: AppTheme.textGrey.withOpacity(0.1),
                                     ),
                             ),
                             child: Row(
@@ -454,12 +450,10 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                                       : Icons.trending_down,
                                   size: 12,
                                   color: isSelected
-                                      ? Colors.white.withValues(alpha: 0.7)
+                                      ? Colors.white.withOpacity(0.7)
                                       : (category.type == 'income'
                                             ? AppTheme.primaryGreen
-                                            : Colors.red.withValues(
-                                                alpha: 0.5,
-                                              )),
+                                            : Colors.red.withOpacity(0.5)),
                                 ),
                               ],
                             ),
@@ -501,7 +495,7 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                           ref.invalidate(transactionsProvider);
                         },
                         backgroundColor: AppTheme.surfaceGrey,
-                        selectedColor: Color(tag.colorHex).withValues(alpha: 0.3),
+                        selectedColor: Color(tag.colorHex).withOpacity(0.3),
                         checkmarkColor: Color(tag.colorHex),
                         labelStyle: TextStyle(
                           color: isSelected ? Color(tag.colorHex) : AppTheme.textGrey,
@@ -528,7 +522,7 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
               children: [
                 Icon(
                   Icons.chevron_left,
-                  color: AppTheme.textGrey.withValues(alpha: 0.5),
+                  color: AppTheme.textGrey.withOpacity(0.5),
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -544,7 +538,7 @@ class _TransactionPageState extends ConsumerState<_TransactionPage> {
                 const SizedBox(width: 8),
                 Icon(
                   Icons.chevron_right,
-                  color: AppTheme.textGrey.withValues(alpha: 0.5),
+                  color: AppTheme.textGrey.withOpacity(0.5),
                   size: 24,
                 ),
               ],
@@ -625,9 +619,9 @@ class _WalletSelectorChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceGrey.withValues(alpha: 0.5),
+        color: AppTheme.surfaceGrey.withOpacity(0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.textGrey.withValues(alpha: 0.2)),
+        border: Border.all(color: AppTheme.textGrey.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

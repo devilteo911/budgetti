@@ -72,7 +72,7 @@ class SummaryCard extends StatelessWidget {
                       (isPositive
                               ? AppTheme.primaryGreen
                               : Theme.of(context).colorScheme.error)
-                          .withValues(alpha: 0.1),
+                          .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(

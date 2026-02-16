@@ -114,7 +114,7 @@ class BudgetSaturationRecap extends ConsumerWidget {
                             border: Border.all(
                               color: Color(
                                 category.colorHex,
-                              ).withValues(alpha: 0.3),
+                              ).withOpacity(0.3),
                               width: 1.5,
                             ),
                           ),

@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 abstract class FinanceService {
   Future<List<model_account.Account>> getAccounts();
+  Stream<List<model_account.Account>> watchAccounts();
   Future<void> addAccount(model_account.Account account);
   Future<void> updateAccount(model_account.Account account);
   Future<void> deleteAccount(String id);
@@ -20,6 +21,13 @@ abstract class FinanceService {
     List<String>? tags,
     int? limit,
     int? offset,
+  });
+  Stream<List<model_txn.Transaction>> watchTransactions({
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<String>? categories,
+    List<String>? tags,
   });
   Future<void> addTransaction(model_txn.Transaction transaction);
   Future<void> updateTransaction(model_txn.Transaction transaction);
@@ -228,6 +236,14 @@ class LocalFinanceService implements FinanceService {
   }
 
   @override
+  Stream<List<model_account.Account>> watchAccounts() {
+    // This will trigger whenever the accounts table changes.
+    // To also trigger on transaction changes, we'd need a more complex stream.
+    // For now, watching accounts is better than nothing, but let's see if we can do more.
+    return _db.select(_db.accounts).watch().asyncMap((_) => getAccounts());
+  }
+
+  @override
   Future<void> addAccount(model_account.Account account) async {
     final accountId = account.id.isEmpty ? const Uuid().v4() : account.id;
 
@@ -357,6 +373,63 @@ class LocalFinanceService implements FinanceService {
     }
 
     return txns;
+  }
+
+  @override
+  Stream<List<model_txn.Transaction>> watchTransactions({
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<String>? categories,
+    List<String>? tags,
+  }) {
+    var query = _db.select(_db.transactions)
+      ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
+
+    if (accountId != null) {
+      query.where((tbl) => tbl.accountId.equals(accountId));
+    }
+
+    if (startDate != null || endDate != null) {
+      query.where(
+        (tbl) => tbl.date.isBetween(
+          Constant(startDate ?? DateTime(1900)),
+          Constant(endDate ?? DateTime(2100)),
+        ),
+      );
+    }
+
+    if (categories != null && categories.isNotEmpty) {
+      query.where((tbl) => tbl.category.isIn(categories));
+    }
+
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+    ]);
+
+    return query.watch().map((result) {
+      var txns = result
+          .map(
+            (t) => model_txn.Transaction(
+              id: t.id,
+              accountId: t.accountId ?? '1',
+              toAccountId: t.toAccountId,
+              amount: t.amount,
+              description: t.description,
+              category: t.category,
+              type: t.type,
+              date: t.date,
+              tags: t.tags ?? [],
+            ),
+          )
+          .toList();
+
+      if (tags != null && tags.isNotEmpty) {
+        txns = txns.where((t) => t.tags.any((tag) => tags.contains(tag))).toList();
+      }
+
+      return txns;
+    });
   }
 
   @override
