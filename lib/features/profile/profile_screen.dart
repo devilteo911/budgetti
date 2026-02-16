@@ -17,6 +17,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -113,6 +115,65 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 75,
+    );
+
+    if (image == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      final file = File(image.path);
+      final fileExt = image.path.split('.').last;
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final filePath = '${user.id}/$fileName';
+
+      // 1. Upload new avatar
+      await Supabase.instance.client.storage
+          .from('avatars')
+          .upload(filePath, file);
+
+      // 2. Get public URL
+      final avatarUrl = Supabase.instance.client.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+      // 3. Update profile record
+      await Supabase.instance.client
+          .from('profiles')
+          .update({
+            'avatar_url': avatarUrl,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', user.id);
+
+      // 4. Invalidate provider to refresh UI everywhere
+      ref.invalidate(userProfileProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Profile picture updated")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error uploading image: $e")));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -518,15 +579,88 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Center(
                       child: Column(
                         children: [
-                          Hero(
-                            tag: 'profile-image',
-                            child: const CircleAvatar(
-                              radius: 50,
-                              backgroundColor: AppTheme.surfaceGrey,
-                              child: Icon(
-                                Icons.person,
-                                size: 50,
-                                color: AppTheme.primaryGreen,
+                          GestureDetector(
+                            onTap: _isLoading ? null : _pickAndUploadAvatar,
+                            child: Hero(
+                              tag: 'profile-image',
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    width: 100,
+                                    height: 100,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppTheme.surfaceGrey,
+                                      border: Border.all(
+                                        color: AppTheme.primaryGreen.withValues(
+                                          alpha: 0.2,
+                                        ),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: ClipOval(
+                                      child: profile?['avatar_url'] != null
+                                          ? CachedNetworkImage(
+                                              imageUrl: profile!['avatar_url'],
+                                              fit: BoxFit.cover,
+                                              placeholder: (context, url) =>
+                                                  const Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          color: AppTheme
+                                                              .primaryGreen,
+                                                          strokeWidth: 2,
+                                                        ),
+                                                  ),
+                                              errorWidget:
+                                                  (context, url, error) =>
+                                                      const Icon(
+                                                        Icons.person,
+                                                        size: 50,
+                                                        color: AppTheme
+                                                            .primaryGreen,
+                                                      ),
+                                            )
+                                          : const Icon(
+                                              Icons.person,
+                                              size: 50,
+                                              color: AppTheme.primaryGreen,
+                                            ),
+                                    ),
+                                  ),
+                                  if (_isLoading)
+                                    Positioned.fill(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: AppTheme.primaryGreen,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: AppTheme.primaryGreen,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        size: 16,
+                                        color: AppTheme.backgroundBlack,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

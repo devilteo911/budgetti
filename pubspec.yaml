@@ -64,6 +64,7 @@ dependencies:
   googleapis: ^15.0.0
   extension_google_sign_in_as_googleapis_auth: ^2.0.12
   draggable_scrollbar: ^0.1.0
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:
