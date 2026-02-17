@@ -332,7 +332,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         padding: const EdgeInsets.only(
           left: 16,
           right: 16,
-          top: 16,
+          top: 8,
         ),
         child: Form(
           key: _formKey,
@@ -341,87 +341,107 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const SizedBox(height: 8),
+
+                // Big Amount Hero Display
+                _buildAnimatedItem(
+                  0,
+                  _AmountHero(
+                    controller: _amountController,
+                    currencySymbol: currencySymbol,
+                    type: _type,
+                  ),
+                ),
+
+                const SizedBox(height: 32),
 
               
               // Type Selector
               _buildAnimatedItem(1, 
                   SegmentedButton<String>(
-                  segments: const [
+                    segments: const [
                       ButtonSegment(
                         value: 'expense',
-                        label: Text("Expense"),
-                        icon: Icon(Icons.arrow_downward),
+                        label: Text(
+                          "Expense",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        icon: Icon(Icons.arrow_downward, size: 18),
                       ),
                       ButtonSegment(
                         value: 'income',
-                        label: Text("Income"),
-                        icon: Icon(Icons.arrow_upward),
+                        label: Text(
+                          "Income",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        icon: Icon(Icons.arrow_upward, size: 18),
                       ),
                       ButtonSegment(
                         value: 'transfer',
-                        label: Text("Transfer"),
-                        icon: Icon(Icons.swap_horiz),
+                        label: Text(
+                          "Transfer",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        icon: Icon(Icons.swap_horiz, size: 18),
                       ),
-                  ],
+                    ],
+                    showSelectedIcon: false,
                     selected: {_type},
                     onSelectionChanged: (Set<String> newSelection) {
-                    setState(() {
+                      setState(() {
                         _type = newSelection.first;
-                        
-                        // Initialize category for new type immediately
                         final categories =
                             ref.read(categoriesProvider).value ?? [];
                         final filtered = categories
                             .where((c) => c.type == _type)
                             .toList();
-                        if (filtered.isNotEmpty) {
-                          _selectedCategory = filtered.first.name;
-                        } else {
-                          _selectedCategory = null;
-                        }
-                    });
-                  },
-                  style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
-                      if (states.contains(WidgetState.selected)) {
-                          if (_type == 'expense') {
-                            return Theme.of(context).colorScheme.error;
-                          }
-                          if (_type == 'income') {
-                            return AppTheme.primaryGreen;
-                          }
-                          return Colors.blue;
-                      }
-                      return AppTheme.surfaceGreyLight;
-                    }),
-                    foregroundColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
-                      if (states.contains(WidgetState.selected)) {
-                         return AppTheme.backgroundBlack;
-                      }
-                      return AppTheme.textWhite;
-                    }),
+                        _selectedCategory = filtered.isNotEmpty
+                            ? filtered.first.name
+                            : null;
+                      });
+                    },
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: AppTheme.surfaceGrey,
+                      selectedBackgroundColor: _type == 'expense'
+                          ? AppTheme.darkTheme.colorScheme.error
+                          : (_type == 'income'
+                                ? AppTheme.primaryGreen
+                                : Colors.blue),
+                      selectedForegroundColor: AppTheme.backgroundBlack,
+                      foregroundColor: AppTheme.textGrey,
+                      side: BorderSide(
+                        color: AppTheme.textGrey.withOpacity(0.2),
+                        width: 1.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                   ),
-                ),
               ),
                 const SizedBox(height: 16),
 
-                // Description
-                _buildAnimatedItem(
-                  2,
-                  _DescriptionField(controller: _descriptionController),
-                ),
-                const SizedBox(height: 16),
-          
-                // Wallet & Amount Row
+                // Description & Wallet Row
                 _buildAnimatedItem(
                   3,
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Wallet Selector
-                        Expanded(
-                          child: Consumer(
+                  Column(
+                    children: [
+                      _DescriptionField(controller: _descriptionController),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Consumer(
+                              // existing wallet builder logic (I'll replace the whole block)
                             builder: (context, ref, child) {
                               final accountsAsync = ref.watch(accountsProvider);
 
@@ -433,47 +453,62 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
                                   return InkWell(
                                     onTap: () => _showWalletPicker(true),
-                                    borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(16),
                                     child: Container(
+                                        padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
                                         color: AppTheme.surfaceGrey,
-                                        borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                         border: Border.all(
-                                          color:
-                                              (_type == 'transfer' &&
-                                                  _selectedAccountId == null)
+                                            color:
+                                                (_type == 'transfer' &&
+                                                    _selectedAccountId == null)
                                               ? Colors.red.withOpacity(0.5)
-                                              : AppTheme.textGrey.withOpacity(0.3),
+                                                : AppTheme.textGrey.withOpacity(
+                                                    0.2,
+                                                  ),
+                                            width: 1.5,
                                         ),
                                       ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.account_balance_wallet,
-                                            color: AppTheme.primaryGreen,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              selectedAccount?.name ??
-                                                  (_type == 'transfer'
-                                                      ? "From Wallet"
-                                                      : "Select Wallet"),
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              "Source",
+                                              style: TextStyle(
+                                                color: AppTheme.textGrey,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
                                               ),
-                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          ),
-                                          const Icon(
-                                            Icons.keyboard_arrow_down,
-                                            color: AppTheme.textGrey,
-                                            size: 16,
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons
+                                                      .account_balance_wallet_outlined,
+                                                  color: AppTheme.primaryGreen,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    selectedAccount?.name ??
+                                                        "Select Wallet",
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 15,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
                                           ),
                                         ],
                                       ),
@@ -481,11 +516,15 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                   );
                                 },
                                 loading: () => Container(
+                                    padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: AppTheme.surfaceGrey,
-                                    borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: AppTheme.textGrey.withOpacity(0.3),
+                                        color: AppTheme.textGrey.withOpacity(
+                                          0.2,
+                                        ),
+                                        width: 1.5,
                                     ),
                                   ),
                                   child: const Center(
@@ -500,16 +539,18 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                   ),
                                 ),
                                 error: (_, __) => Container(
+                                    padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: AppTheme.surfaceGrey,
-                                    borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                       color: Colors.red.withOpacity(0.3),
+                                        width: 1.5,
                                     ),
                                   ),
                                   child: const Center(
                                     child: Icon(
-                                      Icons.error,
+                                        Icons.error_outline,
                                       color: Colors.red,
                                       size: 20,
                                     ),
@@ -519,16 +560,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        // Amount Input
-                        Expanded(
-                          child: _AmountField(
-                            controller: _amountController,
-                            currencySymbol: currencySymbol,
-                          ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
                 if (_type == 'transfer') const SizedBox(height: 12),
@@ -545,44 +579,52 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 .firstOrNull;
                             return InkWell(
                               onTap: () => _showWalletPicker(false),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
+                                padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   color: AppTheme.surfaceGrey,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: (_selectedToAccountId == null)
                                         ? Colors.red.withOpacity(0.5)
-                                        : AppTheme.textGrey.withOpacity(0.3),
+                                        : AppTheme.textGrey.withOpacity(0.2),
+                                    width: 1.5,
                                   ),
                                 ),
-                                child: Row(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(
-                                      Icons.account_balance_wallet,
-                                      color: Colors.blue,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        selectedToAccount?.name ??
-                                            "Select Destination",
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                    const Text(
+                                      "Destination",
+                                      style: TextStyle(
+                                        color: AppTheme.textGrey,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const Icon(
-                                      Icons.keyboard_arrow_down,
-                                      color: AppTheme.textGrey,
-                                      size: 16,
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.account_balance_wallet_outlined,
+                                          color: Colors.blue,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            selectedToAccount?.name ??
+                                                "Select Destination",
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -606,37 +648,51 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                       Expanded(
                         child: InkWell(
                           onTap: _pickDate,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: AppTheme.surfaceGrey,
                               border: Border.all(
-                                color: AppTheme.textGrey.withOpacity(0.3),
+                                color: AppTheme.textGrey.withOpacity(0.2),
+                                width: 1.5,
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
-                                  Icons.calendar_today,
-                                  color: AppTheme.textGrey,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    DateFormat.yMMMd().format(_selectedDate),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                                const Text(
+                                  "Date",
+                                  style: TextStyle(
+                                    color: AppTheme.textGrey,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
                                   ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_today_outlined,
+                                      color: AppTheme.textGrey,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        DateFormat.yMMMd().format(
+                                          _selectedDate,
+                                        ),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -677,48 +733,63 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
                                 return InkWell(
                                   onTap: _showCategoryPicker,
-                                  borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(16),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 14,
-                                    ),
+                                      padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
                                       color: AppTheme.surfaceGrey,
                                       border: Border.all(
-                                        color: AppTheme.textGrey.withOpacity(0.3),
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          selectedCat != null
-                                              ? (categoryIcons[selectedCat.name] ?? Icons.category)
-                                              : Icons.category,
-                                          color: selectedCat != null
-                                              ? (categoryColors[selectedCat.name] ?? AppTheme.textGrey)
-                                              : AppTheme.textGrey,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            _selectedCategory ??
-                                                (filtered.isNotEmpty
-                                                    ? filtered.first.name
-                                                    : "Category"),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
+                                          color: AppTheme.textGrey.withOpacity(
+                                            0.2,
                                           ),
-                                        ),
-                                        const Icon(
-                                          Icons.keyboard_arrow_down,
-                                          color: AppTheme.textGrey,
-                                          size: 16,
+                                          width: 1.5,
+                                      ),
+                                        borderRadius: BorderRadius.circular(16),
+                                    ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            "Category",
+                                            style: TextStyle(
+                                              color: AppTheme.textGrey,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                selectedCat != null
+                                                    ? (categoryIcons[selectedCat
+                                                              .name] ??
+                                                          Icons
+                                                              .category_outlined)
+                                                    : Icons.category_outlined,
+                                                color: selectedCat != null
+                                                    ? (categoryColors[selectedCat
+                                                              .name] ??
+                                                          AppTheme.textGrey)
+                                                    : AppTheme.textGrey,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  _selectedCategory ??
+                                                      "Uncategorized",
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
                                         ),
                                       ],
                                     ),
@@ -726,16 +797,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 );
                               },
                               loading: () => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
+                                  padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   color: AppTheme.surfaceGrey,
                                   border: Border.all(
-                                    color: AppTheme.textGrey.withOpacity(0.3),
+                                      color: AppTheme.textGrey.withOpacity(0.2),
+                                      width: 1.5,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: const Center(
                                   child: SizedBox(
@@ -749,20 +818,18 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                                 ),
                               ),
                               error: (_, __) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
+                                  padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                   color: AppTheme.surfaceGrey,
                                   border: Border.all(
                                     color: Colors.red.withOpacity(0.3),
+                                      width: 1.5,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: const Center(
                                   child: Icon(
-                                    Icons.error,
+                                      Icons.error_outline,
                                     color: Colors.red,
                                     size: 20,
                                   ),
@@ -843,23 +910,38 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isScanning ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryGreen,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: _isScanning ? null : _submit,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            height: 60,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.primaryGreen,
+                                  AppTheme.primaryGreen.withOpacity(0.8),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryGreen.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                          ),
-                          child: Text(
-                            widget.transaction != null
-                                ? "Update Transaction"
-                                : "Add Transaction",
-                            style: const TextStyle(
-                              color: AppTheme.backgroundBlack,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            child: Center(
+                              child: Text(
+                                widget.transaction != null
+                                    ? "Update Transaction"
+                                    : "Add Transaction",
+                                style: const TextStyle(
+                                  color: AppTheme.backgroundBlack,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -867,8 +949,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                       const SizedBox(width: 12),
                       if (_isScanning)
                         const SizedBox(
-                          width: 56,
-                          height: 56,
+                          width: 60,
+                          height: 60,
                           child: Center(
                             child: CircularProgressIndicator(
                               color: AppTheme.primaryGreen,
@@ -877,20 +959,25 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                           ),
                         )
                       else
-                        Container(
-                          height: 56,
-                          width: 56,
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceGreyLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            onPressed: _scanReceipt,
-                            icon: const Icon(
-                              Icons.document_scanner,
-                              color: AppTheme.primaryGreen,
+                        InkWell(
+                          onTap: _scanReceipt,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            height: 60,
+                            width: 60,
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceGrey,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppTheme.primaryGreen.withOpacity(0.5),
+                                width: 1.5,
+                              ),
                             ),
-                            tooltip: "Scan Receipt",
+                            child: const Icon(
+                              Icons.document_scanner_outlined,
+                              color: AppTheme.primaryGreen,
+                              size: 24,
+                            ),
                           ),
                         ),
                     ],
@@ -907,6 +994,77 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
   }
 }
 
+class _AmountHero extends StatelessWidget {
+  final TextEditingController controller;
+  final String currencySymbol;
+  final String type;
+
+  const _AmountHero({
+    required this.controller,
+    required this.currencySymbol,
+    required this.type,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = type == 'expense'
+        ? AppTheme.darkTheme.colorScheme.error
+        : (type == 'income' ? AppTheme.primaryGreen : Colors.blue);
+
+    return Column(
+      children: [
+        Text(
+          type == 'expense'
+              ? "You Spent"
+              : (type == 'income' ? "You Received" : "You Transferred"),
+          style: const TextStyle(
+            color: AppTheme.textGrey,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        IntrinsicWidth(
+          child: TextFormField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: TextStyle(
+              fontSize: 48,
+              fontWeight: FontWeight.bold,
+              color: color,
+              letterSpacing: -1,
+            ),
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(
+              prefixText: currencySymbol,
+              prefixStyle: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: color.withOpacity(0.5),
+              ),
+              hintText: "0.00",
+              hintStyle: TextStyle(color: color.withOpacity(0.2)),
+              border: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              filled: false,
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Enter amount';
+              final sanitized = value.replaceAll(',', '.');
+              if (double.tryParse(sanitized) == null) return 'Invalid';
+              return null;
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _DescriptionField extends StatelessWidget {
   final TextEditingController controller;
 
@@ -917,102 +1075,39 @@ class _DescriptionField extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surfaceGrey,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.textGrey.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.textGrey.withOpacity(0.2),
+          width: 1.5,
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
-          const Icon(Icons.edit, color: AppTheme.textGrey, size: 20),
+          const Icon(
+            Icons.description_outlined,
+            color: AppTheme.textGrey,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: TextFormField(
               controller: controller,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
               decoration: const InputDecoration(
-                hintText: "Description",
+                hintText: "What was this for?",
                 hintStyle: TextStyle(color: AppTheme.textGrey, fontSize: 16),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                contentPadding: EdgeInsets.symmetric(vertical: 16),
                 isDense: true,
                 filled: false,
               ),
               validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Enter description';
-                }
-                return null;
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AmountField extends StatelessWidget {
-  final TextEditingController controller;
-  final String currencySymbol;
-
-  const _AmountField({required this.controller, required this.currencySymbol});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceGrey,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.textGrey.withOpacity(0.3)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryGreen.withOpacity(0.2),
-            ),
-            child: Center(
-              child: Text(
-                currencySymbol,
-                style: const TextStyle(
-                  color: AppTheme.primaryGreen,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: TextFormField(
-              controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.right,
-              decoration: InputDecoration(
-                hintText: "0.00",
-                hintStyle: TextStyle(
-                  color: AppTheme.textGrey.withOpacity(0.5),
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                filled: false,
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Enter amount';
-                }
-                final sanitized = value.replaceAll(',', '.');
-                if (double.tryParse(sanitized) == null) {
-                  return 'Invalid';
-                }
+                if (value == null || value.isEmpty) return 'Enter description';
                 return null;
               },
             ),
@@ -1028,6 +1123,7 @@ class _KeyboardSpacer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(height: MediaQuery.viewInsetsOf(context).bottom);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return SizedBox(height: bottomInset > 0 ? bottomInset : 32);
   }
 }

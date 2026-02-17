@@ -16,7 +16,6 @@ import 'package:budgetti/features/import/import_transactions_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
-import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -418,139 +417,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildOcrSettings(PersistenceService persistence) {
-    final currentEngine = persistence.getOcrEngine();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkWell(
-          onTap: () {
-            showModalBottomSheet(
-              context: context,
-              backgroundColor: AppTheme.surfaceGrey,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              builder: (context) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppTheme.textGrey.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "Receipt Scanning Engine",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        title: const Text(
-                          "Google MLKit (Default)",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        subtitle: const Text(
-                          "Fast, reliable, standard accuracy",
-                          style: TextStyle(color: AppTheme.textGrey),
-                        ),
-                        trailing: currentEngine == 'google_mlkit'
-                            ? const Icon(
-                                Icons.check_circle,
-                                color: AppTheme.primaryGreen,
-                              )
-                            : null,
-                        onTap: () async {
-                          await persistence.setOcrEngine('google_mlkit');
-                          if (mounted) {
-                            Navigator.pop(context);
-                            setState(() {});
-                          }
-                        },
-                      ),
-                      ListTile(
-                        title: const Text(
-                          "Ente Mobile OCR",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        subtitle: const Text(
-                          "Advanced (Experimental), higher accuracy",
-                          style: TextStyle(color: AppTheme.textGrey),
-                        ),
-                        trailing: currentEngine == 'mobile_ocr'
-                            ? const Icon(
-                                Icons.check_circle,
-                                color: AppTheme.primaryGreen,
-                              )
-                            : null,
-                        onTap: () async {
-                          await persistence.setOcrEngine('mobile_ocr');
-                          if (mounted) {
-                            Navigator.pop(context);
-                            setState(() {});
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceGrey,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Receipt Scanner",
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-                Row(
-                  children: [
-                    Text(
-                      currentEngine == 'mobile_ocr'
-                          ? "Ente Mobile OCR"
-                          : "Google MLKit",
-                      style: TextStyle(
-                        color: currentEngine == 'mobile_ocr'
-                            ? Colors.orangeAccent
-                            : AppTheme.primaryGreen,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: AppTheme.textGrey,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -570,295 +436,334 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             final currency = profile?['currency'] as String? ?? 'EUR';
 
             return SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Profile Header
-                    Center(
-                      child: Column(
-                        children: [
-                          GestureDetector(
-                            onTap: _isLoading ? null : _pickAndUploadAvatar,
-                            child: Hero(
-                              tag: 'profile-image',
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    width: 100,
-                                    height: 100,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: AppTheme.surfaceGrey,
-                                      border: Border.all(
-                                        color: AppTheme.primaryGreen.withOpacity(0.2),
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: ClipOval(
-                                      child: profile?['avatar_url'] != null
-                                          ? CachedNetworkImage(
-                                              imageUrl: profile!['avatar_url'],
-                                              fit: BoxFit.cover,
-                                              placeholder: (context, url) =>
-                                                  const Center(
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          color: AppTheme
-                                                              .primaryGreen,
-                                                          strokeWidth: 2,
-                                                        ),
-                                                  ),
-                                              errorWidget:
-                                                  (context, url, error) =>
-                                                      const Icon(
-                                                        Icons.person,
-                                                        size: 50,
-                                                        color: AppTheme
-                                                            .primaryGreen,
-                                                      ),
-                                            )
-                                          : const Icon(
-                                              Icons.person,
-                                              size: 50,
-                                              color: AppTheme.primaryGreen,
-                                            ),
-                                    ),
-                                  ),
-                                  if (_isLoading)
-                                    Positioned.fill(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.5),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                            color: AppTheme.primaryGreen,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  Positioned(
-                                    bottom: 0,
-                                    right: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.primaryGreen,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt,
-                                        size: 16,
-                                        color: AppTheme.backgroundBlack,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            username,
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  // Profile Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppTheme.primaryGreen.withOpacity(0.15),
+                          AppTheme.primaryGreen.withOpacity(0.05),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Settings
-                    Text(
-                      "Settings",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppTheme.textGrey,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppTheme.primaryGreen.withOpacity(0.2),
+                        width: 1.5,
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Manage Accounts
-                    InkWell(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const WalletsScreen(),
-                        ),
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGrey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Manage Accounts",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _isLoading ? null : _pickAndUploadAvatar,
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppTheme.surfaceGrey,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.primaryGreen.withOpacity(
+                                        0.2,
+                                      ),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: ClipOval(
+                                  child: profile?['avatar_url'] != null
+                                      ? CachedNetworkImage(
+                                          imageUrl: profile!['avatar_url'],
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              const Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color:
+                                                          AppTheme.primaryGreen,
+                                                      strokeWidth: 2,
+                                                    ),
+                                              ),
+                                          errorWidget: (context, url, error) =>
+                                              const Icon(
+                                                Icons.person,
+                                                size: 50,
+                                                color: AppTheme.primaryGreen,
+                                              ),
+                                        )
+                                      : const Icon(
+                                          Icons.person,
+                                          size: 50,
+                                          color: AppTheme.primaryGreen,
+                                        ),
+                                ),
                               ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              color: AppTheme.textGrey,
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Manage Categories
-                    InkWell(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const CategoriesScreen(),
-                        ),
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGrey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Manage Categories",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              color: AppTheme.textGrey,
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Manage Tags
-                    InkWell(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const TagsScreen()),
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGrey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Manage Tags",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              color: AppTheme.textGrey,
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Currency Selector
-                    InkWell(
-                      onTap: () => _showCurrencyPicker(currency),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGrey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Currency",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                Text(
-                                  currency,
-                                  style: const TextStyle(
-                                    color: AppTheme.primaryGreen,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                              if (_isLoading)
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.5),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppTheme.primaryGreen,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                const Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: AppTheme.textGrey,
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primaryGreen,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add_a_photo,
+                                    size: 14,
+                                    color: AppTheme.backgroundBlack,
+                                  ),
                                 ),
-                              ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          username,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Account Section
+                  _SettingsSection(
+                    title: "Account",
+                    children: [
+                      _SettingsTile(
+                        title: "Manage Wallets",
+                        subtitle: "Setup and edit your accounts",
+                        icon: Icons.account_balance_wallet_rounded,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const WalletsScreen(),
+                          ),
+                        ),
+                      ),
+                      _SettingsTile(
+                        title: "Categories",
+                        subtitle: "Customize your spending groups",
+                        icon: Icons.category_rounded,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CategoriesScreen(),
+                          ),
+                        ),
+                      ),
+                      _SettingsTile(
+                        title: "Tags",
+                        subtitle: "Manage labels for transactions",
+                        icon: Icons.label_rounded,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const TagsScreen()),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Preferences Section
+                  _SettingsSection(
+                    title: "Preferences",
+                    children: [
+                      _SettingsTile(
+                        title: "Currency",
+                        subtitle: currency,
+                        icon: Icons.monetization_on_rounded,
+                        trailing: Row(
+                          children: [
+                            Text(
+                              currency,
+                              style: const TextStyle(
+                                color: AppTheme.primaryGreen,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.keyboard_arrow_down,
+                              color: Colors.white.withOpacity(0.2),
+                              size: 14,
                             ),
                           ],
                         ),
+                        onTap: () => _showCurrencyPicker(currency),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Receipt Scanning Engine Helper
-                    _buildOcrSettings(persistence),
-
-                    const SizedBox(height: 32),
-
-                    // Notifications Settings
-                    Text(
-                      "Notifications",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppTheme.textGrey,
+                      _SettingsTile(
+                        title: "Receipt Scanner",
+                        subtitle: persistence.getOcrEngine() == 'mobile_ocr'
+                            ? "Ente Mobile OCR"
+                            : "Google MLKit",
+                        icon: Icons.document_scanner_rounded,
+                        trailing: Row(
+                          children: [
+                            Text(
+                              persistence.getOcrEngine() == 'mobile_ocr'
+                                  ? "Mobile OCR"
+                                  : "MLKit",
+                              style: TextStyle(
+                                color:
+                                    persistence.getOcrEngine() == 'mobile_ocr'
+                                    ? Colors.orangeAccent
+                                    : AppTheme.primaryGreen,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.keyboard_arrow_down,
+                              color: Colors.white.withOpacity(0.2),
+                              size: 14,
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          // Show bottom sheet inline using _buildOcrSettings logic
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: AppTheme.surfaceGrey,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(24),
+                              ),
+                            ),
+                            builder: (context) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.textGrey.withOpacity(
+                                          0.3,
+                                        ),
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      "Scanning Engine",
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    ListTile(
+                                      title: const Text(
+                                        "Google MLKit",
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      subtitle: const Text(
+                                        "Fast and reliable (Default)",
+                                        style: TextStyle(
+                                          color: AppTheme.textGrey,
+                                        ),
+                                      ),
+                                      trailing:
+                                          persistence.getOcrEngine() ==
+                                              'google_mlkit'
+                                          ? const Icon(
+                                              Icons.check_circle,
+                                              color: AppTheme.primaryGreen,
+                                            )
+                                          : null,
+                                      onTap: () async {
+                                        await persistence.setOcrEngine(
+                                          'google_mlkit',
+                                        );
+                                        if (context.mounted) {
+                                          Navigator.pop(context);
+                                          setState(() {});
+                                        }
+                                      },
+                                    ),
+                                    ListTile(
+                                      title: const Text(
+                                        "Ente Mobile OCR",
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      subtitle: const Text(
+                                        "Advanced accuracy (Experimental)",
+                                        style: TextStyle(
+                                          color: AppTheme.textGrey,
+                                        ),
+                                      ),
+                                      trailing:
+                                          persistence.getOcrEngine() ==
+                                              'mobile_ocr'
+                                          ? const Icon(
+                                              Icons.check_circle,
+                                              color: AppTheme.primaryGreen,
+                                            )
+                                          : null,
+                                      onTap: () async {
+                                        await persistence.setOcrEngine(
+                                          'mobile_ocr',
+                                        );
+                                        if (context.mounted) {
+                                          Navigator.pop(context);
+                                          setState(() {});
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                    ],
+                  ),
 
-                    if (_permissionMissing)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: InkWell(
+                  // Notifications Section
+                  _SettingsSection(
+                    title: "Notifications",
+                    children: [
+                      if (_permissionMissing)
+                        _SettingsTile(
+                          title: "Fix Permissions",
+                          subtitle: "Tap to enable notifications",
+                          icon: Icons.warning_amber_rounded,
+                          iconColor: Colors.orange,
                           onTap: () async {
                             final granted = await ref
                                 .read(notificationServiceProvider)
@@ -867,44 +772,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               setState(() => _permissionMissing = false);
                             }
                           },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.orange.withOpacity(0.5),
-                              ),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(
-                                  Icons.warning_amber_rounded,
-                                  color: Colors.orange,
-                                ),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    "Notification permissions are not granted. Tap to fix.",
-                                    style: TextStyle(
-                                      color: Colors.orange,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
-                      ),
-
-                    _buildNotificationToggle(
-                      "Push Notifications",
-                      "Enable or disable all notifications",
-                      Icons.notifications,
-                      persistence.getNotificationsEnabled(),
-                      (value) async {
-                        try {
+                      _buildNotificationToggle(
+                        "Push Notifications",
+                        "Main system alerts",
+                        Icons.notifications_active_rounded,
+                        persistence.getNotificationsEnabled(),
+                        (value) async {
                           if (value) {
                             final granted = await ref
                                 .read(notificationServiceProvider)
@@ -917,92 +791,72 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           }
                           await persistence.setNotificationsEnabled(value);
                           if (mounted) setState(() {});
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error: $e")),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildNotificationToggle(
-                      "Budget Alerts",
-                      "Notify when reaching budget limits",
-                      Icons.account_balance,
-                      persistence.getBudgetAlertsEnabled(),
-                      (value) async {
-                        try {
+                        },
+                      ),
+                      _buildNotificationToggle(
+                        "Budget Alerts",
+                        "Limit thresholds",
+                        Icons.notification_important_rounded,
+                        persistence.getBudgetAlertsEnabled(),
+                        (value) async {
                           await persistence.setBudgetAlertsEnabled(value);
                           if (mounted) setState(() {});
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error: $e")),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildNotificationToggle(
-                      "Daily Reminder",
-                      "Remind me to log expenses daily",
-                      Icons.today,
-                      persistence.getDailyReminderEnabled(),
-                      (value) async {
-                        try {
+                        },
+                      ),
+                      _buildNotificationToggle(
+                        "Daily Reminder",
+                        "Manual logging",
+                        Icons.event_note_rounded,
+                        persistence.getDailyReminderEnabled(),
+                        (value) async {
                           await persistence.setDailyReminderEnabled(value);
                           await ref
                               .read(notificationLogicProvider)
                               .updateDailyReminder();
                           if (mounted) setState(() {});
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error: $e")),
+                        },
+                      ),
+                      if (persistence.getDailyReminderEnabled())
+                        _SettingsTile(
+                          title: "Reminder Time",
+                          subtitle: persistence.getDailyReminderTime(),
+                          icon: Icons.access_time_filled_rounded,
+                          trailing: Text(
+                            persistence.getDailyReminderTime(),
+                            style: const TextStyle(
+                              color: AppTheme.primaryGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onTap: () async {
+                            final timeStr = persistence.getDailyReminderTime();
+                            final bits = timeStr.split(":");
+                            final initialTime = TimeOfDay(
+                              hour: int.tryParse(bits[0]) ?? 20,
+                              minute: int.tryParse(bits[1]) ?? 0,
                             );
-                          }
-                        }
-                      },
-                    ),
 
-                    if (persistence.getDailyReminderEnabled()) ...[
-                      const SizedBox(height: 12),
-                      InkWell(
-                        onTap: () async {
-                          final timeStr = persistence.getDailyReminderTime();
-                          final bits = timeStr.split(":");
-                          final initialTime = TimeOfDay(
-                            hour: int.tryParse(bits[0]) ?? 20,
-                            minute: int.tryParse(bits[1]) ?? 0,
-                          );
-
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: initialTime,
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: const ColorScheme.dark(
-                                    primary: AppTheme.primaryGreen,
-                                    onPrimary: AppTheme.backgroundBlack,
-                                    surface: AppTheme.surfaceGrey,
-                                    onSurface: Colors.white,
+                            final pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: initialTime,
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.dark(
+                                      primary: AppTheme.primaryGreen,
+                                      onPrimary: AppTheme.backgroundBlack,
+                                      surface: AppTheme.surfaceGrey,
+                                      onSurface: Colors.white,
+                                    ),
                                   ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
+                                  child: child!,
+                                );
+                              },
+                            );
 
-                          if (pickedTime != null) {
-                            final newTimeStr =
-                                "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
-                            try {
+                            if (pickedTime != null) {
+                              final newTimeStr =
+                                  "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
                               await persistence.setDailyReminderTime(
                                 newTimeStr,
                               );
@@ -1010,280 +864,89 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   .read(notificationLogicProvider)
                                   .updateDailyReminder();
                               if (mounted) setState(() {});
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      "Error updating reminder: $e",
-                                    ),
-                                  ),
-                                );
-                              }
                             }
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceGrey,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                "Reminder Time",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Text(
-                                persistence.getDailyReminderTime(),
-                                style: const TextStyle(
-                                  color: AppTheme.primaryGreen,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
+                          },
                         ),
-                      ),
                     ],
+                  ),
 
-                    const SizedBox(height: 32),
-
-                    // Google Drive Backup
-                    Text(
-                      "Google Drive Backup",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppTheme.textGrey,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (_googleUser == null)
-                      InkWell(
-                        onTap: _handleGoogleSignIn,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.surfaceGrey,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Connect Google Drive",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Icon(
-                                Icons.add_to_drive,
-                                color: AppTheme.primaryGreen,
-                                size: 20,
-                              ),
-                            ],
+                  // Sync & Backup Section
+                  _SettingsSection(
+                    title: "Sync & Cloud",
+                    children: [
+                      if (_googleUser == null)
+                        _SettingsTile(
+                          title: "Google Drive",
+                          subtitle: "Connect for cloud storage",
+                          icon: Icons.cloud_off_rounded,
+                          onTap: _handleGoogleSignIn,
+                        )
+                      else ...[
+                        _SettingsTile(
+                          title: "Drive Connected",
+                          subtitle: _googleUser!.email,
+                          icon: Icons.cloud_done_rounded,
+                          iconColor: AppTheme.primaryGreen,
+                          trailing: IconButton(
+                            onPressed: _handleGoogleSignOut,
+                            icon: const Icon(Icons.logout, color: Colors.red),
+                            visualDensity: VisualDensity.compact,
                           ),
                         ),
-                      )
-                    else ...[
-                      // User Info & Disconnect
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGrey,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primaryGreen),
-                        ),
-                        child: Row(
+                        Row(
                           children: [
-                            const Icon(
-                              Icons.check_circle,
-                              color: AppTheme.primaryGreen,
-                            ),
-                            const SizedBox(width: 12),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    "Connected",
-                                    style: TextStyle(
-                                      color: AppTheme.primaryGreen,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  if (_googleUser!.email.isNotEmpty)
-                                    Text(
-                                      _googleUser!.email,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                ],
+                              child: _SettingsTile(
+                                title: "Backup",
+                                subtitle: "Upload now",
+                                icon: Icons.upload_rounded,
+                                onTap: _isLoading ? null : _backupToDrive,
                               ),
                             ),
-                            IconButton(
-                              onPressed: _handleGoogleSignOut,
-                              icon: const Icon(Icons.logout, color: Colors.red),
-                              tooltip: 'Disconnect',
+                            Expanded(
+                              child: _SettingsTile(
+                                title: "Restore",
+                                subtitle: "Download",
+                                icon: Icons.download_rounded,
+                                onTap: _isLoading ? null : _restoreFromDrive,
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Backup & Restore Actions
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: _isLoading ? null : _backupToDrive,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.surfaceGrey,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Icon(
-                                      Icons.cloud_upload,
-                                      color: Colors.white,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    const Text(
-                                      "Backup",
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: InkWell(
-                              onTap: _isLoading ? null : _restoreFromDrive,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.surfaceGrey,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Icon(
-                                      Icons.cloud_download,
-                                      color: Colors.white,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    const Text(
-                                      "Restore",
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ],
+                  ),
 
-                    const SizedBox(height: 32),
-
-                    // Data Management
-                    Text(
-                      "Data Management",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppTheme.textGrey,
+                  // Data Management
+                  _SettingsSection(
+                    title: "Data Management",
+                    children: [
+                      _SettingsTile(
+                        title: "Export Backup (JSON)",
+                        subtitle: "Local backup file",
+                        icon: Icons.share_rounded,
+                        onTap: _isLoading
+                            ? null
+                            : () async {
+                                setState(() => _isLoading = true);
+                                try {
+                                  await ref
+                                      .read(backupServiceProvider)
+                                      .exportDatabase();
+                                } finally {
+                                  if (mounted) {
+                                    setState(() => _isLoading = false);
+                                  }
+                                }
+                              },
                       ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Sync with Supabase
-                    // Import from Cloud
-
-
-                    // Export Backup
-                    InkWell(
-                      onTap: _isLoading
-                          ? null
-                          : () async {
-                              setState(() => _isLoading = true);
-                              try {
-                                await ref
-                                    .read(backupServiceProvider)
-                                    .exportDatabase();
-                              } catch (e) {
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text("Backup failed: $e")),
-                                );
-                              } finally {
-                                if (mounted) setState(() => _isLoading = false);
-                              }
-                            },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGrey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Export Backup (JSON)",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Icon(
-                              Icons.download,
-                              color: AppTheme.primaryGreen,
-                              size: 20,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Import Backup
-                    InkWell(
-                      onTap: _isLoading
-                          ? null
-                          : () async {
-                              try {
+                      _SettingsTile(
+                        title: "Import Backup (JSON)",
+                        subtitle: "Restore from local",
+                        icon: Icons.settings_backup_restore_rounded,
+                        onTap: _isLoading
+                            ? null
+                            : () async {
                                 final result = await FilePicker.platform
                                     .pickFiles(
                                       type: FileType.custom,
@@ -1292,18 +955,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                                 if (result != null && context.mounted) {
                                   final file = File(result.files.single.path!);
-
-                                  // Confirm
                                   final confirm = await showDialog<bool>(
                                     context: context,
                                     builder: (context) => AlertDialog(
                                       backgroundColor: AppTheme.surfaceGrey,
-                                      title: const Text(
-                                        "Import Backup",
-                                        style: TextStyle(color: Colors.white),
-                                      ),
+                                      title: const Text("Import Backup"),
                                       content: const Text(
-                                        "This will REPLACE all your current data with the backup. This action cannot be undone.\n\nAre you sure?",
+                                        "This will REPLACE all your current data. This action cannot be undone.",
                                         style: TextStyle(color: Colors.white70),
                                       ),
                                       actions: [
@@ -1329,84 +987,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     await ref
                                         .read(backupServiceProvider)
                                         .importDatabase(file);
-
-                                    // Invalidate providers to refresh UI
                                     ref.invalidate(transactionsProvider);
                                     ref.invalidate(categoriesProvider);
                                     ref.invalidate(tagsProvider);
                                     ref.invalidate(accountsProvider);
                                     ref.invalidate(budgetsProvider);
-
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "Backup imported successfully",
-                                          ),
-                                        ),
-                                      );
+                                    if (mounted) {
+                                      setState(() => _isLoading = false);
                                     }
                                   }
                                 }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Import failed: $e"),
-                                    ),
-                                  );
-                                }
-                              } finally {
-                                if (mounted) setState(() => _isLoading = false);
-                              }
-                            },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGrey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Import Backup (JSON)",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Icon(
-                              Icons.restore,
-                              color: AppTheme.primaryGreen,
-                              size: 20,
-                            ),
-                          ],
-                        ),
+                              },
                       ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Import Quicken (QIF)
-                    InkWell(
-                      onTap: _isLoading
-                          ? null
-                          : () async {
-                              try {
+                      _SettingsTile(
+                        title: "Import Quicken (QIF)",
+                        subtitle: "External bank data",
+                        icon: Icons.file_present_rounded,
+                        onTap: _isLoading
+                            ? null
+                            : () async {
                                 final result = await FilePicker.platform
                                     .pickFiles(type: FileType.any);
 
                                 if (result != null && context.mounted) {
                                   final file = File(result.files.single.path!);
-
-                                  // Basic extension check
                                   if (!file.path.toLowerCase().endsWith(
                                     '.qif',
                                   )) {
@@ -1421,7 +1025,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   }
 
                                   setState(() => _isLoading = true);
-
                                   try {
                                     final transactions = await ref
                                         .read(importServiceProvider)
@@ -1437,83 +1040,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         ),
                                       );
                                     }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            "Error parsing file: $e",
-                                          ),
-                                        ),
-                                      );
-                                    }
                                   } finally {
                                     if (mounted) {
                                       setState(() => _isLoading = false);
                                     }
                                   }
                                 }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Error picking file: $e"),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceGrey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Import Quicken (QIF)",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Icon(
-                              Icons.file_upload,
-                              color: AppTheme.primaryGreen,
-                              size: 20,
-                            ),
-                          ],
+                              },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 48),
+
+                  // Sign Out
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _signOut,
+                      icon: const Icon(Icons.logout_rounded, size: 20),
+                      label: const Text(
+                        "Sign Out",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 48),
-
-                    // Sign Out
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: _isLoading ? null : _signOut,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.withOpacity(0.1),
+                        foregroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: Colors.red.withOpacity(0.3)),
                         ),
-                        child: const Text(
-                          "Sign Out",
-                          style: TextStyle(color: Colors.red, fontSize: 16),
-                        ),
+                        elevation: 0,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },
@@ -1529,47 +1095,130 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     bool value,
     Function(bool) onChanged,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceGrey,
-        borderRadius: BorderRadius.circular(12),
+    return _SettingsTile(
+      title: title,
+      subtitle: subtitle,
+      icon: icon,
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: AppTheme.primaryGreen,
+        activeTrackColor: AppTheme.primaryGreen.withOpacity(0.3),
+        inactiveThumbColor: AppTheme.textGrey,
+        inactiveTrackColor: AppTheme.surfaceGreyLight,
       ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppTheme.primaryGreen, size: 24),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: AppTheme.textGrey,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _SettingsSection({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12, top: 24),
+          child: Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.4),
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppTheme.primaryGreen,
-            activeTrackColor: AppTheme.primaryGreen.withOpacity(0.3),
-            inactiveThumbColor: AppTheme.textGrey,
-            inactiveTrackColor: AppTheme.surfaceGreyLight,
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceGrey.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
           ),
-        ],
+          child: Column(children: children),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final Color? iconColor;
+
+  const _SettingsTile({
+    required this.title,
+    this.subtitle,
+    required this.icon,
+    this.trailing,
+    this.onTap,
+    this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (iconColor ?? AppTheme.primaryGreen).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: iconColor ?? AppTheme.primaryGreen,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (trailing != null)
+              trailing!
+            else if (onTap != null)
+              Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white.withOpacity(0.2),
+                size: 14,
+              ),
+          ],
+        ),
       ),
     );
   }

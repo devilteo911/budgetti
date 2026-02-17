@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:budgetti/features/transactions/widgets/transaction_item.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -134,8 +135,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                 final formatter = ref.watch(currencyProvider);
                 final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
-                final categoryColors = ref.watch(categoryColorCacheProvider);
-                final categoryIcons = ref.watch(categoryIconCacheProvider);
 
                 return dashboardStatsAsync.when(
                   loading: () =>
@@ -243,19 +242,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     ),
                                     const SizedBox(height: 16),
                                 ...stats.recentTransactions.take(3).map((t) {
-                                  final categoryIcon = categoryIcons[t.category] ?? Icons.category;
-                                  final categoryColor = categoryColors[t.category] ?? Colors.grey;
-                                      return _buildTransactionItem(
-                                        context,
-                                        t.description,
-                                        t.category,
-                                        formatter.format(t.amount.abs()),
-                                        t.date,
-                                        categoryIcon: categoryIcon,
-                                        categoryColor: categoryColor,
-                                        isIncome: t.amount > 0,
-                                      );
-                                    }),
+                                  return TransactionItem(
+                                    transaction: t,
+                                    showDate: true,
+                                    onTap: () {
+                                      // Optional: Add navigation to detail or edit
+                                    },
+                                  );
+                                }),
                                   ],
                             ),
                           ),
@@ -272,61 +266,4 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildTransactionItem(BuildContext context, String title, String subtitle, String amount, DateTime date,
-      {required IconData categoryIcon, required Color categoryColor, bool isIncome = false}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: categoryColor.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: categoryColor.withOpacity(0.2), width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: categoryColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              categoryIcon,
-              color: categoryColor,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: AppTheme.textGrey, fontSize: 14)),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                isIncome ? "+$amount" : "-$amount",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isIncome ? AppTheme.primaryGreen : Colors.white,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                "${date.day}/${date.month}",
-                style: const TextStyle(color: AppTheme.textGrey, fontSize: 12),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }

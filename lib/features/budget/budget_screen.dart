@@ -4,7 +4,6 @@ import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/features/budget/widgets/budget_skeleton.dart';
 import 'package:budgetti/features/budget/set_budget_modal.dart';
 import 'package:budgetti/models/budget.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -145,7 +144,15 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                       ),
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        sliver: SliverList(
+                        sliver: SliverGrid(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                mainAxisExtent:
+                                    140, // Fixed height for consistency
+                              ),
                           delegate: SliverChildBuilderDelegate((
                             context,
                             index,
@@ -154,9 +161,9 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                             final budget =
                                 budgetMap[category.name] ??
                                 Budget(
-                                id: '',
-                                userId: '',
-                                category: category.name,
+                                  id: '',
+                                  userId: '',
+                                  category: category.name,
                                   limit: 0,
                                 );
                             final spent =
@@ -171,7 +178,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
 
                             return Card(
                               color: AppTheme.surfaceGrey,
-                              margin: const EdgeInsets.only(bottom: 12),
+                              margin: EdgeInsets.zero,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -187,21 +194,23 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                 ),
                                 borderRadius: BorderRadius.circular(16),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
+                                  padding: const EdgeInsets.all(12.0),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Row(
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.all(10),
+                                            padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
                                               color: Color(
                                                 category.colorHex,
                                               ).withOpacity(0.15),
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(10),
                                             ),
                                             child: Icon(
                                               IconData(
@@ -209,64 +218,55 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                                 fontFamily: 'MaterialIcons',
                                               ),
                                               color: Color(category.colorHex),
-                                              size: 20,
+                                              size: 16,
                                             ),
                                           ),
-                                          const SizedBox(width: 12),
+                                          const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
                                               category.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 16,
+                                                fontSize: 14,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                           ),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.end,
-                                            children: [
-                                              Text(
-                                                hasLimit
-                                                    ? "${currencyFormatter.format(spent)} / ${currencyFormatter.format(budget.limit)}"
-                                                    : currencyFormatter.format(
-                                                        spent,
-                                                      ),
-                                                style: TextStyle(
-                                                  color: statusColor,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                              if (!hasLimit)
-                                                const Text(
-                                                  "No limit",
-                                                  style: TextStyle(
-                                                    color: AppTheme.textGrey,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
                                         ],
                                       ),
-                                      if (hasLimit) ...[
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            hasLimit
+                                                ? currencyFormatter.format(
+                                                    spent,
+                                                  )
+                                                : currencyFormatter.format(
+                                                    spent,
+                                                  ),
+                                            style: TextStyle(
+                                              color: statusColor,
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
                                             Text(
-                                              "${((spent / budget.limit) * 100).toStringAsFixed(0)}% used",
-                                              style: TextStyle(
-                                                color: statusColor.withOpacity(0.7),
-                                                fontSize: 12,
+                                            hasLimit
+                                                ? "of ${currencyFormatter.format(budget.limit)}"
+                                                : "No limit",
+                                            style: const TextStyle(
+                                              color: AppTheme.textGrey,
+                                              fontSize: 10,
                                               ),
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 6),
+                                      if (hasLimit)
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(
                                             4,
@@ -276,10 +276,9 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                                             backgroundColor:
                                                 AppTheme.backgroundBlack,
                                             color: statusColor,
-                                            minHeight: 6,
+                                            minHeight: 4,
                                           ),
                                         ),
-                                      ],
                                     ],
                                   ),
                                 ),
@@ -308,92 +307,102 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     NumberFormat formatter,
   ) {
     final statusColor = _getStatusColor(utilization);
-    
+    final remaining = (limit - spent).clamp(0.0, double.infinity);
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.surfaceGrey,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: AppTheme.textGrey.withOpacity(0.1),
           width: 1,
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Overall Utilization",
-            style: TextStyle(
-              color: AppTheme.textGrey,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 160,
-            child: Stack(
-              children: [
-                PieChart(
-                  PieChartData(
-                    sectionsSpace: 0,
-                    centerSpaceRadius: 65,
-                    startDegreeOffset: -90,
-                    sections: [
-                      PieChartSectionData(
-                        color: statusColor,
-                        value: utilization * 100,
-                        title: '',
-                        radius: 12,
-                      ),
-                      PieChartSectionData(
-                        color: AppTheme.backgroundBlack,
-                        value: (1 - utilization) * 100,
-                        title: '',
-                        radius: 10,
-                      ),
-                    ],
-                  ),
-                ),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        formatter.format(spent),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        "of ${formatter.format(limit)} limit",
-                        style: const TextStyle(
-                          color: AppTheme.textGrey,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMetricItem(
-                "Utilization",
-                "${(utilization * 100).toStringAsFixed(1)}%",
-                statusColor,
+              const Text(
+                "Overall Utilization",
+                style: TextStyle(
+                  color: AppTheme.textGrey,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
               ),
-              const SizedBox(width: 48),
-              _buildMetricItem(
-                "Remaining",
-                formatter.format((limit - spent).clamp(0, double.infinity)),
-                limit - spent > 0 ? AppTheme.primaryGreen : Colors.redAccent,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  "${(utilization * 100).toStringAsFixed(1)}%",
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                formatter.format(spent),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "of ${formatter.format(limit)}",
+                style: const TextStyle(color: AppTheme.textGrey, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: utilization,
+              backgroundColor: AppTheme.backgroundBlack,
+              color: statusColor,
+              minHeight: 10,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "REMAINING",
+                style: TextStyle(
+                  color: AppTheme.textGrey.withOpacity(0.6),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Text(
+                formatter.format(remaining),
+                style: TextStyle(
+                  color: remaining > 0
+                      ? AppTheme.primaryGreen
+                      : Colors.redAccent,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -402,24 +411,4 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     );
   }
 
-  Widget _buildMetricItem(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: AppTheme.textGrey, fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
 }
