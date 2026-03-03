@@ -343,6 +343,7 @@ class LocalFinanceService implements FinanceService {
 
     query.orderBy([
       (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+      (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),
     ]);
 
     if (limit != null) {
@@ -405,6 +406,7 @@ class LocalFinanceService implements FinanceService {
 
     query.orderBy([
       (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+      (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),
     ]);
 
     return query.watch().map((result) {

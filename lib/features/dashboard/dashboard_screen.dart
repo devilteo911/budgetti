@@ -1,6 +1,5 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
-import 'package:budgetti/features/dashboard/widgets/add_transaction_button.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
@@ -218,11 +217,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 32),
-
-                          // Add New Transaction Button
-                          const AddTransactionButton(),
-
                           const SizedBox(height: 32),
                           // Recent Transactions
                           RepaintBoundary(

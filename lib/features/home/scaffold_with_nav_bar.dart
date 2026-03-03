@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/core/services/motion_service.dart';
@@ -50,6 +51,10 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
     
     HapticFeedback.heavyImpact();
     
+    _onAddTransaction(triggerScan: true);
+  }
+
+  void _onAddTransaction({bool triggerScan = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -60,7 +65,7 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => const AddTransactionModal(triggerScan: true),
+      builder: (context) => AddTransactionModal(triggerScan: triggerScan),
     );
   }
 
@@ -76,32 +81,140 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
     final currentIndex = widget.navigationShell.currentIndex;
 
     return Scaffold(
+      extendBody: true, // This allows the body to go behind the FAB and Nav Bar
       body: widget.navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: _goBranch,
-        backgroundColor: AppTheme.backgroundBlack,
-        indicatorColor: AppTheme.primaryGreen.withOpacity(0.2),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+      floatingActionButton: Transform.translate(
+        offset: const Offset(0, 12),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryGreen.withValues(alpha: 0.45),
+                blurRadius: 20,
+                spreadRadius: 0,
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Transactions',
+          child: FloatingActionButton(
+            onPressed: () {
+              HapticFeedback.heavyImpact();
+              _onAddTransaction();
+            },
+            backgroundColor: AppTheme.primaryGreen,
+            shape: const CircleBorder(),
+            elevation: 0,
+            child: const Icon(
+              Icons.add,
+              color: AppTheme.backgroundBlack,
+              size: 30,
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.pie_chart_outline),
-            selectedIcon: Icon(Icons.pie_chart),
-            label: 'Stats',
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: BottomAppBar(
+              height: 80,
+              color: Colors.transparent,
+              elevation: 0,
+              padding: EdgeInsets.zero,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.6),
+                    radius: 0.4,
+                    colors: [
+                      AppTheme.primaryGreen.withValues(alpha: 0.08),
+                      AppTheme.backgroundBlack.withValues(alpha: 0.8),
+                    ],
+                    stops: const [0.0, 1.0],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildNavItem(
+                        index: 0,
+                        icon: Icons.dashboard_outlined,
+                        activeIcon: Icons.dashboard,
+                        label: 'Dashboard',
+                        isSelected: currentIndex == 0,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildNavItem(
+                        index: 1,
+                        icon: Icons.receipt_long_outlined,
+                        activeIcon: Icons.receipt_long,
+                        label: 'History',
+                        isSelected: currentIndex == 1,
+                      ),
+                    ),
+                    const SizedBox(width: 60), // Space for FAB
+                    Expanded(
+                      child: _buildNavItem(
+                        index: 2,
+                        icon: Icons.pie_chart_outline,
+                        activeIcon: Icons.pie_chart,
+                        label: 'Stats',
+                        isSelected: currentIndex == 2,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildNavItem(
+                        index: 3,
+                        icon: Icons.account_balance_wallet_outlined,
+                        activeIcon: Icons.account_balance_wallet,
+                        label: 'Budgets',
+                        isSelected: currentIndex == 3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: 'Budgets',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required bool isSelected,
+  }) {
+    return InkWell(
+      onTap: () => _goBranch(index),
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isSelected ? activeIcon : icon,
+            color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey,
+            size: 26,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            ),
           ),
         ],
       ),

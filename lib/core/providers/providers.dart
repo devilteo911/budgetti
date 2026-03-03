@@ -58,10 +58,15 @@ final importServiceProvider = Provider<ImportService>((ref) {
   return ImportService();
 });
 
+// Stream provider for Supabase auth state changes
+final authStateProvider = StreamProvider<AuthState>((ref) {
+  return Supabase.instance.client.auth.onAuthStateChange;
+});
+
 // Provider that tracks current user ID and updates when auth state changes
 final currentUserIdProvider = Provider<String>((ref) {
-  // Watch userProfileProvider to trigger updates on auth changes
-  ref.watch(userProfileProvider);
+  // Watch authStateProvider to trigger updates on login/logout
+  ref.watch(authStateProvider);
   return Supabase.instance.client.auth.currentUser?.id ?? 'local';
 });
 
@@ -105,6 +110,9 @@ final budgetsProvider = FutureProvider<List<Budget>>((ref) async {
 });
 
 final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  // Watch authStateProvider so this refreshes on login/logout
+  ref.watch(authStateProvider);
+  
   final user = Supabase.instance.client.auth.currentUser;
   if (user == null) return null;
   
