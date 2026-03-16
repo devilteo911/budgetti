@@ -38,17 +38,17 @@ class GoogleDriveService {
 
       // Note: The onCurrentUserChanged stream should also emit, but we update
       // _currentUser immediately to ensure synchronous access via currentUser getter
-    } on Exception catch (e) {
-      debugPrint('Error signing in: $e');
+    } catch (e, s) {
+      debugPrint('Error signing in: $e\n$s');
       _handleSignInError(e);
       rethrow;
     }
   }
 
-  void _handleSignInError(Exception error) {
-    final errorString = error.toString();
+  void _handleSignInError(Object error) {
+    final errorString = error.toString().toLowerCase();
 
-    if (errorString.contains('apiException: 10') || errorString.contains('DEVELOPER_ERROR')) {
+    if (errorString.contains('apiexception: 10') || errorString.contains('developer_error')) {
       debugPrint('''
       ========================================
       GOOGLE SIGN-IN CONFIGURATION ERROR
@@ -94,8 +94,8 @@ class GoogleDriveService {
         return null;
       }
       return drive.DriveApi(httpClient);
-    } catch (e) {
-      debugPrint('Error getting authenticated Drive API client: $e');
+    } catch (e, s) {
+      debugPrint('Error getting authenticated Drive API client: $e\n$s');
       return null;
     }
   }
@@ -129,8 +129,8 @@ class GoogleDriveService {
       final createdFolder = await driveApi.files.create(folderToCreate);
       debugPrint('Created backup folder: ${createdFolder.id}');
       return createdFolder.id;
-    } catch (e) {
-      debugPrint('Error getting/creating folder: $e');
+    } catch (e, s) {
+      debugPrint('Error getting/creating folder: $e\n$s');
       return null;
     }
   }
@@ -166,8 +166,8 @@ class GoogleDriveService {
       );
 
       debugPrint('Backup uploaded successfully: ${uploadedFile.id}');
-    } catch (e) {
-      debugPrint('Error uploading backup: $e');
+    } catch (e, s) {
+      debugPrint('Error uploading backup: $e\n$s');
       rethrow;
     }
   }
@@ -197,8 +197,8 @@ class GoogleDriveService {
       final backups = fileList.files ?? [];
       debugPrint('Found ${backups.length} backup(s)');
       return backups;
-    } catch (e) {
-      debugPrint('Error listing backups: $e');
+    } catch (e, s) {
+      debugPrint('Error listing backups: $e\n$s');
       rethrow;
     }
   }
@@ -227,8 +227,8 @@ class GoogleDriveService {
       debugPrint('Backup downloaded successfully: ${fileSize ~/ 1024} KB');
 
       return file;
-    } catch (e) {
-      debugPrint('Error downloading backup: $e');
+    } catch (e, s) {
+      debugPrint('Error downloading backup: $e\n$s');
       rethrow;
     }
   }
@@ -243,8 +243,8 @@ class GoogleDriveService {
       } else {
         debugPrint('No previously signed-in user found');
       }
-    } catch (e) {
-      debugPrint('Error signing in silently: $e');
+    } catch (e, s) {
+      debugPrint('Error signing in silently: $e\n$s');
     }
   }
 }

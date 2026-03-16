@@ -186,6 +186,41 @@ class NotificationService {
     debugPrint('🧪 Test notification sent');
   }
 
+  Future<void> showBackupNotification({
+    required bool success,
+    String? message,
+    bool isProgress = false,
+  }) async {
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'backup_status',
+      'Backup Status',
+      channelDescription: 'Notifications for automatic backup status',
+      importance: isProgress ? Importance.low : Importance.max,
+      priority: isProgress ? Priority.low : Priority.high,
+      showWhen: true,
+      onlyAlertOnce: isProgress,
+    );
+
+    final NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+    );
+
+    final String title = isProgress 
+        ? "Backup in progress..." 
+        : (success ? "Backup Successful" : "Backup Failed");
+    
+    final String body = message ?? (isProgress 
+        ? "Saving your data safely." 
+        : (success ? "Your data has been backed up." : "There was an error during backup."));
+
+    await _notificationsPlugin.show(
+      888, // Unique ID for backup notifications
+      title,
+      body,
+      details,
+    );
+  }
+
   Future<void> cancelNotification(int id) async {
     await _notificationsPlugin.cancel(id);
   }

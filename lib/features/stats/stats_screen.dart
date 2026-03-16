@@ -38,7 +38,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         actions: [
           _buildViewToggle(period),
           const SizedBox(width: 8),
-          _buildPeriodSelector(period),
         ],
       ),
       body: statsAsync.when(
@@ -60,6 +59,14 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
           return CustomScrollView(
             slivers: [
+              // 0. Period Selector
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: _buildPeriodSelector(period),
+                ),
+              ),
+
               // 1. Quick Insights Section
               SliverToBoxAdapter(
                 child: Padding(
@@ -125,7 +132,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 ),
               ],
 
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
             ],
           );
         },
@@ -478,10 +485,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(category.colorHex).withOpacity(0.05),
+        color: Color(category.colorHex).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Color(category.colorHex).withOpacity(0.1),
+          color: Color(category.colorHex).withValues(alpha: 0.1),
         ),
       ),
       child: Row(
@@ -489,7 +496,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Color(category.colorHex).withOpacity(0.15),
+              color: Color(category.colorHex).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -600,8 +607,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               return DataRow(
                 color: WidgetStateProperty.resolveWith<Color?>((states) {
                   return overspent
-                      ? Colors.red.withOpacity(0.08)
-                      : Colors.green.withOpacity(0.08);
+                      ? Colors.red.withValues(alpha: 0.08)
+                      : Colors.green.withValues(alpha: 0.08);
                 }),
                 cells: [
                   DataCell(
@@ -653,9 +660,9 @@ class _InsightCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

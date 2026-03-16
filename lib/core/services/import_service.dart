@@ -126,6 +126,7 @@ class ImportService {
   }
 
   DateTime? _determineDate(String? memo, DateTime? defaultDate) {
+    DateTime? finalDate = defaultDate;
     if (memo != null && memo.isNotEmpty) {
       // Look for "Data dd/MM/yy" or "Data dd/MM/yyyy"
       final dateRegex = RegExp(
@@ -136,10 +137,17 @@ class ImportService {
       if (match != null && match.group(1) != null) {
         final extractedDateStr = match.group(1)!;
         final parsed = _parseDate(extractedDateStr);
-        if (parsed != null) return parsed;
+        if (parsed != null) finalDate = parsed;
       }
     }
-    return defaultDate;
+
+    if (finalDate != null) {
+      final now = DateTime.now();
+      if (finalDate.isAfter(now)) {
+        return DateTime(now.year, now.month, now.day);
+      }
+    }
+    return finalDate;
   }
 
   String _determineDescription(String? memo, String? payee) {

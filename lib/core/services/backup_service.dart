@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:budgetti/core/database/database.dart';
 
 import 'package:budgetti/core/services/google_drive_service.dart';
+import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -13,26 +14,122 @@ class BackupService {
   BackupService(this._db, this._driveService);
 
   Future<void> exportDatabase() async {
-    final file = await _createBackupFile();
+    final file = await _createBackupFile(isAutoBackup: false);
     // ignore: deprecated_member_use
     await Share.shareXFiles([XFile(file.path)], text: 'Budgetti Backup');
   }
 
   Future<void> backupToDrive() async {
-    final file = await _createBackupFile();
-    await _driveService.uploadBackup(file);
+    try {
+      print('Starting backup to Google Drive...');
+      final file = await _createBackupFile(isAutoBackup: false);
+      print('Local backup file created: ${file.path}');
+      await _driveService.uploadBackup(file);
+      print('Backup to Google Drive completed successfully.');
+    } catch (e, s) {
+      print('Error during backupToDrive: $e\n$s');
+      rethrow;
+    }
+  }
+
+  Future<bool> performAutoBackup(PersistenceService persistence) async {
+    try {
+      if (!persistence.getAutoBackupEnabled()) return false;
+
+      final lastBackup = persistence.getLastAutoBackupTimestamp();
+      final now = DateTime.now();
+      final todayAtMidnight = DateTime(now.year, now.month, now.day);
+
+      if (lastBackup >= todayAtMidnight.millisecondsSinceEpoch) {
+        print('Auto-backup already performed today.');
+        return false;
+      }
+
+      print('Starting automatic backup...');
+      
+      // 1. Create local persistent backup (using custom path if set)
+      final file = await _createBackupFile(isAutoBackup: true, persistence: persistence);
+      print('Local persistent auto-backup created: ${file.path}');
+      
+      // 2. Manage local backup rotation (keep last 5)
+      await _rotateLocalBackups(persistence: persistence);
+
+      // 3. Attempt cloud backup if possible
+      try {
+        await _driveService.signInSilently();
+        if (_driveService.currentUser != null) {
+          await _driveService.uploadBackup(file);
+          print('Auto-backup uploaded to Google Drive.');
+        } else {
+          print('Auto-backup skipped cloud upload: User not signed in to Google Drive');
+        }
+      } catch (e) {
+        print('Cloud auto-backup failed (local backup persists): $e');
+      }
+
+      await persistence.setLastAutoBackupTimestamp(now.millisecondsSinceEpoch);
+      print('Auto-backup routine completed.');
+      return true;
+    } catch (e) {
+      print('Error during auto-backup: $e');
+      return false;
+    }
+  }
+
+  Future<void> _rotateLocalBackups({PersistenceService? persistence}) async {
+    try {
+      final String path;
+      final customPath = persistence?.getCustomBackupPath();
+      if (customPath != null) {
+        path = customPath;
+      } else {
+        final docDir = await getApplicationDocumentsDirectory();
+        path = '${docDir.path}/autobackups';
+      }
+
+      final backupDir = Directory(path);
+      if (!await backupDir.exists()) return;
+
+      final files = await backupDir.list().toList();
+      final backupFiles = files
+          .whereType<File>()
+          .where((f) => f.path.contains('budgetti_autobackup_') && f.path.endsWith('.json'))
+          .toList();
+
+      // Sort by modification time (oldest first)
+      backupFiles.sort((a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()));
+
+      // Keep only the latest 5
+      if (backupFiles.length > 5) {
+        final toDelete = backupFiles.sublist(0, backupFiles.length - 5);
+        for (var f in toDelete) {
+          await f.delete();
+          print('Deleted old auto-backup: ${f.path}');
+        }
+      }
+    } catch (e) {
+      print('Error rotating backups: $e');
+    }
   }
 
   Future<void> restoreFromDrive(String fileId) async {
-    final tempDir = await getTemporaryDirectory();
-    final file = await _driveService.downloadBackup(
-      fileId,
-      '${tempDir.path}/restore_${DateTime.now().millisecondsSinceEpoch}.json',
-    );
-    await importDatabase(file);
+    try {
+      print('Starting restore from Google Drive (fileId: $fileId)...');
+      final tempDir = await getTemporaryDirectory();
+      final file = await _driveService.downloadBackup(
+        fileId,
+        '${tempDir.path}/restore_${DateTime.now().millisecondsSinceEpoch}.json',
+      );
+      print('Backup downloaded to: ${file.path}');
+      await importDatabase(file);
+      print('Restore from Google Drive completed successfully.');
+    } catch (e, s) {
+      print('Error during restoreFromDrive: $e\n$s');
+      rethrow;
+    }
   }
 
-  Future<File> _createBackupFile() async {
+  Future<File> _createBackupFile({bool isAutoBackup = false, PersistenceService? persistence}) async {
     // 1. Fetch all data
     final accounts = await _db.select(_db.accounts).get();
     final transactions = await _db.select(_db.transactions).get();
@@ -52,9 +149,30 @@ class BackupService {
 
     final jsonString = jsonEncode(data);
 
-    // 3. Write to temp file
-    final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/budgetti_backup_${DateTime.now().millisecondsSinceEpoch}.json');
+    // 3. Write to file
+    final String path;
+    if (isAutoBackup) {
+      final customPath = persistence?.getCustomBackupPath();
+      if (customPath != null) {
+        final backupDir = Directory(customPath);
+        if (!await backupDir.exists()) {
+          await backupDir.create(recursive: true);
+        }
+        path = '${backupDir.path}/budgetti_autobackup_${DateTime.now().millisecondsSinceEpoch}.json';
+      } else {
+        final docDir = await getApplicationDocumentsDirectory();
+        final backupDir = Directory('${docDir.path}/autobackups');
+        if (!await backupDir.exists()) {
+          await backupDir.create(recursive: true);
+        }
+        path = '${backupDir.path}/budgetti_autobackup_${DateTime.now().millisecondsSinceEpoch}.json';
+      }
+    } else {
+      final tempDir = await getTemporaryDirectory();
+      path = '${tempDir.path}/budgetti_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+    }
+
+    final file = File(path);
     await file.writeAsString(jsonString);
     return file;
   }

@@ -789,6 +789,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             setState(() => _permissionMissing = false);
                           }
                           await persistence.setNotificationsEnabled(value);
+                          await ref.read(notificationLogicProvider).updateDailyReminder();
                           if (mounted) setState(() {});
                         },
                       ),
@@ -911,6 +912,93 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                             ),
                           ],
+                        ),
+                      ],
+                    ],
+                  ),
+
+                  // Auto Backup Section (independent of Google Drive)
+                  _SettingsSection(
+                    title: "Auto Backup",
+                    children: [
+                      _buildNotificationToggle(
+                        "Automatic Backup",
+                        "Daily local backup (cloud upload if connected)",
+                        Icons.sync_rounded,
+                        persistence.getAutoBackupEnabled(),
+                        (value) async {
+                          await persistence.setAutoBackupEnabled(value);
+                          await ref
+                              .read(notificationLogicProvider)
+                              .updateAutoBackupSchedule();
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                      if (persistence.getAutoBackupEnabled()) ...[
+                        _SettingsTile(
+                          title: "Backup Time",
+                          subtitle: persistence.getAutoBackupTime(),
+                          icon: Icons.access_time_rounded,
+                          trailing: Text(
+                            persistence.getAutoBackupTime(),
+                            style: const TextStyle(
+                              color: AppTheme.primaryGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onTap: () async {
+                            final timeStr = persistence.getAutoBackupTime();
+                            final bits = timeStr.split(":");
+                            final initialTime = TimeOfDay(
+                              hour: int.tryParse(bits[0]) ?? 2,
+                              minute: int.tryParse(bits[1]) ?? 0,
+                            );
+
+                            final pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: initialTime,
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.dark(
+                                      primary: AppTheme.primaryGreen,
+                                      onPrimary: AppTheme.backgroundBlack,
+                                      surface: AppTheme.surfaceGrey,
+                                      onSurface: Colors.white,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+
+                            if (pickedTime != null) {
+                              final newTimeStr =
+                                  "${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}";
+                              await persistence.setAutoBackupTime(newTimeStr);
+                              await ref
+                                  .read(notificationLogicProvider)
+                                  .updateAutoBackupSchedule();
+                              if (mounted) setState(() {});
+                            }
+                          },
+                        ),
+                        _SettingsTile(
+                          title: "Backup Folder",
+                          subtitle: persistence.getCustomBackupPath() ?? "Default (Internal)",
+                          icon: Icons.folder_open_rounded,
+                          trailing: Icon(
+                            Icons.keyboard_arrow_right,
+                            color: Colors.white.withOpacity(0.2),
+                            size: 14,
+                          ),
+                          onTap: () async {
+                            final String? selectedPath = await FilePicker.platform.getDirectoryPath();
+                            if (selectedPath != null) {
+                              await persistence.setCustomBackupPath(selectedPath);
+                              if (mounted) setState(() {});
+                            }
+                          },
                         ),
                       ],
                     ],

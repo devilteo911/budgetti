@@ -4,6 +4,7 @@ import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:workmanager/workmanager.dart';
 
 class NotificationLogic {
   final NotificationService _notificationService;
@@ -17,6 +18,7 @@ class NotificationLogic {
   );
 
   static const int DAILY_REMINDER_ID = 999;
+  static const String AUTO_BACKUP_TASK = "auto_backup_task";
 
   Future<void> checkBudgetAlerts(Transaction newTransaction) async {
     if (!_persistenceService.getNotificationsEnabled() ||
@@ -85,6 +87,47 @@ class NotificationLogic {
       id: DAILY_REMINDER_ID,
       hour: hour,
       minute: minute,
+    );
+  }
+
+  Future<void> updateAutoBackupSchedule() async {
+    final enabled = _persistenceService.getAutoBackupEnabled();
+    
+    // Always cancel existing to be safe
+    await Workmanager().cancelByUniqueName(AUTO_BACKUP_TASK);
+    
+    if (!enabled) return;
+
+    final timeStr = _persistenceService.getAutoBackupTime();
+    final bits = timeStr.split(":");
+    if (bits.length != 2) return;
+
+    final hour = int.tryParse(bits[0]) ?? 2;
+    final minute = int.tryParse(bits[1]) ?? 0;
+
+    final now = DateTime.now();
+    // Use a canonical "today at HH:mm" for comparison
+    var scheduleTime = DateTime(now.year, now.month, now.day, hour, minute);
+    
+    // If that time is already passed today, schedule for tomorrow
+    if (scheduleTime.isBefore(now)) {
+      scheduleTime = scheduleTime.add(const Duration(days: 1));
+    }
+
+    final initialDelay = scheduleTime.difference(now);
+    
+    print('📅 Auto-backup scheduled to run in ${initialDelay.inMinutes} minutes at $scheduleTime');
+
+    await Workmanager().registerPeriodicTask(
+      AUTO_BACKUP_TASK,
+      AUTO_BACKUP_TASK,
+      frequency: const Duration(days: 1),
+      initialDelay: initialDelay,
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+        requiresBatteryNotLow: false,
+      ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
   }
 

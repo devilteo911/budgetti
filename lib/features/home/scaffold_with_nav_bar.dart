@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/core/services/motion_service.dart';
@@ -81,7 +80,6 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
     final currentIndex = widget.navigationShell.currentIndex;
 
     return Scaffold(
-      extendBody: true, // This allows the body to go behind the FAB and Nav Bar
       body: widget.navigationShell,
       floatingActionButton: Transform.translate(
         offset: const Offset(0, 12),
@@ -118,28 +116,22 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
         ),
-        child: ClipRRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: BottomAppBar(
-              height: 80,
-              color: Colors.transparent,
-              elevation: 0,
-              padding: EdgeInsets.zero,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(0, -0.6),
-                    radius: 0.4,
-                    colors: [
-                      AppTheme.primaryGreen.withValues(alpha: 0.08),
-                      AppTheme.backgroundBlack.withValues(alpha: 0.8),
-                    ],
-                    stops: const [0.0, 1.0],
-                  ),
-                ),
-                child: Row(
+        child: BottomAppBar(
+          height: 80 + MediaQuery.of(context).padding.bottom.clamp(0.0, 34.0),
+          color: AppTheme.surfaceGrey,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          child: Container(
+            padding: EdgeInsets.fromLTRB(
+              8, 8, 8,
+              MediaQuery.of(context).padding.bottom.clamp(8.0, 34.0),
+            ),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: AppTheme.surfaceGreyLight, width: 0.5),
+              ),
+            ),
+            child: Row(
                   children: [
                     Expanded(
                       child: _buildNavItem(
@@ -183,8 +175,6 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
               ),
             ),
           ),
-        ),
-      ),
     );
   }
 

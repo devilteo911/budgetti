@@ -65,7 +65,7 @@ class OcrService {
 
       final textBlocks = await _mobileOcr.detectText(imagePath: imagePath);
 
-      final List<_OcrLine> allLines = textBlocks.map((block) {
+      final List<_OcrLine> allLines = textBlocks.blocks.map((block) {
         return _OcrLine(block.text, block.boundingBox);
       }).toList();
 
@@ -215,7 +215,12 @@ class OcrService {
         if (y < 100) y += 2000;
 
         try {
-          return DateTime(y, m, d);
+          final detectedDate = DateTime(y, m, d);
+          final now = DateTime.now();
+          if (detectedDate.isAfter(now)) {
+            return DateTime(now.year, now.month, now.day);
+          }
+          return detectedDate;
         } catch (_) {}
       }
     }
