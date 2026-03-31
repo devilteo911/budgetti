@@ -73,9 +73,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
       _selectedToAccountId = t.toAccountId;
     }
     
-    // Initialize defaults immediately if possible
+    // Initialize defaults and start animation after first paint
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
+      // Start entrance animation after first paint
+      _animationController.forward();
+
       final accounts = ref.read(accountsProvider).value ?? [];
       if (_selectedAccountId == null) {
         _initializeDefaultAccount(accounts);
@@ -92,8 +96,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         }
       }
     });
-
-    _animationController.forward();
 
     if (widget.triggerScan) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -57,14 +57,10 @@ Future<void> main() async {
   
   final prefs = await SharedPreferences.getInstance();
   
+  // Must run before runApp: loads timezone data synchronously (tz.initializeTimeZones).
+  // Placing it here keeps that blocking work outside the frame measurement window.
   final notificationService = NotificationService();
   await notificationService.init();
-
-  final granted = await notificationService.isPermissionGranted();
-  if (!granted && prefs.getBool('notifications_enabled') != false) {
-    await notificationService.requestPermissions();
-  }
-
 
   final container = ProviderContainer(
     overrides: [
@@ -73,23 +69,26 @@ Future<void> main() async {
     ],
   );
 
-  // Schedule daily reminder on startup
-  await container.read(notificationLogicProvider).updateDailyReminder();
-  
-  // Initialize Workmanager
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: kDebugMode,
-  );
-  
-  // Update auto-backup schedule
-  await container.read(notificationLogicProvider).updateAutoBackupSchedule();
-
   runApp(
     UncontrolledProviderScope(container: container,
       child: const BudgettiApp(),
     ),
   );
+
+  // Defer all non-critical post-init work to after first frame
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    final granted = await notificationService.isPermissionGranted();
+    if (!granted && prefs.getBool('notifications_enabled') != false) {
+      await notificationService.requestPermissions();
+    }
+
+    // Run reminder update and workmanager init concurrently
+    await Future.wait([
+      container.read(notificationLogicProvider).updateDailyReminder(),
+      Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode),
+    ]);
+    await container.read(notificationLogicProvider).updateAutoBackupSchedule();
+  });
 }
 
 class BudgettiApp extends ConsumerWidget {

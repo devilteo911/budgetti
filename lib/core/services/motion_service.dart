@@ -15,7 +15,9 @@ class MotionService {
   MotionService({required this.onTwistDetected});
 
   void startListening() {
-    _gyroscopeSubscription = gyroscopeEventStream().listen((GyroscopeEvent event) {
+    _gyroscopeSubscription = gyroscopeEventStream(
+      samplingPeriod: SensorInterval.normalInterval,
+    ).listen((GyroscopeEvent event) {
       final now = DateTime.now();
       if (now.difference(_lastTriggerTime).inMilliseconds < _cooldownMs) return;
 

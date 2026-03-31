@@ -25,7 +25,10 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _motionService = MotionService(onTwistDetected: _onTwistDetected);
-    _motionService.startListening();
+    // Defer sensor subscription to after first frame to avoid blocking initial render
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _motionService.startListening();
+    });
   }
 
   @override

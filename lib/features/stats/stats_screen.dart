@@ -1,8 +1,9 @@
+import 'dart:math' as math;
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/features/stats/category_details_screen.dart';
-import 'package:budgetti/features/charts/widgets/spending_bar_chart.dart';
+import 'package:budgetti/features/charts/widgets/spending_line_chart.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,6 +57,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           }
 
           final totalExpenses = stats.totalExpenses;
+          final sortedCategoryEntries = stats.categoryTotals.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
 
           return CustomScrollView(
             slivers: [
@@ -80,55 +83,49 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 child: _buildSectionHeader(context, "Spending Trends"),
               ),
 
-              // 3. Spending Trends Chart
+              // 3. Spending Line Chart
               SliverToBoxAdapter(
-                child: const SizedBox(height: 300, child: SpendingBarChart()),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const SpendingLineChart(),
+                ),
               ),
 
-              // 4. Pie Chart Header
+              // 4. Category Distribution Header
               SliverToBoxAdapter(
                 child: _buildSectionHeader(context, "Category Distribution"),
               ),
 
-              // 4. Pie Chart
+              // 5. Pie Chart
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 300,
+                  height: 260,
                   child: _buildPieChart(
-                    stats.categoryTotals,
+                    sortedCategoryEntries,
                     categoryMap,
                     totalExpenses,
+                    currencyFormatter,
                   ),
                 ),
               ),
 
-              // 5. Category Details List
+              // 6. Category Details List
               _buildCategorySliverList(
-                stats.categoryTotals,
+                sortedCategoryEntries,
                 categoryMap,
                 totalExpenses,
                 currencyFormatter,
               ),
 
-              // 6. Monthly Breakdown Header (Only in Yearly Mode)
+              // 7. Monthly Breakdown (Only in Yearly Mode)
               if (period.month == null) ...[
-                SliverToBoxAdapter(child: const SizedBox(height: 24)),
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 SliverToBoxAdapter(
                   child: _buildSectionHeader(context, "Monthly Breakdown"),
                 ),
-
-                // 7. Monthly Table
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: _buildMonthlyTableTab(
-                      stats.monthlyBreakdown,
-                      currencyFormatter,
-                    ),
-                  ),
+                _buildMonthlyBreakdownSliver(
+                  stats.monthlyBreakdown,
+                  currencyFormatter,
                 ),
               ],
 
@@ -268,7 +265,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final totalExpenses = stats.totalExpenses;
     final isMonthlyMode = period.month != null;
 
-    // Correct Prediction logic: Use current month's spending
     final monthKey = DateFormat('yyyy-MM').format(now);
     final currentMonthData = stats.monthlyBreakdown[monthKey];
     final currentMonthSpent = currentMonthData?['spent'] ?? 0.0;
@@ -279,7 +275,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         ? (currentMonthSpent / currentDay) * daysInMonth
         : 0.0;
 
-    // Daily Average
     final daysToDivide = isMonthlyMode
         ? (period.year == now.year && period.month == now.month
               ? now.day
@@ -287,12 +282,47 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         : 365;
     final dailyAvg = totalExpenses / daysToDivide;
 
-    // Net Flow (Calculated from breakdown)
     final totalEarned = stats.monthlyBreakdown.values.fold(
       0.0,
       (sum, val) => sum + (val['earned'] ?? 0.0),
     );
     final netFlow = totalEarned - totalExpenses;
+
+    final showPrediction = period.year == now.year &&
+        (!isMonthlyMode || period.month == now.month) &&
+        predictedTotal > 0;
+
+    // 4th card: Predicted if current period, otherwise Savings Rate
+    Widget fourthCard;
+    if (showPrediction) {
+      fourthCard = Expanded(
+        child: _InsightCard(
+          title: "Predicted (Mo)",
+          value: currencyFormatter.format(predictedTotal),
+          icon: Icons.trending_up,
+          color: Colors.orangeAccent,
+        ),
+      );
+    } else if (totalEarned > 0) {
+      final savingsRate = (netFlow / totalEarned * 100);
+      fourthCard = Expanded(
+        child: _InsightCard(
+          title: "Savings Rate",
+          value: "${savingsRate.toStringAsFixed(0)}%",
+          icon: Icons.savings,
+          color: savingsRate >= 0 ? AppTheme.primaryGreen : Colors.redAccent,
+        ),
+      );
+    } else {
+      fourthCard = Expanded(
+        child: _InsightCard(
+          title: "Savings Rate",
+          value: "N/A",
+          icon: Icons.savings,
+          color: AppTheme.textGrey,
+        ),
+      );
+    }
 
     return Column(
       children: [
@@ -308,7 +338,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 color: AppTheme.primaryGreen,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: _InsightCard(
                 title: "Daily Avg",
@@ -319,7 +349,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -332,20 +362,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 color: netFlow >= 0 ? AppTheme.primaryGreen : Colors.redAccent,
               ),
             ),
-            const SizedBox(width: 16),
-            if (period.year == now.year &&
-                (!isMonthlyMode || period.month == now.month) &&
-                predictedTotal > 0)
-              Expanded(
-                child: _InsightCard(
-                  title: "Predicted (This Mo)",
-                  value: currencyFormatter.format(predictedTotal),
-                  icon: Icons.trending_up,
-                  color: Colors.orangeAccent,
-                ),
-              )
-            else
-              const Spacer(),
+            const SizedBox(width: 12),
+            fourthCard,
           ],
         ),
       ],
@@ -353,77 +371,96 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   }
 
   Widget _buildPieChart(
-    Map<String, double> categoryTotals,
-    Map<String, Category> categoryMap,
-    double totalExpenses,
-  ) {
-    final sortedCategoryEntries = categoryTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return PieChart(
-      PieChartData(
-        pieTouchData: PieTouchData(
-          touchCallback: (FlTouchEvent event, pieTouchResponse) {
-            setState(() {
-              if (!event.isInterestedForInteractions ||
-                  pieTouchResponse == null ||
-                  pieTouchResponse.touchedSection == null) {
-                touchedIndex = -1;
-                return;
-              }
-              touchedIndex =
-                  pieTouchResponse.touchedSection!.touchedSectionIndex;
-            });
-          },
-        ),
-        borderData: FlBorderData(show: false),
-        sectionsSpace: 4,
-        centerSpaceRadius: 60,
-        sections: sortedCategoryEntries.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final data = entry.value;
-          final category =
-              categoryMap[data.key] ??
-              Category(
-                id: '',
-                userId: '',
-                name: data.key,
-                iconCode: Icons.help_outline.codePoint,
-                colorHex: 0xFF9E9E9E,
-                type: 'expense',
-              );
-          final isTouched = idx == touchedIndex;
-          final fontSize = isTouched ? 18.0 : 12.0;
-          final radius = isTouched ? 70.0 : 60.0;
-          final percentage = (data.value / totalExpenses * 100).toStringAsFixed(
-            1,
-          );
-
-          return PieChartSectionData(
-            color: Color(category.colorHex),
-            value: data.value,
-            title: isTouched ? "$percentage%" : '',
-            radius: radius,
-            titleStyle: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildCategorySliverList(
-    Map<String, double> categoryTotals,
+    List<MapEntry<String, double>> sortedCategoryEntries,
     Map<String, Category> categoryMap,
     double totalExpenses,
     dynamic currencyFormatter,
   ) {
-    final sortedCategoryEntries = categoryTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          height: 260,
+          child: PieChart(
+            PieChartData(
+              pieTouchData: PieTouchData(
+                touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                  setState(() {
+                    if (!event.isInterestedForInteractions ||
+                        pieTouchResponse == null ||
+                        pieTouchResponse.touchedSection == null) {
+                      touchedIndex = -1;
+                      return;
+                    }
+                    touchedIndex =
+                        pieTouchResponse.touchedSection!.touchedSectionIndex;
+                  });
+                },
+              ),
+              borderData: FlBorderData(show: false),
+              sectionsSpace: 4,
+              centerSpaceRadius: 50,
+              sections: sortedCategoryEntries.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final data = entry.value;
+                final category =
+                    categoryMap[data.key] ??
+                    Category(
+                      id: '',
+                      userId: '',
+                      name: data.key,
+                      iconCode: Icons.help_outline.codePoint,
+                      colorHex: 0xFF9E9E9E,
+                      type: 'expense',
+                    );
+                final isTouched = idx == touchedIndex;
+                final fontSize = isTouched ? 18.0 : 12.0;
+                final radius = isTouched ? 70.0 : 60.0;
+                final percentage =
+                    (data.value / totalExpenses * 100).toStringAsFixed(1);
 
+                return PieChartSectionData(
+                  color: Color(category.colorHex),
+                  value: data.value,
+                  title: isTouched ? "$percentage%" : '',
+                  radius: radius,
+                  titleStyle: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Total",
+              style: TextStyle(color: AppTheme.textGrey, fontSize: 11),
+            ),
+            Text(
+              currencyFormatter.format(totalExpenses),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategorySliverList(
+    List<MapEntry<String, double>> sortedCategoryEntries,
+    Map<String, Category> categoryMap,
+    double totalExpenses,
+    dynamic currencyFormatter,
+  ) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: SliverList(
@@ -541,103 +578,193 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     );
   }
 
-  Widget _buildMonthlyTableTab(
+  Widget _buildMonthlyBreakdownSliver(
     Map<String, Map<String, double>> monthlyData,
     dynamic currencyFormatter,
   ) {
     final sortedMonths = monthlyData.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final monthKey = sortedMonths[index];
+        final data = monthlyData[monthKey]!;
+        final earned = data['earned'] ?? 0.0;
+        final spent = data['spent'] ?? 0.0;
+        final netFlow = earned - spent;
+        final netIsPositive = netFlow >= 0;
+        final displayMonth = DateFormat(
+          'MMMM yyyy',
+        ).format(DateTime.parse("$monthKey-01"));
+
+        return _MonthlyBreakdownCard(
+          month: displayMonth,
+          earned: earned,
+          spent: spent,
+          netFlow: netFlow,
+          netIsPositive: netIsPositive,
+          currencyFormatter: currencyFormatter,
+        );
+      }, childCount: sortedMonths.length),
+    );
+  }
+}
+
+class _MonthlyBreakdownCard extends StatelessWidget {
+  final String month;
+  final double earned;
+  final double spent;
+  final double netFlow;
+  final bool netIsPositive;
+  final dynamic currencyFormatter;
+
+  const _MonthlyBreakdownCard({
+    required this.month,
+    required this.earned,
+    required this.spent,
+    required this.netFlow,
+    required this.netIsPositive,
+    required this.currencyFormatter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final max = math.max(earned, spent);
+
     return Container(
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surfaceGrey,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.surfaceGreyLight, width: 1),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            horizontalMargin: 16,
-            columnSpacing: 24,
-            headingRowColor: WidgetStateProperty.all(AppTheme.surfaceGreyLight),
-            columns: const [
-              DataColumn(
-                label: Text(
-                  "Month",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  "Earned",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                numeric: true,
-              ),
-              DataColumn(
-                label: Text(
-                  "Spent",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                numeric: true,
-              ),
-              DataColumn(
-                label: Text(
-                  "Ratio",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                numeric: true,
-              ),
-            ],
-            rows: sortedMonths.map((monthKey) {
-              final data = monthlyData[monthKey]!;
-              final earned = data['earned']!;
-              final spent = data['spent']!;
-              final overspent = spent > earned;
-              final ratioStr = earned > 0
-                  ? "${(spent / earned * 100).toStringAsFixed(0)}%"
-                  : "-";
-
-              final displayDate = DateFormat(
-                'MMM yyyy',
-              ).format(DateTime.parse("$monthKey-01"));
-
-              return DataRow(
-                color: WidgetStateProperty.resolveWith<Color?>((states) {
-                  return overspent
-                      ? Colors.red.withValues(alpha: 0.08)
-                      : Colors.green.withValues(alpha: 0.08);
-                }),
-                cells: [
-                  DataCell(
-                    Text(
-                      displayDate,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      currencyFormatter.format(earned),
-                      style: const TextStyle(color: AppTheme.primaryGreen),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      currencyFormatter.format(spent),
-                      style: TextStyle(
-                        color: overspent ? Colors.redAccent : Colors.white,
-                      ),
-                    ),
-                  ),
-                  DataCell(Text(ratioStr)),
-                ],
-              );
-            }).toList(),
-          ),
+        border: Border.all(
+          color: netIsPositive
+              ? AppTheme.primaryGreen.withValues(alpha: 0.15)
+              : Colors.redAccent.withValues(alpha: 0.15),
+          width: 1,
         ),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                month,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              const Spacer(),
+              _NetChip(amount: netFlow, currencyFormatter: currencyFormatter),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniProgressBar(
+                  label: "Earned",
+                  amount: earned,
+                  color: AppTheme.primaryGreen,
+                  ratio: max > 0 ? earned / max : 0.0,
+                  currencyFormatter: currencyFormatter,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _MiniProgressBar(
+                  label: "Spent",
+                  amount: spent,
+                  color: spent > earned ? Colors.redAccent : AppTheme.textGrey,
+                  ratio: max > 0 ? spent / max : 0.0,
+                  currencyFormatter: currencyFormatter,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NetChip extends StatelessWidget {
+  final double amount;
+  final dynamic currencyFormatter;
+
+  const _NetChip({required this.amount, required this.currencyFormatter});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPositive = amount >= 0;
+    final color = isPositive ? AppTheme.primaryGreen : Colors.redAccent;
+    final prefix = isPositive ? "+" : "";
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        "$prefix${currencyFormatter.format(amount)}",
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniProgressBar extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
+  final double ratio;
+  final dynamic currencyFormatter;
+
+  const _MiniProgressBar({
+    required this.label,
+    required this.amount,
+    required this.color,
+    required this.ratio,
+    required this.currencyFormatter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: AppTheme.textGrey, fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: ratio.clamp(0.0, 1.0),
+            backgroundColor: AppTheme.surfaceGreyLight,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 6,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          currencyFormatter.format(amount),
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -671,9 +798,15 @@ class _InsightCard extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(color: AppTheme.textGrey, fontSize: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppTheme.textGrey,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
