@@ -39,24 +39,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _initializeGoogleDriveState() {
-    final driveService = ref.read(googleDriveServiceProvider);
+    final authService = ref.read(googleAuthServiceProvider);
 
     // CRITICAL FIX: Set initial state from current user (if already signed in)
-    _googleUser = driveService.currentUser;
+    _googleUser = authService.currentUser;
 
     // Listen to future changes
-    _googleUserSubscription = driveService.onCurrentUserChanged.listen((user) {
+    _googleUserSubscription = authService.onCurrentUserChanged.listen((user) {
       if (mounted) {
         setState(() {
           _googleUser = user;
         });
-        debugPrint('Google Drive user state changed: ${user?.email ?? "signed out"}');
+        debugPrint('Google user state changed: ${user?.email ?? "signed out"}');
       }
     });
 
     // Attempt silent sign-in if not already signed in
     if (_googleUser == null) {
-      driveService.signInSilently();
+      authService.signInSilently();
     }
   }
 
@@ -179,21 +179,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _handleGoogleSignIn() async {
     try {
-      final driveService = ref.read(googleDriveServiceProvider);
-      await driveService.signIn();
+      final authService = ref.read(googleAuthServiceProvider);
+      await authService.signIn();
 
-      // CRITICAL FIX: Immediately update local state after successful sign-in
-      // This ensures the UI updates right away, even if the stream hasn't emitted yet
       if (mounted) {
         setState(() {
-          _googleUser = driveService.currentUser;
+          _googleUser = authService.currentUser;
         });
 
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(
           const SnackBar(
-            content: Text('Successfully connected to Google Drive'),
+            content: Text('Successfully connected to Google'),
             backgroundColor: AppTheme.primaryGreen,
           ),
         );
@@ -238,14 +236,177 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _handleGoogleSignOut() async {
-    await ref.read(googleDriveServiceProvider).signOut();
+    await ref.read(googleAuthServiceProvider).signOut();
 
-    // Update local state immediately after sign-out
     if (mounted) {
       setState(() {
         _googleUser = null;
       });
     }
+  }
+
+  Future<void> _importFromSheets() async {
+    setState(() => _isLoading = true);
+    try {
+      final sheetsService = ref.read(googleSheetsServiceProvider);
+      final persistence = ref.read(persistenceServiceProvider);
+      final spreadsheetId = persistence.getSheetsSpreadsheetId();
+      final sheetName = persistence.getSheetsSheetName();
+
+      // Build account name → id map
+      final accounts = await ref.read(accountsProvider.future);
+      final accountNameToId = <String, String>{};
+      for (final account in accounts) {
+        accountNameToId[account.name] = account.id;
+      }
+
+      final transactions = await sheetsService.importTransactions(
+        spreadsheetId: spreadsheetId,
+        sheetName: sheetName,
+        accountNameToId: accountNameToId,
+      );
+
+      if (!mounted) return;
+
+      if (transactions.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No transactions found in sheet')),
+        );
+        return;
+      }
+
+      // Navigate to import review screen
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ImportTransactionsScreen(
+            transactions: transactions,
+          ),
+        ),
+      );
+
+      // Update last sync timestamp
+      await persistence.setSheetsLastSyncTimestamp(
+        DateTime.now().millisecondsSinceEpoch,
+      );
+    } catch (e, s) {
+      debugPrint('Sheets import error: $e\n$s');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Import failed: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _exportToSheets() async {
+    setState(() => _isLoading = true);
+    try {
+      final sheetsService = ref.read(googleSheetsServiceProvider);
+      final persistence = ref.read(persistenceServiceProvider);
+      final spreadsheetId = persistence.getSheetsSpreadsheetId();
+      final sheetName = persistence.getSheetsSheetName();
+
+      // Build account id → name map
+      final accounts = await ref.read(accountsProvider.future);
+      final accountIdToName = <String, String>{};
+      for (final account in accounts) {
+        accountIdToName[account.id] = account.name;
+      }
+
+      // Get all transactions from the app
+      final financeService = ref.read(financeServiceProvider);
+      final allTransactions = await financeService.getTransactions();
+
+      final rowsWritten = await sheetsService.exportTransactions(
+        spreadsheetId: spreadsheetId,
+        sheetName: sheetName,
+        transactions: allTransactions,
+        accountIdToName: accountIdToName,
+      );
+
+      // Update last sync timestamp
+      await persistence.setSheetsLastSyncTimestamp(
+        DateTime.now().millisecondsSinceEpoch,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(rowsWritten > 0
+                ? 'Exported $rowsWritten rows to Google Sheets'
+                : 'All transactions already in sheet'),
+            backgroundColor: AppTheme.primaryGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSheetsConfigDialog() {
+    final persistence = ref.read(persistenceServiceProvider);
+    final idController = TextEditingController(text: persistence.getSheetsSpreadsheetId());
+    final nameController = TextEditingController(text: persistence.getSheetsSheetName());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Google Sheets Config'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: idController,
+              decoration: const InputDecoration(
+                labelText: 'Spreadsheet ID',
+                hintText: 'From the Google Sheets URL',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Sheet Name',
+                hintText: 'e.g., Spese',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await persistence.setSheetsSpreadsheetId(idController.text.trim());
+              await persistence.setSheetsSheetName(nameController.text.trim());
+              if (mounted) {
+                Navigator.pop(context);
+                setState(() {});
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _backupToDrive() async {
@@ -916,6 +1077,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ],
                     ],
                   ),
+
+                  // Google Sheets Sync Section
+                  if (_googleUser != null)
+                    _SettingsSection(
+                      title: "Google Sheets",
+                      children: [
+                        _SettingsTile(
+                          title: "Spreadsheet",
+                          subtitle: ref.read(persistenceServiceProvider).getSheetsSheetName(),
+                          icon: Icons.table_chart_rounded,
+                          iconColor: Colors.green,
+                          onTap: () => _showSheetsConfigDialog(),
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _SettingsTile(
+                                title: "Import",
+                                subtitle: "From sheet",
+                                icon: Icons.download_rounded,
+                                iconColor: Colors.blue,
+                                onTap: _isLoading ? null : _importFromSheets,
+                              ),
+                            ),
+                            Expanded(
+                              child: _SettingsTile(
+                                title: "Export",
+                                subtitle: "To sheet",
+                                icon: Icons.upload_rounded,
+                                iconColor: Colors.orange,
+                                onTap: _isLoading ? null : _exportToSheets,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Builder(
+                          builder: (context) {
+                            final lastSync = ref.read(persistenceServiceProvider).getSheetsLastSyncTimestamp();
+                            if (lastSync == 0) return const SizedBox.shrink();
+                            final date = DateTime.fromMillisecondsSinceEpoch(lastSync);
+                            final formatted = '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              child: Text(
+                                'Last sync: $formatted',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
 
                   // Auto Backup Section (independent of Google Drive)
                   _SettingsSection(

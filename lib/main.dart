@@ -11,6 +11,7 @@ import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/backup_service.dart';
+import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 
@@ -21,8 +22,9 @@ void callbackDispatcher() {
       final prefs = await SharedPreferences.getInstance();
       final persistence = PersistenceService(prefs);
       final db = AppDatabase();
-      final driveService = GoogleDriveService();
-      final backupService = BackupService(db, driveService);
+      final authService = GoogleAuthService();
+      final driveService = GoogleDriveService(authService);
+      final backupService = BackupService(db, driveService, authService);
       final notificationService = NotificationService();
       
       try {

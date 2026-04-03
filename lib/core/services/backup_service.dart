@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:budgetti/core/database/database.dart';
 
+import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,8 +11,9 @@ import 'package:share_plus/share_plus.dart';
 class BackupService {
   final AppDatabase _db;
   final GoogleDriveService _driveService;
+  final GoogleAuthService _authService;
 
-  BackupService(this._db, this._driveService);
+  BackupService(this._db, this._driveService, this._authService);
 
   Future<void> exportDatabase() async {
     final file = await _createBackupFile(isAutoBackup: false);
@@ -56,8 +58,8 @@ class BackupService {
 
       // 3. Attempt cloud backup if possible
       try {
-        await _driveService.signInSilently();
-        if (_driveService.currentUser != null) {
+        await _authService.signInSilently();
+        if (_authService.currentUser != null) {
           await _driveService.uploadBackup(file);
           print('Auto-backup uploaded to Google Drive.');
         } else {

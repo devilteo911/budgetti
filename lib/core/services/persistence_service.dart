@@ -85,6 +85,27 @@ class PersistenceService {
   Future<void> setOcrEngine(String engine) =>
       _prefs.setString(_ocrEngineKey, engine);
 
+  // Google Sheets Sync
+  static const _sheetsSpreadsheetIdKey = 'sheets_spreadsheet_id';
+  static const _sheetsSheetNameKey = 'sheets_sheet_name';
+  static const _sheetsLastSyncKey = 'sheets_last_sync_timestamp';
+  static const _defaultSpreadsheetId = '1K1ED_EIpNDsRtMPQz85Q7ZTyfIHsMUNgLqM5-dQgHSA';
+
+  String getSheetsSpreadsheetId() =>
+      _prefs.getString(_sheetsSpreadsheetIdKey) ?? _defaultSpreadsheetId;
+  Future<void> setSheetsSpreadsheetId(String id) =>
+      _prefs.setString(_sheetsSpreadsheetIdKey, id);
+
+  String getSheetsSheetName() =>
+      _prefs.getString(_sheetsSheetNameKey) ?? 'Spese';
+  Future<void> setSheetsSheetName(String name) =>
+      _prefs.setString(_sheetsSheetNameKey, name);
+
+  int getSheetsLastSyncTimestamp() =>
+      _prefs.getInt(_sheetsLastSyncKey) ?? 0;
+  Future<void> setSheetsLastSyncTimestamp(int timestamp) =>
+      _prefs.setInt(_sheetsLastSyncKey, timestamp);
+
   // Custom Backup Folder
   static const _customBackupPathKey = 'custom_backup_path';
 

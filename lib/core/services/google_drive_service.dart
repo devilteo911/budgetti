@@ -1,94 +1,19 @@
 import 'dart:io';
 
-import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
+import 'google_auth_service.dart';
+
 class GoogleDriveService {
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      drive.DriveApi.driveFileScope,
-      drive.DriveApi.driveAppdataScope,
-    ],
-    // Optional: Uncomment and add your web client ID if needed for backend auth
-    // serverClientId: 'YOUR-WEB-CLIENT-ID.apps.googleusercontent.com',
-  );
+  final GoogleAuthService _authService;
 
-  GoogleSignInAccount? _currentUser;
-
-  // Expose current user - synchronously returns the current state
-  GoogleSignInAccount? get currentUser => _currentUser;
-
-  // Stream that emits when user state changes
-  // NOTE: This stream from GoogleSignIn plugin may not emit immediately after signIn()
-  Stream<GoogleSignInAccount?> get onCurrentUserChanged =>
-      _googleSignIn.onCurrentUserChanged;
-
-  Future<void> signIn() async {
-    try {
-      final user = await _googleSignIn.signIn();
-      if (user == null) {
-        throw Exception('Sign-in was cancelled by user');
-      }
-
-      // CRITICAL: Update our local state immediately
-      _currentUser = user;
-      debugPrint('Successfully signed in: ${_currentUser!.email}');
-
-      // Note: The onCurrentUserChanged stream should also emit, but we update
-      // _currentUser immediately to ensure synchronous access via currentUser getter
-    } catch (e, s) {
-      debugPrint('Error signing in: $e\n$s');
-      _handleSignInError(e);
-      rethrow;
-    }
-  }
-
-  void _handleSignInError(Object error) {
-    final errorString = error.toString().toLowerCase();
-
-    if (errorString.contains('apiexception: 10') || errorString.contains('developer_error')) {
-      debugPrint('''
-      ========================================
-      GOOGLE SIGN-IN CONFIGURATION ERROR
-      ========================================
-      Error: API Exception 10 (DEVELOPER_ERROR)
-
-      This error means OAuth 2.0 is not properly configured.
-
-      Common causes:
-      1. Missing Android OAuth client ID with SHA-1 fingerprint
-      2. Missing iOS URL scheme in Info.plist
-      3. Incorrect package name or bundle ID
-      4. Google Drive API not enabled
-
-      Please follow the setup guide in GOOGLE_DRIVE_SETUP.md
-
-      Quick fixes:
-      - Android: Run ./get_sha1.sh to get your SHA-1 fingerprint
-      - iOS: Add URL scheme to Info.plist
-      - Verify Google Drive API is enabled in Cloud Console
-      ========================================
-      ''');
-    } else if (errorString.contains('network')) {
-      debugPrint('Network error during sign-in. Check internet connection.');
-    } else if (errorString.contains('SIGN_IN_CANCELLED')) {
-      debugPrint('Sign-in was cancelled by user.');
-    } else {
-      debugPrint('Unexpected error during sign-in: $errorString');
-    }
-  }
-
-  Future<void> signOut() async {
-    await _googleSignIn.signOut();
-    _currentUser = null;
-  }
+  GoogleDriveService(this._authService);
 
   // Get authenticated Drive API client
   Future<drive.DriveApi?> _getDriveApi() async {
     try {
-      final httpClient = await _googleSignIn.authenticatedClient();
+      final httpClient = await _authService.authenticatedClient();
       if (httpClient == null) {
         debugPrint('No authenticated HTTP client available');
         return null;
@@ -230,21 +155,6 @@ class GoogleDriveService {
     } catch (e, s) {
       debugPrint('Error downloading backup: $e\n$s');
       rethrow;
-    }
-  }
-
-  // Restore silent sign in
-  Future<void> signInSilently() async {
-    try {
-      debugPrint('Attempting silent sign-in');
-      _currentUser = await _googleSignIn.signInSilently();
-      if (_currentUser != null) {
-        debugPrint('Silent sign-in successful: ${_currentUser!.email}');
-      } else {
-        debugPrint('No previously signed-in user found');
-      }
-    } catch (e, s) {
-      debugPrint('Error signing in silently: $e\n$s');
     }
   }
 }

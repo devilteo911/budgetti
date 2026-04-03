@@ -14,7 +14,9 @@ import 'package:budgetti/core/services/persistence_service.dart';
 
 import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
+import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
+import 'package:budgetti/core/services/google_sheets_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,14 +35,25 @@ final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 
 
 
+final googleAuthServiceProvider = Provider<GoogleAuthService>((ref) {
+  return GoogleAuthService();
+});
+
 final googleDriveServiceProvider = Provider<GoogleDriveService>((ref) {
-  return GoogleDriveService();
+  final authService = ref.watch(googleAuthServiceProvider);
+  return GoogleDriveService(authService);
+});
+
+final googleSheetsServiceProvider = Provider<GoogleSheetsService>((ref) {
+  final authService = ref.watch(googleAuthServiceProvider);
+  return GoogleSheetsService(authService);
 });
 
 final backupServiceProvider = Provider<BackupService>((ref) {
   final db = ref.watch(databaseProvider);
   final driveService = ref.watch(googleDriveServiceProvider);
-  return BackupService(db, driveService);
+  final authService = ref.watch(googleAuthServiceProvider);
+  return BackupService(db, driveService, authService);
 });
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
