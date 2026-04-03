@@ -223,6 +223,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
         ref.invalidate(budgetsProvider);
       }
 
+      // Trigger sheets sync in background
+      performSheetsSync(ref);
+
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(

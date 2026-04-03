@@ -24,7 +24,7 @@ class GoogleSheetsService {
     }
   }
 
-  /// Read all raw rows from the given sheet (skipping header row 1).
+  /// Read all raw rows from the given sheet (A2:M to include hash column).
   Future<List<List<Object?>>> readRawRows(
     String spreadsheetId,
     String sheetName,
@@ -36,13 +36,13 @@ class GoogleSheetsService {
 
     final response = await sheetsApi.spreadsheets.values.get(
       spreadsheetId,
-      '$sheetName!A2:L',
+      '$sheetName!A2:M',
     );
 
     return (response.values ?? []).cast<List<Object?>>();
   }
 
-  /// Import transactions from the sheet, parsing rows and merging transfer pairs.
+  /// Import transactions from the sheet.
   Future<List<Transaction>> importTransactions({
     required String spreadsheetId,
     required String sheetName,
@@ -65,8 +65,8 @@ class GoogleSheetsService {
     return transactions;
   }
 
-  /// Export transactions to the sheet, appending new rows.
-  /// Returns the number of rows actually written (after duplicate filtering).
+  /// Export transactions to the sheet, appending only new rows.
+  /// Dedup uses the hash in column M.
   Future<int> exportTransactions({
     required String spreadsheetId,
     required String sheetName,
@@ -78,18 +78,23 @@ class GoogleSheetsService {
       throw Exception('Not signed in to Google. Please sign in first.');
     }
 
-    // Get existing row hashes for duplicate detection
-    final existingHashes = await getExistingRowHashes(spreadsheetId, sheetName);
-    debugPrint('Found ${existingHashes.length} existing rows for dedup');
+    // Collect existing hashes from column M
+    final existingHashes = await _getExistingHashes(spreadsheetId, sheetName);
+    debugPrint('Found ${existingHashes.length} existing hashes for dedup');
 
-    // Convert transactions to sheet rows, filtering duplicates
+    // Sort transactions by date ASC
+    final sorted = List<Transaction>.from(transactions)
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    // Convert and filter duplicates
     final newRows = <List<Object>>[];
-    for (final tx in transactions) {
+    for (final tx in sorted) {
       final rows = SheetsRowMapper.transactionToSheetRows(tx, accountIdToName);
       for (final row in rows) {
-        final hash = '${row[0]}|${row[1]}|${row[2]}|${row[6]}';
+        final hash = row.last.toString(); // hash is the last element (col M)
         if (!existingHashes.contains(hash)) {
           newRows.add(row);
+          existingHashes.add(hash); // prevent intra-batch duplicates
         }
       }
     }
@@ -99,25 +104,50 @@ class GoogleSheetsService {
       return 0;
     }
 
-    debugPrint('Appending ${newRows.length} new rows to sheet');
+    // Find the first empty row by scanning column A
+    final firstEmptyRow = await _findFirstEmptyRow(sheetsApi, spreadsheetId, sheetName);
+    debugPrint('Writing ${newRows.length} rows starting at row $firstEmptyRow');
 
-    final valueRange = sheets.ValueRange(
-      values: newRows,
-    );
+    final range = '$sheetName!A$firstEmptyRow:M${firstEmptyRow + newRows.length - 1}';
+    final valueRange = sheets.ValueRange(values: newRows);
 
-    await sheetsApi.spreadsheets.values.append(
+    await sheetsApi.spreadsheets.values.update(
       valueRange,
       spreadsheetId,
-      '$sheetName!A:G',
+      range,
       valueInputOption: 'USER_ENTERED',
     );
 
-    debugPrint('Export completed: ${newRows.length} rows written');
+    debugPrint('Export completed: ${newRows.length} rows at $range');
     return newRows.length;
   }
 
-  /// Get hashes of existing rows for duplicate detection.
-  Future<Set<String>> getExistingRowHashes(
+  /// Find the first empty row by looking at column A (date column).
+  /// Skips header row 1, returns the row number to write at.
+  Future<int> _findFirstEmptyRow(
+    sheets.SheetsApi sheetsApi,
+    String spreadsheetId,
+    String sheetName,
+  ) async {
+    final response = await sheetsApi.spreadsheets.values.get(
+      spreadsheetId,
+      '$sheetName!A:A',
+    );
+
+    final rows = response.values ?? [];
+    // Find last row with data in column A, then write after it
+    int lastDataRow = 1; // at minimum, row 1 is the header
+    for (var i = 0; i < rows.length; i++) {
+      final cell = rows[i].isNotEmpty ? rows[i][0].toString().trim() : '';
+      if (cell.isNotEmpty) {
+        lastDataRow = i + 1; // 1-indexed
+      }
+    }
+    return lastDataRow + 1;
+  }
+
+  /// Read existing hashes from column M.
+  Future<Set<String>> _getExistingHashes(
     String spreadsheetId,
     String sheetName,
   ) async {
@@ -125,13 +155,14 @@ class GoogleSheetsService {
       final rows = await readRawRows(spreadsheetId, sheetName);
       final hashes = <String>{};
       for (final row in rows) {
-        if (SheetsRowMapper.isDataRow(row) && !SheetsRowMapper.isMonthSummaryRow(row)) {
-          hashes.add(SheetsRowMapper.rowHash(row));
+        final hash = SheetsRowMapper.extractRowHash(row);
+        if (hash != null) {
+          hashes.add(hash);
         }
       }
       return hashes;
     } catch (e) {
-      debugPrint('Error reading existing rows for dedup: $e');
+      debugPrint('Error reading existing hashes: $e');
       return {};
     }
   }

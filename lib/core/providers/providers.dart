@@ -17,6 +17,7 @@ import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/google_sheets_service.dart';
+import 'package:budgetti/core/services/sheets_sync_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,6 +49,42 @@ final googleSheetsServiceProvider = Provider<GoogleSheetsService>((ref) {
   final authService = ref.watch(googleAuthServiceProvider);
   return GoogleSheetsService(authService);
 });
+
+final sheetsSyncServiceProvider = Provider<SheetsSyncService>((ref) {
+  final sheetsService = ref.watch(googleSheetsServiceProvider);
+  final authService = ref.watch(googleAuthServiceProvider);
+  final persistence = ref.watch(persistenceServiceProvider);
+  return SheetsSyncService(sheetsService, authService, persistence);
+});
+
+/// Perform a full bidirectional sync with Google Sheets.
+/// Safe to call from anywhere — no-ops if not signed in or already syncing.
+Future<SyncResult> performSheetsSync(WidgetRef ref) async {
+  final syncService = ref.read(sheetsSyncServiceProvider);
+  final financeService = ref.read(financeServiceProvider);
+
+  final accounts = await ref.read(accountsProvider.future);
+  final accountNameToId = <String, String>{};
+  final accountIdToName = <String, String>{};
+  for (final a in accounts) {
+    accountNameToId[a.name] = a.id;
+    accountIdToName[a.id] = a.name;
+  }
+
+  final appTransactions = await financeService.getTransactions();
+
+  return syncService.sync(
+    appTransactions: appTransactions,
+    accountNameToId: accountNameToId,
+    accountIdToName: accountIdToName,
+    onDeleteFromApp: (ids) => financeService.deleteTransactions(ids),
+    onImportToApp: (txs) async {
+      for (final tx in txs) {
+        await financeService.addTransaction(tx);
+      }
+    },
+  );
+}
 
 final backupServiceProvider = Provider<BackupService>((ref) {
   final db = ref.watch(databaseProvider);

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:uuid/uuid.dart';
 
@@ -16,6 +18,27 @@ class SheetsRowMapper {
     'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
     'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
   };
+
+  /// Compute a deterministic hash from date, description, and amount.
+  /// This is the single source of truth for dedup across all entry points.
+  static String computeHash(DateTime date, String description, double amount) {
+    final normalized = '${date.year}-${date.month}-${date.day}'
+        '|${description.trim().toLowerCase()}'
+        '|${amount.toStringAsFixed(2)}';
+    return md5.convert(utf8.encode(normalized)).toString().substring(0, 12);
+  }
+
+  /// Compute hash from a Transaction.
+  static String transactionHash(Transaction tx) {
+    return computeHash(tx.date, tx.description, tx.amount);
+  }
+
+  /// Extract hash from a sheet row (column M = index 12).
+  static String? extractRowHash(List<Object?> row) {
+    if (row.length < 13) return null;
+    final h = (row[12] ?? '').toString().trim();
+    return h.isEmpty ? null : h;
+  }
 
   /// Parse Italian date format "1-gen" into DateTime using the given year.
   static DateTime? parseItalianDate(String raw, int year) {
@@ -38,13 +61,9 @@ class SheetsRowMapper {
   /// Parse Italian currency format " € -100,00 " into double.
   static double? parseItalianAmount(String raw) {
     var cleaned = raw.trim();
-    // Remove euro sign and surrounding spaces
     cleaned = cleaned.replaceAll('€', '').trim();
-    // Remove thousands separator (dots)
     cleaned = cleaned.replaceAll('.', '');
-    // Replace decimal comma with dot
     cleaned = cleaned.replaceAll(',', '.');
-    // Remove any remaining spaces
     cleaned = cleaned.replaceAll(' ', '');
     return double.tryParse(cleaned);
   }
@@ -56,7 +75,6 @@ class SheetsRowMapper {
     final intPart = abs.truncate();
     final decPart = ((abs - intPart) * 100).round().toString().padLeft(2, '0');
 
-    // Format with thousands separator
     final intStr = intPart.toString();
     final buffer = StringBuffer();
     for (var i = 0; i < intStr.length; i++) {
@@ -92,23 +110,6 @@ class SheetsRowMapper {
     return colD.isEmpty;
   }
 
-  /// Generate a hash key for duplicate detection.
-  static String rowHash(List<Object?> row) {
-    final date = (row[0] ?? '').toString().trim();
-    final desc = (row[1] ?? '').toString().trim();
-    final amount = (row[2] ?? '').toString().trim();
-    final account = row.length > 6 ? (row[6] ?? '').toString().trim() : '';
-    return '$date|$desc|$amount|$account';
-  }
-
-  /// Generate a hash key from a Transaction for duplicate detection.
-  static String transactionHash(Transaction tx, Map<String, String> accountIdToName) {
-    final date = formatItalianDate(tx.date);
-    final accountName = accountIdToName[tx.accountId] ?? '';
-    final amount = formatItalianAmount(tx.amount);
-    return '$date|${tx.description}|$amount|$accountName';
-  }
-
   /// Parse a single sheet row into a Transaction.
   static Transaction? sheetRowToTransaction(
     List<Object?> row,
@@ -126,6 +127,7 @@ class SheetsRowMapper {
 
     final transizione = row.length > 3 ? (row[3] ?? '').toString().trim().toLowerCase() : '';
     final categoria = row.length > 4 ? (row[4] ?? '').toString().trim() : '';
+    final metaCategoria = row.length > 5 ? (row[5] ?? '').toString().trim() : '';
     final conti = row.length > 6 ? (row[6] ?? '').toString().trim() : '';
 
     String type;
@@ -134,11 +136,15 @@ class SheetsRowMapper {
     } else if (transizione == 'credit') {
       type = 'income';
     } else {
-      // Empty transizione = part of a transfer (handled separately)
       type = 'transfer';
     }
 
     final accountId = accountNameToId[conti] ?? '1';
+
+    // Meta Categoria (col F) maps to tags
+    final tags = metaCategoria.isNotEmpty
+        ? metaCategoria.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()
+        : <String>[];
 
     return Transaction(
       id: const Uuid().v4(),
@@ -148,11 +154,11 @@ class SheetsRowMapper {
       description: description,
       category: categoria,
       type: type,
+      tags: tags,
     );
   }
 
   /// Merge two transfer rows into a single transfer Transaction.
-  /// The row with negative amount is the source, positive is the destination.
   static Transaction? mergeTransferPair(
     Transaction source,
     Transaction destination,
@@ -172,7 +178,7 @@ class SheetsRowMapper {
       id: const Uuid().v4(),
       accountId: from.accountId,
       toAccountId: to.accountId,
-      amount: to.amount.abs(), // Transfer amount is positive
+      amount: to.amount.abs(),
       date: from.date,
       description: from.description.isNotEmpty ? from.description : to.description,
       category: from.category.isNotEmpty ? from.category : to.category,
@@ -192,14 +198,12 @@ class SheetsRowMapper {
     while (i < rows.length) {
       final row = rows[i];
 
-      // Skip summary and empty rows
       if (isMonthSummaryRow(row) || !isDataRow(row)) {
         i++;
         continue;
       }
 
       if (isTransferRow(row)) {
-        // Look for the next transfer row to form a pair
         final tx1 = sheetRowToTransaction(row, accountNameToId, year);
         Transaction? tx2;
 
@@ -207,7 +211,6 @@ class SheetsRowMapper {
           tx2 = sheetRowToTransaction(rows[i + 1], accountNameToId, year);
           i += 2;
         } else {
-          // Orphan transfer row — import as-is
           if (tx1 != null) transactions.add(tx1);
           i++;
           continue;
@@ -227,29 +230,44 @@ class SheetsRowMapper {
     return transactions;
   }
 
-  /// Convert a Transaction to sheet row(s).
-  /// Returns 1 row for income/expense, 2 rows for transfers.
+  /// Title case a string: "hello world" → "Hello World".
+  static String _titleCase(String s) {
+    if (s.isEmpty) return s;
+    return s.split(' ').map((w) {
+      if (w.isEmpty) return w;
+      return w[0].toUpperCase() + w.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
+  /// Convert a Transaction to sheet row(s) with hash in column M.
+  /// Columns: A-G = data, H-L = empty (formulas/notes), M = hash (hidden).
   static List<List<Object>> transactionToSheetRows(
     Transaction tx,
     Map<String, String> accountIdToName,
   ) {
     final dateStr = formatItalianDate(tx.date);
+    final desc = _titleCase(tx.description);
     final accountName = accountIdToName[tx.accountId] ?? '';
+    final tagsStr = tx.tags.join(', '); // Meta Categoria = tags
 
     if (tx.type == 'transfer') {
       final toAccountName = accountIdToName[tx.toAccountId ?? ''] ?? '';
       final amount = tx.amount.abs();
+
+      final hash1 = computeHash(tx.date, tx.description, -amount);
+      final hash2 = computeHash(tx.date, tx.description, amount);
+
       return [
-        // Source account: negative amount, no transizione
-        [dateStr, tx.description, formatItalianAmount(-amount), '', tx.category, '', accountName],
-        // Destination account: positive amount, no transizione
-        [dateStr, tx.description, formatItalianAmount(amount), '', tx.category, '', toAccountName],
+        [dateStr, desc, formatItalianAmount(-amount), '', tx.category, tagsStr, accountName, '', '', '', '', '', hash1],
+        [dateStr, desc, formatItalianAmount(amount), '', tx.category, tagsStr, toAccountName, '', '', '', '', '', hash2],
       ];
     }
 
     final transizione = tx.type == 'expense' ? 'debit' : 'credit';
+    final hash = computeHash(tx.date, tx.description, tx.amount);
+
     return [
-      [dateStr, tx.description, formatItalianAmount(tx.amount), transizione, tx.category, '', accountName],
+      [dateStr, desc, formatItalianAmount(tx.amount), transizione, tx.category, tagsStr, accountName, '', '', '', '', '', hash],
     ];
   }
 }

@@ -7,6 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+String _titleCase(String s) {
+  if (s.isEmpty) return s;
+  return s.split(' ').map((w) {
+    if (w.isEmpty) return w;
+    return w[0].toUpperCase() + w.substring(1).toLowerCase();
+  }).join(' ');
+}
+
 class ImportTransactionsScreen extends ConsumerStatefulWidget {
   final List<Transaction> transactions;
 
@@ -214,7 +222,7 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
                           size: 16,
                         ),
                       ),
-                      title: Text(t.description, style: const TextStyle(color: Colors.white)),
+                      title: Text(_titleCase(t.description), style: const TextStyle(color: Colors.white)),
                       subtitle: Text(DateFormat.yMMMd().format(t.date), style: const TextStyle(color: AppTheme.textGrey)),
                       trailing: Text(
                         currencyFormatter.format(t.amount),

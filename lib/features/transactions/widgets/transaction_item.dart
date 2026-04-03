@@ -5,6 +5,14 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 
+String _titleCase(String s) {
+  if (s.isEmpty) return s;
+  return s.split(' ').map((w) {
+    if (w.isEmpty) return w;
+    return w[0].toUpperCase() + w.substring(1).toLowerCase();
+  }).join(' ');
+}
+
 class TransactionItem extends ConsumerWidget {
   final Transaction transaction;
   final bool isSelected;
@@ -156,7 +164,7 @@ class TransactionItem extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          transaction.description,
+                          _titleCase(transaction.description),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(

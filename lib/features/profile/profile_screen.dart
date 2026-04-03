@@ -245,112 +245,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  Future<void> _importFromSheets() async {
+  Future<void> _syncSheets() async {
     setState(() => _isLoading = true);
     try {
-      final sheetsService = ref.read(googleSheetsServiceProvider);
-      final persistence = ref.read(persistenceServiceProvider);
-      final spreadsheetId = persistence.getSheetsSpreadsheetId();
-      final sheetName = persistence.getSheetsSheetName();
-
-      // Build account name → id map
-      final accounts = await ref.read(accountsProvider.future);
-      final accountNameToId = <String, String>{};
-      for (final account in accounts) {
-        accountNameToId[account.name] = account.id;
-      }
-
-      final transactions = await sheetsService.importTransactions(
-        spreadsheetId: spreadsheetId,
-        sheetName: sheetName,
-        accountNameToId: accountNameToId,
-      );
-
-      if (!mounted) return;
-
-      if (transactions.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No transactions found in sheet')),
-        );
-        return;
-      }
-
-      // Navigate to import review screen
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ImportTransactionsScreen(
-            transactions: transactions,
-          ),
-        ),
-      );
-
-      // Update last sync timestamp
-      await persistence.setSheetsLastSyncTimestamp(
-        DateTime.now().millisecondsSinceEpoch,
-      );
-    } catch (e, s) {
-      debugPrint('Sheets import error: $e\n$s');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Import failed: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 8),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _exportToSheets() async {
-    setState(() => _isLoading = true);
-    try {
-      final sheetsService = ref.read(googleSheetsServiceProvider);
-      final persistence = ref.read(persistenceServiceProvider);
-      final spreadsheetId = persistence.getSheetsSpreadsheetId();
-      final sheetName = persistence.getSheetsSheetName();
-
-      // Build account id → name map
-      final accounts = await ref.read(accountsProvider.future);
-      final accountIdToName = <String, String>{};
-      for (final account in accounts) {
-        accountIdToName[account.id] = account.name;
-      }
-
-      // Get all transactions from the app
-      final financeService = ref.read(financeServiceProvider);
-      final allTransactions = await financeService.getTransactions();
-
-      final rowsWritten = await sheetsService.exportTransactions(
-        spreadsheetId: spreadsheetId,
-        sheetName: sheetName,
-        transactions: allTransactions,
-        accountIdToName: accountIdToName,
-      );
-
-      // Update last sync timestamp
-      await persistence.setSheetsLastSyncTimestamp(
-        DateTime.now().millisecondsSinceEpoch,
-      );
+      final result = await performSheetsSync(ref);
 
       if (mounted) {
+        // Refresh UI data after sync
+        ref.invalidate(accountsProvider);
+        ref.invalidate(paginatedTransactionsProvider);
+        ref.invalidate(transactionsProvider(null));
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(rowsWritten > 0
-                ? 'Exported $rowsWritten rows to Google Sheets'
-                : 'All transactions already in sheet'),
+            content: Text(result.toString()),
             backgroundColor: AppTheme.primaryGreen,
           ),
         );
+        setState(() {}); // refresh last sync timestamp
       }
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('Sheets sync error: $e\n$s');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Export failed: $e'),
+            content: Text('Sync failed: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
           ),
         );
       }
@@ -1090,27 +1011,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           iconColor: Colors.green,
                           onTap: () => _showSheetsConfigDialog(),
                         ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _SettingsTile(
-                                title: "Import",
-                                subtitle: "From sheet",
-                                icon: Icons.download_rounded,
-                                iconColor: Colors.blue,
-                                onTap: _isLoading ? null : _importFromSheets,
-                              ),
-                            ),
-                            Expanded(
-                              child: _SettingsTile(
-                                title: "Export",
-                                subtitle: "To sheet",
-                                icon: Icons.upload_rounded,
-                                iconColor: Colors.orange,
-                                onTap: _isLoading ? null : _exportToSheets,
-                              ),
-                            ),
-                          ],
+                        _SettingsTile(
+                          title: "Sync Now",
+                          subtitle: "Bidirectional sync",
+                          icon: Icons.sync_rounded,
+                          iconColor: AppTheme.primaryGreen,
+                          onTap: _isLoading ? null : _syncSheets,
                         ),
                         Builder(
                           builder: (context) {

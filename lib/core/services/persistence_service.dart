@@ -106,6 +106,13 @@ class PersistenceService {
   Future<void> setSheetsLastSyncTimestamp(int timestamp) =>
       _prefs.setInt(_sheetsLastSyncKey, timestamp);
 
+  // Last sync hashes for 3-way sync
+  static const _lastSyncHashesKey = 'sheets_last_sync_hashes';
+
+  String? getLastSyncHashesJson() => _prefs.getString(_lastSyncHashesKey);
+  Future<void> setLastSyncHashesJson(String json) =>
+      _prefs.setString(_lastSyncHashesKey, json);
+
   // Custom Backup Folder
   static const _customBackupPathKey = 'custom_backup_path';
 

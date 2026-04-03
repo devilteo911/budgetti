@@ -229,6 +229,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   await Future.wait([
                     notifier.refresh(),
                     ref.read(accountsProvider.future),
+                    performSheetsSync(ref),
                   ]);
                 },
                 color: AppTheme.primaryGreen,

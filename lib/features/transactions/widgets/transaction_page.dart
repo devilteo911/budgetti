@@ -7,6 +7,14 @@ import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:budgetti/features/transactions/widgets/wallet_selector_chip.dart';
 
+String _titleCase(String s) {
+  if (s.isEmpty) return s;
+  return s.split(' ').map((w) {
+    if (w.isEmpty) return w;
+    return w[0].toUpperCase() + w.substring(1).toLowerCase();
+  }).join(' ');
+}
+
 class TransactionPage extends ConsumerStatefulWidget {
   final Transaction transaction;
   final Function(Transaction) onTransactionUpdated;
@@ -113,7 +121,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            t.description,
+                            _titleCase(t.description),
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
