@@ -12,6 +12,7 @@ import 'package:budgetti/features/budget/budget_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:budgetti/core/providers/providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -28,6 +29,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/bank-callback',
+        builder: (context, state) {
+          return const _BankCallbackScreen();
+        },
       ),
       // ShellRoute for Bottom Navigation
       StatefulShellRoute(
@@ -91,6 +98,77 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: GoRouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
   );
 });
+
+class _BankCallbackScreen extends ConsumerStatefulWidget {
+  const _BankCallbackScreen();
+
+  @override
+  ConsumerState<_BankCallbackScreen> createState() => _BankCallbackScreenState();
+}
+
+class _BankCallbackScreenState extends ConsumerState<_BankCallbackScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _completeConnection();
+  }
+
+  Future<void> _completeConnection() async {
+    try {
+      final persistence = ref.read(persistenceServiceProvider);
+      final ebService = ref.read(enableBankingServiceProvider);
+
+      final sessionId = persistence.getEbSessionId();
+      if (sessionId == null) {
+        if (mounted) context.go('/profile');
+        return;
+      }
+
+      // Poll session until linked
+      final session = await ebService.getSession(sessionId);
+      final accounts = session['accounts'] as List? ?? [];
+
+      if (accounts.isNotEmpty) {
+        final accountIds = accounts.map((a) => a['id'].toString()).toList();
+        await persistence.setEbAccountIds(accountIds);
+        await persistence.setEbIsLinked(true);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bank connected successfully!'),
+            backgroundColor: Color(0xFF63E6BE),
+          ),
+        );
+        context.go('/profile');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connection error: $e'), backgroundColor: Colors.red),
+        );
+        context.go('/profile');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF63E6BE)),
+            SizedBox(height: 24),
+            Text('Connecting to your bank...', style: TextStyle(color: Colors.white, fontSize: 18)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<AuthState> stream) {

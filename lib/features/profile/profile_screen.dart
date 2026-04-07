@@ -17,6 +17,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -27,6 +28,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoading = false;
+  bool _isBankSyncing = false;
   bool _permissionMissing = false;
   GoogleSignInAccount? _googleUser;
   StreamSubscription<GoogleSignInAccount?>? _googleUserSubscription;
@@ -242,6 +244,102 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() {
         _googleUser = null;
       });
+    }
+  }
+
+  Future<void> _connectBank() async {
+    setState(() => _isLoading = true);
+    try {
+      final ebService = ref.read(enableBankingServiceProvider);
+      final persistence = ref.read(persistenceServiceProvider);
+
+      // Create session for Widiba
+      final session = await ebService.createSession(
+        bankName: 'Banca Widiba',
+        country: 'IT',
+      );
+
+      final sessionId = session['session_id'] as String?;
+      final authUrl = session['url'] as String?;
+
+      if (sessionId == null || authUrl == null) {
+        throw Exception('Invalid session response');
+      }
+
+      await persistence.setEbSessionId(sessionId);
+      await persistence.setEbBankName('Widiba');
+
+      // Open bank auth in browser
+      if (mounted) {
+        final uri = Uri.parse(authUrl);
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connection failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _syncBank() async {
+    setState(() => _isBankSyncing = true);
+    try {
+      final imported = await performBankSync(ref);
+
+      if (mounted) {
+        ref.invalidate(accountsProvider);
+        ref.invalidate(paginatedTransactionsProvider);
+        ref.invalidate(transactionsProvider(null));
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(imported > 0 ? '$imported transactions imported' : 'Already up to date'),
+            backgroundColor: AppTheme.primaryGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bank sync failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isBankSyncing = false);
+    }
+  }
+
+  Future<void> _disconnectBank() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.surfaceGrey,
+        title: const Text('Disconnect Bank?'),
+        content: const Text(
+          'This will remove the bank connection. Your imported transactions will not be deleted.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Disconnect', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final persistence = ref.read(persistenceServiceProvider);
+      await persistence.setEbIsLinked(false);
+      await persistence.setEbSessionId(null);
+      await persistence.setEbAccountIds([]);
+      await persistence.setEbBankName(null);
+      if (mounted) setState(() {});
     }
   }
 
@@ -1038,6 +1136,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ],
                     ),
+
+                  // Bank Connection Section
+                  _SettingsSection(
+                    title: "Bank Connection",
+                    children: [
+                      if (!ref.read(persistenceServiceProvider).getEbIsLinked()) ...[
+                        _SettingsTile(
+                          title: "Connect Bank",
+                          subtitle: "Auto-import transactions from your bank",
+                          icon: Icons.account_balance_rounded,
+                          iconColor: Colors.blue,
+                          onTap: _isLoading ? null : _connectBank,
+                        ),
+                      ] else ...[
+                        _SettingsTile(
+                          title: ref.read(persistenceServiceProvider).getEbBankName() ?? 'Bank',
+                          subtitle: "Connected",
+                          icon: Icons.account_balance_rounded,
+                          iconColor: AppTheme.primaryGreen,
+                          trailing: IconButton(
+                            onPressed: _disconnectBank,
+                            icon: const Icon(Icons.link_off, color: Colors.red),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                        _SettingsTile(
+                          title: "Sync Transactions",
+                          subtitle: _isBankSyncing ? "Syncing..." : "Fetch latest from bank",
+                          icon: Icons.sync_rounded,
+                          iconColor: AppTheme.primaryGreen,
+                          onTap: (_isLoading || _isBankSyncing) ? null : _syncBank,
+                        ),
+                        Builder(
+                          builder: (context) {
+                            final lastSync = ref.read(persistenceServiceProvider).getEbLastSyncTimestamp();
+                            if (lastSync == 0) return const SizedBox.shrink();
+                            final date = DateTime.fromMillisecondsSinceEpoch(lastSync);
+                            final formatted = '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              child: Text(
+                                'Last sync: $formatted',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
 
                   // Auto Backup Section (independent of Google Drive)
                   _SettingsSection(

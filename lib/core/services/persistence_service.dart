@@ -125,5 +125,49 @@ class PersistenceService {
       await _prefs.setString(_customBackupPathKey, path);
     }
   }
+
+  // EnableBanking Integration
+  static const _ebIsLinkedKey = 'eb_is_linked';
+  static const _ebSessionIdKey = 'eb_session_id';
+  static const _ebAccountIdsKey = 'eb_account_ids';
+  static const _ebBankNameKey = 'eb_bank_name';
+  static const _ebLastSyncKey = 'eb_last_sync_timestamp';
+  static const _ebKnownTxIdsKey = 'eb_known_transaction_ids';
+
+  bool getEbIsLinked() => _prefs.getBool(_ebIsLinkedKey) ?? false;
+  Future<void> setEbIsLinked(bool linked) =>
+      _prefs.setBool(_ebIsLinkedKey, linked);
+
+  String? getEbSessionId() => _prefs.getString(_ebSessionIdKey);
+  Future<void> setEbSessionId(String? id) async {
+    if (id == null) {
+      await _prefs.remove(_ebSessionIdKey);
+    } else {
+      await _prefs.setString(_ebSessionIdKey, id);
+    }
+  }
+
+  List<String> getEbAccountIds() =>
+      _prefs.getStringList(_ebAccountIdsKey) ?? [];
+  Future<void> setEbAccountIds(List<String> ids) =>
+      _prefs.setStringList(_ebAccountIdsKey, ids);
+
+  String? getEbBankName() => _prefs.getString(_ebBankNameKey);
+  Future<void> setEbBankName(String? name) async {
+    if (name == null) {
+      await _prefs.remove(_ebBankNameKey);
+    } else {
+      await _prefs.setString(_ebBankNameKey, name);
+    }
+  }
+
+  int getEbLastSyncTimestamp() => _prefs.getInt(_ebLastSyncKey) ?? 0;
+  Future<void> setEbLastSyncTimestamp(int timestamp) =>
+      _prefs.setInt(_ebLastSyncKey, timestamp);
+
+  Set<String> getEbKnownTransactionIds() =>
+      (_prefs.getStringList(_ebKnownTxIdsKey) ?? []).toSet();
+  Future<void> setEbKnownTransactionIds(Set<String> ids) =>
+      _prefs.setStringList(_ebKnownTxIdsKey, ids.toList());
 }
 

@@ -58,7 +58,17 @@
 					<string>com.googleusercontent.apps.REPLACE-WITH-YOUR-CLIENT-ID</string>
 				</array>
 			</dict>
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>budgetti</string>
+				</array>
+				<key>CFBundleURLName</key>
+				<string>com.budgetti.app</string>
+			</dict>
 		</array>
+		<key>FlutterDeepLinkingEnabled</key>
+		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
 	</dict>
