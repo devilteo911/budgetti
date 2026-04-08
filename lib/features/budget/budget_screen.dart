@@ -22,6 +22,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
 
   void _showSetBudgetDialog(String categoryName, double currentLimit) {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: AppTheme.surfaceGrey,
@@ -50,7 +51,6 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
     final currencyFormatter = ref.watch(currencyProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundBlack,
       appBar: AppBar(
         title: Text(
           "Monthly Budgets",
@@ -376,7 +376,8 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: utilization,
-              backgroundColor: AppTheme.backgroundBlack,
+              backgroundColor:
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
               color: statusColor,
               minHeight: 10,
             ),

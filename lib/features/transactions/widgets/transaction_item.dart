@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 
 String _titleCase(String s) {
@@ -31,59 +30,39 @@ class TransactionItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final isIncome = transaction.amount > 0;
     final formatter = ref.watch(currencyProvider);
     final categoryMap = ref.watch(categoryMapProvider);
+    final transferColor = scheme.secondary;
 
     final category = categoryMap[transaction.category];
-    final categoryColor = category != null
-        ? Color(category.colorHex)
-        : AppTheme.primaryGreen;
+    final categoryColor =
+        category != null ? Color(category.colorHex) : scheme.primary;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onLongPress: onLongPress,
             onTap: onTap,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    isSelected
-                        ? AppTheme.primaryGreen.withOpacity(0.15)
-                        : AppTheme.surfaceGrey.withOpacity(0.8),
-                    isSelected
-                        ? AppTheme.primaryGreen.withOpacity(0.05)
-                        : AppTheme.surfaceGrey.withOpacity(0.4),
-                  ],
-                ),
-                border: Border.all(
-                  color: isSelected
-                      ? AppTheme.primaryGreen
-                      : categoryColor.withOpacity(0.15),
-                  width: isSelected ? 2 : 1,
-                ),
+                color: isSelected
+                    ? scheme.primary.withValues(alpha: 0.12)
+                    : scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(20),
+                border: isSelected
+                    ? Border.all(color: scheme.primary, width: 2)
+                    : null,
               ),
               child: Row(
                 children: [
-                  // Inline Date Indicator
                   SizedBox(
                     width: 42,
                     child: showDate
@@ -92,18 +71,18 @@ class TransactionItem extends ConsumerWidget {
                             children: [
                               Text(
                                 DateFormat('dd').format(transaction.date),
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: scheme.onSurface,
                                   fontSize: 18,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                               Text(
-                                DateFormat(
-                                  'EEE',
-                                ).format(transaction.date).toUpperCase(),
+                                DateFormat('EEE')
+                                    .format(transaction.date)
+                                    .toUpperCase(),
                                 style: TextStyle(
-                                  color: AppTheme.textGrey.withOpacity(0.6),
+                                  color: scheme.onSurfaceVariant,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
@@ -114,48 +93,38 @@ class TransactionItem extends ConsumerWidget {
                         : const SizedBox.shrink(),
                   ),
                   const SizedBox(width: 8),
-                  // Icon Container with glass effect
                   Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          categoryColor.withOpacity(0.2),
-                          categoryColor.withOpacity(0.05),
-                        ],
-                      ),
+                      color: categoryColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: categoryColor.withOpacity(0.3),
-                        width: 1,
-                      ),
                     ),
                     child: Center(
                       child: isSelected
-                          ? const Icon(
+                          ? Icon(
                               Icons.check,
-                              color: AppTheme.primaryGreen,
+                              color: scheme.primary,
                               size: 20,
                             )
                           : transaction.type == 'transfer'
-                          ? const Icon(
-                              Icons.swap_horiz,
-                              color: Colors.blue,
-                              size: 20,
-                            )
-                          : Icon(
-                              category != null
-                                  ? IconData(
-                                      category.iconCode,
-                                      fontFamily: 'MaterialIcons',
-                                    )
-                                  : (isIncome
-                                        ? Icons.arrow_downward
-                                        : Icons.shopping_bag_outlined),
-                              color: categoryColor,
-                              size: 20,
-                            ),
+                              ? Icon(
+                                  Icons.swap_horiz,
+                                  color: transferColor,
+                                  size: 20,
+                                )
+                              : Icon(
+                                  category != null
+                                      ? IconData(
+                                          category.iconCode,
+                                          fontFamily: 'MaterialIcons',
+                                        )
+                                      : (isIncome
+                                          ? Icons.arrow_downward
+                                          : Icons.shopping_bag_outlined),
+                                  color: categoryColor,
+                                  size: 20,
+                                ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -167,11 +136,11 @@ class TransactionItem extends ConsumerWidget {
                           _titleCase(transaction.description),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            fontSize: 16,
-                            letterSpacing: 0.2,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurface,
+                            fontSize: 15,
+                            letterSpacing: 0.1,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -179,8 +148,8 @@ class TransactionItem extends ConsumerWidget {
                           children: [
                             Text(
                               transaction.category,
-                              style: const TextStyle(
-                                color: AppTheme.textGrey,
+                              style: TextStyle(
+                                color: scheme.onSurfaceVariant,
                                 fontSize: 13,
                               ),
                             ),
@@ -192,8 +161,8 @@ class TransactionItem extends ConsumerWidget {
                                 child: Container(
                                   width: 3,
                                   height: 3,
-                                  decoration: const BoxDecoration(
-                                    color: AppTheme.textGrey,
+                                  decoration: BoxDecoration(
+                                    color: scheme.onSurfaceVariant,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -204,7 +173,8 @@ class TransactionItem extends ConsumerWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: AppTheme.textGrey.withOpacity(0.7),
+                                    color: scheme.onSurfaceVariant
+                                        .withValues(alpha: 0.7),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -223,24 +193,24 @@ class TransactionItem extends ConsumerWidget {
                         transaction.type == 'transfer'
                             ? formatter.format(transaction.amount.abs())
                             : isIncome
-                            ? "+${formatter.format(transaction.amount)}"
-                            : formatter.format(transaction.amount),
+                                ? "+${formatter.format(transaction.amount)}"
+                                : formatter.format(transaction.amount),
                         style: TextStyle(
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           color: transaction.type == 'transfer'
-                              ? Colors.blue
+                              ? transferColor
                               : (isIncome
-                                    ? AppTheme.primaryGreen
-                                    : Colors.white),
+                                  ? scheme.primary
+                                  : scheme.onSurface),
                           fontSize: 16,
-                          letterSpacing: 0.5,
+                          letterSpacing: 0.3,
                         ),
                       ),
                       if (transaction.type == 'transfer')
-                        const Text(
+                        Text(
                           "TRANSFER",
                           style: TextStyle(
-                            color: Colors.blue,
+                            color: transferColor,
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1,

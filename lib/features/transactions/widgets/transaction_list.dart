@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:draggable_scrollbar/draggable_scrollbar.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/features/transactions/widgets/transaction_item.dart';
 import 'package:budgetti/features/transactions/transaction_detail_screen.dart';
@@ -37,16 +36,17 @@ class TransactionList extends ConsumerWidget {
 
     bool isSelectionMode = selectedIds.isNotEmpty;
 
+    final scheme = Theme.of(context).colorScheme;
     if (transactions.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.6,
-            child: const Center(
+            child: Center(
               child: Text(
                 "No transactions found",
-                style: TextStyle(color: AppTheme.textGrey),
+                style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             ),
           ),
@@ -56,7 +56,7 @@ class TransactionList extends ConsumerWidget {
 
     return DraggableScrollbar.semicircle(
       controller: scrollController,
-      backgroundColor: AppTheme.surfaceGrey,
+      backgroundColor: scheme.surfaceContainerHighest,
       labelTextBuilder: (double offset) {
         if (sortedDates.isEmpty) return const Text("");
 
@@ -147,30 +147,22 @@ class TransactionList extends ConsumerWidget {
   }
 
   Widget _buildDateHeader(BuildContext context, DateTime date) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.primaryGreen.withOpacity(0.2),
-                  AppTheme.primaryGreen.withOpacity(0.05),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppTheme.primaryGreen.withOpacity(0.3),
-                width: 1,
-              ),
+              color: scheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               _formatDateHeader(date),
-              style: const TextStyle(
-                color: AppTheme.primaryGreen,
-                fontWeight: FontWeight.w900,
+              style: TextStyle(
+                color: scheme.primary,
+                fontWeight: FontWeight.w800,
                 fontSize: 11,
                 letterSpacing: 1.5,
               ),
@@ -180,14 +172,7 @@ class TransactionList extends ConsumerWidget {
           Expanded(
             child: Container(
               height: 1,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.primaryGreen.withOpacity(0.3),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
+              color: scheme.outlineVariant.withValues(alpha: 0.4),
             ),
           ),
         ],

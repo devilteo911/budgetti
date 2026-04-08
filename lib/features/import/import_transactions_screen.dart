@@ -87,6 +87,7 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
 
   void _showWalletPicker(List<Account> accounts) {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
       shape: const RoundedRectangleBorder(

@@ -160,14 +160,10 @@ class SpendingLineChart extends ConsumerWidget {
                     dotData: const FlDotData(show: true),
                     belowBarData: BarAreaData(
                       show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppTheme.primaryGreen.withValues(alpha: 0.25),
-                          AppTheme.primaryGreen.withValues(alpha: 0.0),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.12),
                     ),
                   ),
                 ],

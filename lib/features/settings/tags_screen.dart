@@ -120,6 +120,7 @@ class TagsScreen extends ConsumerWidget {
 
   void _showTagEditor(BuildContext context, WidgetRef ref, Tag? tag) {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: AppTheme.surfaceGrey,

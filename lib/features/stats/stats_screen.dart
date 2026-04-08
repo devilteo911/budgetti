@@ -3,6 +3,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/features/stats/category_details_screen.dart';
+import 'package:budgetti/features/stats/widgets/stats_filter_bar.dart';
 import 'package:budgetti/features/charts/widgets/spending_line_chart.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +28,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final currencyFormatter = ref.watch(currencyProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundBlack,
       appBar: AppBar(
         title: Text(
           "Stats",
@@ -36,10 +36,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             color: AppTheme.textWhite,
           ),
         ),
-        actions: [
-          _buildViewToggle(period),
-          const SizedBox(width: 8),
-        ],
       ),
       body: statsAsync.when(
         loading: () => const Center(
@@ -57,24 +53,27 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           }
 
           final totalExpenses = stats.totalExpenses;
+          final scope = ref.watch(statsScopeProvider);
           final sortedCategoryEntries = stats.categoryTotals.entries.toList()
             ..sort((a, b) => b.value.compareTo(a.value));
 
           return CustomScrollView(
             slivers: [
-              // 0. Period Selector
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: _buildPeriodSelector(period),
-                ),
+              // 0. Filter chips (scope + view + period)
+              const SliverToBoxAdapter(
+                child: StatsFilterBar(),
               ),
 
               // 1. Quick Insights Section
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _buildQuickInsights(stats, currencyFormatter, period),
+                  child: _buildQuickInsights(
+                    stats,
+                    currencyFormatter,
+                    period,
+                    scope,
+                  ),
                 ),
               ),
 
@@ -137,112 +136,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     );
   }
 
-  Widget _buildViewToggle(StatsPeriod period) {
-    final isMonthlyMode = period.month != null;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceGrey,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ToggleItem(
-            label: "Year",
-            isSelected: !isMonthlyMode,
-            onTap: () {
-              ref.read(selectedStatsPeriodProvider.notifier).setMonth(null);
-              ref
-                  .read(chartGranularityProvider.notifier)
-                  .set(ChartGranularity.monthly);
-            },
-          ),
-          _ToggleItem(
-            label: "Month",
-            isSelected: isMonthlyMode,
-            onTap: () {
-              ref
-                  .read(selectedStatsPeriodProvider.notifier)
-                  .setMonth(DateTime.now().month);
-              ref
-                  .read(chartGranularityProvider.notifier)
-                  .set(ChartGranularity.daily);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPeriodSelector(StatsPeriod period) {
-    final isMonthlyMode = period.month != null;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_left, color: AppTheme.primaryGreen),
-          onPressed: () {
-            if (isMonthlyMode) {
-              if (period.month == 1) {
-                ref
-                    .read(selectedStatsPeriodProvider.notifier)
-                    .setYear(period.year - 1);
-                ref.read(selectedStatsPeriodProvider.notifier).setMonth(12);
-              } else {
-                ref
-                    .read(selectedStatsPeriodProvider.notifier)
-                    .setMonth(period.month! - 1);
-              }
-            } else {
-              ref
-                  .read(selectedStatsPeriodProvider.notifier)
-                  .setYear(period.year - 1);
-            }
-          },
-        ),
-        Text(
-          isMonthlyMode
-              ? DateFormat('MMM').format(DateTime(period.year, period.month!))
-              : "${period.year}",
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.arrow_right, color: AppTheme.primaryGreen),
-          onPressed:
-              (isMonthlyMode &&
-                      period.year == DateTime.now().year &&
-                      period.month == DateTime.now().month) ||
-                  (!isMonthlyMode && period.year == DateTime.now().year)
-              ? null
-              : () {
-                  if (isMonthlyMode) {
-                    if (period.month == 12) {
-                      ref
-                          .read(selectedStatsPeriodProvider.notifier)
-                          .setYear(period.year + 1);
-                      ref
-                          .read(selectedStatsPeriodProvider.notifier)
-                          .setMonth(1);
-                    } else {
-                      ref
-                          .read(selectedStatsPeriodProvider.notifier)
-                          .setMonth(period.month! + 1);
-                    }
-                  } else {
-                    ref
-                        .read(selectedStatsPeriodProvider.notifier)
-                        .setYear(period.year + 1);
-                  }
-                },
-        ),
-      ],
-    );
-  }
-
   Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -260,6 +153,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     StatsData stats,
     dynamic currencyFormatter,
     StatsPeriod period,
+    StatsScope scope,
   ) {
     final now = DateTime.now();
     final totalExpenses = stats.totalExpenses;
@@ -324,6 +218,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
       );
     }
 
+    final scopeNoun = switch (scope) {
+      StatsScope.expenses => 'Spent',
+      StatsScope.income => 'Earned',
+      StatsScope.all => 'Activity',
+    };
+    final scopeValue = switch (scope) {
+      StatsScope.expenses => totalExpenses,
+      StatsScope.income => totalEarned,
+      StatsScope.all => totalEarned + totalExpenses,
+    };
+
     return Column(
       children: [
         Row(
@@ -331,9 +236,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             Expanded(
               child: _InsightCard(
                 title: isMonthlyMode
-                    ? "Total Spent"
-                    : "Total Spent (${period.year})",
-                value: currencyFormatter.format(totalExpenses),
+                    ? "Total $scopeNoun"
+                    : "Total $scopeNoun (${period.year})",
+                value: currencyFormatter.format(scopeValue),
                 icon: Icons.account_balance_wallet,
                 color: AppTheme.primaryGreen,
               ),
@@ -825,36 +730,3 @@ class _InsightCard extends StatelessWidget {
   }
 }
 
-class _ToggleItem extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ToggleItem({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryGreen : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.black : Colors.white,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            fontSize: 12,
-          ),
-        ),
-      ),
-    );
-  }
-}

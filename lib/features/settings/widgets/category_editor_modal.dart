@@ -235,20 +235,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                   child: Container(
                                     height: 48,
                                     decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          categoryColor,
-                                          categoryColor.withOpacity(0.7),
-                                        ],
-                                      ),
+                                      color: categoryColor,
                                       borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: categoryColor.withOpacity(0.3),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
                                     ),
                                     child: const Center(
                                       child: Icon(
@@ -504,13 +492,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
-        ),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color.withOpacity(0.2), width: 1.5),
       ),
       child: Row(
         children: [
@@ -519,13 +502,6 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.4),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                ),
-              ],
             ),
             child: Icon(
               IconData(_selectedIcon, fontFamily: 'MaterialIcons'),
@@ -599,6 +575,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
 
   void _showColorPicker() {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
       shape: const RoundedRectangleBorder(

@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
+import 'package:budgetti/core/theme/app_theme.dart';
 
 import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
@@ -203,6 +204,83 @@ class BalanceVisibility extends Notifier<bool> {
 }
 
 final balanceVisibilityProvider = NotifierProvider<BalanceVisibility, bool>(BalanceVisibility.new);
+
+class ThemeSettings {
+  final AppPalette palette;
+  final ThemeMode mode;
+  final bool amoled;
+  final bool glass;
+
+  const ThemeSettings({
+    required this.palette,
+    required this.mode,
+    required this.amoled,
+    required this.glass,
+  });
+
+  ThemeSettings copyWith({
+    AppPalette? palette,
+    ThemeMode? mode,
+    bool? amoled,
+    bool? glass,
+  }) =>
+      ThemeSettings(
+        palette: palette ?? this.palette,
+        mode: mode ?? this.mode,
+        amoled: amoled ?? this.amoled,
+        glass: glass ?? this.glass,
+      );
+}
+
+class ThemeSettingsNotifier extends Notifier<ThemeSettings> {
+  @override
+  ThemeSettings build() {
+    final p = ref.read(persistenceServiceProvider);
+    return ThemeSettings(
+      palette: AppPalette.values.firstWhere(
+        (e) => e.name == p.getThemePalette(),
+        orElse: () => AppPalette.mint,
+      ),
+      mode: switch (p.getThemeBrightness()) {
+        'light' => ThemeMode.light,
+        'system' => ThemeMode.system,
+        _ => ThemeMode.dark,
+      },
+      amoled: p.getThemeAmoled(),
+      glass: p.getThemeGlass(),
+    );
+  }
+
+  Future<void> setPalette(AppPalette v) async {
+    state = state.copyWith(palette: v);
+    await ref.read(persistenceServiceProvider).setThemePalette(v.name);
+  }
+
+  Future<void> setMode(ThemeMode v) async {
+    state = state.copyWith(mode: v);
+    final s = switch (v) {
+      ThemeMode.light => 'light',
+      ThemeMode.system => 'system',
+      ThemeMode.dark => 'dark',
+    };
+    await ref.read(persistenceServiceProvider).setThemeBrightness(s);
+  }
+
+  Future<void> setAmoled(bool v) async {
+    state = state.copyWith(amoled: v);
+    await ref.read(persistenceServiceProvider).setThemeAmoled(v);
+  }
+
+  Future<void> setGlass(bool v) async {
+    state = state.copyWith(glass: v);
+    await ref.read(persistenceServiceProvider).setThemeGlass(v);
+  }
+}
+
+final themeSettingsProvider =
+    NotifierProvider<ThemeSettingsNotifier, ThemeSettings>(
+  ThemeSettingsNotifier.new,
+);
 
 class TransactionFilterState {
   final DateTimeRange? dateRange;
@@ -547,6 +625,7 @@ class ChartDataPoint {
 final chartsDataProvider = Provider<AsyncValue<List<ChartDataPoint>>>((ref) {
   final granularity = ref.watch(chartGranularityProvider);
   final period = ref.watch(selectedStatsPeriodProvider);
+  final scope = ref.watch(statsScopeProvider);
   final transactionsAsync = ref.watch(transactionsProvider(null));
 
   return transactionsAsync.whenData((allTransactions) {
@@ -560,14 +639,21 @@ final chartsDataProvider = Provider<AsyncValue<List<ChartDataPoint>>>((ref) {
 
     if (transactions.isEmpty) return [];
 
-    final expenseTransactions = transactions
-        .where((t) => t.amount < 0)
-        .toList();
-    if (expenseTransactions.isEmpty) return [];
+    final scopedTransactions = transactions.where((t) {
+      switch (scope) {
+        case StatsScope.expenses:
+          return t.amount < 0;
+        case StatsScope.income:
+          return t.amount > 0;
+        case StatsScope.all:
+          return t.amount != 0;
+      }
+    }).toList();
+    if (scopedTransactions.isEmpty) return [];
 
     final Map<DateTime, double> groupedData = {};
 
-    for (var t in expenseTransactions) {
+    for (var t in scopedTransactions) {
       DateTime key;
       switch (granularity) {
         case ChartGranularity.daily:
@@ -735,6 +821,18 @@ final selectedStatsPeriodProvider =
     NotifierProvider<SelectedStatsPeriodNotifier, StatsPeriod>(
       SelectedStatsPeriodNotifier.new,
     );
+
+enum StatsScope { all, expenses, income }
+
+class StatsScopeNotifier extends Notifier<StatsScope> {
+  @override
+  StatsScope build() => StatsScope.expenses;
+
+  void set(StatsScope value) => state = value;
+}
+
+final statsScopeProvider =
+    NotifierProvider<StatsScopeNotifier, StatsScope>(StatsScopeNotifier.new);
 
 final selectedWalletIdProvider = NotifierProvider<SelectedWalletId, String?>(SelectedWalletId.new);
 

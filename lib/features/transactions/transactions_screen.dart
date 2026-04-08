@@ -119,6 +119,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   void _showFilterSheet() {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -128,6 +129,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   void _showWalletFilterSheet() {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
       shape: const RoundedRectangleBorder(

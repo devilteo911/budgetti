@@ -71,16 +71,20 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final filtersActive = !ref.watch(transactionFiltersProvider).isEmpty;
 
     return AppBar(
-      titleSpacing: 16,
       title: accounts.isEmpty
-          ? const Text("Transactions",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+          ? Text(
+              "Transactions",
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+            )
           : InkWell(
               onTap: onWalletTap,
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding:
-                    const EdgeInsets.only(left: 0, right: 8, top: 4, bottom: 4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 4, vertical: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -88,9 +92,11 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
                       child: Text(
                         selectedAccount?.name ?? "All Wallets",
                         style:
-                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            Theme.of(context).textTheme.headlineMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.textWhite,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface,
                                 ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -115,5 +121,5 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(80);
 }

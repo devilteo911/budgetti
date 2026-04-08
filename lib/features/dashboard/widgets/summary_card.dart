@@ -1,4 +1,3 @@
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,11 +23,13 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final trendColor = isPositive ? scheme.primary : scheme.error;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceGrey,
+        color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(24),
       ),
       child: GestureDetector(
@@ -44,19 +45,19 @@ class SummaryCard extends StatelessWidget {
             Text(
               title,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.textGrey,
-                fontWeight: FontWeight.w600,
-              ),
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
             const SizedBox(height: 4),
-          Text(
-            isVisible ? amount : "******",
+            Text(
+              isVisible ? amount : "******",
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-          ),
-          const SizedBox(height: 8),
+                    fontWeight: FontWeight.bold,
+                    color: scheme.onSurface,
+                  ),
+            ),
+            const SizedBox(height: 8),
             Visibility(
               visible: isVisible,
               maintainSize: true,
@@ -68,19 +69,13 @@ class SummaryCard extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      (isPositive
-                              ? AppTheme.primaryGreen
-                              : Theme.of(context).colorScheme.error)
-                          .withOpacity(0.1),
+                  color: trendColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   trend,
                   style: TextStyle(
-                    color: isPositive
-                        ? AppTheme.primaryGreen
-                        : Theme.of(context).colorScheme.error,
+                    color: trendColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
@@ -103,7 +98,7 @@ class SummaryCardSkeleton extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceGrey,
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(

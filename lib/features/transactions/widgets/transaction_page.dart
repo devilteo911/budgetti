@@ -65,6 +65,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
   void _showAccountPicker(
       BuildContext context, List<dynamic> accounts, bool isFrom) {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
       shape: const RoundedRectangleBorder(

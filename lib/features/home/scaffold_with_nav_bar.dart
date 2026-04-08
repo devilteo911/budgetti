@@ -1,11 +1,12 @@
-import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/theme/glass.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/core/services/motion_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class ScaffoldWithNavBar extends StatefulWidget {
+class ScaffoldWithNavBar extends ConsumerStatefulWidget {
   const ScaffoldWithNavBar({
     required this.navigationShell,
     super.key,
@@ -14,10 +15,10 @@ class ScaffoldWithNavBar extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   @override
-  State<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
+  ConsumerState<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
 }
 
-class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBindingObserver {
+class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with WidgetsBindingObserver {
   late MotionService _motionService;
 
   @override
@@ -61,11 +62,11 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
-      backgroundColor: AppTheme.surfaceGrey,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       barrierColor: Colors.black54,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       builder: (context) => AddTransactionModal(triggerScan: triggerScan),
     );
@@ -78,138 +79,196 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> with WidgetsBin
     );
   }
 
+  // Nav slots: 4 branches + center action. Branch indices map 1:1 to
+  // StatefulShellRoute branches in app_router.dart.
+  List<_NavSlot> _buildSlots() => [
+        _NavSlot.branch(
+            0, Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
+        _NavSlot.branch(
+            1, Icons.receipt_long_outlined, Icons.receipt_long, 'History'),
+        _NavSlot.action(Icons.add, 'Add', () {
+          HapticFeedback.mediumImpact();
+          _onAddTransaction();
+        }),
+        _NavSlot.branch(
+            2, Icons.pie_chart_outline, Icons.pie_chart, 'Stats'),
+        _NavSlot.branch(
+            3, Icons.settings_outlined, Icons.settings, 'Settings'),
+      ];
+
   @override
   Widget build(BuildContext context) {
     final currentIndex = widget.navigationShell.currentIndex;
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
-      body: widget.navigationShell,
-      floatingActionButton: Transform.translate(
-        offset: const Offset(0, 12),
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryGreen.withValues(alpha: 0.45),
-                blurRadius: 20,
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: FloatingActionButton(
-            onPressed: () {
-              HapticFeedback.heavyImpact();
-              _onAddTransaction();
-            },
-            backgroundColor: AppTheme.primaryGreen,
-            shape: const CircleBorder(),
-            elevation: 0,
-            child: const Icon(
-              Icons.add,
-              color: AppTheme.backgroundBlack,
-              size: 30,
-            ),
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: Theme(
-        data: Theme.of(context).copyWith(
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-        ),
-        child: BottomAppBar(
-          height: 80 + MediaQuery.of(context).padding.bottom.clamp(0.0, 34.0),
-          color: AppTheme.surfaceGrey,
-          elevation: 0,
-          padding: EdgeInsets.zero,
-          child: Container(
-            padding: EdgeInsets.fromLTRB(
-              8, 8, 8,
-              MediaQuery.of(context).padding.bottom.clamp(8.0, 34.0),
-            ),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: AppTheme.surfaceGreyLight, width: 0.5),
-              ),
-            ),
-            child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildNavItem(
-                        index: 0,
-                        icon: Icons.dashboard_outlined,
-                        activeIcon: Icons.dashboard,
-                        label: 'Dashboard',
-                        isSelected: currentIndex == 0,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildNavItem(
-                        index: 1,
-                        icon: Icons.receipt_long_outlined,
-                        activeIcon: Icons.receipt_long,
-                        label: 'History',
-                        isSelected: currentIndex == 1,
-                      ),
-                    ),
-                    const SizedBox(width: 60), // Space for FAB
-                    Expanded(
-                      child: _buildNavItem(
-                        index: 2,
-                        icon: Icons.pie_chart_outline,
-                        activeIcon: Icons.pie_chart,
-                        label: 'Stats',
-                        isSelected: currentIndex == 2,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildNavItem(
-                        index: 3,
-                        icon: Icons.account_balance_wallet_outlined,
-                        activeIcon: Icons.account_balance_wallet,
-                        label: 'Budgets',
-                        isSelected: currentIndex == 3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required int index,
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required bool isSelected,
-  }) {
-    return InkWell(
-      onTap: () => _goBranch(index),
-      borderRadius: BorderRadius.circular(12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
+      extendBody: true,
+      body: Stack(
         children: [
-          Icon(
-            isSelected ? activeIcon : icon,
-            color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey,
-            size: 26,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isSelected ? AppTheme.primaryGreen : AppTheme.textGrey,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          // Body fills edge-to-edge behind the floating nav so glass has
+          // real content to blur. Screens that want their last scroll item
+          // fully visible above the pill should add ~120px bottom padding
+          // to their own scrollable (ListView/CustomScrollView).
+          Positioned.fill(child: widget.navigationShell),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: bottomInset + 16,
+            child: Center(
+              child: _FloatingPillNav(
+                slots: _buildSlots(),
+                currentBranchIndex: currentIndex,
+                onBranchSelected: _goBranch,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+}
+
+class _NavSlot {
+  final int? branchIndex;
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final VoidCallback? onAction;
+
+  const _NavSlot._({
+    this.branchIndex,
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    this.onAction,
+  });
+
+  factory _NavSlot.branch(
+          int index, IconData icon, IconData activeIcon, String label) =>
+      _NavSlot._(
+        branchIndex: index,
+        icon: icon,
+        activeIcon: activeIcon,
+        label: label,
+      );
+
+  factory _NavSlot.action(IconData icon, String label, VoidCallback onTap) =>
+      _NavSlot._(
+        icon: icon,
+        activeIcon: icon,
+        label: label,
+        onAction: onTap,
+      );
+
+  bool get isAction => onAction != null;
+}
+
+/// GitHub-Store-inspired floating pill bottom nav.
+/// Glass capsule with an animated gradient indicator that slides behind
+/// the selected branch. Action slots (e.g. '+') don't move the indicator.
+class _FloatingPillNav extends StatelessWidget {
+  final List<_NavSlot> slots;
+  final int currentBranchIndex;
+  final ValueChanged<int> onBranchSelected;
+
+  const _FloatingPillNav({
+    required this.slots,
+    required this.currentBranchIndex,
+    required this.onBranchSelected,
+  });
+
+  static const double _itemWidth = 62;
+  static const double _itemHeight = 56;
+  static const double _hPad = 6;
+
+  int? _slotIndexForBranch(int branchIndex) {
+    for (var i = 0; i < slots.length; i++) {
+      if (slots[i].branchIndex == branchIndex) return i;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final totalWidth = slots.length * _itemWidth + _hPad * 2;
+    final activeSlotIndex = _slotIndexForBranch(currentBranchIndex) ?? 0;
+
+    return GlassContainer(
+      borderRadius: BorderRadius.circular(_itemHeight),
+      tint: scheme.surfaceContainer,
+      padding: const EdgeInsets.symmetric(horizontal: _hPad, vertical: 4),
+      child: SizedBox(
+        width: totalWidth,
+        height: _itemHeight,
+        child: Stack(
+          children: [
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+              left: activeSlotIndex * _itemWidth,
+              top: 2,
+              width: _itemWidth,
+              height: _itemHeight - 4,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      scheme.primary.withValues(alpha: 0.28),
+                      scheme.primary.withValues(alpha: 0.12),
+                    ],
+                  ),
+                  borderRadius:
+                      BorderRadius.circular((_itemHeight - 4) / 2),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.35),
+                    width: 1,
+                  ),
+                ),
+              ),
+            ),
+            Row(
+              children: List.generate(slots.length, (i) {
+                final s = slots[i];
+                final selected =
+                    !s.isAction && s.branchIndex == currentBranchIndex;
+                return SizedBox(
+                  width: _itemWidth,
+                  height: _itemHeight,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        if (s.isAction) {
+                          s.onAction!();
+                        } else {
+                          onBranchSelected(s.branchIndex!);
+                        }
+                      },
+                      borderRadius:
+                          BorderRadius.circular(_itemHeight / 2),
+                      child: AnimatedScale(
+                        scale: selected ? 1.15 : 1.0,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        child: Icon(
+                          selected ? s.activeIcon : s.icon,
+                          color: selected
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }

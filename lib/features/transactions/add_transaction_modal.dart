@@ -262,6 +262,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
   void _showWalletPicker(bool isFrom) {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
       isScrollControlled: true,
@@ -289,6 +290,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
 
   void _showCategoryPicker() {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
       isScrollControlled: true,
@@ -921,28 +923,17 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> with 
                           child: Container(
                             height: 60,
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.primaryGreen,
-                                  AppTheme.primaryGreen.withOpacity(0.8),
-                                ],
-                              ),
+                              color: Theme.of(context).colorScheme.primary,
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryGreen.withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
                             ),
                             child: Center(
                               child: Text(
                                 widget.transaction != null
                                     ? "Update Transaction"
                                     : "Add Transaction",
-                                style: const TextStyle(
-                                  color: AppTheme.backgroundBlack,
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                 ),

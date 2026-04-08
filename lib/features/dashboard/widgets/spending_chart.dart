@@ -51,13 +51,7 @@ class SpendingChart extends StatelessWidget {
     if (maxY < 10) maxY = 10;
     if (minY > -10) minY = -10;
 
-    // Calculate zero line position for gradient
-    // Gradient goes from bottom (minY) to top (maxY)
-    // 0 is at (0 - minY) / (maxY - minY)
     final totalRange = maxY - minY;
-    final zeroPos = (0 - minY) / totalRange;
-    final clampedZeroPos = zeroPos.clamp(0.0, 1.0);
-
     return AspectRatio(
       aspectRatio: 1.70,
       child: Padding(
@@ -102,29 +96,16 @@ class SpendingChart extends StatelessWidget {
               LineChartBarData(
                 spots: spots,
                 isCurved: true,
-                // Red to Green gradient based on zero line
-                gradient: LinearGradient(
-                  colors: const [Colors.red, Colors.red, AppTheme.primaryGreen, AppTheme.primaryGreen],
-                  stops: [0, clampedZeroPos, clampedZeroPos, 1],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
-                barWidth: 4,
+                color: Theme.of(context).colorScheme.primary,
+                barWidth: 3,
                 isStrokeCapRound: true,
                 dotData: const FlDotData(show: false),
                 belowBarData: BarAreaData(
                   show: true,
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.withOpacity(0.2), 
-                      Colors.red.withOpacity(0.0), // Fade out
-                      AppTheme.primaryGreen.withOpacity(0.0), // Fade in
-                      AppTheme.primaryGreen.withOpacity(0.2)
-                    ],
-                    stops: [0, clampedZeroPos * 0.9, clampedZeroPos * 1.1, 1],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                  ),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.12),
                 ),
               ),
             ],

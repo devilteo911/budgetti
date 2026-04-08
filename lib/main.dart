@@ -99,10 +99,20 @@ class BudgettiApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final settings = ref.watch(themeSettingsProvider);
 
     return MaterialApp.router(
       title: 'Budgetti',
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.buildTheme(
+        palette: settings.palette,
+        brightness: Brightness.light,
+      ),
+      darkTheme: AppTheme.buildTheme(
+        palette: settings.palette,
+        brightness: Brightness.dark,
+        amoled: settings.amoled,
+      ),
+      themeMode: settings.mode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

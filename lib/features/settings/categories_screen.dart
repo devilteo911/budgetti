@@ -11,6 +11,7 @@ class CategoriesScreen extends ConsumerWidget {
 
   void _showEditor(BuildContext context, WidgetRef ref, {Category? category}) {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: AppTheme.surfaceGrey,

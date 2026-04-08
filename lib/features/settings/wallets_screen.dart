@@ -138,6 +138,7 @@ class WalletsScreen extends ConsumerWidget {
 
   void _showWalletEditor(BuildContext context, WidgetRef ref, Account? wallet) {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: AppTheme.surfaceGrey,

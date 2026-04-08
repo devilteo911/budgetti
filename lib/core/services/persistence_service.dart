@@ -165,6 +165,28 @@ class PersistenceService {
   Future<void> setEbLastSyncTimestamp(int timestamp) =>
       _prefs.setInt(_ebLastSyncKey, timestamp);
 
+  // Appearance / Theme
+  static const _themePaletteKey = 'theme_palette';
+  static const _themeBrightnessKey = 'theme_brightness'; // system|light|dark
+  static const _themeAmoledKey = 'theme_amoled';
+  static const _themeGlassKey = 'theme_glass';
+
+  String getThemePalette() =>
+      _prefs.getString(_themePaletteKey) ?? 'mint';
+  Future<void> setThemePalette(String p) =>
+      _prefs.setString(_themePaletteKey, p);
+
+  String getThemeBrightness() =>
+      _prefs.getString(_themeBrightnessKey) ?? 'dark';
+  Future<void> setThemeBrightness(String b) =>
+      _prefs.setString(_themeBrightnessKey, b);
+
+  bool getThemeAmoled() => _prefs.getBool(_themeAmoledKey) ?? true;
+  Future<void> setThemeAmoled(bool v) => _prefs.setBool(_themeAmoledKey, v);
+
+  bool getThemeGlass() => _prefs.getBool(_themeGlassKey) ?? false;
+  Future<void> setThemeGlass(bool v) => _prefs.setBool(_themeGlassKey, v);
+
   Set<String> getEbKnownTransactionIds() =>
       (_prefs.getStringList(_ebKnownTxIdsKey) ?? []).toSet();
   Future<void> setEbKnownTransactionIds(Set<String> ids) =>

@@ -2,6 +2,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
+import 'package:budgetti/features/dashboard/widgets/budget_overview_card.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -156,36 +157,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           // Header
                           Padding(
                             padding: const EdgeInsets.only(bottom: 32.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "budgetti",
-                                  style: GoogleFonts.bricolageGrotesque(
-                                    color: Colors.white,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () => context.push('/profile'),
-                                  child: Hero(
-                                    tag: 'profile-image',
-                                    child: Container(
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.surfaceGreyLight,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                      child: const Icon(
-                                        Icons.person,
-                                        color: AppTheme.primaryGreen,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              "budgetti",
+                              style: GoogleFonts.bricolageGrotesque(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
+                              ),
                             ),
                           ),
 
@@ -219,6 +198,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 16),
+                          const BudgetOverviewCard(),
                           const SizedBox(height: 32),
                           // Recent Transactions
                           RepaintBoundary(

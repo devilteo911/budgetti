@@ -526,6 +526,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _showCurrencyPicker(String currentCurrency) {
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       backgroundColor: AppTheme.surfaceGrey,
       shape: const RoundedRectangleBorder(
@@ -624,19 +625,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppTheme.primaryGreen.withOpacity(0.15),
-                          AppTheme.primaryGreen.withOpacity(0.05),
-                        ],
-                      ),
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: AppTheme.primaryGreen.withOpacity(0.2),
-                        width: 1.5,
-                      ),
                     ),
                     child: Column(
                       children: [
@@ -772,6 +762,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
 
+                  // Appearance Section
+                  _AppearanceSection(),
+
                   // Preferences Section
                   _SettingsSection(
                     title: "Preferences",
@@ -830,6 +823,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         onTap: () {
                           // Show bottom sheet inline using _buildOcrSettings logic
                           showModalBottomSheet(
+                            useRootNavigator: true,
                             context: context,
                             backgroundColor: AppTheme.surfaceGrey,
                             shape: const RoundedRectangleBorder(
@@ -1577,6 +1571,118 @@ class _SettingsTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AppearanceSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(themeSettingsProvider);
+    final notifier = ref.read(themeSettingsProvider.notifier);
+    final scheme = Theme.of(context).colorScheme;
+
+    return _SettingsSection(
+      title: 'Appearance',
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Palette',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: AppPalette.values.map((p) {
+                  final selected = settings.palette == p;
+                  return GestureDetector(
+                    onTap: () => notifier.setPalette(p),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: p.swatch,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: selected
+                              ? scheme.onSurface
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                        boxShadow: selected
+                            ? [
+                                BoxShadow(
+                                  color: p.swatch.withValues(alpha: 0.5),
+                                  blurRadius: 12,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: selected
+                          ? Icon(Icons.check,
+                              size: 20, color: scheme.surface)
+                          : null,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Brightness',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<ThemeMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    label: Text('System'),
+                    icon: Icon(Icons.brightness_auto),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    label: Text('Light'),
+                    icon: Icon(Icons.light_mode),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    label: Text('Dark'),
+                    icon: Icon(Icons.dark_mode),
+                  ),
+                ],
+                selected: {settings.mode},
+                onSelectionChanged: (s) => notifier.setMode(s.first),
+              ),
+            ],
+          ),
+        ),
+        SwitchListTile(
+          title: const Text('AMOLED black'),
+          subtitle: const Text('Pure black background in dark mode'),
+          value: settings.amoled,
+          onChanged: notifier.setAmoled,
+        ),
+        SwitchListTile(
+          title: const Text('Liquid glass'),
+          subtitle: const Text('Frosted blur on nav bar and sheets'),
+          value: settings.glass,
+          onChanged: notifier.setGlass,
+        ),
+      ],
     );
   }
 }
