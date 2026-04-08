@@ -20,50 +20,16 @@ class StatsFilterBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          _ScopeSegmentedRow(),
-          SizedBox(height: 10),
-          _ClusterRow(),
-        ],
-      ),
+      child: const _ClusterRow(),
     );
   }
 }
 
-class _ScopeSegmentedRow extends ConsumerWidget {
-  const _ScopeSegmentedRow();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scope = ref.watch(statsScopeProvider);
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          for (final s in StatsScope.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _GhsFilterChip(
-                label: _scopeLabel(s),
-                selected: scope == s,
-                onTap: () =>
-                    ref.read(statsScopeProvider.notifier).set(s),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  static String _scopeLabel(StatsScope s) => switch (s) {
-        StatsScope.all => 'All',
-        StatsScope.expenses => 'Expenses',
-        StatsScope.income => 'Income',
-      };
-}
+String _scopeLabel(StatsScope s) => switch (s) {
+      StatsScope.all => 'All',
+      StatsScope.expenses => 'Expenses',
+      StatsScope.income => 'Income',
+    };
 
 class _ClusterRow extends ConsumerWidget {
   const _ClusterRow();
@@ -71,6 +37,7 @@ class _ClusterRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(selectedStatsPeriodProvider);
+    final scope = ref.watch(statsScopeProvider);
     final isMonthlyMode = period.month != null;
     final now = DateTime.now();
 
@@ -87,14 +54,18 @@ class _ClusterRow extends ConsumerWidget {
       child: Row(
         children: [
           _LabeledCluster(
-            label: 'View',
+            value: _scopeLabel(scope),
+            selected: scope != StatsScope.all,
+            onTap: () => _openScopeSheet(context, ref, scope),
+          ),
+          const SizedBox(width: 10),
+          _LabeledCluster(
             value: viewLabel,
             selected: false,
             onTap: () => _openViewSheet(context, ref, isMonthlyMode),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           _LabeledCluster(
-            label: 'Period',
             value: periodValue,
             selected: periodIsNonDefault,
             onClear: periodIsNonDefault
@@ -114,14 +85,12 @@ class _ClusterRow extends ConsumerWidget {
 }
 
 class _LabeledCluster extends StatelessWidget {
-  final String label;
   final String value;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback? onClear;
 
   const _LabeledCluster({
-    required this.label,
     required this.value,
     required this.selected,
     required this.onTap,
@@ -134,15 +103,6 @@ class _LabeledCluster extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: scheme.onSurfaceVariant,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(width: 6),
         _GhsFilterChip(
           label: value,
           selected: selected,
@@ -218,6 +178,35 @@ class _GhsFilterChip extends StatelessWidget {
   }
 }
 
+void _openScopeSheet(
+  BuildContext context,
+  WidgetRef ref,
+  StatsScope current,
+) {
+  showModalBottomSheet(
+    useRootNavigator: true,
+    context: context,
+    showDragHandle: true,
+    builder: (sheetCtx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final s in StatsScope.values)
+            ListTile(
+              title: Text(_scopeLabel(s)),
+              trailing: s == current ? const Icon(Icons.check) : null,
+              onTap: () {
+                ref.read(statsScopeProvider.notifier).set(s);
+                Navigator.pop(sheetCtx);
+              },
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+}
+
 void _openViewSheet(
   BuildContext context,
   WidgetRef ref,
@@ -278,6 +267,11 @@ void _openPeriodSheet(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
+    useSafeArea: true,
+    constraints: BoxConstraints(
+      minWidth: MediaQuery.of(context).size.width,
+      maxWidth: MediaQuery.of(context).size.width,
+    ),
     builder: (sheetCtx) {
       return SafeArea(
         child: Padding(

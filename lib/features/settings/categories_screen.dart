@@ -1,5 +1,4 @@
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/settings/widgets/category_editor_modal.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +13,7 @@ class CategoriesScreen extends ConsumerWidget {
       useRootNavigator: true,
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.surfaceGrey,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       builder: (_) => CategoryEditorModal(
         category: category,
         onSave: (cat) async {
@@ -32,16 +31,21 @@ class CategoriesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Manage Categories", style: TextStyle(color: Colors.white)),
-        backgroundColor: AppTheme.backgroundBlack,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          'Categories',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: scheme.onSurface,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: AppTheme.primaryGreen),
+            icon: const Icon(Icons.add),
             onPressed: () {
               HapticFeedback.heavyImpact();
               _showEditor(context, ref);
@@ -49,58 +53,46 @@ class CategoriesScreen extends ConsumerWidget {
           ),
           PopupMenuButton<String>(
             onSelected: (value) async {
-              if (value == 'restore') {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: AppTheme.surfaceGrey,
-                    title: const Text(
-                      "Restore Defaults?",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    content: const Text(
-                      "This will restore default categories (Groceries, Transport, etc.) if they were deleted or modified. Your custom categories will not be affected.",
-                      style: TextStyle(color: AppTheme.textGrey),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text("Cancel"),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text(
-                          "Restore",
-                          style: TextStyle(color: AppTheme.primaryGreen),
-                        ),
-                      ),
-                    ],
+              if (value != 'restore') return;
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Restore Defaults?'),
+                  content: const Text(
+                    'This will restore default categories if they were deleted or modified. Your custom categories will not be affected.',
                   ),
-                );
-
-                if (confirm == true) {
-                  await ref
-                      .read(financeServiceProvider)
-                      .restoreDefaultCategories();
-                  ref.invalidate(categoriesProvider);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Default categories restored"),
-                      ),
-                    );
-                  }
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Restore'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await ref
+                    .read(financeServiceProvider)
+                    .restoreDefaultCategories();
+                ref.invalidate(categoriesProvider);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Default categories restored'),
+                    ),
+                  );
                 }
               }
             },
-            itemBuilder: (BuildContext context) {
-              return [
-                const PopupMenuItem<String>(
-                  value: 'restore',
-                  child: Text("Restore Defaults"),
-                ),
-              ];
-            },
+            itemBuilder: (_) => const [
+              PopupMenuItem<String>(
+                value: 'restore',
+                child: Text('Restore Defaults'),
+              ),
+            ],
           ),
         ],
       ),
@@ -111,104 +103,190 @@ class CategoriesScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.category_outlined, size: 64, color: AppTheme.textGrey),
+                  Icon(Icons.category_outlined,
+                      size: 64,
+                      color: scheme.onSurface.withValues(alpha: 0.3)),
                   const SizedBox(height: 16),
-                  const Text("No categories yet", style: TextStyle(color: AppTheme.textGrey)),
+                  Text(
+                    'No categories yet',
+                    style: TextStyle(
+                      color: scheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () {
                       HapticFeedback.heavyImpact();
                       _showEditor(context, ref);
                     },
-                    child: const Text("Create your first category"),
-                  )
+                    child: const Text('Create your first category'),
+                  ),
                 ],
               ),
             );
           }
 
-          final expenseCats = categories.where((c) => c.type == 'expense').toList();
-          final incomeCats = categories.where((c) => c.type == 'income').toList();
+          final expense =
+              categories.where((c) => c.type == 'expense').toList();
+          final income =
+              categories.where((c) => c.type == 'income').toList();
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
-              if (expenseCats.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8.0),
-                  child: Text("Expenses", style: TextStyle(color: AppTheme.textGrey, fontWeight: FontWeight.bold)),
-                ),
-                ...expenseCats.map((c) => _buildCategoryTile(context, ref, c)),
+              if (expense.isNotEmpty) ...[
+                _sectionLabel(context, 'Expenses'),
+                ...expense.map((c) => _CategoryTile(
+                      category: c,
+                      onTap: () => _showEditor(context, ref, category: c),
+                      onDelete: () async {
+                        await ref
+                            .read(financeServiceProvider)
+                            .deleteCategory(c.id);
+                        ref.invalidate(categoriesProvider);
+                      },
+                    )),
                 const SizedBox(height: 24),
               ],
-              if (incomeCats.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8.0),
-                  child: Text("Income", style: TextStyle(color: AppTheme.textGrey, fontWeight: FontWeight.bold)),
-                ),
-                ...incomeCats.map((c) => _buildCategoryTile(context, ref, c)),
+              if (income.isNotEmpty) ...[
+                _sectionLabel(context, 'Income'),
+                ...income.map((c) => _CategoryTile(
+                      category: c,
+                      onTap: () => _showEditor(context, ref, category: c),
+                      onDelete: () async {
+                        await ref
+                            .read(financeServiceProvider)
+                            .deleteCategory(c.id);
+                        ref.invalidate(categoriesProvider);
+                      },
+                    )),
               ],
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text("Error: $e", style: const TextStyle(color: Colors.red))),
+        error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
   }
 
-  Widget _buildCategoryTile(BuildContext context, WidgetRef ref, Category category) {
-    return Dismissible(
-      key: Key(category.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      confirmDismiss: (direction) async {
-        return await showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppTheme.surfaceGrey,
-            title: const Text("Delete Category?", style: TextStyle(color: Colors.white)),
-            content: Text("Are you sure you want to delete '${category.name}'?", style: const TextStyle(color: AppTheme.textGrey)),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text("Cancel")),
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true), 
-                child: const Text("Delete", style: TextStyle(color: Colors.red))
-              ),
-            ],
-          ),
-        );
-      },
-      onDismissed: (direction) async {
-         final service = ref.read(financeServiceProvider);
-         await service.deleteCategory(category.id);
-         ref.invalidate(categoriesProvider);
-      },
-      child: Card(
-        color: AppTheme.surfaceGrey,
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Color(category.colorHex).withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              IconData(category.iconCode, fontFamily: 'MaterialIcons'),
-              color: Color(category.colorHex),
-            ),
-          ),
-          title: Text(category.name, style: const TextStyle(color: Colors.white)),
-          trailing: const Icon(Icons.edit, color: AppTheme.textGrey, size: 20),
-          onTap: () => _showEditor(context, ref, category: category),
+  Widget _sectionLabel(BuildContext context, String text) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12, top: 8),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          color: scheme.onSurface.withValues(alpha: 0.4),
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.5,
         ),
       ),
     );
   }
 }
+
+class _CategoryTile extends StatelessWidget {
+  final Category category;
+  final VoidCallback onTap;
+  final Future<void> Function() onDelete;
+
+  const _CategoryTile({
+    required this.category,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = Color(category.colorHex);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Dismissible(
+        key: Key(category.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: scheme.errorContainer,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Icon(Icons.delete, color: scheme.onErrorContainer),
+        ),
+        confirmDismiss: (_) async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Delete Category?'),
+              content: Text(
+                "Are you sure you want to delete '${category.name}'?",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: TextButton.styleFrom(foregroundColor: scheme.error),
+                  child: const Text('Delete'),
+                ),
+              ],
+            ),
+          );
+        },
+        onDismissed: (_) => onDelete(),
+        child: Material(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      IconData(category.iconCode,
+                          fontFamily: 'MaterialIcons'),
+                      color: color,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      category.name,
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.edit_outlined,
+                    color: scheme.onSurface.withValues(alpha: 0.35),
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

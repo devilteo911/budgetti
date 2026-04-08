@@ -1,5 +1,4 @@
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,15 +11,21 @@ class TagsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final tagsAsync = ref.watch(tagsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Manage Tags"),
-        backgroundColor: AppTheme.backgroundBlack,
+        title: Text(
+          'Tags',
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: scheme.onSurface,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: AppTheme.primaryGreen),
+            icon: const Icon(Icons.add),
             onPressed: () {
               HapticFeedback.heavyImpact();
               _showTagEditor(context, ref, null);
@@ -28,92 +33,82 @@ class TagsScreen extends ConsumerWidget {
           ),
           PopupMenuButton<String>(
             onSelected: (value) async {
-              if (value == 'restore') {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: AppTheme.surfaceGrey,
-                    title: const Text(
-                      "Restore Defaults?",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    content: const Text(
-                      "This will restore default tags (Vacation, Family, etc.) if they were deleted or modified. Your custom tags will not be affected.",
-                      style: TextStyle(color: AppTheme.textGrey),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text("Cancel"),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text(
-                          "Restore",
-                          style: TextStyle(color: AppTheme.primaryGreen),
-                        ),
-                      ),
-                    ],
+              if (value != 'restore') return;
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Restore Defaults?'),
+                  content: const Text(
+                    'This will restore default tags if they were deleted or modified. Your custom tags will not be affected.',
                   ),
-                );
-
-                if (confirm == true) {
-                  await ref.read(financeServiceProvider).restoreDefaultTags();
-                  ref.invalidate(tagsProvider);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Default tags restored")),
-                    );
-                  }
-                }
-              }
-            },
-            itemBuilder: (BuildContext context) {
-              return [
-                const PopupMenuItem<String>(
-                  value: 'restore',
-                  child: Text("Restore Defaults"),
-                ),
-              ];
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: tagsAsync.when(
-          data: (tags) => ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: tags.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final tag = tags[index];
-              return ListTile(
-                tileColor: AppTheme.surfaceGrey,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                leading: CircleAvatar(
-                  backgroundColor: Color(tag.colorHex),
-                  radius: 12,
-                ),
-                title: Text(tag.name, style: const TextStyle(color: Colors.white)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: AppTheme.textGrey, size: 20),
-                      onPressed: () => _showTagEditor(context, ref, tag),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
-                      onPressed: () => _deleteTag(context, ref, tag),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Restore'),
                     ),
                   ],
                 ),
               );
+              if (confirm == true) {
+                await ref.read(financeServiceProvider).restoreDefaultTags();
+                ref.invalidate(tagsProvider);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Default tags restored')),
+                  );
+                }
+              }
             },
+            itemBuilder: (_) => const [
+              PopupMenuItem<String>(
+                value: 'restore',
+                child: Text('Restore Defaults'),
+              ),
+            ],
           ),
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
-          error: (err, stack) => Center(child: Text('Error: $err')),
-        ),
+        ],
+      ),
+      body: tagsAsync.when(
+        data: (tags) {
+          if (tags.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.label_outline,
+                      size: 64,
+                      color: scheme.onSurface.withValues(alpha: 0.3)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No tags yet',
+                    style: TextStyle(
+                      color: scheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            itemCount: tags.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, index) {
+              final tag = tags[index];
+              return _TagTile(
+                tag: tag,
+                onEdit: () => _showTagEditor(context, ref, tag),
+                onDelete: () => _deleteTag(context, ref, tag),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
   }
@@ -123,32 +118,94 @@ class TagsScreen extends ConsumerWidget {
       useRootNavigator: true,
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.surfaceGrey,
-      builder: (context) => _TagEditorModal(tag: tag),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+      builder: (_) => _TagEditorModal(tag: tag),
     );
   }
 
   void _deleteTag(BuildContext context, WidgetRef ref, Tag tag) async {
+    final scheme = Theme.of(context).colorScheme;
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceGrey,
-        title: const Text("Delete Tag", style: TextStyle(color: Colors.white)),
-        content: Text("Are you sure you want to delete '${tag.name}'?", style: const TextStyle(color: AppTheme.textGrey)),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Tag'),
+        content: Text("Are you sure you want to delete '${tag.name}'?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: scheme.error),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
-
     if (confirm == true) {
       await ref.read(financeServiceProvider).deleteTag(tag.id);
       ref.invalidate(tagsProvider);
     }
+  }
+}
+
+class _TagTile extends StatelessWidget {
+  final Tag tag;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _TagTile({
+    required this.tag,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onEdit,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Color(tag.colorHex),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  tag.name,
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: scheme.error,
+                  size: 20,
+                ),
+                onPressed: onDelete,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -164,7 +221,7 @@ class _TagEditorModalState extends State<_TagEditorModal> {
   final _nameController = TextEditingController();
   int _selectedColor = 0xFF4CAF50;
 
-  final List<int> _colors = [
+  static const _colors = [
     0xFFF44336, 0xFFE91E63, 0xFF9C27B0, 0xFF673AB7, 0xFF3F51B5,
     0xFF2196F3, 0xFF03A9F4, 0xFF00BCD4, 0xFF009688, 0xFF4CAF50,
     0xFF8BC34A, 0xFFCDDC39, 0xFFFFEB3B, 0xFFFFC107, 0xFFFF9800,
@@ -182,52 +239,63 @@ class _TagEditorModalState extends State<_TagEditorModal> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Consumer(
-      builder: (context, ref, child) => Padding(
+      builder: (context, ref, _) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 16, right: 16, top: 24,
+          left: 20,
+          right: 20,
+          top: 24,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.tag != null ? "Edit Tag" : "New Tag",
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              widget.tag != null ? 'Edit Tag' : 'New Tag',
+              style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                labelText: "Tag Name",
+                labelText: 'Tag Name',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
-            const Text("Color", style: TextStyle(color: AppTheme.textGrey)),
+            Text(
+              'Color',
+              style: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: 12),
             SizedBox(
               height: 100,
               child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 7,
                   mainAxisSpacing: 8,
                   crossAxisSpacing: 8,
                 ),
                 itemCount: _colors.length,
-                itemBuilder: (context, index) {
-                  final color = _colors[index];
+                itemBuilder: (_, i) {
+                  final color = _colors[i];
+                  final selected = _selectedColor == color;
                   return InkWell(
                     onTap: () => setState(() => _selectedColor = color),
                     child: Container(
                       decoration: BoxDecoration(
                         color: Color(color),
                         shape: BoxShape.circle,
-                        border: _selectedColor == color
-                            ? Border.all(color: Colors.white, width: 2)
+                        border: selected
+                            ? Border.all(color: scheme.onSurface, width: 2.5)
                             : null,
                       ),
                     ),
@@ -236,27 +304,25 @@ class _TagEditorModalState extends State<_TagEditorModal> {
               ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 final name = _nameController.text.trim();
                 if (name.isEmpty) return;
-
                 final service = ref.read(financeServiceProvider);
                 final navigator = Navigator.of(context);
-
                 final userId =
                     Supabase.instance.client.auth.currentUser?.id ?? 'local';
                 if (widget.tag != null) {
                   await service.updateTag(Tag(
                     id: widget.tag!.id,
-                      userId: userId,
+                    userId: userId,
                     name: name,
                     colorHex: _selectedColor,
                   ));
                 } else {
                   await service.addTag(Tag(
                     id: const Uuid().v4(),
-                      userId: userId,
+                    userId: userId,
                     name: name,
                     colorHex: _selectedColor,
                   ));
@@ -264,15 +330,10 @@ class _TagEditorModalState extends State<_TagEditorModal> {
                 ref.invalidate(tagsProvider);
                 navigator.pop();
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
+              style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text(
-                widget.tag != null ? "Update Tag" : "Create Tag",
-                style: const TextStyle(color: AppTheme.backgroundBlack, fontWeight: FontWeight.bold),
-              ),
+              child: Text(widget.tag != null ? 'Update Tag' : 'Create Tag'),
             ),
             const SizedBox(height: 32),
           ],

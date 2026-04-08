@@ -9,6 +9,13 @@ import 'package:budgetti/features/home/widgets/branch_animation_wrapper.dart';
 import 'package:budgetti/features/transactions/transactions_screen.dart';
 import 'package:budgetti/features/stats/stats_screen.dart';
 import 'package:budgetti/features/budget/budget_screen.dart';
+import 'package:budgetti/features/settings/settings_screen.dart';
+import 'package:budgetti/features/settings/appearance_screen.dart';
+import 'package:budgetti/features/settings/preferences_screen.dart';
+import 'package:budgetti/features/settings/integrations_screen.dart';
+import 'package:budgetti/features/settings/categories_screen.dart';
+import 'package:budgetti/features/settings/tags_screen.dart';
+import 'package:budgetti/features/settings/wallets_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -80,7 +87,37 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/settings',
-                builder: (context, state) => const ProfileScreen(),
+                builder: (context, state) => const SettingsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'profile',
+                    builder: (context, state) => const ProfileScreen(),
+                  ),
+                  GoRoute(
+                    path: 'categories',
+                    builder: (context, state) => const CategoriesScreen(),
+                  ),
+                  GoRoute(
+                    path: 'tags',
+                    builder: (context, state) => const TagsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'wallets',
+                    builder: (context, state) => const WalletsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'appearance',
+                    builder: (context, state) => const AppearanceScreen(),
+                  ),
+                  GoRoute(
+                    path: 'preferences',
+                    builder: (context, state) => const PreferencesScreen(),
+                  ),
+                  GoRoute(
+                    path: 'integrations',
+                    builder: (context, state) => const IntegrationsScreen(),
+                  ),
+                ],
               ),
             ],
           ),

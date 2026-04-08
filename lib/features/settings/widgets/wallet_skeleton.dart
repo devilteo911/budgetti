@@ -1,4 +1,3 @@
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:flutter/material.dart';
 
@@ -7,21 +6,28 @@ class WalletItemSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      tileColor: AppTheme.surfaceGrey,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      leading: const Skeleton(height: 40, width: 40, borderRadius: 20),
-      title: const Skeleton(height: 16, width: 120),
-      subtitle: const Padding(
-        padding: EdgeInsets.only(top: 8.0),
-        child: Skeleton(height: 14, width: 80),
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: const [
-           Skeleton(height: 24, width: 24, borderRadius: 12),
-           SizedBox(width: 16),
-           Skeleton(height: 24, width: 24, borderRadius: 12),
+          Skeleton(height: 40, width: 40, borderRadius: 20),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Skeleton(height: 16, width: 120),
+                SizedBox(height: 8),
+                Skeleton(height: 14, width: 80),
+              ],
+            ),
+          ),
+          Skeleton(height: 24, width: 24, borderRadius: 12),
         ],
       ),
     );
