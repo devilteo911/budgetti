@@ -510,6 +510,27 @@ final dashboardStatsProvider = Provider<AsyncValue<DashboardStats>>((ref) {
   );
 });
 
+final monthlyNetFlowHistoryProvider = Provider<List<double>>((ref) {
+  final transactions = ref.watch(transactionsProvider(null)).value ?? [];
+  final now = DateTime.now();
+  final keys = <String>[];
+  final buckets = <String, double>{};
+  for (int i = 5; i >= 0; i--) {
+    final d = DateTime(now.year, now.month - i);
+    final k = '${d.year}-${d.month}';
+    keys.add(k);
+    buckets[k] = 0.0;
+  }
+  for (final t in transactions) {
+    if (t.type == 'transfer') continue;
+    final k = '${t.date.year}-${t.date.month}';
+    if (buckets.containsKey(k)) {
+      buckets[k] = buckets[k]! + t.amount;
+    }
+  }
+  return keys.map((k) => buckets[k]!).toList();
+});
+
 final budgetMapProvider = Provider<Map<String, Budget>>((ref) {
   final budgets = ref.watch(budgetsProvider).value ?? [];
   return {for (var b in budgets) b.category: b};

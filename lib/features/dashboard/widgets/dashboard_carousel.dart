@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/features/dashboard/widgets/carousel_card.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
 import 'package:budgetti/features/dashboard/widgets/net_flow_card.dart';
 
@@ -13,7 +14,7 @@ class DashboardCarousel extends ConsumerStatefulWidget {
 }
 
 class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
-  final _controller = PageController();
+  final _controller = PageController(viewportFraction: 0.93);
   int _page = 0;
 
   @override
@@ -38,19 +39,22 @@ class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
             controller: _controller,
             onPageChanged: (i) => setState(() => _page = i),
             children: [
-              const NetFlowCard(),
-              SummaryCard(
-                title: "Total Balance",
-                amount: stats != null ? formatter.format(stats.totalBalance) : "—",
-                trend: stats != null
-                    ? "${stats.netFlow >= 0 ? "+" : ""}${formatter.format(stats.netFlow)} · 30d"
-                    : "",
-                isPositive: (stats?.netFlow ?? 0) >= 0,
-                isVisible: isVisible,
-                onToggleVisibility: () =>
-                    ref.read(balanceVisibilityProvider.notifier).toggle(),
+              const _PageSlot(child: NetFlowCard()),
+              _PageSlot(
+                child: SummaryCard(
+                  title: "Total Balance",
+                  amount:
+                      stats != null ? formatter.format(stats.totalBalance) : "—",
+                  trend: stats != null
+                      ? "${stats.netFlow >= 0 ? "+" : ""}${formatter.format(stats.netFlow)} · 30d"
+                      : "",
+                  isPositive: (stats?.netFlow ?? 0) >= 0,
+                  isVisible: isVisible,
+                  onToggleVisibility: () =>
+                      ref.read(balanceVisibilityProvider.notifier).toggle(),
+                ),
               ),
-              const _WalletsRecapCard(),
+              const _PageSlot(child: _WalletsRecapCard()),
             ],
           ),
         ),
@@ -62,8 +66,8 @@ class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
             return AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.symmetric(horizontal: 3),
-              height: 6,
-              width: active ? 18 : 6,
+              height: 5,
+              width: active ? 16 : 5,
               decoration: BoxDecoration(
                 color: active
                     ? scheme.primary
@@ -78,6 +82,19 @@ class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
   }
 }
 
+class _PageSlot extends StatelessWidget {
+  final Widget child;
+  const _PageSlot({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: child,
+    );
+  }
+}
+
 class _WalletsRecapCard extends ConsumerWidget {
   const _WalletsRecapCard();
 
@@ -88,96 +105,177 @@ class _WalletsRecapCard extends ConsumerWidget {
     final formatter = ref.watch(currencyProvider);
     final isVisible = ref.watch(balanceVisibilityProvider);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: accountsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        error: (_, __) => Text(
-          "Couldn't load wallets",
-          style: TextStyle(color: scheme.onSurfaceVariant),
+    return accountsAsync.when(
+      loading: () => CarouselCard(
+        icon: Icons.layers_rounded,
+        label: 'WALLETS',
+        child: Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: scheme.primary,
+          ),
         ),
-        data: (accounts) {
-          if (accounts.isEmpty) {
-            return Text(
-              "No wallets",
-              style: TextStyle(color: scheme.onSurfaceVariant),
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Wallets",
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  Text(
-                    "${accounts.length}",
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView.separated(
-                  padding: EdgeInsets.zero,
-                  itemCount: accounts.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
-                  itemBuilder: (context, i) {
-                    final acc = accounts[i];
-                    final negative = acc.balance < 0;
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () {
-                        ref.read(selectedWalletIdProvider.notifier).set(acc.id);
-                        context.go('/transactions');
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                acc.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: scheme.onSurface,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              isVisible ? formatter.format(acc.balance) : "******",
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: negative ? scheme.error : scheme.onSurface,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+      ),
+      error: (_, __) => CarouselCard(
+        icon: Icons.layers_rounded,
+        label: 'WALLETS',
+        child: Center(
+          child: Text(
+            "Couldn't load wallets",
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ),
+      data: (accounts) {
+        if (accounts.isEmpty) {
+          return CarouselCard(
+            icon: Icons.layers_rounded,
+            label: 'WALLETS',
+            child: Center(
+              child: Text(
+                "No wallets yet",
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 13,
                 ),
               ),
-            ],
+            ),
           );
-        },
+        }
+
+        final visibleCount = accounts.length > 3 ? 2 : accounts.length;
+        final visible = accounts.take(visibleCount).toList();
+        final overflow = accounts.length - visibleCount;
+
+        return CarouselCard(
+          icon: Icons.layers_rounded,
+          label: 'WALLETS',
+          trailing: Text(
+            '${accounts.length}',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisAlignment: accounts.length == 1
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
+            children: [
+              for (int i = 0; i < visible.length; i++) ...[
+                _WalletRow(
+                  account: visible[i],
+                  formatter: formatter,
+                  isVisible: isVisible,
+                  onTap: () {
+                    ref
+                        .read(selectedWalletIdProvider.notifier)
+                        .set(visible[i].id);
+                    context.go('/transactions');
+                  },
+                ),
+                if (i < visible.length - 1 || overflow > 0)
+                  const SizedBox(height: 8),
+              ],
+              if (overflow > 0)
+                GestureDetector(
+                  onTap: () => context.go('/transactions'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_rounded,
+                          size: 13,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$overflow more',
+                          style: TextStyle(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WalletRow extends StatelessWidget {
+  final dynamic account;
+  final dynamic formatter;
+  final bool isVisible;
+  final VoidCallback onTap;
+
+  const _WalletRow({
+    required this.account,
+    required this.formatter,
+    required this.isVisible,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final negative = account.balance < 0;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: negative
+                    ? scheme.error.withValues(alpha: 0.7)
+                    : scheme.primary.withValues(alpha: 0.7),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                account.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isVisible ? formatter.format(account.balance) : "******",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: negative ? scheme.error : scheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }
