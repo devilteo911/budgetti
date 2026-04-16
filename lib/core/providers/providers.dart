@@ -409,6 +409,61 @@ final groupedTransactionsProvider = Provider<GroupedTransactions>((ref) {
   );
 });
 
+class FilteredTotals {
+  final double income;
+  final double expense;
+  final int count;
+
+  const FilteredTotals({
+    required this.income,
+    required this.expense,
+    required this.count,
+  });
+
+  double get net => income - expense;
+
+  static const empty = FilteredTotals(income: 0, expense: 0, count: 0);
+}
+
+final filteredTotalsProvider = Provider<FilteredTotals>((ref) {
+  final all = ref.watch(transactionsProvider(null)).value ?? [];
+  final filters = ref.watch(transactionFiltersProvider);
+  final walletId = ref.watch(selectedWalletIdProvider);
+
+  if (all.isEmpty) return FilteredTotals.empty;
+
+  double income = 0;
+  double expense = 0;
+  int count = 0;
+
+  for (final t in all) {
+    if (walletId != null && t.accountId != walletId) continue;
+    final range = filters.dateRange;
+    if (range != null) {
+      if (t.date.isBefore(range.start)) continue;
+      if (t.date.isAfter(range.end)) continue;
+    }
+    if (filters.categories.isNotEmpty &&
+        !filters.categories.contains(t.category)) {
+      continue;
+    }
+    if (filters.tags.isNotEmpty &&
+        !t.tags.any((tag) => filters.tags.contains(tag))) {
+      continue;
+    }
+
+    count++;
+    if (t.type == 'transfer') continue;
+    if (t.amount > 0) {
+      income += t.amount;
+    } else {
+      expense += t.amount.abs();
+    }
+  }
+
+  return FilteredTotals(income: income, expense: expense, count: count);
+});
+
 final categoryMapProvider = Provider<Map<String, Category>>((ref) {
   final categories = ref.watch(categoriesProvider).value ?? [];
   return {for (var c in categories) c.name: c};

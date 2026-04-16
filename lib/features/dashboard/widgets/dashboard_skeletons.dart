@@ -44,6 +44,47 @@ class TransactionItemSkeleton extends StatelessWidget {
   }
 }
 
+class TransactionLedgerItemSkeleton extends StatelessWidget {
+  const TransactionLedgerItemSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 13, 20, 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Skeleton(height: 40, width: 3, borderRadius: 2),
+          const SizedBox(width: 13),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Skeleton(height: 14, width: 22, borderRadius: 3),
+              SizedBox(height: 6),
+              Skeleton(height: 8, width: 28, borderRadius: 3),
+            ],
+          ),
+          const SizedBox(width: 12),
+          const Skeleton(height: 36, width: 36, borderRadius: 12),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Skeleton(height: 14, width: 140),
+                SizedBox(height: 8),
+                Skeleton(height: 10, width: 80),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Skeleton(height: 14, width: 64, borderRadius: 3),
+        ],
+      ),
+    );
+  }
+}
+
 class BudgetSaturationRecapSkeleton extends StatelessWidget {
   const BudgetSaturationRecapSkeleton({super.key});
 

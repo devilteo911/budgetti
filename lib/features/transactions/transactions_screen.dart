@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/features/transactions/transaction_filter_sheet.dart';
@@ -11,6 +10,7 @@ import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:budgetti/features/transactions/widgets/transaction_list.dart';
 import 'package:budgetti/features/transactions/widgets/transaction_app_bar.dart';
+import 'package:budgetti/features/transactions/widgets/transactions_hero.dart';
 import 'package:budgetti/features/transactions/widgets/active_filter_chip.dart';
 
 
@@ -58,20 +58,20 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final count = _selectedIds.length;
     if (count == 0) return;
 
+    final scheme = Theme.of(context).colorScheme;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceGrey,
-        title: const Text("Delete Transactions?", style: TextStyle(color: Colors.white)),
-        content: Text("Are you sure you want to delete near $count items?", style: const TextStyle(color: AppTheme.textGrey)),
+        title: const Text('Delete Transactions?'),
+        content: Text('Are you sure you want to delete $count items?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            child: Text('Delete', style: TextStyle(color: scheme.error)),
           ),
         ],
       ),
@@ -85,10 +85,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         });
         ref.invalidate(paginatedTransactionsProvider);
         ref.invalidate(accountsProvider);
-        ref.invalidate(transactionsProvider(null)); // Refresh charts and stats
+        ref.invalidate(transactionsProvider(null));
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
@@ -96,14 +96,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   void _editSelected(List<Transaction> allTransactions) {
     if (_selectedIds.length != 1) return;
-    
+
     final transactionToEdit = allTransactions.firstWhere(
       (t) => _selectedIds.contains(t.id),
     );
-    
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.backgroundBlack,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       isScrollControlled: true,
       useRootNavigator: true,
       barrierColor: Colors.black54,
@@ -131,12 +131,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     showModalBottomSheet(
       useRootNavigator: true,
       context: context,
-      backgroundColor: AppTheme.surfaceGrey,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => WalletPickerSheet(
-        title: "Filter by Wallet",
+        title: 'Filter by Wallet',
         selectedWalletId: ref.watch(selectedWalletIdProvider),
         showAllWalletsOption: true,
         onWalletSelected: (account) {
@@ -151,7 +151,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final accountsAsync = ref.watch(accountsProvider);
     final paginatedState = ref.watch(paginatedTransactionsProvider);
     final transactions = paginatedState.transactions;
-    final filters = ref.watch(transactionFiltersProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     if (paginatedState.isLoading && transactions.isEmpty) {
       return Scaffold(
@@ -166,11 +166,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           accounts: accountsAsync.value ?? [],
         ),
         body: ShimmerLoading(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
+          child: ListView.builder(
+            padding: const EdgeInsets.only(top: 140, bottom: 16),
             itemCount: 10,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) => const TransactionItemSkeleton(),
+            itemBuilder: (context, index) =>
+                const TransactionLedgerItemSkeleton(),
           ),
         ),
       );
@@ -191,7 +191,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         body: Center(
           child: Text(
             'Error: ${paginatedState.error}',
-            style: const TextStyle(color: Colors.red),
+            style: TextStyle(color: scheme.error),
           ),
         ),
       );
@@ -220,68 +220,89 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         accounts: accountsAsync.value ?? [],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            if (!filters.isEmpty) _buildActiveFilters(filters),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  final notifier = ref.read(paginatedTransactionsProvider.notifier);
-                  ref.invalidate(accountsProvider);
-                  await Future.wait([
-                    notifier.refresh(),
-                    ref.read(accountsProvider.future),
-                    performSheetsSync(ref),
-                  ]);
-                },
-                color: AppTheme.primaryGreen,
-                backgroundColor: AppTheme.surfaceGrey,
-                child: TransactionList(
-                  transactions: transactions,
-                  paginatedState: paginatedState,
-                  scrollController: _scrollController,
-                  selectedIds: _selectedIds,
-                  onToggleSelection: _toggleSelection,
-                ),
-              ),
-            ),
-          ],
+        child: RefreshIndicator(
+          onRefresh: () async {
+            final notifier = ref.read(paginatedTransactionsProvider.notifier);
+            ref.invalidate(accountsProvider);
+            await Future.wait([
+              notifier.refresh(),
+              ref.read(accountsProvider.future),
+              performSheetsSync(ref),
+            ]);
+          },
+          color: scheme.primary,
+          backgroundColor: scheme.surfaceContainer,
+          child: TransactionList(
+            transactions: transactions,
+            paginatedState: paginatedState,
+            scrollController: _scrollController,
+            selectedIds: _selectedIds,
+            onToggleSelection: _toggleSelection,
+            leadingSlivers: [
+              const SliverToBoxAdapter(child: TransactionsHero()),
+              _buildFiltersSliver(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildActiveFilters(TransactionFilterState filters) {
-    return Container(
-      height: 40,
-      margin: const EdgeInsets.only(bottom: 8, top: 4),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        children: [
-          if (filters.dateRange != null)
-            ActiveFilterChip(
-              label: filters.dateRange!.start.year == filters.dateRange!.end.year &&
-                     filters.dateRange!.start.month == filters.dateRange!.end.month &&
-                     filters.dateRange!.start.day == filters.dateRange!.end.day
-                  ? DateFormat('dd MMM').format(filters.dateRange!.start)
-                  : "${DateFormat('dd MMM').format(filters.dateRange!.start)} - ${DateFormat('dd MMM').format(filters.dateRange!.end)}",
-              onDeleted: () => ref.read(transactionFiltersProvider.notifier).setDateRange(null),
-            ),
-          ...filters.categories.map(
-            (c) => ActiveFilterChip(
-            label: c,
-            onDeleted: () => ref.read(transactionFiltersProvider.notifier).toggleCategory(c),
-          )),
-          ...filters.tags.map(
-            (t) => ActiveFilterChip(
-            label: t,
-            onDeleted: () => ref.read(transactionFiltersProvider.notifier).toggleTag(t),
-          )),
-        ],
+  Widget _buildFiltersSliver() {
+    final filters = ref.watch(transactionFiltersProvider);
+    if (filters.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    final chips = <Widget>[];
+    if (filters.dateRange != null) {
+      final start = filters.dateRange!.start;
+      final end = filters.dateRange!.end;
+      final sameDay = start.year == end.year &&
+          start.month == end.month &&
+          start.day == end.day;
+      final label = sameDay
+          ? DateFormat('dd MMM').format(start)
+          : '${DateFormat('dd MMM').format(start)} → ${DateFormat('dd MMM').format(end)}';
+      chips.add(
+        ActiveFilterChip(
+          prefix: 'DATE',
+          label: label,
+          onDeleted: () =>
+              ref.read(transactionFiltersProvider.notifier).setDateRange(null),
+        ),
+      );
+    }
+    for (final c in filters.categories) {
+      chips.add(
+        ActiveFilterChip(
+          label: c,
+          onDeleted: () =>
+              ref.read(transactionFiltersProvider.notifier).toggleCategory(c),
+        ),
+      );
+    }
+    for (final t in filters.tags) {
+      chips.add(
+        ActiveFilterChip(
+          prefix: '#',
+          label: t,
+          onDeleted: () =>
+              ref.read(transactionFiltersProvider.notifier).toggleTag(t),
+        ),
+      );
+    }
+
+    return SliverToBoxAdapter(
+      child: Container(
+        height: 40,
+        margin: const EdgeInsets.only(top: 4, bottom: 12),
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: chips,
+        ),
       ),
     );
   }
 }
-
-

@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:draggable_scrollbar/draggable_scrollbar.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
-import 'package:budgetti/features/transactions/widgets/transaction_item.dart';
+import 'package:budgetti/features/stats/widgets/section_label.dart';
+import 'package:budgetti/features/stats/widgets/stagger.dart';
+import 'package:budgetti/features/transactions/widgets/transaction_ledger_item.dart';
 import 'package:budgetti/features/transactions/transaction_detail_screen.dart';
 
-class TransactionList extends ConsumerWidget {
+class TransactionList extends ConsumerStatefulWidget {
   final List<Transaction> transactions;
   final PaginatedTransactionsState paginatedState;
   final ScrollController scrollController;
   final Set<String> selectedIds;
   final Function(String) onToggleSelection;
+  final List<Widget> leadingSlivers;
 
   const TransactionList({
     super.key,
@@ -21,180 +24,182 @@ class TransactionList extends ConsumerWidget {
     required this.scrollController,
     required this.selectedIds,
     required this.onToggleSelection,
+    this.leadingSlivers = const [],
   });
 
-  String _formatDateHeader(DateTime date) {
-    return DateFormat('MMMM yyyy').format(date).toUpperCase();
+  @override
+  ConsumerState<TransactionList> createState() => _TransactionListState();
+}
+
+class _TransactionListState extends ConsumerState<TransactionList>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    )..forward();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final groupedData = ref.watch(groupedTransactionsProvider);
-    final flatList = groupedData.flatList;
-    final dateIndices = groupedData.dateIndices;
-    final sortedDates = groupedData.sortedDates;
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
-    bool isSelectionMode = selectedIds.isNotEmpty;
-
+  @override
+  Widget build(BuildContext context) {
+    final grouped = ref.watch(groupedTransactionsProvider);
+    final sortedDates = grouped.sortedDates;
     final scheme = Theme.of(context).colorScheme;
-    if (transactions.isEmpty) {
-      return ListView(
+    final isSelectionMode = widget.selectedIds.isNotEmpty;
+
+    if (widget.transactions.isEmpty) {
+      return CustomScrollView(
+        controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.6,
-            child: Center(
-              child: Text(
-                "No transactions found",
-                style: TextStyle(color: scheme.onSurfaceVariant),
-              ),
-            ),
+        slivers: [
+          ...widget.leadingSlivers,
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _EmptyState(),
           ),
         ],
       );
     }
 
-    return DraggableScrollbar.semicircle(
-      controller: scrollController,
-      backgroundColor: scheme.surfaceContainerHighest,
-      labelTextBuilder: (double offset) {
-        if (sortedDates.isEmpty) return const Text("");
+    final slivers = <Widget>[];
+    slivers.addAll(widget.leadingSlivers);
 
-        final totalScrollable = scrollController.position.maxScrollExtent;
-        if (totalScrollable <= 0) {
-          return Text(
-            DateFormat('MMM yyyy').format(sortedDates.first),
-            style: const TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
+    for (var i = 0; i < sortedDates.length; i++) {
+      final date = sortedDates[i];
+      final monthTxns = widget.transactions
+          .where((t) => t.date.year == date.year && t.date.month == date.month)
+          .toList();
+
+      final begin = (0.05 + i * 0.08).clamp(0.0, 0.95);
+      final end = (begin + 0.45).clamp(0.0, 1.0);
+
+      slivers.add(
+        Stagger(
+          controller: _controller,
+          begin: begin,
+          end: end,
+          child: SliverToBoxAdapter(
+            child: SectionLabel(
+              text: DateFormat('MMMM yyyy').format(date).toUpperCase(),
+              count: monthTxns.length,
             ),
-          );
-        }
-
-        final fraction = (offset / totalScrollable).clamp(0.0, 1.0);
-        final index = (fraction * (flatList.length - 1)).floor();
-        final labelDate = dateIndices[index] ?? sortedDates.first;
-
-        return Text(
-          DateFormat('MMM yyyy').format(labelDate).toUpperCase(),
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
           ),
-        );
-      },
-      child: ListView.builder(
-        controller: scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(
-          left: 16.0,
-          right: 16.0,
-          top: 16,
-          bottom: 100,
         ),
-        itemCount: flatList.length + (paginatedState.hasMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == flatList.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32.0),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          final item = flatList[index];
-          if (item is DateTime) {
-            return _buildDateHeader(context, item);
-          }
-          if (item is Transaction) {
-            return _buildAnimatedItem(
-              context,
-              index,
-              TransactionItem(
-                key: ValueKey(item.id),
-                transaction: item,
-                isSelected: selectedIds.contains(item.id),
-                showDate:
-                    index == 0 ||
-                    !(flatList[index - 1] is Transaction &&
-                        (flatList[index - 1] as Transaction).date.day ==
-                            item.date.day &&
-                        (flatList[index - 1] as Transaction).date.month ==
-                            item.date.month &&
-                        (flatList[index - 1] as Transaction).date.year ==
-                            item.date.year),
-                onLongPress: () => onToggleSelection(item.id),
-                onTap: () {
-                  if (isSelectionMode) {
-                    onToggleSelection(item.id);
-                  } else {
-                    final originalIndex = transactions.indexOf(item);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => TransactionDetailScreen(
-                          transactions: transactions,
-                          initialIndex: originalIndex,
-                        ),
-                      ),
-                    );
+      );
+
+      slivers.add(
+        Stagger(
+          controller: _controller,
+          begin: begin,
+          end: end,
+          child: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final itemIndex = index ~/ 2;
+                if (itemIndex >= monthTxns.length) return null;
+                final isDivider = index.isOdd;
+                if (isDivider) {
+                  if (itemIndex >= monthTxns.length - 1) {
+                    return const SizedBox.shrink();
                   }
-                },
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      height: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.18),
+                    ),
+                  );
+                }
+                final txn = monthTxns[itemIndex];
+                return TransactionLedgerItem(
+                  key: ValueKey(txn.id),
+                  transaction: txn,
+                  isSelected: widget.selectedIds.contains(txn.id),
+                  onLongPress: () => widget.onToggleSelection(txn.id),
+                  onTap: () {
+                    if (isSelectionMode) {
+                      widget.onToggleSelection(txn.id);
+                    } else {
+                      final originalIndex =
+                          widget.transactions.indexOf(txn);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => TransactionDetailScreen(
+                            transactions: widget.transactions,
+                            initialIndex: originalIndex,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
+              childCount: monthTxns.length * 2,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (widget.paginatedState.hasMore) {
+      slivers.add(
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ),
+      );
+    }
+
+    slivers.add(const SliverPadding(padding: EdgeInsets.only(bottom: 100)));
+
+    return CustomScrollView(
+      controller: widget.scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: slivers,
     );
   }
+}
 
-  Widget _buildDateHeader(BuildContext context, DateTime date) {
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: Row(
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: scheme.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              _formatDateHeader(date),
-              style: TextStyle(
-                color: scheme.primary,
-                fontWeight: FontWeight.w800,
-                fontSize: 11,
-                letterSpacing: 1.5,
-              ),
+          Text(
+            'NO ACTIVITY',
+            style: GoogleFonts.jetBrainsMono(
+              color: scheme.onSurfaceVariant,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2.4,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: scheme.outlineVariant.withValues(alpha: 0.4),
+          const SizedBox(height: 10),
+          Text(
+            'Nessuna transazione in questo periodo',
+            style: TextStyle(
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAnimatedItem(BuildContext context, int index, Widget child) {
-    return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 400 + (index % 10 * 50)),
-      tween: Tween(begin: 0.0, end: 1.0),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 30 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
-      child: child,
     );
   }
 }
