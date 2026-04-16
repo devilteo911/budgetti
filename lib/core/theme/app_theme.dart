@@ -87,15 +87,15 @@ class AppTheme {
         ? ThemeData.dark().textTheme
         : ThemeData.light().textTheme;
 
-    // Body/labels → Inter. Display/headline → JetBrains Mono.
-    final interText = GoogleFonts.interTextTheme(baseText);
-    final textTheme = interText.copyWith(
-      displayLarge: GoogleFonts.jetBrainsMono(textStyle: interText.displayLarge),
-      displayMedium: GoogleFonts.jetBrainsMono(textStyle: interText.displayMedium),
-      displaySmall: GoogleFonts.jetBrainsMono(textStyle: interText.displaySmall),
-      headlineLarge: GoogleFonts.jetBrainsMono(textStyle: interText.headlineLarge),
-      headlineMedium: GoogleFonts.jetBrainsMono(textStyle: interText.headlineMedium),
-      headlineSmall: GoogleFonts.jetBrainsMono(textStyle: interText.headlineSmall),
+    // Body/labels → Manrope. Display/headline → JetBrains Mono.
+    final bodyText = GoogleFonts.manropeTextTheme(baseText);
+    final textTheme = bodyText.copyWith(
+      displayLarge: GoogleFonts.jetBrainsMono(textStyle: bodyText.displayLarge),
+      displayMedium: GoogleFonts.jetBrainsMono(textStyle: bodyText.displayMedium),
+      displaySmall: GoogleFonts.jetBrainsMono(textStyle: bodyText.displaySmall),
+      headlineLarge: GoogleFonts.jetBrainsMono(textStyle: bodyText.headlineLarge),
+      headlineMedium: GoogleFonts.jetBrainsMono(textStyle: bodyText.headlineMedium),
+      headlineSmall: GoogleFonts.jetBrainsMono(textStyle: bodyText.headlineSmall),
     ).apply(
       bodyColor: scheme.onSurface,
       displayColor: scheme.onSurface,
