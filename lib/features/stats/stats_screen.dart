@@ -4,11 +4,12 @@ import 'package:budgetti/features/stats/category_details_screen.dart';
 import 'package:budgetti/features/stats/widgets/category_distribution.dart';
 import 'package:budgetti/features/stats/widgets/category_row.dart';
 import 'package:budgetti/features/stats/widgets/monthly_row.dart';
+import 'package:budgetti/features/stats/widgets/section_label.dart';
+import 'package:budgetti/features/stats/widgets/stagger.dart';
 import 'package:budgetti/features/stats/widgets/stats_filter_bar.dart';
 import 'package:budgetti/features/stats/widgets/stats_hero.dart';
 import 'package:budgetti/features/charts/widgets/spending_line_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -89,25 +90,25 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   child: _EmptyState(period: period),
                 )
               else ...[
-                _Stagger(
+                Stagger(
                   controller: _entrance,
                   begin: 0.00,
                   end: 0.55,
                   child: const SliverToBoxAdapter(child: StatsHero()),
                 ),
                 if (sortedCategoryEntries.isNotEmpty) ...[
-                  _Stagger(
+                  Stagger(
                     controller: _entrance,
                     begin: 0.10,
                     end: 0.65,
                     child: SliverToBoxAdapter(
-                      child: _SectionLabel(
+                      child: SectionLabel(
                         text: 'DISTRIBUTION',
                         count: sortedCategoryEntries.length,
                       ),
                     ),
                   ),
-                  _Stagger(
+                  Stagger(
                     controller: _entrance,
                     begin: 0.15,
                     end: 0.75,
@@ -121,15 +122,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     ),
                   ),
                 ],
-                _Stagger(
+                Stagger(
                   controller: _entrance,
                   begin: 0.25,
                   end: 0.80,
                   child: const SliverToBoxAdapter(
-                    child: _SectionLabel(text: 'TRENDS'),
+                    child: SectionLabel(text: 'TRENDS'),
                   ),
                 ),
-                _Stagger(
+                Stagger(
                   controller: _entrance,
                   begin: 0.30,
                   end: 0.85,
@@ -141,15 +142,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   ),
                 ),
                 if (sortedCategoryEntries.isNotEmpty) ...[
-                  _Stagger(
+                  Stagger(
                     controller: _entrance,
                     begin: 0.35,
                     end: 0.90,
                     child: const SliverToBoxAdapter(
-                      child: _SectionLabel(text: 'BREAKDOWN'),
+                      child: SectionLabel(text: 'BREAKDOWN'),
                     ),
                   ),
-                  _Stagger(
+                  Stagger(
                     controller: _entrance,
                     begin: 0.40,
                     end: 0.95,
@@ -163,15 +164,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                 ],
                 if (period.month == null &&
                     stats.monthlyBreakdown.isNotEmpty) ...[
-                  _Stagger(
+                  Stagger(
                     controller: _entrance,
                     begin: 0.45,
                     end: 1.0,
                     child: const SliverToBoxAdapter(
-                      child: _SectionLabel(text: 'LEDGER · MONTHLY'),
+                      child: SectionLabel(text: 'LEDGER · MONTHLY'),
                     ),
                   ),
-                  _Stagger(
+                  Stagger(
                     controller: _entrance,
                     begin: 0.50,
                     end: 1.0,
@@ -186,53 +187,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  final int? count;
-  const _SectionLabel({required this.text, this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            text,
-            style: GoogleFonts.jetBrainsMono(
-              color: scheme.onSurfaceVariant,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2.4,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: scheme.outlineVariant.withValues(alpha: 0.25),
-            ),
-          ),
-          if (count != null) ...[
-            const SizedBox(width: 10),
-            Text(
-              count.toString().padLeft(2, '0'),
-              style: GoogleFonts.jetBrainsMono(
-                color: scheme.onSurfaceVariant,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.4,
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }
@@ -347,76 +301,6 @@ class _MonthlySliver extends StatelessWidget {
         childCount: sortedMonths.length,
       ),
     );
-  }
-}
-
-class _Stagger extends StatelessWidget {
-  final AnimationController controller;
-  final double begin;
-  final double end;
-  final Widget child;
-
-  const _Stagger({
-    required this.controller,
-    required this.begin,
-    required this.end,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final curved = CurvedAnimation(
-      parent: controller,
-      curve: Interval(begin, end, curve: Curves.easeOutCubic),
-    );
-    return AnimatedBuilder(
-      animation: curved,
-      builder: (context, _) {
-        final v = curved.value.clamp(0.0, 1.0);
-        return SliverOpacity(
-          opacity: v,
-          sliver: _SliverTranslate(
-            dy: (1 - v) * 14,
-            sliver: child,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SliverTranslate extends SingleChildRenderObjectWidget {
-  final double dy;
-
-  const _SliverTranslate({required this.dy, required Widget sliver})
-      : super(child: sliver);
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderSliverTranslate(dy: dy);
-
-  @override
-  void updateRenderObject(
-      BuildContext context, _RenderSliverTranslate renderObject) {
-    renderObject.dy = dy;
-  }
-}
-
-class _RenderSliverTranslate extends RenderProxySliver {
-  double _dy;
-  _RenderSliverTranslate({required double dy}) : _dy = dy;
-
-  set dy(double value) {
-    if (_dy == value) return;
-    _dy = value;
-    markNeedsPaint();
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    if (child != null) {
-      context.paintChild(child!, offset + Offset(0, _dy));
-    }
   }
 }
 

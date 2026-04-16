@@ -1,327 +1,223 @@
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/features/stats/widgets/budget_progress.dart';
+import 'package:budgetti/features/stats/widgets/category_hero.dart';
+import 'package:budgetti/features/stats/widgets/category_trend_chart.dart';
+import 'package:budgetti/features/stats/widgets/section_label.dart';
+import 'package:budgetti/features/stats/widgets/stagger.dart';
+import 'package:budgetti/features/stats/widgets/transaction_ledger_row.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/transaction.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'dart:math' as math;
 
-class CategoryDetailsScreen extends ConsumerWidget {
+class CategoryDetailsScreen extends ConsumerStatefulWidget {
   final Category category;
 
   const CategoryDetailsScreen({super.key, required this.category});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final transactionsAsync = ref.watch(transactionsProvider('1')); // Assuming account '1' for now
-    final currencyFormatter = ref.watch(currencyProvider);
-    final categoryColor = Color(category.colorHex);
-
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: AppTheme.backgroundBlack,
-      ),
-      child: Scaffold(
-        backgroundColor: AppTheme.backgroundBlack,
-        appBar: AppBar(
-          title: Text(category.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: AppTheme.backgroundBlack,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
-        ),
-      body: transactionsAsync.when(
-        data: (transactions) {
-          final categoryTransactions = transactions
-              .where((t) => t.category == category.name)
-              .toList()
-            ..sort((a, b) => b.date.compareTo(a.date));
-
-          if (categoryTransactions.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          final monthlyAggregated = _aggregateByMonth(categoryTransactions);
-          final sortedMonths = monthlyAggregated.keys.toList()..sort();
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                 // Centered Icon and Name
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: categoryColor.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: categoryColor.withOpacity(0.4), width: 2),
-                  ),
-                  child: Icon(
-                    IconData(category.iconCode, fontFamily: 'MaterialIcons'),
-                    color: categoryColor,
-                    size: 64,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  category.name,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                
-                // Description
-                if (category.description != null && category.description!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      category.description!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppTheme.textGrey, fontSize: 16),
-                    ),
-                  ),
-                ],
-                
-                const SizedBox(height: 48),
-
-                // Trend Plot
-                _buildSectionTitle(context, "Spending Trend"),
-                const SizedBox(height: 16),
-                _buildChart(sortedMonths, monthlyAggregated, categoryColor),
-                
-                const SizedBox(height: 40),
-
-                // Monthly List
-                _buildSectionTitle(context, "Monthly Summary"),
-                const SizedBox(height: 16),
-                _buildMonthlyList(sortedMonths, monthlyAggregated, currencyFormatter, categoryColor),
-                
-                const SizedBox(height: 40),
-              ],
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text("Error: $e")),
-      ),
-    ),
-  );
+  ConsumerState<CategoryDetailsScreen> createState() =>
+      _CategoryDetailsScreenState();
 }
 
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-      ),
-    );
+class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entrance;
+
+  @override
+  void initState() {
+    super.initState();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    )..forward();
   }
 
-  double _getRoundedMax(double maxVal) {
-    if (maxVal <= 0) return 100;
-    // Find the next power of 10 that comfortably fits the max value
-    double log10 = (math.log(maxVal) / math.ln10).floorToDouble();
-    double powerOf10 = math.pow(10, log10).toDouble();
-    
-    // Choose a nice step (1x, 2x, 5x the power of 10)
-    if (maxVal <= powerOf10) return powerOf10;
-    if (maxVal <= powerOf10 * 2) return powerOf10 * 2;
-    if (maxVal <= powerOf10 * 5) return powerOf10 * 5;
-    return powerOf10 * 10;
+  @override
+  void dispose() {
+    _entrance.dispose();
+    super.dispose();
   }
 
-  Widget _buildChart(List<String> months, Map<String, double> data, Color color) {
-    if (months.isEmpty) {
-      return Container(
-        height: 200,
-        alignment: Alignment.center,
-        child: const Text("No data for trend plot", style: TextStyle(color: AppTheme.textGrey)),
-      );
-    }
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final period = ref.watch(selectedStatsPeriodProvider);
+    final transactionsAsync = ref.watch(transactionsProvider(null));
+    final currencyFormatter = ref.watch(currencyProvider);
+    final tagMap = ref.watch(tagMapProvider);
+    final budgetMap = ref.watch(budgetMapProvider);
+    final budget = budgetMap[widget.category.name];
 
-    final maxVal = data.values.isEmpty ? 0.0 : data.values.reduce(math.max);
-    final roundedMax = _getRoundedMax(maxVal);
-
-    final barGroups = List.generate(months.length, (i) {
-      final value = data[months[i]]!;
-      return BarChartGroupData(
-        x: i,
-        barRods: [
-          BarChartRodData(
-            toY: value,
-            color: color,
-            width: 8, // Thinner bars for 12 months
-            borderRadius: BorderRadius.circular(2),
-            backDrawRodData: BackgroundBarChartRodData(
-              show: true,
-              toY: roundedMax,
-              color: color.withOpacity(0.1),
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.category.name,
+          style: GoogleFonts.jetBrainsMono(
+            color: scheme.onSurface,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
           ),
-        ],
-      );
-    });
-
-    return SizedBox(
-      height: 250,
-      child: BarChart(
-        BarChartData(
-          maxY: roundedMax,
-          barTouchData: BarTouchData(
-            touchTooltipData: BarTouchTooltipData(
-              getTooltipColor: (_) => AppTheme.surfaceGrey,
-              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                return BarTooltipItem(
-                  "${DateFormat('MMM yyyy').format(DateTime.parse("${months[groupIndex]}-01"))}\n",
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  children: [
-                    TextSpan(
-                      text: rod.toY.toStringAsFixed(2),
-                      style: TextStyle(color: color, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          titlesData: FlTitlesData(
-            show: true,
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  final index = value.toInt();
-                  if (index < 0 || index >= months.length) return const SizedBox();
-                  // Show every 2nd or 3rd month title if it gets too crowded
-                  if (index % 2 != 0) return const SizedBox();
-                  
-                  final date = DateTime.parse("${months[index]}-01");
-                  return SideTitleWidget(
-                    meta: meta,
-                    space: 12,
-                    child: Text(
-                      DateFormat('MMM').format(date),
-                      style: const TextStyle(
-                        color: Color(0xff7589a2),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 9,
-                      ),
-                    ),
-                  );
-                },
-                reservedSize: 32,
-              ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 40,
-                // Set interval to get nice ticks (roundedMax / 5)
-                interval: roundedMax / 5,
-                getTitlesWidget: (value, meta) {
-                  if (value < 0) return const SizedBox();
-                  return SideTitleWidget(
-                    meta: meta,
-                    space: 8,
-                    child: Text(
-                      NumberFormat.compact().format(value),
-                      style: const TextStyle(
-                        color: Color(0xff7589a2),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 9,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: roundedMax / 5,
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: AppTheme.surfaceGreyLight.withOpacity(0.2),
-              strokeWidth: 1,
-            ),
-          ),
-          barGroups: barGroups,
         ),
       ),
-    );
-  }
+      body: transactionsAsync.when(
+        loading: () => Center(
+          child: CircularProgressIndicator(color: scheme.primary),
+        ),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (all) {
+          final catColor = Color(widget.category.colorHex);
+          final categoryAll = all
+              .where((t) =>
+                  t.category == widget.category.name && t.amount < 0)
+              .toList();
 
-  Widget _buildMonthlyList(List<String> months, Map<String, double> data, dynamic formatter, Color color) {
-    final monthsWithData = months.where((m) => data[m]! > 0).toList();
-    final reversedMonths = monthsWithData.reversed.toList();
-    
-    if (reversedMonths.isEmpty) {
-      return const SizedBox(
-        height: 100,
-        child: Center(child: Text("No recorded spending", style: TextStyle(color: AppTheme.textGrey))),
-      );
-    }
+          final forPeriod = categoryAll.where((t) {
+            if (t.date.year != period.year) return false;
+            if (period.month != null && t.date.month != period.month) {
+              return false;
+            }
+            return true;
+          }).toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: reversedMonths.length,
-      itemBuilder: (context, index) {
-        final monthKey = reversedMonths[index];
-        final amount = data[monthKey]!;
-        final date = DateTime.parse("$monthKey-01");
-        
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceGrey,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.2)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                DateFormat('MMMM yyyy').format(date),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          if (forPeriod.isEmpty && categoryAll.isEmpty) {
+            return _EmptyState(period: period, catColor: catColor);
+          }
+
+          final trendMonths = _last12Months();
+          final monthlyData = _aggregateByMonth(categoryAll, trendMonths);
+          final monthlySpentThisMonth = _currentMonthSpent(categoryAll);
+
+          return CustomScrollView(
+            slivers: [
+              Stagger(
+                controller: _entrance,
+                begin: 0.00,
+                end: 0.55,
+                child: SliverToBoxAdapter(
+                  child: CategoryHero(
+                    category: widget.category,
+                    transactionsForPeriod: forPeriod,
+                    period: period,
+                    currencyFormatter: currencyFormatter,
+                  ),
+                ),
               ),
-              Text(
-                formatter.format(amount),
-                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+              if (budget != null)
+                Stagger(
+                  controller: _entrance,
+                  begin: 0.10,
+                  end: 0.65,
+                  child: SliverToBoxAdapter(
+                    child: BudgetProgress(
+                      spent: monthlySpentThisMonth,
+                      limit: budget.limit,
+                      accent: catColor,
+                      currencyFormatter: currencyFormatter,
+                    ),
+                  ),
+                ),
+              Stagger(
+                controller: _entrance,
+                begin: 0.20,
+                end: 0.75,
+                child: const SliverToBoxAdapter(
+                  child: SectionLabel(text: '12-MONTH TREND'),
+                ),
               ),
+              Stagger(
+                controller: _entrance,
+                begin: 0.25,
+                end: 0.80,
+                child: SliverToBoxAdapter(
+                  child: CategoryTrendChart(
+                    months: trendMonths,
+                    monthlyData: monthlyData,
+                    accent: catColor,
+                    currencyFormatter: currencyFormatter,
+                  ),
+                ),
+              ),
+              Stagger(
+                controller: _entrance,
+                begin: 0.35,
+                end: 0.90,
+                child: SliverToBoxAdapter(
+                  child: SectionLabel(
+                    text: 'TRANSACTIONS',
+                    count: forPeriod.length,
+                  ),
+                ),
+              ),
+              if (forPeriod.isEmpty)
+                Stagger(
+                  controller: _entrance,
+                  begin: 0.40,
+                  end: 0.95,
+                  child: SliverToBoxAdapter(
+                    child: _NoTxnHint(period: period),
+                  ),
+                )
+              else
+                Stagger(
+                  controller: _entrance,
+                  begin: 0.40,
+                  end: 1.0,
+                  child: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final txn = forPeriod[index];
+                        final isLast = index == forPeriod.length - 1;
+                        return Column(
+                          children: [
+                            TransactionLedgerRow(
+                              txn: txn,
+                              currencyFormatter: currencyFormatter,
+                              tagMap: tagMap,
+                            ),
+                            if (!isLast)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                child: Container(
+                                  height: 1,
+                                  color: scheme.outlineVariant
+                                      .withValues(alpha: 0.18),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                      childCount: forPeriod.length,
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  Map<String, double> _aggregateByMonth(List<Transaction> transactions) {
-    final map = <String, double>{};
-    
-    // Initialize Jan-Dec of the current year with 0.0
+  static List<String> _last12Months() {
     final now = DateTime.now();
-    for (int i = 1; i <= 12; i++) {
-      final date = DateTime(now.year, i, 1);
-      final key = DateFormat('yyyy-MM').format(date);
-      map[key] = 0.0;
-    }
+    return List.generate(12, (i) {
+      final d = DateTime(now.year, now.month - 11 + i, 1);
+      return DateFormat('yyyy-MM').format(d);
+    });
+  }
 
-    for (var t in transactions) {
+  static Map<String, double> _aggregateByMonth(
+    List<Transaction> transactions,
+    List<String> months,
+  ) {
+    final map = {for (final m in months) m: 0.0};
+    for (final t in transactions) {
       final key = DateFormat('yyyy-MM').format(t.date);
       if (map.containsKey(key)) {
         map[key] = map[key]! + t.amount.abs();
@@ -330,9 +226,84 @@ class CategoryDetailsScreen extends ConsumerWidget {
     return map;
   }
 
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Text("No transactions for this category", style: TextStyle(color: AppTheme.textGrey)),
+  static double _currentMonthSpent(List<Transaction> transactions) {
+    final now = DateTime.now();
+    return transactions
+        .where((t) => t.date.year == now.year && t.date.month == now.month)
+        .fold<double>(0, (s, t) => s + t.amount.abs());
+  }
+}
+
+class _NoTxnHint extends StatelessWidget {
+  final StatsPeriod period;
+  const _NoTxnHint({required this.period});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final label = period.month != null
+        ? DateFormat('MMMM yyyy').format(DateTime(period.year, period.month!))
+        : '${period.year}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      child: Text(
+        'No transactions in $label.',
+        style: TextStyle(
+          color: scheme.onSurfaceVariant,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final StatsPeriod period;
+  final Color catColor;
+  const _EmptyState({required this.period, required this.catColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final label = period.month != null
+        ? DateFormat('MMMM yyyy').format(DateTime(period.year, period.month!))
+        : '${period.year}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 48, 32, 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 3,
+            height: 48,
+            decoration: BoxDecoration(
+              color: catColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'NO ACTIVITY',
+            style: GoogleFonts.jetBrainsMono(
+              color: scheme.onSurfaceVariant,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Nothing recorded for this category in $label.',
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
