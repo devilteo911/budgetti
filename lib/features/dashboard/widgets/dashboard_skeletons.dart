@@ -99,31 +99,30 @@ class DashboardSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Header row (wordmark + date)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Skeleton(height: 16, width: 100),
-                  SizedBox(height: 8),
-                  Skeleton(height: 32, width: 160),
-                ],
-              ),
-              const Skeleton(height: 48, width: 48, borderRadius: 24),
+            children: const [
+              Skeleton(height: 20, width: 90),
+              Skeleton(height: 14, width: 100),
             ],
           ),
-          const SizedBox(height: 32),
-          // Summary Cards
+          const SizedBox(height: 20),
+          // Carousel (3-card swipable) — one card's worth of skeleton
+          const SizedBox(height: 168, child: SummaryCardSkeleton()),
+          const SizedBox(height: 10),
+          // Page indicator
           Row(
-            children: [
-              Expanded(child: SummaryCardSkeleton()),
-              SizedBox(width: 12),
-              Expanded(child: SummaryCardSkeleton()),
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Skeleton(height: 6, width: 18, borderRadius: 3),
+              SizedBox(width: 6),
+              Skeleton(height: 6, width: 6, borderRadius: 3),
+              SizedBox(width: 6),
+              Skeleton(height: 6, width: 6, borderRadius: 3),
             ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           // Budget Saturation
           const BudgetSaturationRecapSkeleton(),
           const SizedBox(height: 32),
@@ -137,7 +136,7 @@ class DashboardSkeleton extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              ...List.generate(3, (index) => const TransactionItemSkeleton()),
+              ...List.generate(5, (index) => const TransactionItemSkeleton()),
             ],
           ),
         ],

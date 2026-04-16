@@ -43,15 +43,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         ),
         error: (err, _) => Center(child: Text("Error: $err")),
         data: (stats) {
-          if (stats.categoryTotals.isEmpty && stats.monthlyBreakdown.isEmpty) {
-            return Center(
-              child: Text(
-                "No transactions in ${period.year}",
-                style: const TextStyle(color: AppTheme.textGrey),
-              ),
-            );
-          }
-
+          final isEmpty =
+              stats.categoryTotals.isEmpty && stats.monthlyBreakdown.isEmpty;
           final totalExpenses = stats.totalExpenses;
           final scope = ref.watch(statsScopeProvider);
           final sortedCategoryEntries = stats.categoryTotals.entries.toList()
@@ -64,74 +57,114 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 child: StatsFilterBar(),
               ),
 
-              // 1. Quick Insights Section
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: _buildQuickInsights(
-                    stats,
-                    currencyFormatter,
-                    period,
-                    scope,
-                  ),
-                ),
-              ),
-
-              // 2. Spending Trends Header
-              SliverToBoxAdapter(
-                child: _buildSectionHeader(context, "Spending Trends"),
-              ),
-
-              // 3. Spending Line Chart
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: const SpendingLineChart(),
-                ),
-              ),
-
-              // 4. Category Distribution Header
-              SliverToBoxAdapter(
-                child: _buildSectionHeader(context, "Category Distribution"),
-              ),
-
-              // 5. Pie Chart
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 260,
-                  child: _buildPieChart(
-                    sortedCategoryEntries,
-                    categoryMap,
-                    totalExpenses,
-                    currencyFormatter,
-                  ),
-                ),
-              ),
-
-              // 6. Category Details List
-              _buildCategorySliverList(
-                sortedCategoryEntries,
-                categoryMap,
-                totalExpenses,
-                currencyFormatter,
-              ),
-
-              // 7. Monthly Breakdown (Only in Yearly Mode)
-              if (period.month == null) ...[
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              if (isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildEmptyState(period),
+                )
+              else ...[
+                // 1. Quick Insights Section
                 SliverToBoxAdapter(
-                  child: _buildSectionHeader(context, "Monthly Breakdown"),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _buildQuickInsights(
+                      stats,
+                      currencyFormatter,
+                      period,
+                      scope,
+                    ),
+                  ),
                 ),
-                _buildMonthlyBreakdownSliver(
-                  stats.monthlyBreakdown,
+
+                // 2. Spending Trends Header
+                SliverToBoxAdapter(
+                  child: _buildSectionHeader(context, "Spending Trends"),
+                ),
+
+                // 3. Spending Line Chart
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: const SpendingLineChart(),
+                  ),
+                ),
+
+                // 4. Category Distribution Header
+                SliverToBoxAdapter(
+                  child: _buildSectionHeader(context, "Category Distribution"),
+                ),
+
+                // 5. Pie Chart
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 260,
+                    child: _buildPieChart(
+                      sortedCategoryEntries,
+                      categoryMap,
+                      totalExpenses,
+                      currencyFormatter,
+                    ),
+                  ),
+                ),
+
+                // 6. Category Details List
+                _buildCategorySliverList(
+                  sortedCategoryEntries,
+                  categoryMap,
+                  totalExpenses,
                   currencyFormatter,
                 ),
-              ],
 
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                // 7. Monthly Breakdown (Only in Yearly Mode)
+                if (period.month == null) ...[
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  SliverToBoxAdapter(
+                    child: _buildSectionHeader(context, "Monthly Breakdown"),
+                  ),
+                  _buildMonthlyBreakdownSliver(
+                    stats.monthlyBreakdown,
+                    currencyFormatter,
+                  ),
+                ],
+
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              ],
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(StatsPeriod period) {
+    final label = period.month != null
+        ? DateFormat('MMMM yyyy').format(DateTime(period.year, period.month!))
+        : '${period.year}';
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.receipt_long_outlined,
+            size: 40,
+            color: AppTheme.textGrey,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "No transactions in $label",
+            style: const TextStyle(
+              color: AppTheme.textWhite,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            "Try another period above.",
+            style: TextStyle(color: AppTheme.textGrey, fontSize: 13),
+          ),
+        ],
       ),
     );
   }

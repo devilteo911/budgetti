@@ -319,17 +319,20 @@ void _openPeriodSheet(
                   children: List.generate(12, (i) {
                     final m = i + 1;
                     final selected = m == current.month;
+                    final isFuture = current.year == now.year && m > now.month;
                     return FilterChip(
                       label: Text(
                         DateFormat('MMM').format(DateTime(current.year, m)),
                       ),
                       selected: selected,
-                      onSelected: (_) {
-                        ref
-                            .read(selectedStatsPeriodProvider.notifier)
-                            .setMonth(m);
-                        Navigator.pop(sheetCtx);
-                      },
+                      onSelected: isFuture
+                          ? null
+                          : (_) {
+                              ref
+                                  .read(selectedStatsPeriodProvider.notifier)
+                                  .setMonth(m);
+                              Navigator.pop(sheetCtx);
+                            },
                     );
                   }),
                 ),

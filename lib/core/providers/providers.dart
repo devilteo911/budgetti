@@ -440,16 +440,20 @@ final tagColorCacheProvider = Provider<Map<String, Color>>((ref) {
 
 class DashboardStats {
   final double totalBalance;
+  final double monthlyIncome;
   final double monthlyExpenses;
   final double netFlow;
   final List<Transaction> recentTransactions;
 
   DashboardStats({
     required this.totalBalance,
+    required this.monthlyIncome,
     required this.monthlyExpenses,
     required this.recentTransactions,
     required this.netFlow,
   });
+
+  double get monthlyNetFlow => monthlyIncome - monthlyExpenses;
 }
 
 final dashboardStatsProvider = Provider<AsyncValue<DashboardStats>>((ref) {
@@ -474,14 +478,18 @@ final dashboardStatsProvider = Provider<AsyncValue<DashboardStats>>((ref) {
             (sum, acc) => sum + acc.balance,
           );
 
-          final monthlyExpenses = transactions
-              .where(
-                (t) =>
-                    t.date.month == currentMonth &&
-                    t.date.year == currentYear &&
-                    t.amount < 0,
-              )
-              .fold(0.0, (sum, t) => sum + t.amount.abs());
+          double monthlyExpenses = 0.0;
+          double monthlyIncome = 0.0;
+          for (final t in transactions) {
+            if (t.date.month != currentMonth || t.date.year != currentYear) {
+              continue;
+            }
+            if (t.type == 'income') {
+              monthlyIncome += t.amount;
+            } else if (t.amount < 0 && t.type != 'transfer') {
+              monthlyExpenses += t.amount.abs();
+            }
+          }
 
           final netFlow = transactions
               .where((t) => t.date.isAfter(last30Days))
@@ -490,6 +498,7 @@ final dashboardStatsProvider = Provider<AsyncValue<DashboardStats>>((ref) {
           return AsyncData(
             DashboardStats(
               totalBalance: totalBalance,
+              monthlyIncome: monthlyIncome,
               monthlyExpenses: monthlyExpenses,
               netFlow: netFlow,
               recentTransactions: transactions.take(10).toList(),
@@ -801,11 +810,21 @@ class SelectedStatsPeriodNotifier extends Notifier<StatsPeriod> {
       StatsPeriod(year: DateTime.now().year, month: DateTime.now().month);
 
   void setYear(int year) {
-    state = StatsPeriod(year: year, month: state.month);
+    final now = DateTime.now();
+    var month = state.month;
+    if (year == now.year && month != null && month > now.month) {
+      month = now.month;
+    }
+    state = StatsPeriod(year: year, month: month);
   }
 
   void setMonth(int? month) {
-    state = StatsPeriod(year: state.year, month: month);
+    final now = DateTime.now();
+    var clamped = month;
+    if (clamped != null && state.year == now.year && clamped > now.month) {
+      clamped = now.month;
+    }
+    state = StatsPeriod(year: state.year, month: clamped);
   }
 
   void toggleMode() {

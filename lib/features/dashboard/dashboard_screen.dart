@@ -1,13 +1,13 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
-import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
 import 'package:budgetti/features/dashboard/widgets/budget_overview_card.dart';
+import 'package:budgetti/features/dashboard/widgets/dashboard_header.dart';
+import 'package:budgetti/features/dashboard/widgets/dashboard_carousel.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:budgetti/features/transactions/widgets/transaction_item.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -135,7 +135,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   );
                 }
 
-                final formatter = ref.watch(currencyProvider);
                 final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
 
                 return dashboardStatsAsync.when(
@@ -144,8 +143,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   error: (err, stack) =>
                       Center(child: Text("Error calculating stats")),
                   data: (stats) {
-                    final isVisible = ref.watch(balanceVisibilityProvider);
-
                     return SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -154,50 +151,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Header
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 32.0),
-                            child: Text(
-                              "budgetti",
-                              style: GoogleFonts.bricolageGrotesque(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ),
-
-                          // Summary Cards Row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SummaryCard(
-                                  title: "Total Balance",
-                                  amount: formatter.format(stats.totalBalance),
-                                  trend:
-                                      "${stats.netFlow >= 0 ? "+" : ""}${formatter.format(stats.netFlow)}",
-                                  isPositive: stats.netFlow >= 0,
-                                  isVisible: isVisible,
-                                  onToggleVisibility: () => ref
-                                      .read(balanceVisibilityProvider.notifier)
-                                      .toggle(),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: SummaryCard(
-                                  title: "Monthly Expenses",
-                                  amount: formatter.format(
-                                    stats.monthlyExpenses,
-                                  ),
-                                  trend: "This month",
-                                  isPositive: false,
-                                  isVisible: true,
-                                ),
-                              ),
-                            ],
-                          ),
+                          const DashboardHeader(),
+                          const DashboardCarousel(),
                           const SizedBox(height: 16),
                           const BudgetOverviewCard(),
                           const SizedBox(height: 32),
@@ -215,10 +170,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                                 color: AppTheme.textWhite,
                                               ),
                                         ),
+                                        TextButton(
+                                          onPressed: () => context.go('/transactions'),
+                                          child: const Text("View all"),
+                                        ),
                                       ],
                                     ),
                                     const SizedBox(height: 16),
-                                ...stats.recentTransactions.take(3).map((t) {
+                                ...stats.recentTransactions.take(5).map((t) {
                                   return TransactionItem(
                                     transaction: t,
                                     showDate: true,
