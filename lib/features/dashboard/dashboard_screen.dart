@@ -4,11 +4,12 @@ import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/features/dashboard/widgets/budget_overview_card.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_header.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_carousel.dart';
+import 'package:budgetti/features/dashboard/widgets/dashboard_stat_grid.dart';
+import 'package:budgetti/features/dashboard/widgets/recent_transactions_panel.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:budgetti/features/transactions/widgets/transaction_item.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -153,40 +154,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         children: [
                           const DashboardHeader(),
                           const DashboardCarousel(),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 14),
+                          const DashboardStatGrid(),
                           const BudgetOverviewCard(),
-                          const SizedBox(height: 32),
-                          // Recent Transactions
+                          const SizedBox(height: 14),
                           RepaintBoundary(
-                            child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "Recent Transactions",
-                                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.textWhite,
-                                              ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () => context.go('/transactions'),
-                                          child: const Text("View all"),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                ...stats.recentTransactions.take(5).map((t) {
-                                  return TransactionItem(
-                                    transaction: t,
-                                    showDate: true,
-                                    onTap: () {
-                                      // Optional: Add navigation to detail or edit
-                                    },
-                                  );
-                                }),
-                                  ],
+                            child: RecentTransactionsPanel(
+                              transactions: stats.recentTransactions,
                             ),
                           ),
                         ],

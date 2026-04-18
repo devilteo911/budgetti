@@ -4,6 +4,7 @@ import 'package:budgetti/features/dashboard/widgets/carousel_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SummaryCard extends ConsumerWidget {
   final String title;
@@ -44,12 +45,13 @@ class SummaryCard extends ConsumerWidget {
         children: [
           Text(
             isVisible ? amount : "******",
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: scheme.onSurface,
-                  letterSpacing: -0.8,
-                  height: 1.1,
-                ),
+            style: GoogleFonts.bricolageGrotesque(
+              fontWeight: FontWeight.w800,
+              color: scheme.onSurface,
+              letterSpacing: -1.2,
+              height: 1.0,
+              fontSize: 30,
+            ),
           ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -79,19 +81,19 @@ class SummaryCard extends ConsumerWidget {
                 maintainState: true,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
+                    horizontal: 8,
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: trendColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: trendColor.withValues(alpha: 0.5), width: 1),
                   ),
                   child: Text(
                     trend,
-                    style: TextStyle(
+                    style: GoogleFonts.jetBrainsMono(
                       color: trendColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 10,
+                      letterSpacing: 0.4,
                     ),
                   ),
                 ),
@@ -167,8 +169,11 @@ class SummaryCardSkeleton extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(24),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.12),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,12 +229,7 @@ class _SparkBar extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       child: FractionallySizedBox(
         heightFactor: ratio,
-        child: Container(
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
+        child: Container(color: fill),
       ),
     );
   }

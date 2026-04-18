@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CarouselCard extends StatelessWidget {
   final IconData icon;
@@ -23,34 +24,32 @@ class CarouselCard extends StatelessWidget {
       onLongPress: onLongPress,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(24),
+          color: scheme.surface,
+          border: Border(
+            top: BorderSide(color: scheme.outline.withValues(alpha: 0.12), width: 1),
+            bottom: BorderSide(color: scheme.outline.withValues(alpha: 0.12), width: 1),
+            left: BorderSide(color: scheme.outline.withValues(alpha: 0.12), width: 1),
+            right: BorderSide(color: scheme.outline.withValues(alpha: 0.12), width: 1),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 10, color: scheme.primary),
-                ),
+                Icon(icon, size: 11, color: scheme.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     label,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.4,
-                          fontSize: 10,
-                        ),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 1.8,
+                      fontSize: 10,
+                    ),
                   ),
                 ),
                 if (trailing != null) trailing!,

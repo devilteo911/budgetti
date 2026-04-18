@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/dashboard/widgets/carousel_card.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
@@ -14,7 +15,7 @@ class DashboardCarousel extends ConsumerStatefulWidget {
 }
 
 class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
-  final _controller = PageController(viewportFraction: 0.93);
+  final _controller = PageController();
   int _page = 0;
 
   @override
@@ -66,14 +67,11 @@ class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
             return AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.symmetric(horizontal: 3),
-              height: 5,
-              width: active ? 16 : 5,
-              decoration: BoxDecoration(
-                color: active
-                    ? scheme.primary
-                    : scheme.onSurfaceVariant.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(3),
-              ),
+              height: 3,
+              width: active ? 18 : 6,
+              color: active
+                  ? scheme.primary
+                  : scheme.onSurfaceVariant.withValues(alpha: 0.3),
             );
           }),
         ),
@@ -88,10 +86,7 @@ class _PageSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: child,
-    );
+    return child;
   }
 }
 
@@ -151,12 +146,13 @@ class _WalletsRecapCard extends ConsumerWidget {
           icon: Icons.layers_rounded,
           label: 'WALLETS',
           trailing: Text(
-            '${accounts.length}',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
-                ),
+            '×${accounts.length}',
+            style: GoogleFonts.jetBrainsMono(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+              fontSize: 10,
+              letterSpacing: 0.6,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -184,28 +180,27 @@ class _WalletsRecapCard extends ConsumerWidget {
                   onTap: () => context.go('/transactions'),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
+                      horizontal: 8,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: scheme.primary.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.add_rounded,
-                          size: 13,
-                          color: scheme.primary,
-                        ),
+                        Icon(Icons.add, size: 11, color: scheme.primary),
                         const SizedBox(width: 4),
                         Text(
-                          '$overflow more',
-                          style: TextStyle(
+                          '$overflow MORE',
+                          style: GoogleFonts.jetBrainsMono(
                             color: scheme.primary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 10,
+                            letterSpacing: 1.0,
                           ),
                         ),
                       ],
@@ -238,41 +233,39 @@ class _WalletRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final negative = account.balance < 0;
     return InkWell(
-      borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(
           children: [
             Container(
               width: 6,
               height: 6,
-              decoration: BoxDecoration(
-                color: negative
-                    ? scheme.error.withValues(alpha: 0.7)
-                    : scheme.primary.withValues(alpha: 0.7),
-                shape: BoxShape.circle,
-              ),
+              color: negative
+                  ? scheme.error.withValues(alpha: 0.85)
+                  : scheme.primary.withValues(alpha: 0.85),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 account.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
+                style: GoogleFonts.bricolageGrotesque(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Text(
               isVisible ? formatter.format(account.balance) : "******",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: negative ? scheme.error : scheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: GoogleFonts.jetBrainsMono(
+                color: negative ? scheme.error : scheme.onSurface,
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+              ),
             ),
           ],
         ),
