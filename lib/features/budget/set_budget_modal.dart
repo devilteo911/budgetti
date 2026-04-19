@@ -1,10 +1,10 @@
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/budget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SetBudgetModal extends ConsumerStatefulWidget {
   final String categoryName;
@@ -29,7 +29,9 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
   void initState() {
     super.initState();
     _amountController = TextEditingController(
-      text: widget.currentLimit > 0 ? widget.currentLimit.toStringAsFixed(2) : '',
+      text: widget.currentLimit > 0
+          ? widget.currentLimit.toStringAsFixed(2)
+          : '',
     );
   }
 
@@ -44,28 +46,58 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
 
     setState(() => _isLoading = true);
     try {
-      final newLimit = double.parse(_amountController.text.replaceAll(',', '.'));
+      final newLimit = double.parse(
+        _amountController.text.replaceAll(',', '.'),
+      );
       final service = ref.read(financeServiceProvider);
-      
+
       await service.upsertBudget(Budget(
-        id: '', // Handled by service
-        userId: '', // Handled by service
+        id: '',
+        userId: '',
         category: widget.categoryName,
         limit: newLimit,
       ));
-      
+
       ref.invalidate(budgetsProvider);
-      
+
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Budget updated successfully")),
+          const SnackBar(content: Text('Budget updated')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error saving budget: $e")),
+          SnackBar(content: Text('Error saving budget: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _clearBudget() async {
+    setState(() => _isLoading = true);
+    try {
+      final service = ref.read(financeServiceProvider);
+      await service.upsertBudget(Budget(
+        id: '',
+        userId: '',
+        category: widget.categoryName,
+        limit: 0,
+      ));
+      ref.invalidate(budgetsProvider);
+      if (mounted) {
+        context.pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Budget cleared')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
         );
       }
     } finally {
@@ -75,15 +107,17 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final currencyFormatter = ref.watch(currencyProvider);
     final currencySymbol = currencyFormatter.currencySymbol;
+    final hasExisting = widget.currentLimit > 0;
 
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 16,
+        left: 20,
+        right: 20,
+        top: 8,
       ),
       child: Form(
         key: _formKey,
@@ -91,100 +125,97 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(width: 48), // Spacer
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        "Set Monthly Budget",
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                      Text(
-                        widget.categoryName,
-                        style: const TextStyle(
-                          color: AppTheme.textGrey,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 48), // Spacer
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Amount Input Container (Unified Style)
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceGrey,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppTheme.textGrey.withOpacity(0.3),
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 4, bottom: 16),
+                height: 4,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              clipBehavior: Clip.antiAlias,
+            ),
+            Text(
+              'MONTHLY LIMIT',
+              style: GoogleFonts.jetBrainsMono(
+                color: scheme.onSurfaceVariant,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.categoryName,
+              style: GoogleFonts.jetBrainsMono(
+                color: scheme.onSurface,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
                 children: [
-                  // Currency Label
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryGreen.withOpacity(0.1),
-                      border: Border(
-                        right: BorderSide(
-                          color: AppTheme.textGrey.withOpacity(0.3),
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      currencySymbol,
-                      style: const TextStyle(
-                        color: AppTheme.primaryGreen,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  Text(
+                    currencySymbol,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  // Input Area
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextFormField(
                       controller: _amountController,
                       autofocus: true,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.4,
+                        color: scheme.onSurface,
                       ),
                       textAlign: TextAlign.right,
                       decoration: InputDecoration(
-                        hintText: "0.00",
-                        hintStyle: TextStyle(
-                          color: AppTheme.textGrey.withOpacity(0.3),
+                        hintText: '0.00',
+                        hintStyle: GoogleFonts.jetBrainsMono(
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          fontSize: 40,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.4,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 4),
                         filled: false,
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) return 'Enter limit';
+                        if (value == null || value.isEmpty) {
+                          return 'Enter limit';
+                        }
                         final sanitized = value.replaceAll(',', '.');
-                        if (double.tryParse(sanitized) == null) return 'Invalid';
+                        final parsed = double.tryParse(sanitized);
+                        if (parsed == null) return 'Invalid';
+                        if (parsed < 0) return 'Must be positive';
                         return null;
                       },
                     ),
@@ -193,38 +224,76 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Save Button
-            ElevatedButton(
-              onPressed: _isLoading ? null : () {
-                HapticFeedback.mediumImpact();
-                _saveBudget();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                disabledBackgroundColor: AppTheme.primaryGreen.withOpacity(0.3),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.backgroundBlack,
+            Row(
+              children: [
+                if (hasExisting) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              HapticFeedback.mediumImpact();
+                              _clearBudget();
+                            },
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: scheme.outlineVariant.withValues(alpha: 0.5),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                    )
-                  : const Text(
-                      "Save Budget",
-                      style: TextStyle(
-                        color: AppTheme.backgroundBlack,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                      child: Text(
+                        'Clear',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  flex: hasExisting ? 1 : 1,
+                  child: ElevatedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            HapticFeedback.mediumImpact();
+                            _saveBudget();
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: scheme.primary,
+                      foregroundColor: scheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      disabledBackgroundColor:
+                          scheme.primary.withValues(alpha: 0.3),
+                    ),
+                    child: _isLoading
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: scheme.onPrimary,
+                            ),
+                          )
+                        : Text(
+                            hasExisting ? 'Update' : 'Save',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
           ],
