@@ -50,7 +50,7 @@ class SettingsScreen extends ConsumerWidget {
               icon: Icons.sync_alt,
               iconColor: Colors.blueAccent,
               title: 'Integrations & Backup',
-              subtitle: 'Drive, Sheets, bank sync, auto backup',
+              subtitle: 'Drive, Sheets, auto backup',
               onTap: () => context.push('/settings/integrations'),
             ),
           ],

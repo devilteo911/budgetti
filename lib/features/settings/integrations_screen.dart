@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:url_launcher/url_launcher.dart';
 
 class IntegrationsScreen extends ConsumerStatefulWidget {
   const IntegrationsScreen({super.key});
@@ -22,7 +21,6 @@ class IntegrationsScreen extends ConsumerStatefulWidget {
 
 class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
   bool _isLoading = false;
-  bool _isBankSyncing = false;
   GoogleSignInAccount? _googleUser;
   StreamSubscription<GoogleSignInAccount?>? _googleUserSubscription;
 
@@ -232,104 +230,6 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     );
   }
 
-  // ---------- Bank ----------
-
-  Future<void> _connectBank() async {
-    setState(() => _isLoading = true);
-    try {
-      final ebService = ref.read(enableBankingServiceProvider);
-      final persistence = ref.read(persistenceServiceProvider);
-      final session = await ebService.createSession(
-        bankName: 'Banca Widiba',
-        country: 'IT',
-      );
-      final sessionId = session['session_id'] as String?;
-      final authUrl = session['url'] as String?;
-      if (sessionId == null || authUrl == null) {
-        throw Exception('Invalid session response');
-      }
-      await persistence.setEbSessionId(sessionId);
-      await persistence.setEbBankName('Widiba');
-      if (mounted) {
-        await launchUrl(Uri.parse(authUrl),
-            mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Connection failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _syncBank() async {
-    setState(() => _isBankSyncing = true);
-    try {
-      final imported = await performBankSync(ref);
-      if (mounted) {
-        ref.invalidate(accountsProvider);
-        ref.invalidate(paginatedTransactionsProvider);
-        ref.invalidate(transactionsProvider(null));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(imported > 0
-                ? '$imported transactions imported'
-                : 'Already up to date'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Bank sync failed: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isBankSyncing = false);
-    }
-  }
-
-  Future<void> _disconnectBank() async {
-    final scheme = Theme.of(context).colorScheme;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Disconnect Bank?'),
-        content: const Text(
-          'This will remove the bank connection. Your imported transactions will not be deleted.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: scheme.error),
-            child: const Text('Disconnect'),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      final persistence = ref.read(persistenceServiceProvider);
-      await persistence.setEbIsLinked(false);
-      await persistence.setEbSessionId(null);
-      await persistence.setEbAccountIds([]);
-      await persistence.setEbBankName(null);
-      if (mounted) setState(() {});
-    }
-  }
-
   // ---------- Auto backup ----------
 
   Future<void> _pickAutoBackupTime() async {
@@ -421,7 +321,6 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final persistence = ref.watch(persistenceServiceProvider);
-    final bankLinked = persistence.getEbIsLinked();
 
     return SettingsScaffold(
       title: 'Integrations',
@@ -481,40 +380,6 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
               ),
             ],
           ),
-        SettingsSection(
-          title: 'Bank Connection',
-          children: [
-            if (!bankLinked)
-              SettingsTile(
-                icon: Icons.account_balance_outlined,
-                iconColor: Colors.blueAccent,
-                title: 'Connect bank',
-                subtitle: 'Auto-import from your bank',
-                onTap: _isLoading ? null : _connectBank,
-              )
-            else ...[
-              SettingsTile(
-                icon: Icons.account_balance,
-                iconColor: scheme.primary,
-                title: persistence.getEbBankName() ?? 'Bank',
-                subtitle: 'Connected',
-                trailing: IconButton(
-                  icon: Icon(Icons.link_off, color: scheme.error),
-                  onPressed: _disconnectBank,
-                ),
-              ),
-              SettingsTile(
-                icon: Icons.sync,
-                iconColor: scheme.primary,
-                title: 'Sync transactions',
-                subtitle: _isBankSyncing
-                    ? 'Syncing…'
-                    : _lastSyncLabel(persistence.getEbLastSyncTimestamp()),
-                onTap: (_isLoading || _isBankSyncing) ? null : _syncBank,
-              ),
-            ],
-          ],
-        ),
         SettingsSection(
           title: 'Auto Backup',
           children: [

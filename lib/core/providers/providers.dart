@@ -20,8 +20,6 @@ import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/google_sheets_service.dart';
 import 'package:budgetti/core/services/sheets_sync_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
-import 'package:budgetti/core/services/enable_banking_service.dart';
-import 'package:budgetti/core/services/bank_transaction_mapper.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budgetti/core/services/import_service.dart';
@@ -930,70 +928,3 @@ final statsScopeProvider =
     NotifierProvider<StatsScopeNotifier, StatsScope>(StatsScopeNotifier.new);
 
 final selectedWalletIdProvider = NotifierProvider<SelectedWalletId, String?>(SelectedWalletId.new);
-
-final enableBankingServiceProvider = Provider<EnableBankingService>((ref) {
-  return EnableBankingService();
-});
-
-/// Perform a bank transaction sync.
-/// Fetches new transactions from all linked bank accounts and imports them.
-Future<int> performBankSync(WidgetRef ref) async {
-  final ebService = ref.read(enableBankingServiceProvider);
-  final financeService = ref.read(financeServiceProvider);
-  final persistence = ref.read(persistenceServiceProvider);
-
-  final accountIds = persistence.getEbAccountIds();
-  if (accountIds.isEmpty) return 0;
-
-  final knownIds = persistence.getEbKnownTransactionIds();
-  final lastSync = persistence.getEbLastSyncTimestamp();
-
-  // Fetch from last sync date or last 90 days
-  final dateFrom = lastSync > 0
-      ? DateTime.fromMillisecondsSinceEpoch(lastSync).subtract(const Duration(days: 2)) // overlap for safety
-      : DateTime.now().subtract(const Duration(days: 90));
-
-  int totalImported = 0;
-  final newKnownIds = Set<String>.from(knownIds);
-
-  // Get the app accounts to find the right accountId to assign
-  final appAccounts = await ref.read(accountsProvider.future);
-  final bankName = persistence.getEbBankName() ?? 'Bank';
-  // Find or use first account - the bank account mapping
-  final targetAccount = appAccounts.firstWhere(
-    (a) => a.name.toLowerCase().contains(bankName.toLowerCase()),
-    orElse: () => appAccounts.first,
-  );
-
-  for (final ebAccountId in accountIds) {
-    try {
-      final rawTransactions = await ebService.getTransactions(
-        ebAccountId,
-        dateFrom: dateFrom,
-        dateTo: DateTime.now(),
-      );
-
-      final transactions = BankTransactionMapper.mapTransactions(
-        rawTransactions,
-        targetAccount.id,
-      );
-
-      for (final tx in transactions) {
-        // Dedup using the bank's transaction ID
-        final bankTxId = tx.description.isNotEmpty ? '${tx.date.toIso8601String()}_${tx.amount}_${tx.description}' : tx.id;
-        if (!knownIds.contains(bankTxId)) {
-          await financeService.addTransaction(tx);
-          newKnownIds.add(bankTxId);
-          totalImported++;
-        }
-      }
-    } catch (e) {
-      debugPrint('Bank sync error for account $ebAccountId: $e');
-    }
-  }
-
-  await persistence.setEbKnownTransactionIds(newKnownIds);
-  await persistence.setEbLastSyncTimestamp(DateTime.now().millisecondsSinceEpoch);
-
-  return totalImported;
-}
