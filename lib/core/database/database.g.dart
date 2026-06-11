@@ -2799,6 +2799,851 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
   }
 }
 
+class $PendingTransactionsTable extends PendingTransactions
+    with TableInfo<$PendingTransactionsTable, PendingTransaction> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingTransactionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _gmailMessageIdMeta = const VerificationMeta(
+    'gmailMessageId',
+  );
+  @override
+  late final GeneratedColumn<String> gmailMessageId = GeneratedColumn<String>(
+    'gmail_message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emailSubjectMeta = const VerificationMeta(
+    'emailSubject',
+  );
+  @override
+  late final GeneratedColumn<String> emailSubject = GeneratedColumn<String>(
+    'email_subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emailReceivedAtMeta = const VerificationMeta(
+    'emailReceivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> emailReceivedAt =
+      GeneratedColumn<DateTime>(
+        'email_received_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _parsedAmountMeta = const VerificationMeta(
+    'parsedAmount',
+  );
+  @override
+  late final GeneratedColumn<double> parsedAmount = GeneratedColumn<double>(
+    'parsed_amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parsedDescriptionMeta = const VerificationMeta(
+    'parsedDescription',
+  );
+  @override
+  late final GeneratedColumn<String> parsedDescription =
+      GeneratedColumn<String>(
+        'parsed_description',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _parsedDateMeta = const VerificationMeta(
+    'parsedDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> parsedDate = GeneratedColumn<DateTime>(
+    'parsed_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _suggestedTypeMeta = const VerificationMeta(
+    'suggestedType',
+  );
+  @override
+  late final GeneratedColumn<String> suggestedType = GeneratedColumn<String>(
+    'suggested_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('expense'),
+  );
+  static const VerificationMeta _suggestedCategoryMeta = const VerificationMeta(
+    'suggestedCategory',
+  );
+  @override
+  late final GeneratedColumn<String> suggestedCategory =
+      GeneratedColumn<String>(
+        'suggested_category',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _counterpartyMeta = const VerificationMeta(
+    'counterparty',
+  );
+  @override
+  late final GeneratedColumn<String> counterparty = GeneratedColumn<String>(
+    'counterparty',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rawSnippetMeta = const VerificationMeta(
+    'rawSnippet',
+  );
+  @override
+  late final GeneratedColumn<String> rawSnippet = GeneratedColumn<String>(
+    'raw_snippet',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    gmailMessageId,
+    emailSubject,
+    emailReceivedAt,
+    parsedAmount,
+    parsedDescription,
+    parsedDate,
+    suggestedType,
+    suggestedCategory,
+    counterparty,
+    rawSnippet,
+    status,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_transactions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingTransaction> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('gmail_message_id')) {
+      context.handle(
+        _gmailMessageIdMeta,
+        gmailMessageId.isAcceptableOrUnknown(
+          data['gmail_message_id']!,
+          _gmailMessageIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_gmailMessageIdMeta);
+    }
+    if (data.containsKey('email_subject')) {
+      context.handle(
+        _emailSubjectMeta,
+        emailSubject.isAcceptableOrUnknown(
+          data['email_subject']!,
+          _emailSubjectMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_emailSubjectMeta);
+    }
+    if (data.containsKey('email_received_at')) {
+      context.handle(
+        _emailReceivedAtMeta,
+        emailReceivedAt.isAcceptableOrUnknown(
+          data['email_received_at']!,
+          _emailReceivedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_emailReceivedAtMeta);
+    }
+    if (data.containsKey('parsed_amount')) {
+      context.handle(
+        _parsedAmountMeta,
+        parsedAmount.isAcceptableOrUnknown(
+          data['parsed_amount']!,
+          _parsedAmountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_parsedAmountMeta);
+    }
+    if (data.containsKey('parsed_description')) {
+      context.handle(
+        _parsedDescriptionMeta,
+        parsedDescription.isAcceptableOrUnknown(
+          data['parsed_description']!,
+          _parsedDescriptionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_parsedDescriptionMeta);
+    }
+    if (data.containsKey('parsed_date')) {
+      context.handle(
+        _parsedDateMeta,
+        parsedDate.isAcceptableOrUnknown(data['parsed_date']!, _parsedDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_parsedDateMeta);
+    }
+    if (data.containsKey('suggested_type')) {
+      context.handle(
+        _suggestedTypeMeta,
+        suggestedType.isAcceptableOrUnknown(
+          data['suggested_type']!,
+          _suggestedTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('suggested_category')) {
+      context.handle(
+        _suggestedCategoryMeta,
+        suggestedCategory.isAcceptableOrUnknown(
+          data['suggested_category']!,
+          _suggestedCategoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('counterparty')) {
+      context.handle(
+        _counterpartyMeta,
+        counterparty.isAcceptableOrUnknown(
+          data['counterparty']!,
+          _counterpartyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_snippet')) {
+      context.handle(
+        _rawSnippetMeta,
+        rawSnippet.isAcceptableOrUnknown(data['raw_snippet']!, _rawSnippetMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PendingTransaction map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingTransaction(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      gmailMessageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}gmail_message_id'],
+      )!,
+      emailSubject: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email_subject'],
+      )!,
+      emailReceivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}email_received_at'],
+      )!,
+      parsedAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}parsed_amount'],
+      )!,
+      parsedDescription: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parsed_description'],
+      )!,
+      parsedDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}parsed_date'],
+      )!,
+      suggestedType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}suggested_type'],
+      )!,
+      suggestedCategory: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}suggested_category'],
+      ),
+      counterparty: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}counterparty'],
+      ),
+      rawSnippet: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_snippet'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingTransactionsTable createAlias(String alias) {
+    return $PendingTransactionsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingTransaction extends DataClass
+    implements Insertable<PendingTransaction> {
+  final String id;
+  final String? userId;
+  final String gmailMessageId;
+  final String emailSubject;
+  final DateTime emailReceivedAt;
+  final double parsedAmount;
+  final String parsedDescription;
+  final DateTime parsedDate;
+  final String suggestedType;
+  final String? suggestedCategory;
+  final String? counterparty;
+  final String rawSnippet;
+  final String status;
+  final DateTime createdAt;
+  const PendingTransaction({
+    required this.id,
+    this.userId,
+    required this.gmailMessageId,
+    required this.emailSubject,
+    required this.emailReceivedAt,
+    required this.parsedAmount,
+    required this.parsedDescription,
+    required this.parsedDate,
+    required this.suggestedType,
+    this.suggestedCategory,
+    this.counterparty,
+    required this.rawSnippet,
+    required this.status,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    map['gmail_message_id'] = Variable<String>(gmailMessageId);
+    map['email_subject'] = Variable<String>(emailSubject);
+    map['email_received_at'] = Variable<DateTime>(emailReceivedAt);
+    map['parsed_amount'] = Variable<double>(parsedAmount);
+    map['parsed_description'] = Variable<String>(parsedDescription);
+    map['parsed_date'] = Variable<DateTime>(parsedDate);
+    map['suggested_type'] = Variable<String>(suggestedType);
+    if (!nullToAbsent || suggestedCategory != null) {
+      map['suggested_category'] = Variable<String>(suggestedCategory);
+    }
+    if (!nullToAbsent || counterparty != null) {
+      map['counterparty'] = Variable<String>(counterparty);
+    }
+    map['raw_snippet'] = Variable<String>(rawSnippet);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PendingTransactionsCompanion toCompanion(bool nullToAbsent) {
+    return PendingTransactionsCompanion(
+      id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      gmailMessageId: Value(gmailMessageId),
+      emailSubject: Value(emailSubject),
+      emailReceivedAt: Value(emailReceivedAt),
+      parsedAmount: Value(parsedAmount),
+      parsedDescription: Value(parsedDescription),
+      parsedDate: Value(parsedDate),
+      suggestedType: Value(suggestedType),
+      suggestedCategory: suggestedCategory == null && nullToAbsent
+          ? const Value.absent()
+          : Value(suggestedCategory),
+      counterparty: counterparty == null && nullToAbsent
+          ? const Value.absent()
+          : Value(counterparty),
+      rawSnippet: Value(rawSnippet),
+      status: Value(status),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PendingTransaction.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingTransaction(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      gmailMessageId: serializer.fromJson<String>(json['gmailMessageId']),
+      emailSubject: serializer.fromJson<String>(json['emailSubject']),
+      emailReceivedAt: serializer.fromJson<DateTime>(json['emailReceivedAt']),
+      parsedAmount: serializer.fromJson<double>(json['parsedAmount']),
+      parsedDescription: serializer.fromJson<String>(json['parsedDescription']),
+      parsedDate: serializer.fromJson<DateTime>(json['parsedDate']),
+      suggestedType: serializer.fromJson<String>(json['suggestedType']),
+      suggestedCategory: serializer.fromJson<String?>(
+        json['suggestedCategory'],
+      ),
+      counterparty: serializer.fromJson<String?>(json['counterparty']),
+      rawSnippet: serializer.fromJson<String>(json['rawSnippet']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
+      'gmailMessageId': serializer.toJson<String>(gmailMessageId),
+      'emailSubject': serializer.toJson<String>(emailSubject),
+      'emailReceivedAt': serializer.toJson<DateTime>(emailReceivedAt),
+      'parsedAmount': serializer.toJson<double>(parsedAmount),
+      'parsedDescription': serializer.toJson<String>(parsedDescription),
+      'parsedDate': serializer.toJson<DateTime>(parsedDate),
+      'suggestedType': serializer.toJson<String>(suggestedType),
+      'suggestedCategory': serializer.toJson<String?>(suggestedCategory),
+      'counterparty': serializer.toJson<String?>(counterparty),
+      'rawSnippet': serializer.toJson<String>(rawSnippet),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PendingTransaction copyWith({
+    String? id,
+    Value<String?> userId = const Value.absent(),
+    String? gmailMessageId,
+    String? emailSubject,
+    DateTime? emailReceivedAt,
+    double? parsedAmount,
+    String? parsedDescription,
+    DateTime? parsedDate,
+    String? suggestedType,
+    Value<String?> suggestedCategory = const Value.absent(),
+    Value<String?> counterparty = const Value.absent(),
+    String? rawSnippet,
+    String? status,
+    DateTime? createdAt,
+  }) => PendingTransaction(
+    id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
+    gmailMessageId: gmailMessageId ?? this.gmailMessageId,
+    emailSubject: emailSubject ?? this.emailSubject,
+    emailReceivedAt: emailReceivedAt ?? this.emailReceivedAt,
+    parsedAmount: parsedAmount ?? this.parsedAmount,
+    parsedDescription: parsedDescription ?? this.parsedDescription,
+    parsedDate: parsedDate ?? this.parsedDate,
+    suggestedType: suggestedType ?? this.suggestedType,
+    suggestedCategory: suggestedCategory.present
+        ? suggestedCategory.value
+        : this.suggestedCategory,
+    counterparty: counterparty.present ? counterparty.value : this.counterparty,
+    rawSnippet: rawSnippet ?? this.rawSnippet,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PendingTransaction copyWithCompanion(PendingTransactionsCompanion data) {
+    return PendingTransaction(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      gmailMessageId: data.gmailMessageId.present
+          ? data.gmailMessageId.value
+          : this.gmailMessageId,
+      emailSubject: data.emailSubject.present
+          ? data.emailSubject.value
+          : this.emailSubject,
+      emailReceivedAt: data.emailReceivedAt.present
+          ? data.emailReceivedAt.value
+          : this.emailReceivedAt,
+      parsedAmount: data.parsedAmount.present
+          ? data.parsedAmount.value
+          : this.parsedAmount,
+      parsedDescription: data.parsedDescription.present
+          ? data.parsedDescription.value
+          : this.parsedDescription,
+      parsedDate: data.parsedDate.present
+          ? data.parsedDate.value
+          : this.parsedDate,
+      suggestedType: data.suggestedType.present
+          ? data.suggestedType.value
+          : this.suggestedType,
+      suggestedCategory: data.suggestedCategory.present
+          ? data.suggestedCategory.value
+          : this.suggestedCategory,
+      counterparty: data.counterparty.present
+          ? data.counterparty.value
+          : this.counterparty,
+      rawSnippet: data.rawSnippet.present
+          ? data.rawSnippet.value
+          : this.rawSnippet,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingTransaction(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('gmailMessageId: $gmailMessageId, ')
+          ..write('emailSubject: $emailSubject, ')
+          ..write('emailReceivedAt: $emailReceivedAt, ')
+          ..write('parsedAmount: $parsedAmount, ')
+          ..write('parsedDescription: $parsedDescription, ')
+          ..write('parsedDate: $parsedDate, ')
+          ..write('suggestedType: $suggestedType, ')
+          ..write('suggestedCategory: $suggestedCategory, ')
+          ..write('counterparty: $counterparty, ')
+          ..write('rawSnippet: $rawSnippet, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    gmailMessageId,
+    emailSubject,
+    emailReceivedAt,
+    parsedAmount,
+    parsedDescription,
+    parsedDate,
+    suggestedType,
+    suggestedCategory,
+    counterparty,
+    rawSnippet,
+    status,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingTransaction &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.gmailMessageId == this.gmailMessageId &&
+          other.emailSubject == this.emailSubject &&
+          other.emailReceivedAt == this.emailReceivedAt &&
+          other.parsedAmount == this.parsedAmount &&
+          other.parsedDescription == this.parsedDescription &&
+          other.parsedDate == this.parsedDate &&
+          other.suggestedType == this.suggestedType &&
+          other.suggestedCategory == this.suggestedCategory &&
+          other.counterparty == this.counterparty &&
+          other.rawSnippet == this.rawSnippet &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt);
+}
+
+class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
+  final Value<String> id;
+  final Value<String?> userId;
+  final Value<String> gmailMessageId;
+  final Value<String> emailSubject;
+  final Value<DateTime> emailReceivedAt;
+  final Value<double> parsedAmount;
+  final Value<String> parsedDescription;
+  final Value<DateTime> parsedDate;
+  final Value<String> suggestedType;
+  final Value<String?> suggestedCategory;
+  final Value<String?> counterparty;
+  final Value<String> rawSnippet;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PendingTransactionsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.gmailMessageId = const Value.absent(),
+    this.emailSubject = const Value.absent(),
+    this.emailReceivedAt = const Value.absent(),
+    this.parsedAmount = const Value.absent(),
+    this.parsedDescription = const Value.absent(),
+    this.parsedDate = const Value.absent(),
+    this.suggestedType = const Value.absent(),
+    this.suggestedCategory = const Value.absent(),
+    this.counterparty = const Value.absent(),
+    this.rawSnippet = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingTransactionsCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    required String gmailMessageId,
+    required String emailSubject,
+    required DateTime emailReceivedAt,
+    required double parsedAmount,
+    required String parsedDescription,
+    required DateTime parsedDate,
+    this.suggestedType = const Value.absent(),
+    this.suggestedCategory = const Value.absent(),
+    this.counterparty = const Value.absent(),
+    this.rawSnippet = const Value.absent(),
+    this.status = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       gmailMessageId = Value(gmailMessageId),
+       emailSubject = Value(emailSubject),
+       emailReceivedAt = Value(emailReceivedAt),
+       parsedAmount = Value(parsedAmount),
+       parsedDescription = Value(parsedDescription),
+       parsedDate = Value(parsedDate),
+       createdAt = Value(createdAt);
+  static Insertable<PendingTransaction> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? gmailMessageId,
+    Expression<String>? emailSubject,
+    Expression<DateTime>? emailReceivedAt,
+    Expression<double>? parsedAmount,
+    Expression<String>? parsedDescription,
+    Expression<DateTime>? parsedDate,
+    Expression<String>? suggestedType,
+    Expression<String>? suggestedCategory,
+    Expression<String>? counterparty,
+    Expression<String>? rawSnippet,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (gmailMessageId != null) 'gmail_message_id': gmailMessageId,
+      if (emailSubject != null) 'email_subject': emailSubject,
+      if (emailReceivedAt != null) 'email_received_at': emailReceivedAt,
+      if (parsedAmount != null) 'parsed_amount': parsedAmount,
+      if (parsedDescription != null) 'parsed_description': parsedDescription,
+      if (parsedDate != null) 'parsed_date': parsedDate,
+      if (suggestedType != null) 'suggested_type': suggestedType,
+      if (suggestedCategory != null) 'suggested_category': suggestedCategory,
+      if (counterparty != null) 'counterparty': counterparty,
+      if (rawSnippet != null) 'raw_snippet': rawSnippet,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingTransactionsCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? userId,
+    Value<String>? gmailMessageId,
+    Value<String>? emailSubject,
+    Value<DateTime>? emailReceivedAt,
+    Value<double>? parsedAmount,
+    Value<String>? parsedDescription,
+    Value<DateTime>? parsedDate,
+    Value<String>? suggestedType,
+    Value<String?>? suggestedCategory,
+    Value<String?>? counterparty,
+    Value<String>? rawSnippet,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PendingTransactionsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      gmailMessageId: gmailMessageId ?? this.gmailMessageId,
+      emailSubject: emailSubject ?? this.emailSubject,
+      emailReceivedAt: emailReceivedAt ?? this.emailReceivedAt,
+      parsedAmount: parsedAmount ?? this.parsedAmount,
+      parsedDescription: parsedDescription ?? this.parsedDescription,
+      parsedDate: parsedDate ?? this.parsedDate,
+      suggestedType: suggestedType ?? this.suggestedType,
+      suggestedCategory: suggestedCategory ?? this.suggestedCategory,
+      counterparty: counterparty ?? this.counterparty,
+      rawSnippet: rawSnippet ?? this.rawSnippet,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (gmailMessageId.present) {
+      map['gmail_message_id'] = Variable<String>(gmailMessageId.value);
+    }
+    if (emailSubject.present) {
+      map['email_subject'] = Variable<String>(emailSubject.value);
+    }
+    if (emailReceivedAt.present) {
+      map['email_received_at'] = Variable<DateTime>(emailReceivedAt.value);
+    }
+    if (parsedAmount.present) {
+      map['parsed_amount'] = Variable<double>(parsedAmount.value);
+    }
+    if (parsedDescription.present) {
+      map['parsed_description'] = Variable<String>(parsedDescription.value);
+    }
+    if (parsedDate.present) {
+      map['parsed_date'] = Variable<DateTime>(parsedDate.value);
+    }
+    if (suggestedType.present) {
+      map['suggested_type'] = Variable<String>(suggestedType.value);
+    }
+    if (suggestedCategory.present) {
+      map['suggested_category'] = Variable<String>(suggestedCategory.value);
+    }
+    if (counterparty.present) {
+      map['counterparty'] = Variable<String>(counterparty.value);
+    }
+    if (rawSnippet.present) {
+      map['raw_snippet'] = Variable<String>(rawSnippet.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingTransactionsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('gmailMessageId: $gmailMessageId, ')
+          ..write('emailSubject: $emailSubject, ')
+          ..write('emailReceivedAt: $emailReceivedAt, ')
+          ..write('parsedAmount: $parsedAmount, ')
+          ..write('parsedDescription: $parsedDescription, ')
+          ..write('parsedDate: $parsedDate, ')
+          ..write('suggestedType: $suggestedType, ')
+          ..write('suggestedCategory: $suggestedCategory, ')
+          ..write('counterparty: $counterparty, ')
+          ..write('rawSnippet: $rawSnippet, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2807,6 +3652,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $BudgetsTable budgets = $BudgetsTable(this);
+  late final $PendingTransactionsTable pendingTransactions =
+      $PendingTransactionsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2817,6 +3664,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     accounts,
     transactions,
     budgets,
+    pendingTransactions,
   ];
 }
 
@@ -4178,6 +5026,413 @@ typedef $$BudgetsTableProcessedTableManager =
       Budget,
       PrefetchHooks Function()
     >;
+typedef $$PendingTransactionsTableCreateCompanionBuilder =
+    PendingTransactionsCompanion Function({
+      required String id,
+      Value<String?> userId,
+      required String gmailMessageId,
+      required String emailSubject,
+      required DateTime emailReceivedAt,
+      required double parsedAmount,
+      required String parsedDescription,
+      required DateTime parsedDate,
+      Value<String> suggestedType,
+      Value<String?> suggestedCategory,
+      Value<String?> counterparty,
+      Value<String> rawSnippet,
+      Value<String> status,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$PendingTransactionsTableUpdateCompanionBuilder =
+    PendingTransactionsCompanion Function({
+      Value<String> id,
+      Value<String?> userId,
+      Value<String> gmailMessageId,
+      Value<String> emailSubject,
+      Value<DateTime> emailReceivedAt,
+      Value<double> parsedAmount,
+      Value<String> parsedDescription,
+      Value<DateTime> parsedDate,
+      Value<String> suggestedType,
+      Value<String?> suggestedCategory,
+      Value<String?> counterparty,
+      Value<String> rawSnippet,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PendingTransactionsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingTransactionsTable> {
+  $$PendingTransactionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get gmailMessageId => $composableBuilder(
+    column: $table.gmailMessageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emailSubject => $composableBuilder(
+    column: $table.emailSubject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get emailReceivedAt => $composableBuilder(
+    column: $table.emailReceivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get parsedAmount => $composableBuilder(
+    column: $table.parsedAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parsedDescription => $composableBuilder(
+    column: $table.parsedDescription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get parsedDate => $composableBuilder(
+    column: $table.parsedDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get suggestedType => $composableBuilder(
+    column: $table.suggestedType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get suggestedCategory => $composableBuilder(
+    column: $table.suggestedCategory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get counterparty => $composableBuilder(
+    column: $table.counterparty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rawSnippet => $composableBuilder(
+    column: $table.rawSnippet,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingTransactionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingTransactionsTable> {
+  $$PendingTransactionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get gmailMessageId => $composableBuilder(
+    column: $table.gmailMessageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emailSubject => $composableBuilder(
+    column: $table.emailSubject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get emailReceivedAt => $composableBuilder(
+    column: $table.emailReceivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get parsedAmount => $composableBuilder(
+    column: $table.parsedAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parsedDescription => $composableBuilder(
+    column: $table.parsedDescription,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get parsedDate => $composableBuilder(
+    column: $table.parsedDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get suggestedType => $composableBuilder(
+    column: $table.suggestedType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get suggestedCategory => $composableBuilder(
+    column: $table.suggestedCategory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get counterparty => $composableBuilder(
+    column: $table.counterparty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rawSnippet => $composableBuilder(
+    column: $table.rawSnippet,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingTransactionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingTransactionsTable> {
+  $$PendingTransactionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get gmailMessageId => $composableBuilder(
+    column: $table.gmailMessageId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get emailSubject => $composableBuilder(
+    column: $table.emailSubject,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get emailReceivedAt => $composableBuilder(
+    column: $table.emailReceivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get parsedAmount => $composableBuilder(
+    column: $table.parsedAmount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parsedDescription => $composableBuilder(
+    column: $table.parsedDescription,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get parsedDate => $composableBuilder(
+    column: $table.parsedDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get suggestedType => $composableBuilder(
+    column: $table.suggestedType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get suggestedCategory => $composableBuilder(
+    column: $table.suggestedCategory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get counterparty => $composableBuilder(
+    column: $table.counterparty,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rawSnippet => $composableBuilder(
+    column: $table.rawSnippet,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PendingTransactionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingTransactionsTable,
+          PendingTransaction,
+          $$PendingTransactionsTableFilterComposer,
+          $$PendingTransactionsTableOrderingComposer,
+          $$PendingTransactionsTableAnnotationComposer,
+          $$PendingTransactionsTableCreateCompanionBuilder,
+          $$PendingTransactionsTableUpdateCompanionBuilder,
+          (
+            PendingTransaction,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingTransactionsTable,
+              PendingTransaction
+            >,
+          ),
+          PendingTransaction,
+          PrefetchHooks Function()
+        > {
+  $$PendingTransactionsTableTableManager(
+    _$AppDatabase db,
+    $PendingTransactionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingTransactionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingTransactionsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PendingTransactionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<String> gmailMessageId = const Value.absent(),
+                Value<String> emailSubject = const Value.absent(),
+                Value<DateTime> emailReceivedAt = const Value.absent(),
+                Value<double> parsedAmount = const Value.absent(),
+                Value<String> parsedDescription = const Value.absent(),
+                Value<DateTime> parsedDate = const Value.absent(),
+                Value<String> suggestedType = const Value.absent(),
+                Value<String?> suggestedCategory = const Value.absent(),
+                Value<String?> counterparty = const Value.absent(),
+                Value<String> rawSnippet = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingTransactionsCompanion(
+                id: id,
+                userId: userId,
+                gmailMessageId: gmailMessageId,
+                emailSubject: emailSubject,
+                emailReceivedAt: emailReceivedAt,
+                parsedAmount: parsedAmount,
+                parsedDescription: parsedDescription,
+                parsedDate: parsedDate,
+                suggestedType: suggestedType,
+                suggestedCategory: suggestedCategory,
+                counterparty: counterparty,
+                rawSnippet: rawSnippet,
+                status: status,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> userId = const Value.absent(),
+                required String gmailMessageId,
+                required String emailSubject,
+                required DateTime emailReceivedAt,
+                required double parsedAmount,
+                required String parsedDescription,
+                required DateTime parsedDate,
+                Value<String> suggestedType = const Value.absent(),
+                Value<String?> suggestedCategory = const Value.absent(),
+                Value<String?> counterparty = const Value.absent(),
+                Value<String> rawSnippet = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PendingTransactionsCompanion.insert(
+                id: id,
+                userId: userId,
+                gmailMessageId: gmailMessageId,
+                emailSubject: emailSubject,
+                emailReceivedAt: emailReceivedAt,
+                parsedAmount: parsedAmount,
+                parsedDescription: parsedDescription,
+                parsedDate: parsedDate,
+                suggestedType: suggestedType,
+                suggestedCategory: suggestedCategory,
+                counterparty: counterparty,
+                rawSnippet: rawSnippet,
+                status: status,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingTransactionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingTransactionsTable,
+      PendingTransaction,
+      $$PendingTransactionsTableFilterComposer,
+      $$PendingTransactionsTableOrderingComposer,
+      $$PendingTransactionsTableAnnotationComposer,
+      $$PendingTransactionsTableCreateCompanionBuilder,
+      $$PendingTransactionsTableUpdateCompanionBuilder,
+      (
+        PendingTransaction,
+        BaseReferences<
+          _$AppDatabase,
+          $PendingTransactionsTable,
+          PendingTransaction
+        >,
+      ),
+      PendingTransaction,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4191,4 +5446,6 @@ class $AppDatabaseManager {
       $$TransactionsTableTableManager(_db, _db.transactions);
   $$BudgetsTableTableManager get budgets =>
       $$BudgetsTableTableManager(_db, _db.budgets);
+  $$PendingTransactionsTableTableManager get pendingTransactions =>
+      $$PendingTransactionsTableTableManager(_db, _db.pendingTransactions);
 }

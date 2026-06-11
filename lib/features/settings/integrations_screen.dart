@@ -230,6 +230,101 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     );
   }
 
+  // ---------- Bank email sync (Widiba) ----------
+
+  Future<void> _syncEmailsNow() async {
+    setState(() => _isLoading = true);
+    try {
+      final persistence = ref.read(persistenceServiceProvider);
+      final drafts = await ref
+          .read(emailSyncServiceProvider)
+          .sync(days: persistence.getEmailSyncWindowDays());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(drafts.isEmpty
+                ? 'Nessuna nuova transazione'
+                : '${drafts.length} nuove transazioni da rivedere'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync email fallita: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pickEmailWindow() async {
+    final persistence = ref.read(persistenceServiceProvider);
+    final current = persistence.getEmailSyncWindowDays();
+
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Finestra di ricerca'),
+        children: [
+          for (final d in [7, 30, 90, 180, 365])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, d),
+              child: Text('$d giorni'),
+            ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, -1),
+            child: const Text('Personalizzato…'),
+          ),
+        ],
+      ),
+    );
+    if (selected == null) return;
+
+    var days = selected;
+    if (selected == -1) {
+      if (!mounted) return;
+      final custom = await _promptCustomDays(current);
+      if (custom == null) return;
+      days = custom;
+    }
+
+    await persistence.setEmailSyncWindowDays(days);
+    if (mounted) setState(() {});
+  }
+
+  Future<int?> _promptCustomDays(int current) {
+    final ctrl = TextEditingController(text: current.toString());
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Giorni da scansionare'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(suffixText: 'giorni'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final v = int.tryParse(ctrl.text.trim());
+              Navigator.pop(ctx, (v != null && v > 0) ? v : null);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ---------- Auto backup ----------
 
   Future<void> _pickAutoBackupTime() async {
@@ -378,6 +473,42 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                     persistence.getSheetsLastSyncTimestamp()),
                 onTap: _isLoading ? null : _syncSheets,
               ),
+            ],
+          ),
+        if (_googleUser != null)
+          SettingsSection(
+            title: 'Sincronizzazione email banca',
+            children: [
+              SettingsTile(
+                icon: Icons.email_outlined,
+                iconColor: scheme.primary,
+                title: 'Sincronizza email Widiba',
+                subtitle: 'Crea bozze dalle email di widiba@widiba.it',
+                trailing: Switch(
+                  value: persistence.getEmailSyncEnabled(),
+                  onChanged: (v) async {
+                    await persistence.setEmailSyncEnabled(v);
+                    await ref
+                        .read(notificationLogicProvider)
+                        .updateGmailSyncSchedule();
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ),
+              if (persistence.getEmailSyncEnabled()) ...[
+                SettingsTile(
+                  icon: Icons.date_range_outlined,
+                  title: 'Finestra di ricerca',
+                  subtitle: '${persistence.getEmailSyncWindowDays()} giorni',
+                  onTap: _pickEmailWindow,
+                ),
+                SettingsTile(
+                  icon: Icons.sync,
+                  iconColor: scheme.primary,
+                  title: 'Sincronizza ora',
+                  onTap: _isLoading ? null : _syncEmailsNow,
+                ),
+              ],
             ],
           ),
         SettingsSection(

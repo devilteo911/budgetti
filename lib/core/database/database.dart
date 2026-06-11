@@ -122,12 +122,46 @@ class Budgets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Categories, Tags, Accounts, Transactions, Budgets])
+/// Draft transactions parsed from bank (Widiba) emails, awaiting user review.
+/// The row is kept after approval/rejection so [gmailMessageId] acts as a
+/// permanent de-duplication ledger across re-syncs.
+class PendingTransactions extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get gmailMessageId => text()();
+  TextColumn get emailSubject => text()();
+  DateTimeColumn get emailReceivedAt => dateTime()();
+
+  RealColumn get parsedAmount => real()(); // signed: negative = expense
+  TextColumn get parsedDescription => text()();
+  DateTimeColumn get parsedDate => dateTime()();
+  TextColumn get suggestedType =>
+      text().withDefault(const Constant('expense'))(); // income/expense/transfer/undecided
+  TextColumn get suggestedCategory => text().nullable()();
+  TextColumn get counterparty => text().nullable()();
+  TextColumn get rawSnippet => text().withDefault(const Constant(''))();
+
+  TextColumn get status =>
+      text().withDefault(const Constant('pending'))(); // pending/approved/rejected
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  List<Index> get indexes => [
+    Index('idx_pending_gmail', 'ON pending_transactions (gmail_message_id)'),
+    Index('idx_pending_status', 'ON pending_transactions (status)'),
+  ];
+}
+
+@DriftDatabase(
+  tables: [Categories, Tags, Accounts, Transactions, Budgets, PendingTransactions],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 8; // Incremented from 7
+  int get schemaVersion => 9; // Incremented from 8
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -222,6 +256,9 @@ class AppDatabase extends _$AppDatabase {
             Index('idx_transactions_user', 'ON transactions (user_id)'),
           );
         } catch (_) {}
+      }
+      if (from < 9) {
+        await m.createTable(pendingTransactions);
       }
     },
     beforeOpen: (details) async {

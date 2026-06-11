@@ -24,6 +24,8 @@ class PersistenceService {
   static const _autoBackupEnabledKey = 'auto_backup_enabled';
   static const _autoBackupTimeKey = 'auto_backup_time';
   static const _lastAutoBackupKey = 'last_auto_backup_timestamp';
+  static const _emailSyncEnabledKey = 'email_sync_enabled';
+  static const _emailSyncWindowDaysKey = 'email_sync_window_days';
 
   bool getNotificationsEnabled() =>
       _prefs.getBool(_notificationsEnabledKey) ?? true;
@@ -53,6 +55,15 @@ class PersistenceService {
   String getAutoBackupTime() => _prefs.getString(_autoBackupTimeKey) ?? "02:00";
   Future<void> setAutoBackupTime(String time) =>
       _prefs.setString(_autoBackupTimeKey, time);
+
+  // Bank Email Sync (Widiba) Settings
+  bool getEmailSyncEnabled() => _prefs.getBool(_emailSyncEnabledKey) ?? false;
+  Future<void> setEmailSyncEnabled(bool enabled) =>
+      _prefs.setBool(_emailSyncEnabledKey, enabled);
+
+  int getEmailSyncWindowDays() => _prefs.getInt(_emailSyncWindowDaysKey) ?? 7;
+  Future<void> setEmailSyncWindowDays(int days) =>
+      _prefs.setInt(_emailSyncWindowDaysKey, days);
 
   int getLastAutoBackupTimestamp() => _prefs.getInt(_lastAutoBackupKey) ?? 0;
   Future<void> setLastAutoBackupTimestamp(int timestamp) =>

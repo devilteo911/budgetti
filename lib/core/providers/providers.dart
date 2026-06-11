@@ -23,6 +23,9 @@ import 'package:budgetti/core/services/ocr_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budgetti/core/services/import_service.dart';
+import 'package:budgetti/core/services/gmail_service.dart';
+import 'package:budgetti/core/services/email_sync_service.dart';
+import 'package:budgetti/core/services/pending_transaction_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError();
@@ -126,6 +129,39 @@ final financeServiceProvider = Provider<FinanceService>((ref) {
   // Watch currentUserIdProvider so this recreates when user changes
   final userId = ref.watch(currentUserIdProvider);
   return LocalFinanceService(db, userId);
+});
+
+final gmailServiceProvider = Provider<GmailService>((ref) {
+  final authService = ref.watch(googleAuthServiceProvider);
+  return GmailService(authService);
+});
+
+final emailSyncServiceProvider = Provider<EmailSyncService>((ref) {
+  final db = ref.watch(databaseProvider);
+  final gmail = ref.watch(gmailServiceProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  return EmailSyncService(db, gmail, userId);
+});
+
+final pendingTransactionServiceProvider =
+    Provider<PendingTransactionService>((ref) {
+  final db = ref.watch(databaseProvider);
+  final finance = ref.watch(financeServiceProvider);
+  return PendingTransactionService(db, finance);
+});
+
+/// Live list of email-derived drafts awaiting review.
+final pendingTransactionsProvider =
+    StreamProvider<List<PendingTransaction>>((ref) {
+  return ref.watch(pendingTransactionServiceProvider).watchPending();
+});
+
+/// Count of pending drafts, for the review shortcut banner.
+final pendingTransactionsCountProvider = Provider<int>((ref) {
+  return ref.watch(pendingTransactionsProvider).maybeWhen(
+        data: (list) => list.length,
+        orElse: () => 0,
+      );
 });
 
 final accountsProvider = FutureProvider<List<Account>>((ref) async {

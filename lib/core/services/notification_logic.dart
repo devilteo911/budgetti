@@ -19,6 +19,7 @@ class NotificationLogic {
 
   static const int DAILY_REMINDER_ID = 999;
   static const String AUTO_BACKUP_TASK = "auto_backup_task";
+  static const String GMAIL_SYNC_TASK = "gmail_sync_task";
 
   Future<void> checkBudgetAlerts(Transaction newTransaction) async {
     if (!_persistenceService.getNotificationsEnabled() ||
@@ -129,6 +130,28 @@ class NotificationLogic {
       ),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
+  }
+
+  /// Registers (or cancels) the periodic background poll of Widiba emails.
+  /// 15 minutes is the Android minimum for periodic work.
+  Future<void> updateGmailSyncSchedule() async {
+    await Workmanager().cancelByUniqueName(GMAIL_SYNC_TASK);
+
+    if (!_persistenceService.getEmailSyncEnabled()) return;
+
+    await Workmanager().registerPeriodicTask(
+      GMAIL_SYNC_TASK,
+      GMAIL_SYNC_TASK,
+      frequency: const Duration(minutes: 15),
+      initialDelay: const Duration(minutes: 15),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+        requiresBatteryNotLow: false,
+      ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    );
+
+    print('📧 Gmail sync scheduled every 15 minutes');
   }
 
   // Test method for debugging - sends immediate notification

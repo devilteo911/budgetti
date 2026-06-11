@@ -6,6 +6,10 @@ import 'package:flutter/foundation.dart';
 class NotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
+  /// Invoked when the user taps a notification, with its payload (e.g. a
+  /// pending-transaction id). Wired by the app once the router is ready.
+  void Function(String payload)? onNotificationTap;
+
   Future<void> init() async {
     // Initialize timezone data
     tz.initializeTimeZones();
@@ -36,10 +40,22 @@ class NotificationService {
     await _notificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Handle notification tap
         debugPrint("Notification tapped: ${response.payload}");
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          onNotificationTap?.call(payload);
+        }
       },
     );
+  }
+
+  /// Payload of the notification that cold-launched the app, if any.
+  Future<String?> getLaunchPayload() async {
+    final details = await _notificationsPlugin.getNotificationAppLaunchDetails();
+    if (details?.didNotificationLaunchApp ?? false) {
+      return details!.notificationResponse?.payload;
+    }
+    return null;
   }
 
   Future<bool> requestPermissions() async {
@@ -218,6 +234,52 @@ class NotificationService {
       title,
       body,
       details,
+    );
+  }
+
+  /// Fires a notification for a transaction parsed from a bank email.
+  /// [pendingId] is carried as the payload so a tap can deep-link to the
+  /// review inbox. [type] is income/expense/undecided.
+  Future<void> showEmailTransactionNotification({
+    required String pendingId,
+    required double amount,
+    required String description,
+    required String type,
+  }) async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'email_transactions',
+      'Bank Email Transactions',
+      channelDescription: 'New transactions detected from bank emails',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final String title = switch (type) {
+      'income' => 'Accredito ricevuto',
+      'undecided' => 'Bonifico da rivedere',
+      _ => 'Pagamento registrato',
+    };
+
+    final String formattedAmount =
+        '${amount < 0 ? '-' : '+'}${amount.abs().toStringAsFixed(2).replaceAll('.', ',')} €';
+
+    await _notificationsPlugin.show(
+      pendingId.hashCode & 0x7fffffff,
+      title,
+      '$formattedAmount · $description',
+      details,
+      payload: pendingId,
     );
   }
 

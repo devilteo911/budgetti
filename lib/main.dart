@@ -14,6 +14,8 @@ import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
+import 'package:budgetti/core/services/gmail_service.dart';
+import 'package:budgetti/core/services/email_sync_service.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -40,6 +42,42 @@ void callbackDispatcher() {
       } catch (e) {
         debugPrint('Error in background backup task: $e');
         await notificationService.showBackupNotification(success: false, message: "Error: $e");
+      } finally {
+        await db.close();
+      }
+    }
+
+    if (task == NotificationLogic.GMAIL_SYNC_TASK) {
+      final prefs = await SharedPreferences.getInstance();
+      final persistence = PersistenceService(prefs);
+      if (!persistence.getEmailSyncEnabled()) return Future.value(true);
+
+      final db = AppDatabase();
+      final authService = GoogleAuthService();
+      final notificationService = NotificationService();
+
+      try {
+        await authService.signInSilently();
+        await notificationService.init();
+
+        final gmail = GmailService(authService);
+        // Background isolate has no Supabase session; approval re-stamps userId.
+        final sync = EmailSyncService(db, gmail, 'local');
+
+        final newDrafts =
+            await sync.sync(days: persistence.getEmailSyncWindowDays());
+
+        for (final draft in newDrafts) {
+          await notificationService.showEmailTransactionNotification(
+            pendingId: draft.id,
+            amount: draft.parsedAmount,
+            description: draft.parsedDescription,
+            type: draft.suggestedType,
+          );
+        }
+        debugPrint('Gmail sync (bg): ${newDrafts.length} new drafts');
+      } catch (e) {
+        debugPrint('Error in background gmail sync: $e');
       } finally {
         await db.close();
       }
@@ -90,6 +128,27 @@ Future<void> main() async {
       Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode),
     ]);
     await container.read(notificationLogicProvider).updateAutoBackupSchedule();
+    await container.read(notificationLogicProvider).updateGmailSyncSchedule();
+
+    // Deep-link notification taps to the review inbox.
+    final router = container.read(routerProvider);
+    notificationService.onNotificationTap = (_) => router.push('/review-inbox');
+    final launchPayload = await notificationService.getLaunchPayload();
+    if (launchPayload != null) router.push('/review-inbox');
+
+    // Foreground sync on launch: silently refresh the review inbox (the
+    // background task is what fires notifications when the app is closed).
+    if (prefs.getBool('email_sync_enabled') == true) {
+      try {
+        await container.read(emailSyncServiceProvider).sync(
+              days: container
+                  .read(persistenceServiceProvider)
+                  .getEmailSyncWindowDays(),
+            );
+      } catch (e) {
+        debugPrint('Foreground gmail sync failed: $e');
+      }
+    }
   });
 }
 

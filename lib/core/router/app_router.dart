@@ -7,6 +7,7 @@ import 'package:budgetti/features/profile/profile_screen.dart';
 import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
 import 'package:budgetti/features/home/widgets/branch_animation_wrapper.dart';
 import 'package:budgetti/features/transactions/transactions_screen.dart';
+import 'package:budgetti/features/transactions/email_inbox_screen.dart';
 import 'package:budgetti/features/stats/stats_screen.dart';
 import 'package:budgetti/features/budget/budget_screen.dart';
 import 'package:budgetti/features/settings/settings_screen.dart';
@@ -35,6 +36,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/budgets',
         builder: (context, state) => const BudgetScreen(),
+      ),
+      GoRoute(
+        path: '/review-inbox',
+        builder: (context, state) => const EmailInboxScreen(),
       ),
       GoRoute(
         path: '/onboarding',

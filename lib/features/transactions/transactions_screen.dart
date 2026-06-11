@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
@@ -224,11 +225,19 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           onRefresh: () async {
             final notifier = ref.read(paginatedTransactionsProvider.notifier);
             ref.invalidate(accountsProvider);
-            await Future.wait([
+            final tasks = <Future>[
               notifier.refresh(),
               ref.read(accountsProvider.future),
               performSheetsSync(ref),
-            ]);
+            ];
+            if (ref.read(persistenceServiceProvider).getEmailSyncEnabled()) {
+              tasks.add(ref.read(emailSyncServiceProvider).sync(
+                    days: ref
+                        .read(persistenceServiceProvider)
+                        .getEmailSyncWindowDays(),
+                  ));
+            }
+            await Future.wait(tasks);
           },
           color: scheme.primary,
           backgroundColor: scheme.surfaceContainer,
@@ -240,8 +249,55 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             onToggleSelection: _toggleSelection,
             leadingSlivers: [
               const SliverToBoxAdapter(child: TransactionsHero()),
+              _buildReviewBannerSliver(),
               _buildFiltersSliver(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewBannerSliver() {
+    final count = ref.watch(pendingTransactionsCountProvider);
+    if (count == 0) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+    final label = count == 1
+        ? '1 transazione da rivedere'
+        : '$count transazioni da rivedere';
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        child: Material(
+          color: scheme.primaryContainer,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => context.push('/review-inbox'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(Icons.mark_email_unread_outlined,
+                      color: scheme.onPrimaryContainer),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: scheme.onPrimaryContainer),
+                ],
+              ),
+            ),
           ),
         ),
       ),
