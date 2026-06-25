@@ -2,10 +2,14 @@
 /// into structured drafts. Pure Dart — no Flutter/IO deps — so it can be unit
 /// tested against real email bodies.
 ///
-/// Three known subjects are handled:
-///   - "Pagamento con Carta di debito"  -> expense
-///   - "Hai ricevuto un accredito"      -> income
-///   - "Bonifico SEPA inoltrato"        -> undecided (user picks expense/transfer)
+/// Known subjects:
+///   - "Pagamento con Carta di debito"        -> expense
+///   - "Pagamento bollettino CBILL"           -> expense
+///   - "Hai ricevuto un accredito"            -> income
+///   - "Bonifico SEPA ... a tuo favore"       -> income
+///   - "Bonifico SEPA inoltrato/istantaneo"   -> undecided (expense or transfer)
+///   - "Conferma ricezione Bonifico SEPA"     -> null on purpose (duplicate of
+///     the real notification)
 library;
 
 /// Result of parsing a single Widiba email. [amount] is signed
@@ -42,13 +46,33 @@ class WidibaEmailParser {
     final snippet = text.length > 240 ? '${text.substring(0, 240)}…' : text;
     final s = subject.toLowerCase();
 
-    if (s.contains('carta di debito')) {
+    // Sent alongside the real transfer notification with the same data.
+    if (s.contains('conferma ricezione')) return null;
+
+    // Subjects vary more than the "Ciao Matteo, ..." body templates, so when
+    // the subject doesn't route (or its branch can't read the body), retry
+    // routing on the body itself.
+    return _route(s, text, receivedAt, snippet) ??
+        _route(text.toLowerCase(), text, receivedAt, snippet);
+  }
+
+  ParsedWidibaEmail? _route(
+    String haystack,
+    String text,
+    DateTime receivedAt,
+    String snippet,
+  ) {
+    if (haystack.contains('carta di debito')) {
       return _parseCardPayment(text, receivedAt, snippet);
     }
-    if (s.contains('accredito')) {
+    if (haystack.contains('accredito') || haystack.contains('a tuo favore')) {
       return _parseCredit(text, receivedAt, snippet);
     }
-    if (s.contains('bonifico sepa')) {
+    // "bollett" covers both "bollettino" (subject) and "Codice Bolletta" (body).
+    if (haystack.contains('cbill') || haystack.contains('bollett')) {
+      return _parseCbill(text, receivedAt, snippet);
+    }
+    if (haystack.contains('bonifico')) {
       return _parseSepaTransfer(text, receivedAt, snippet);
     }
     return null;
@@ -56,13 +80,14 @@ class WidibaEmailParser {
 
   // "il giorno 04/06/2026 alle ore 13:06 hai effettuato un pagamento di 11,00
   //  euro con Carta di debito n. **** **30 presso LO CHEF."
+  // The payment may carry a channel qualifier: "un pagamento INTERNET di".
   ParsedWidibaEmail? _parseCardPayment(
     String text,
     DateTime receivedAt,
     String snippet,
   ) {
     final m = RegExp(
-      r'il giorno (\d{2}/\d{2}/\d{4}) alle ore (\d{2}:\d{2}) hai effettuato un pagamento di ([\d.]+,\d{2}) euro con Carta di debito n\.?\s*(.+?)\s+presso\s+(.+?)\.',
+      r'il giorno (\d{1,2}/\d{1,2}/\d{4})(?:\s+alle ore\s+(\d{1,2}[:.]\d{2}))?\s+hai effettuato un pagamento(?:\s+\w+)?\s+di\s+([\d.]+,\d{2})\s+euro con carta di debito(?:\s+n\.?\s*[*\d\s]+?)?\s+presso\s+(.+?)(?:\.(?:\s|$)|$)',
       caseSensitive: false,
     ).firstMatch(text);
     if (m == null) return null;
@@ -70,7 +95,7 @@ class WidibaEmailParser {
     final amount = _parseAmount(m.group(3)!);
     if (amount == null) return null;
 
-    final merchant = m.group(5)!.trim();
+    final merchant = m.group(4)!.trim();
     final date = _parseDate(m.group(1)!, time: m.group(2)) ?? receivedAt;
 
     return ParsedWidibaEmail(
@@ -83,8 +108,10 @@ class WidibaEmailParser {
     );
   }
 
-  // "hai ricevuto sul conto 6003/656696 ... accredito di 7,00 euro per Bonifico
-  //  a tuo favore ... ORD: Giada Lagetti BIC: REVOITM2XXX ... 04.06.26 ..."
+  // Prose form: "hai ricevuto sul conto 6003/656696 ... accredito di 7,00 euro
+  // per Bonifico a tuo favore ... ORD: Giada Lagetti BIC: REVOITM2XXX 04.06.26"
+  // Label/value form (instant SEPA in your favour): "Importo 7,00 € ...
+  // Ordinante ... Causale ..."
   ParsedWidibaEmail? _parseCredit(
     String text,
     DateTime receivedAt,
@@ -92,26 +119,35 @@ class WidibaEmailParser {
   ) {
     final amountMatch =
         RegExp(r'accredito di ([\d.]+,\d{2}) euro', caseSensitive: false)
-            .firstMatch(text);
+                .firstMatch(text) ??
+            RegExp(r'Importo\s+([\d.]+,\d{2})\s*€', caseSensitive: false)
+                .firstMatch(text);
     if (amountMatch == null) return null;
 
     final amount = _parseAmount(amountMatch.group(1)!);
     if (amount == null) return null;
 
     final ordinante = RegExp(r'ORD:\s*(.+?)\s+BIC:', caseSensitive: false)
-        .firstMatch(text)
-        ?.group(1)
-        ?.trim();
+            .firstMatch(text)
+            ?.group(1)
+            ?.trim() ??
+        _labelValue(text, 'Ordinante');
 
     final causale =
         RegExp(r'euro per (.+?)(?:\s+FILIALE|\s+ORD:|$)', caseSensitive: false)
-            .firstMatch(text)
-            ?.group(1)
-            ?.trim();
+                .firstMatch(text)
+                ?.group(1)
+                ?.trim() ??
+            _labelValue(text, 'Causale');
 
-    // Value date like "04.06.26"; fall back to email received date.
-    final valueDate = RegExp(r'(\d{2}\.\d{2}\.\d{2})').firstMatch(text)?.group(1);
-    final date = (valueDate != null ? _parseDate(valueDate) : null) ?? receivedAt;
+    // Value date like "04.06.26", or a labeled dd/MM/yyyy; else received date.
+    final dateStr =
+        RegExp(r'(\d{2}\.\d{2}\.\d{2})').firstMatch(text)?.group(1) ??
+            RegExp(r'(?:Data di accredito|inserito il)\s+(\d{1,2}/\d{1,2}/\d{4})',
+                    caseSensitive: false)
+                .firstMatch(text)
+                ?.group(1);
+    final date = (dateStr != null ? _parseDate(dateStr) : null) ?? receivedAt;
 
     final description = ordinante ?? causale ?? 'Accredito';
 
@@ -156,10 +192,7 @@ class WidibaEmailParser {
         ?.group(1)
         ?.trim();
 
-    final causale = RegExp(r'Causale\s+(.+?)\s*$', caseSensitive: false)
-        .firstMatch(text)
-        ?.group(1)
-        ?.trim();
+    final causale = _labelValue(text, 'Causale');
 
     return ParsedWidibaEmail(
       amount: -amount,
@@ -169,6 +202,56 @@ class WidibaEmailParser {
       counterparty: iban,
       rawSnippet: snippet,
     );
+  }
+
+  // "Pagamento inserito il 14/05/2026 ... Importo 136,00 € Commissioni Banca
+  //  1,40 € ... Causale Quota 2026 Money Management Imposte e tasse"
+  ParsedWidibaEmail? _parseCbill(
+    String text,
+    DateTime receivedAt,
+    String snippet,
+  ) {
+    final amountMatch =
+        RegExp(r'Importo\s+([\d.]+,\d{2})\s*€', caseSensitive: false)
+            .firstMatch(text);
+    if (amountMatch == null) return null;
+
+    var amount = _parseAmount(amountMatch.group(1)!);
+    if (amount == null) return null;
+
+    // Commissions are part of the actual debit.
+    for (final m in RegExp(r'Commissioni[^€]*?([\d.]+,\d{2})\s*€',
+            caseSensitive: false)
+        .allMatches(text)) {
+      amount = amount! + (_parseAmount(m.group(1)!) ?? 0);
+    }
+
+    final dateStr =
+        RegExp(r'inserito il\s+(\d{1,2}/\d{1,2}/\d{4})', caseSensitive: false)
+            .firstMatch(text)
+            ?.group(1);
+    final date = (dateStr != null ? _parseDate(dateStr) : null) ?? receivedAt;
+
+    final causale = _labelValue(text, 'Causale');
+
+    return ParsedWidibaEmail(
+      amount: -amount!,
+      description: causale ?? 'Bollettino CBILL',
+      date: date,
+      type: 'expense',
+      counterparty: null,
+      rawSnippet: snippet,
+    );
+  }
+
+  /// Value of a label/value pair in the bank's table emails, stopping at the
+  /// next known label or the signature. Case-sensitive on purpose: the labels
+  /// are always capitalized, lowercase occurrences belong to the value.
+  String? _labelValue(String text, String label) {
+    return RegExp(
+      '$label'
+      r'\s+(.+?)(?:\s+(?:Causale|Importo|Commissioni|Ordinante|Dal Conto|Al conto|Data di|ID transazione|Codice Bolletta|Categoria My Money|Money Management|A presto)\b|\s*$)',
+    ).firstMatch(text)?.group(1)?.trim();
   }
 
   /// Collapses all whitespace (incl. newlines from HTML) into single spaces so
@@ -182,10 +265,10 @@ class WidibaEmailParser {
     return double.tryParse(cleaned);
   }
 
-  /// Accepts "dd/MM/yyyy" or "dd.MM.yy", with optional "HH:mm" time.
+  /// Accepts "dd/MM/yyyy" or "dd.MM.yy", with optional "HH:mm"/"HH.mm" time.
   DateTime? _parseDate(String raw, {String? time}) {
     int day, month, year;
-    final slash = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(raw);
+    final slash = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(raw);
     final dot = RegExp(r'^(\d{2})\.(\d{2})\.(\d{2})$').firstMatch(raw);
     if (slash != null) {
       day = int.parse(slash.group(1)!);
@@ -201,7 +284,7 @@ class WidibaEmailParser {
 
     var hour = 0, minute = 0;
     if (time != null) {
-      final t = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(time);
+      final t = RegExp(r'^(\d{1,2})[:.](\d{2})$').firstMatch(time);
       if (t != null) {
         hour = int.parse(t.group(1)!);
         minute = int.parse(t.group(2)!);

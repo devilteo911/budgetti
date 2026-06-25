@@ -260,14 +260,26 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   Widget _buildReviewBannerSliver() {
     final count = ref.watch(pendingTransactionsCountProvider);
-    if (count == 0) {
+    final skipped = ref.watch(skippedEmailsProvider).maybeWhen(
+          data: (s) => s.length,
+          orElse: () => 0,
+        );
+    if (count == 0 && skipped == 0) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
     final scheme = Theme.of(context).colorScheme;
-    final label = count == 1
-        ? '1 transazione da rivedere'
-        : '$count transazioni da rivedere';
+    final parts = [
+      if (count > 0)
+        count == 1
+            ? '1 transazione da rivedere'
+            : '$count transazioni da rivedere',
+      if (skipped > 0)
+        skipped == 1
+            ? '1 email non riconosciuta'
+            : '$skipped email non riconosciute',
+    ];
+    final label = parts.join(' · ');
 
     return SliverToBoxAdapter(
       child: Padding(

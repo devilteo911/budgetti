@@ -2959,6 +2959,28 @@ class $PendingTransactionsTable extends PendingTransactions
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _duplicateOfIdMeta = const VerificationMeta(
+    'duplicateOfId',
+  );
+  @override
+  late final GeneratedColumn<String> duplicateOfId = GeneratedColumn<String>(
+    'duplicate_of_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _duplicateScoreMeta = const VerificationMeta(
+    'duplicateScore',
+  );
+  @override
+  late final GeneratedColumn<double> duplicateScore = GeneratedColumn<double>(
+    'duplicate_score',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2975,6 +2997,8 @@ class $PendingTransactionsTable extends PendingTransactions
     rawSnippet,
     status,
     createdAt,
+    duplicateOfId,
+    duplicateScore,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3109,6 +3133,24 @@ class $PendingTransactionsTable extends PendingTransactions
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('duplicate_of_id')) {
+      context.handle(
+        _duplicateOfIdMeta,
+        duplicateOfId.isAcceptableOrUnknown(
+          data['duplicate_of_id']!,
+          _duplicateOfIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('duplicate_score')) {
+      context.handle(
+        _duplicateScoreMeta,
+        duplicateScore.isAcceptableOrUnknown(
+          data['duplicate_score']!,
+          _duplicateScoreMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3174,6 +3216,14 @@ class $PendingTransactionsTable extends PendingTransactions
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      duplicateOfId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}duplicate_of_id'],
+      ),
+      duplicateScore: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}duplicate_score'],
+      ),
     );
   }
 
@@ -3199,6 +3249,8 @@ class PendingTransaction extends DataClass
   final String rawSnippet;
   final String status;
   final DateTime createdAt;
+  final String? duplicateOfId;
+  final double? duplicateScore;
   const PendingTransaction({
     required this.id,
     this.userId,
@@ -3214,6 +3266,8 @@ class PendingTransaction extends DataClass
     required this.rawSnippet,
     required this.status,
     required this.createdAt,
+    this.duplicateOfId,
+    this.duplicateScore,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3238,6 +3292,12 @@ class PendingTransaction extends DataClass
     map['raw_snippet'] = Variable<String>(rawSnippet);
     map['status'] = Variable<String>(status);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || duplicateOfId != null) {
+      map['duplicate_of_id'] = Variable<String>(duplicateOfId);
+    }
+    if (!nullToAbsent || duplicateScore != null) {
+      map['duplicate_score'] = Variable<double>(duplicateScore);
+    }
     return map;
   }
 
@@ -3263,6 +3323,12 @@ class PendingTransaction extends DataClass
       rawSnippet: Value(rawSnippet),
       status: Value(status),
       createdAt: Value(createdAt),
+      duplicateOfId: duplicateOfId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(duplicateOfId),
+      duplicateScore: duplicateScore == null && nullToAbsent
+          ? const Value.absent()
+          : Value(duplicateScore),
     );
   }
 
@@ -3288,6 +3354,8 @@ class PendingTransaction extends DataClass
       rawSnippet: serializer.fromJson<String>(json['rawSnippet']),
       status: serializer.fromJson<String>(json['status']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      duplicateOfId: serializer.fromJson<String?>(json['duplicateOfId']),
+      duplicateScore: serializer.fromJson<double?>(json['duplicateScore']),
     );
   }
   @override
@@ -3308,6 +3376,8 @@ class PendingTransaction extends DataClass
       'rawSnippet': serializer.toJson<String>(rawSnippet),
       'status': serializer.toJson<String>(status),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'duplicateOfId': serializer.toJson<String?>(duplicateOfId),
+      'duplicateScore': serializer.toJson<double?>(duplicateScore),
     };
   }
 
@@ -3326,6 +3396,8 @@ class PendingTransaction extends DataClass
     String? rawSnippet,
     String? status,
     DateTime? createdAt,
+    Value<String?> duplicateOfId = const Value.absent(),
+    Value<double?> duplicateScore = const Value.absent(),
   }) => PendingTransaction(
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
@@ -3343,6 +3415,12 @@ class PendingTransaction extends DataClass
     rawSnippet: rawSnippet ?? this.rawSnippet,
     status: status ?? this.status,
     createdAt: createdAt ?? this.createdAt,
+    duplicateOfId: duplicateOfId.present
+        ? duplicateOfId.value
+        : this.duplicateOfId,
+    duplicateScore: duplicateScore.present
+        ? duplicateScore.value
+        : this.duplicateScore,
   );
   PendingTransaction copyWithCompanion(PendingTransactionsCompanion data) {
     return PendingTransaction(
@@ -3380,6 +3458,12 @@ class PendingTransaction extends DataClass
           : this.rawSnippet,
       status: data.status.present ? data.status.value : this.status,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      duplicateOfId: data.duplicateOfId.present
+          ? data.duplicateOfId.value
+          : this.duplicateOfId,
+      duplicateScore: data.duplicateScore.present
+          ? data.duplicateScore.value
+          : this.duplicateScore,
     );
   }
 
@@ -3399,7 +3483,9 @@ class PendingTransaction extends DataClass
           ..write('counterparty: $counterparty, ')
           ..write('rawSnippet: $rawSnippet, ')
           ..write('status: $status, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('duplicateOfId: $duplicateOfId, ')
+          ..write('duplicateScore: $duplicateScore')
           ..write(')'))
         .toString();
   }
@@ -3420,6 +3506,8 @@ class PendingTransaction extends DataClass
     rawSnippet,
     status,
     createdAt,
+    duplicateOfId,
+    duplicateScore,
   );
   @override
   bool operator ==(Object other) =>
@@ -3438,7 +3526,9 @@ class PendingTransaction extends DataClass
           other.counterparty == this.counterparty &&
           other.rawSnippet == this.rawSnippet &&
           other.status == this.status &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.duplicateOfId == this.duplicateOfId &&
+          other.duplicateScore == this.duplicateScore);
 }
 
 class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
@@ -3456,6 +3546,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
   final Value<String> rawSnippet;
   final Value<String> status;
   final Value<DateTime> createdAt;
+  final Value<String?> duplicateOfId;
+  final Value<double?> duplicateScore;
   final Value<int> rowid;
   const PendingTransactionsCompanion({
     this.id = const Value.absent(),
@@ -3472,6 +3564,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     this.rawSnippet = const Value.absent(),
     this.status = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.duplicateOfId = const Value.absent(),
+    this.duplicateScore = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PendingTransactionsCompanion.insert({
@@ -3489,6 +3583,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     this.rawSnippet = const Value.absent(),
     this.status = const Value.absent(),
     required DateTime createdAt,
+    this.duplicateOfId = const Value.absent(),
+    this.duplicateScore = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        gmailMessageId = Value(gmailMessageId),
@@ -3513,6 +3609,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     Expression<String>? rawSnippet,
     Expression<String>? status,
     Expression<DateTime>? createdAt,
+    Expression<String>? duplicateOfId,
+    Expression<double>? duplicateScore,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3530,6 +3628,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
       if (rawSnippet != null) 'raw_snippet': rawSnippet,
       if (status != null) 'status': status,
       if (createdAt != null) 'created_at': createdAt,
+      if (duplicateOfId != null) 'duplicate_of_id': duplicateOfId,
+      if (duplicateScore != null) 'duplicate_score': duplicateScore,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3549,6 +3649,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     Value<String>? rawSnippet,
     Value<String>? status,
     Value<DateTime>? createdAt,
+    Value<String?>? duplicateOfId,
+    Value<double?>? duplicateScore,
     Value<int>? rowid,
   }) {
     return PendingTransactionsCompanion(
@@ -3566,6 +3668,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
       rawSnippet: rawSnippet ?? this.rawSnippet,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      duplicateOfId: duplicateOfId ?? this.duplicateOfId,
+      duplicateScore: duplicateScore ?? this.duplicateScore,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3615,6 +3719,12 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (duplicateOfId.present) {
+      map['duplicate_of_id'] = Variable<String>(duplicateOfId.value);
+    }
+    if (duplicateScore.present) {
+      map['duplicate_score'] = Variable<double>(duplicateScore.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3638,6 +3748,8 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
           ..write('rawSnippet: $rawSnippet, ')
           ..write('status: $status, ')
           ..write('createdAt: $createdAt, ')
+          ..write('duplicateOfId: $duplicateOfId, ')
+          ..write('duplicateScore: $duplicateScore, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5042,6 +5154,8 @@ typedef $$PendingTransactionsTableCreateCompanionBuilder =
       Value<String> rawSnippet,
       Value<String> status,
       required DateTime createdAt,
+      Value<String?> duplicateOfId,
+      Value<double?> duplicateScore,
       Value<int> rowid,
     });
 typedef $$PendingTransactionsTableUpdateCompanionBuilder =
@@ -5060,6 +5174,8 @@ typedef $$PendingTransactionsTableUpdateCompanionBuilder =
       Value<String> rawSnippet,
       Value<String> status,
       Value<DateTime> createdAt,
+      Value<String?> duplicateOfId,
+      Value<double?> duplicateScore,
       Value<int> rowid,
     });
 
@@ -5139,6 +5255,16 @@ class $$PendingTransactionsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get duplicateOfId => $composableBuilder(
+    column: $table.duplicateOfId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get duplicateScore => $composableBuilder(
+    column: $table.duplicateScore,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5221,6 +5347,16 @@ class $$PendingTransactionsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get duplicateOfId => $composableBuilder(
+    column: $table.duplicateOfId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get duplicateScore => $composableBuilder(
+    column: $table.duplicateScore,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PendingTransactionsTableAnnotationComposer
@@ -5293,6 +5429,16 @@ class $$PendingTransactionsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get duplicateOfId => $composableBuilder(
+    column: $table.duplicateOfId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get duplicateScore => $composableBuilder(
+    column: $table.duplicateScore,
+    builder: (column) => column,
+  );
 }
 
 class $$PendingTransactionsTableTableManager
@@ -5352,6 +5498,8 @@ class $$PendingTransactionsTableTableManager
                 Value<String> rawSnippet = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> duplicateOfId = const Value.absent(),
+                Value<double?> duplicateScore = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingTransactionsCompanion(
                 id: id,
@@ -5368,6 +5516,8 @@ class $$PendingTransactionsTableTableManager
                 rawSnippet: rawSnippet,
                 status: status,
                 createdAt: createdAt,
+                duplicateOfId: duplicateOfId,
+                duplicateScore: duplicateScore,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5386,6 +5536,8 @@ class $$PendingTransactionsTableTableManager
                 Value<String> rawSnippet = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 required DateTime createdAt,
+                Value<String?> duplicateOfId = const Value.absent(),
+                Value<double?> duplicateScore = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingTransactionsCompanion.insert(
                 id: id,
@@ -5402,6 +5554,8 @@ class $$PendingTransactionsTableTableManager
                 rawSnippet: rawSnippet,
                 status: status,
                 createdAt: createdAt,
+                duplicateOfId: duplicateOfId,
+                duplicateScore: duplicateScore,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

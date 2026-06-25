@@ -145,6 +145,12 @@ class PendingTransactions extends Table {
       text().withDefault(const Constant('pending'))(); // pending/approved/rejected
   DateTimeColumn get createdAt => dateTime()();
 
+  // Possible-duplicate flag: id of the existing transaction this draft seems
+  // to repeat, with the heuristic confidence. Cleared when the user says
+  // "it's a different one".
+  TextColumn get duplicateOfId => text().nullable()();
+  RealColumn get duplicateScore => real().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 
@@ -161,7 +167,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 9; // Incremented from 8
+  int get schemaVersion => 10; // Incremented from 9
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -259,6 +265,14 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 9) {
         await m.createTable(pendingTransactions);
+      }
+      if (from < 10) {
+        try {
+          await m.addColumn(
+              pendingTransactions, pendingTransactions.duplicateOfId);
+          await m.addColumn(
+              pendingTransactions, pendingTransactions.duplicateScore);
+        } catch (_) {}
       }
     },
     beforeOpen: (details) async {

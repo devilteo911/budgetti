@@ -18,6 +18,15 @@ class PendingTransactionService {
   /// the user approves/rejects.
   Stream<List<PendingTransaction>> watchPending() => _pendingQuery().watch();
 
+  /// Transaction-looking emails the parser couldn't read, surfaced so the user
+  /// knows the sync skipped something.
+  Stream<List<PendingTransaction>> watchSkipped() {
+    return (_db.select(_db.pendingTransactions)
+          ..where((t) => t.status.equals('skipped'))
+          ..orderBy([(t) => OrderingTerm.desc(t.emailReceivedAt)]))
+        .watch();
+  }
+
   MultiSelectable<PendingTransaction> _pendingQuery() {
     return _db.select(_db.pendingTransactions)
       ..where((t) => t.status.equals('pending'))
@@ -61,6 +70,22 @@ class PendingTransactionService {
   }
 
   Future<void> reject(String id) => _markStatus(id, 'rejected');
+
+  /// "No, it's a different one": permanently un-flags the draft so the warning
+  /// doesn't come back on the next sync.
+  Future<void> clearDuplicateFlag(String id) {
+    return (_db.update(_db.pendingTransactions)..where((t) => t.id.equals(id)))
+        .write(const PendingTransactionsCompanion(
+      duplicateOfId: Value(null),
+      duplicateScore: Value(null),
+    ));
+  }
+
+  /// The existing transaction a draft was flagged against, for the compare UI.
+  Future<Transaction?> getTransactionById(String id) {
+    return (_db.select(_db.transactions)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+  }
 
   Future<void> _markStatus(String id, String status) {
     return (_db.update(_db.pendingTransactions)..where((t) => t.id.equals(id)))

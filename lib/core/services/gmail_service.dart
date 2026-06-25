@@ -5,16 +5,20 @@ import 'package:flutter/foundation.dart';
 import 'package:googleapis/gmail/v1.dart' as gmail;
 
 /// A single fetched email from Banca Widiba, reduced to what the parser needs.
+/// [body] is the text/plain part when present; [altBody] carries the stripped
+/// HTML as a fallback, since the bank's plain part is sometimes just a stub.
 class WidibaEmail {
   final String id;
   final String subject;
   final String body;
+  final String? altBody;
   final DateTime receivedAt;
 
   const WidibaEmail({
     required this.id,
     required this.subject,
     required this.body,
+    this.altBody,
     required this.receivedAt,
   });
 }
@@ -92,16 +96,21 @@ class GmailService {
     if (payload == null) return null;
 
     final subject = _header(payload, 'Subject') ?? '';
-    final body = _extractBody(payload);
-    if (body.isEmpty) return null;
 
-    final receivedAt = _receivedAt(msg);
+    final plain = _findPart(payload, 'text/plain');
+    final html = _findPart(payload, 'text/html');
+    final body = plain ?? (html != null ? stripHtmlToText(html) : '');
+    if (body.isEmpty) return null;
 
     return WidibaEmail(
       id: id,
       subject: subject,
       body: body,
-      receivedAt: receivedAt,
+      // When both parts exist, keep the HTML too: the plain part is
+      // occasionally a "view in HTML" stub the parser can't use.
+      altBody:
+          plain != null && html != null ? stripHtmlToText(html) : null,
+      receivedAt: _receivedAt(msg),
     );
   }
 
@@ -121,17 +130,6 @@ class GmailService {
       if (ms != null) return DateTime.fromMillisecondsSinceEpoch(ms);
     }
     return DateTime.now();
-  }
-
-  /// Walks the MIME tree preferring text/plain; falls back to stripped HTML.
-  String _extractBody(gmail.MessagePart part) {
-    final plain = _findPart(part, 'text/plain');
-    if (plain != null) return plain;
-
-    final html = _findPart(part, 'text/html');
-    if (html != null) return _stripHtml(html);
-
-    return '';
   }
 
   String? _findPart(gmail.MessagePart part, String mime) {
@@ -157,14 +155,19 @@ class GmailService {
     }
   }
 
-  String _stripHtml(String html) {
-    return html
-        .replaceAll(RegExp(r'<(script|style)[^>]*>.*?</\1>', dotAll: true), ' ')
-        .replaceAll(RegExp(r'<[^>]+>'), ' ')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&euro;', '€')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>');
-  }
+}
+
+/// Reduces an HTML email to plain text the parser can regex over. Public so
+/// tests can feed real email HTML through the same pipeline.
+String stripHtmlToText(String html) {
+  return html
+      .replaceAll(RegExp(r'<(script|style)[^>]*>.*?</\1>', dotAll: true), ' ')
+      .replaceAll(RegExp(r'<[^>]+>'), ' ')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&euro;', '€')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAllMapped(RegExp(r'&#(\d+);'),
+          (m) => String.fromCharCode(int.parse(m.group(1)!)));
 }

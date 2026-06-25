@@ -236,15 +236,21 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     setState(() => _isLoading = true);
     try {
       final persistence = ref.read(persistenceServiceProvider);
-      final drafts = await ref
+      final rows = await ref
           .read(emailSyncServiceProvider)
           .sync(days: persistence.getEmailSyncWindowDays());
+      final drafts = rows.where((r) => r.status == 'pending').length;
+      final skipped = rows.where((r) => r.status == 'skipped').length;
       if (mounted) {
+        final parts = [
+          if (drafts > 0) '$drafts nuove transazioni da rivedere',
+          if (skipped > 0) '$skipped email non riconosciute',
+        ];
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(drafts.isEmpty
+            content: Text(parts.isEmpty
                 ? 'Nessuna nuova transazione'
-                : '${drafts.length} nuove transazioni da rivedere'),
+                : parts.join(' · ')),
           ),
         );
       }

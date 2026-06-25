@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:budgetti/core/database/database.dart'
     hide Category, Tag, Account, Transaction, Budget;
+import 'package:budgetti/core/database/database.dart' as db show Transaction;
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart';
@@ -162,6 +163,17 @@ final pendingTransactionsCountProvider = Provider<int>((ref) {
         data: (list) => list.length,
         orElse: () => 0,
       );
+});
+
+/// Transaction-looking emails the parser couldn't read, for the inbox notice.
+final skippedEmailsProvider = StreamProvider<List<PendingTransaction>>((ref) {
+  return ref.watch(pendingTransactionServiceProvider).watchSkipped();
+});
+
+/// The existing transaction a flagged draft may duplicate, for the compare UI.
+final duplicateSourceTxProvider =
+    FutureProvider.family<db.Transaction?, String>((ref, txId) {
+  return ref.watch(pendingTransactionServiceProvider).getTransactionById(txId);
 });
 
 final accountsProvider = FutureProvider<List<Account>>((ref) async {

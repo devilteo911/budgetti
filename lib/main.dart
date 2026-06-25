@@ -67,7 +67,8 @@ void callbackDispatcher() {
         final newDrafts =
             await sync.sync(days: persistence.getEmailSyncWindowDays());
 
-        for (final draft in newDrafts) {
+        // 'skipped' rows are surfaced in the review inbox, not notified.
+        for (final draft in newDrafts.where((d) => d.status == 'pending')) {
           await notificationService.showEmailTransactionNotification(
             pendingId: draft.id,
             amount: draft.parsedAmount,

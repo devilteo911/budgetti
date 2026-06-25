@@ -21,9 +21,13 @@ class EmailSyncService {
     WidibaEmailParser parser = const WidibaEmailParser(),
   }) : _parser = parser;
 
-  /// Runs one sync pass. Returns the newly created drafts (empty if none).
+  /// Runs one sync pass. Returns the newly inserted rows: parsed drafts
+  /// (status 'pending') plus surfaced unparsable emails (status 'skipped').
+  /// Previously skipped emails are re-fetched and retried every pass, so a
+  /// parser fix picks them up without any manual reset.
   Future<List<PendingTransaction>> sync({int days = 7, DateTime? after}) async {
-    final existingIds = await _existingGmailIds();
+    final skippedIds = await _skippedGmailIds();
+    final existingIds = await _existingGmailIds()..removeAll(skippedIds);
 
     final emails = await _gmail.fetchRecent(
       days: days,
@@ -35,15 +39,35 @@ class EmailSyncService {
     for (final email in emails) {
       if (existingIds.contains(email.id)) continue;
 
+      // The plain part is sometimes a "view in HTML" stub: retry on the
+      // stripped HTML before giving up.
       final parsed = _parser.parse(
-        subject: email.subject,
-        body: email.body,
-        receivedAt: email.receivedAt,
-      );
+            subject: email.subject,
+            body: email.body,
+            receivedAt: email.receivedAt,
+          ) ??
+          (email.altBody != null
+              ? _parser.parse(
+                  subject: email.subject,
+                  body: email.altBody!,
+                  receivedAt: email.receivedAt,
+                )
+              : null);
+
       if (parsed == null) {
+        if (skippedIds.contains(email.id)) {
+          // Retried and still unreadable: the row is already surfaced.
+          existingIds.add(email.id);
+          continue;
+        }
         debugPrint('EmailSync: skipped unparsable "${email.subject}"');
+        final id = await _recordSkipped(email);
+        existingIds.add(email.id);
+        if (id != null) insertedIds.add(id);
         continue;
       }
+
+      final duplicate = await _findDuplicate(parsed);
 
       await _db.into(_db.pendingTransactions).insert(
             PendingTransactionsCompanion.insert(
@@ -60,8 +84,11 @@ class EmailSyncService {
               counterparty: Value(parsed.counterparty),
               rawSnippet: Value(parsed.rawSnippet),
               createdAt: DateTime.now(),
+              duplicateOfId: Value(duplicate?.transactionId),
+              duplicateScore: Value(duplicate?.score),
             ),
-            mode: InsertMode.insertOrIgnore,
+            // Replace, not ignore: a retried skipped row becomes a real draft.
+            mode: InsertMode.insertOrReplace,
           );
 
       existingIds.add(email.id);
@@ -75,6 +102,52 @@ class EmailSyncService {
         .get();
   }
 
+  /// Stores an unparsable email so it's never re-fetched. Transaction-looking
+  /// ones get status 'skipped' (surfaced in the review inbox); marketing and
+  /// receipt-confirmations get 'ignored' (never shown). Returns the row id
+  /// when the email was surfaced.
+  Future<String?> _recordSkipped(WidibaEmail email) async {
+    final surfaced = _looksTransactional(email.subject);
+
+    final plain = email.body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final alt = email.altBody?.replaceAll(RegExp(r'\s+'), ' ').trim();
+    var snippet = plain.length > 240 ? '${plain.substring(0, 240)}…' : plain;
+    if (alt != null && alt.isNotEmpty) {
+      snippet +=
+          ' ⟂ ${alt.length > 240 ? '${alt.substring(0, 240)}…' : alt}';
+    }
+
+    final id = 'pending_${email.id}';
+    await _db.into(_db.pendingTransactions).insert(
+          PendingTransactionsCompanion.insert(
+            id: id,
+            userId: Value(_userId),
+            gmailMessageId: email.id,
+            emailSubject: email.subject,
+            emailReceivedAt: email.receivedAt,
+            parsedAmount: 0,
+            parsedDescription: email.subject,
+            parsedDate: email.receivedAt,
+            suggestedType: const Value('undecided'),
+            rawSnippet: Value(snippet),
+            status: Value(surfaced ? 'skipped' : 'ignored'),
+            createdAt: DateTime.now(),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+    return surfaced ? id : null;
+  }
+
+  bool _looksTransactional(String subject) {
+    final s = subject.toLowerCase();
+    if (s.contains('conferma ricezione')) return false;
+    const keywords = [
+      'pagamento', 'bonifico', 'accredito', 'addebito',
+      'carta', 'cbill', 'bollettino', 'prelievo',
+    ];
+    return keywords.any(s.contains);
+  }
+
   Future<Set<String>> _existingGmailIds() async {
     final col = _db.pendingTransactions.gmailMessageId;
     final rows = await (_db.selectOnly(_db.pendingTransactions)
@@ -82,6 +155,115 @@ class EmailSyncService {
         .get();
     return rows.map((r) => r.read(col)!).toSet();
   }
+
+  Future<Set<String>> _skippedGmailIds() async {
+    final col = _db.pendingTransactions.gmailMessageId;
+    final rows = await (_db.selectOnly(_db.pendingTransactions)
+          ..addColumns([col])
+          ..where(_db.pendingTransactions.status.equals('skipped')))
+        .get();
+    return rows.map((r) => r.read(col)!).toSet();
+  }
+
+  /// Looks for an existing transaction the draft may be repeating: same
+  /// amount, within ±3 days, with date proximity and description similarity
+  /// combined into a confidence score. Returns the best match above threshold.
+  Future<DuplicateMatch?> _findDuplicate(ParsedWidibaEmail parsed) async {
+    final day =
+        DateTime(parsed.date.year, parsed.date.month, parsed.date.day);
+    final candidates = await (_db.select(_db.transactions)
+          ..where((t) =>
+              t.isDeleted.equals(false) &
+              t.date.isBetweenValues(
+                day.subtract(const Duration(days: 3)),
+                day.add(const Duration(days: 4)),
+              )))
+        .get();
+
+    DuplicateMatch? best;
+    for (final tx in candidates) {
+      if ((tx.amount.abs() - parsed.amount.abs()).abs() > 0.005) continue;
+      // Transfers carry no sign convention, everything else must agree.
+      if (tx.type != 'transfer' && tx.amount.sign != parsed.amount.sign) {
+        continue;
+      }
+
+      final score = duplicateConfidence(
+        draftDate: parsed.date,
+        draftDescription: parsed.description,
+        txDate: tx.date,
+        txDescription: tx.description,
+      );
+      if (score < duplicateThreshold) continue;
+      if (best == null || score > best.score) {
+        best = DuplicateMatch(tx.id, score);
+      }
+    }
+    return best;
+  }
+}
+
+class DuplicateMatch {
+  final String transactionId;
+  final double score;
+  const DuplicateMatch(this.transactionId, this.score);
+}
+
+const double duplicateThreshold = 0.45;
+
+/// Confidence that two same-amount movements are the same one. Date proximity
+/// alone is enough to flag a same-day twin even when the user typed a totally
+/// different title ("Spesa" vs "PAGAMENTO POS ESSELUNGA").
+double duplicateConfidence({
+  required DateTime draftDate,
+  required String draftDescription,
+  required DateTime txDate,
+  required String txDescription,
+}) {
+  final dayDiff = DateTime(draftDate.year, draftDate.month, draftDate.day)
+      .difference(DateTime(txDate.year, txDate.month, txDate.day))
+      .inDays
+      .abs();
+  final dateScore = switch (dayDiff) {
+    0 => 1.0,
+    1 => 0.8,
+    2 => 0.6,
+    _ => 0.4,
+  };
+  return 0.5 * dateScore +
+      0.5 * descriptionSimilarity(draftDescription, txDescription);
+}
+
+/// Token-overlap similarity (Jaccard) on normalized descriptions, boosted to
+/// 0.9 when one side is contained in the other — the manual title is usually
+/// just the merchant name buried inside the bank's POS boilerplate.
+double descriptionSimilarity(String a, String b) {
+  final ta = _tokens(a);
+  final tb = _tokens(b);
+  if (ta.isEmpty || tb.isEmpty) return 0;
+
+  final jaccard =
+      ta.intersection(tb).length / ta.union(tb).length;
+  final contained = ta.containsAll(tb) || tb.containsAll(ta);
+  return contained && jaccard < 0.9 ? 0.9 : jaccard;
+}
+
+// Bank boilerplate and filler words that carry no identity.
+const _noiseTokens = <String>{
+  'pagamento', 'pos', 'carta', 'addebito', 'accredito', 'bonifico', 'sepa',
+  'operazione', 'presso', 'del', 'della', 'dello', 'di', 'da', 'per', 'con',
+  'il', 'la', 'le', 'su', 'spa', 'srl', 'sas', 'snc', 'via', 'euro', 'eur',
+};
+
+Set<String> _tokens(String s) {
+  return s
+      .toLowerCase()
+      .split(RegExp(r'[^a-zà-ù0-9]+'))
+      .where((t) =>
+          t.length >= 3 &&
+          !_noiseTokens.contains(t) &&
+          int.tryParse(t) == null)
+      .toSet();
 }
 
 /// Best-effort category guess from the merchant/counterparty text. Returns null
