@@ -1,7 +1,5 @@
 import 'dart:ui';
 
-import 'package:budgetti/core/services/persistence_service.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:mobile_ocr/mobile_ocr_plugin.dart';
 
 class ReceiptOcrResult {
@@ -12,10 +10,9 @@ class ReceiptOcrResult {
   ReceiptOcrResult({this.merchant, this.amount, this.date});
 
   @override
-  String toString() => 'Merchant: \$merchant, Amount: \$amount, Date: \$date';
+  String toString() => 'Merchant: $merchant, Amount: $amount, Date: $date';
 }
 
-/// Helper class to abstract differences between MLKit and MobileOCR
 class _OcrLine {
   final String text;
   final Rect boundingBox;
@@ -24,57 +21,24 @@ class _OcrLine {
 }
 
 class OcrService {
-  final PersistenceService _persistenceService;
-  final _mlKitRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
   final _mobileOcr = MobileOcr();
 
-  OcrService(this._persistenceService);
-
   Future<ReceiptOcrResult> recognizeReceipt(String imagePath) async {
-    final engine = _persistenceService.getOcrEngine();
-
-    if (engine == 'mobile_ocr') {
-      return _recognizeWithMobileOcr(imagePath);
-    } else {
-      return _recognizeWithMlKit(imagePath);
-    }
-  }
-
-  Future<ReceiptOcrResult> _recognizeWithMlKit(String imagePath) async {
-    final inputImage = InputImage.fromFilePath(imagePath);
-    final RecognizedText recognizedText = await _mlKitRecognizer.processImage(
-      inputImage,
-    );
-
-    final List<_OcrLine> allLines = [];
-    for (TextBlock block in recognizedText.blocks) {
-      for (TextLine line in block.lines) {
-        allLines.add(_OcrLine(line.text, line.boundingBox));
-      }
-    }
-
-    if (allLines.isEmpty) return ReceiptOcrResult();
-
-    return _processLines(allLines);
-  }
-
-  Future<ReceiptOcrResult> _recognizeWithMobileOcr(String imagePath) async {
     try {
       // Ensure models are ready (downloads on first run on Android)
       await _mobileOcr.prepareModels();
 
       final textBlocks = await _mobileOcr.detectText(imagePath: imagePath);
 
-      final List<_OcrLine> allLines = textBlocks.blocks.map((block) {
-        return _OcrLine(block.text, block.boundingBox);
-      }).toList();
+      final List<_OcrLine> allLines = textBlocks.blocks
+          .map((block) => _OcrLine(block.text, block.boundingBox))
+          .toList();
 
       if (allLines.isEmpty) return ReceiptOcrResult();
 
       return _processLines(allLines);
     } catch (e) {
-      // Fallback or error handling
-      print('MobileOCR failed: \$e');
+      print('MobileOCR failed: $e');
       return ReceiptOcrResult();
     }
   }
@@ -225,9 +189,5 @@ class OcrService {
       }
     }
     return null;
-  }
-
-  void dispose() {
-    _mlKitRecognizer.close();
   }
 }

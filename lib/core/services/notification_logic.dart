@@ -153,11 +153,6 @@ class NotificationLogic {
 
     print('📧 Gmail sync scheduled every 15 minutes');
   }
-
-  // Test method for debugging - sends immediate notification
-  Future<void> sendTestNotification() async {
-    await _notificationService.showTestNotification();
-  }
 }
 
 final notificationLogicProvider = Provider<NotificationLogic>((ref) {

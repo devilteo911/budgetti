@@ -87,15 +87,6 @@ class PersistenceService {
     await _prefs.setBool(_getBudgetAlertKey(category, threshold, date), true);
   }
 
-  // OCR Settings
-  static const _ocrEngineKey = 'ocr_engine';
-
-  // 'google_mlkit' or 'mobile_ocr'
-  String getOcrEngine() => _prefs.getString(_ocrEngineKey) ?? 'google_mlkit';
-
-  Future<void> setOcrEngine(String engine) =>
-      _prefs.setString(_ocrEngineKey, engine);
-
   // Google Sheets Sync
   static const _sheetsSpreadsheetIdKey = 'sheets_spreadsheet_id';
   static const _sheetsSheetNameKey = 'sheets_sheet_name';

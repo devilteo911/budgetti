@@ -103,13 +103,6 @@ class SheetsRowMapper {
     return colA.isNotEmpty && colC.isNotEmpty;
   }
 
-  /// Check if a row is a transfer row (has data but empty Transizione col D).
-  static bool isTransferRow(List<Object?> row) {
-    if (!isDataRow(row)) return false;
-    final colD = row.length > 3 ? (row[3] ?? '').toString().trim() : '';
-    return colD.isEmpty;
-  }
-
   /// Parse a single sheet row into a Transaction.
   static Transaction? sheetRowToTransaction(
     List<Object?> row,
@@ -156,78 +149,6 @@ class SheetsRowMapper {
       type: type,
       tags: tags,
     );
-  }
-
-  /// Merge two transfer rows into a single transfer Transaction.
-  static Transaction? mergeTransferPair(
-    Transaction source,
-    Transaction destination,
-  ) {
-    final Transaction from;
-    final Transaction to;
-
-    if (source.amount < 0) {
-      from = source;
-      to = destination;
-    } else {
-      from = destination;
-      to = source;
-    }
-
-    return Transaction(
-      id: const Uuid().v4(),
-      accountId: from.accountId,
-      toAccountId: to.accountId,
-      amount: to.amount.abs(),
-      date: from.date,
-      description: from.description.isNotEmpty ? from.description : to.description,
-      category: from.category.isNotEmpty ? from.category : to.category,
-      type: 'transfer',
-    );
-  }
-
-  /// Parse all rows, merging transfer pairs.
-  static List<Transaction> parseAllRows(
-    List<List<Object?>> rows,
-    Map<String, String> accountNameToId,
-    int year,
-  ) {
-    final transactions = <Transaction>[];
-    var i = 0;
-
-    while (i < rows.length) {
-      final row = rows[i];
-
-      if (isMonthSummaryRow(row) || !isDataRow(row)) {
-        i++;
-        continue;
-      }
-
-      if (isTransferRow(row)) {
-        final tx1 = sheetRowToTransaction(row, accountNameToId, year);
-        Transaction? tx2;
-
-        if (i + 1 < rows.length && isTransferRow(rows[i + 1])) {
-          tx2 = sheetRowToTransaction(rows[i + 1], accountNameToId, year);
-          i += 2;
-        } else {
-          if (tx1 != null) transactions.add(tx1);
-          i++;
-          continue;
-        }
-
-        if (tx1 != null && tx2 != null) {
-          final merged = mergeTransferPair(tx1, tx2);
-          if (merged != null) transactions.add(merged);
-        }
-      } else {
-        final tx = sheetRowToTransaction(row, accountNameToId, year);
-        if (tx != null) transactions.add(tx);
-        i++;
-      }
-    }
-
-    return transactions;
   }
 
   /// Title case a string: "hello world" → "Hello World".

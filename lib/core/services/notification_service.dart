@@ -178,30 +178,6 @@ class NotificationService {
     debugPrint('✅ Daily reminder scheduled successfully with ID: $id');
   }
 
-  // Test method to verify notification channel works
-  Future<void> showTestNotification() async {
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'daily_reminders',
-          'Daily Reminders',
-          channelDescription: 'Daily reminders to track expenses',
-          importance: Importance.max,
-          priority: Priority.high,
-        );
-
-    const NotificationDetails details = NotificationDetails(
-      android: androidDetails,
-    );
-
-    await _notificationsPlugin.show(
-      9999,
-      "Test Notification",
-      "This is a test to verify the daily reminders channel works!",
-      details,
-    );
-    debugPrint('🧪 Test notification sent');
-  }
-
   Future<void> showBackupNotification({
     required bool success,
     String? message,

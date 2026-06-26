@@ -101,55 +101,6 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
     );
   }
 
-  void _showOcrPicker() {
-    final persistence = ref.read(persistenceServiceProvider);
-    final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Scanning Engine',
-                style: Theme.of(ctx).textTheme.titleLarge,
-              ),
-            ),
-            ListTile(
-              title: const Text('Google MLKit'),
-              subtitle: const Text('Fast and reliable (Default)'),
-              trailing: persistence.getOcrEngine() == 'google_mlkit'
-                  ? Icon(Icons.check_circle, color: scheme.primary)
-                  : null,
-              onTap: () async {
-                await persistence.setOcrEngine('google_mlkit');
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) setState(() {});
-              },
-            ),
-            ListTile(
-              title: const Text('Ente Mobile OCR'),
-              subtitle: const Text('Advanced accuracy (Experimental)'),
-              trailing: persistence.getOcrEngine() == 'mobile_ocr'
-                  ? Icon(Icons.check_circle, color: scheme.primary)
-                  : null,
-              onTap: () async {
-                await persistence.setOcrEngine('mobile_ocr');
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (mounted) setState(() {});
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _pickReminderTime() async {
     final persistence = ref.read(persistenceServiceProvider);
     final timeStr = persistence.getDailyReminderTime();
@@ -177,7 +128,6 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
     final profileAsync = ref.watch(userProfileProvider);
     final currency =
         profileAsync.asData?.value?['currency'] as String? ?? 'EUR';
-    final ocr = persistence.getOcrEngine();
 
     return SettingsScaffold(
       title: 'Preferences',
@@ -192,15 +142,6 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
               trailing: Icon(Icons.keyboard_arrow_down,
                   color: scheme.onSurface.withValues(alpha: 0.4)),
               onTap: () => _showCurrencyPicker(currency),
-            ),
-            SettingsTile(
-              icon: Icons.document_scanner_outlined,
-              iconColor: scheme.secondary,
-              title: 'Receipt Scanner',
-              subtitle: ocr == 'mobile_ocr' ? 'Ente Mobile OCR' : 'Google MLKit',
-              trailing: Icon(Icons.keyboard_arrow_down,
-                  color: scheme.onSurface.withValues(alpha: 0.4)),
-              onTap: _showOcrPicker,
             ),
           ],
         ),

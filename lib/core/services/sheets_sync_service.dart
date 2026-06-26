@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:budgetti/core/services/google_auth_service.dart';
-import 'package:budgetti/core/services/google_sheets_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/sheets_row_mapper.dart';
 import 'package:budgetti/models/transaction.dart';
@@ -42,14 +41,13 @@ class SyncResult {
 /// - In app + last sync, not in sheet → deleted in sheet → remove from app
 /// - In app, not in sheet, not in last sync → new app entry → export
 class SheetsSyncService {
-  final GoogleSheetsService _sheetsService;
   final GoogleAuthService _authService;
   final PersistenceService _persistence;
 
   // Prevent concurrent syncs
   bool _isSyncing = false;
 
-  SheetsSyncService(this._sheetsService, this._authService, this._persistence);
+  SheetsSyncService(this._authService, this._persistence);
 
   bool get isSyncing => _isSyncing;
 
@@ -79,7 +77,7 @@ class SheetsSyncService {
       // 1. Read sheet rows
       List<List<Object?>> sheetRows;
       try {
-        sheetRows = await _sheetsService.readRawRows(spreadsheetId, sheetName);
+        sheetRows = await _readRawRows(spreadsheetId, sheetName);
       } catch (e) {
         debugPrint('Sync: failed to read sheet: $e');
         return SyncResult();
@@ -323,6 +321,22 @@ class SheetsSyncService {
         spreadsheetId,
       );
     }
+  }
+
+  /// Read all raw rows from the sheet (A2:M to include the hash column).
+  Future<List<List<Object?>>> _readRawRows(
+    String spreadsheetId,
+    String sheetName,
+  ) async {
+    final sheetsApi = await _getSheetsApi();
+    if (sheetsApi == null) {
+      throw Exception('Not signed in to Google. Please sign in first.');
+    }
+    final response = await sheetsApi.spreadsheets.values.get(
+      spreadsheetId,
+      '$sheetName!A2:M',
+    );
+    return (response.values ?? []).cast<List<Object?>>();
   }
 
   Future<sheets.SheetsApi?> _getSheetsApi() async {

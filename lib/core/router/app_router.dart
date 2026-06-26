@@ -30,10 +30,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
-        path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
-      ),
-      GoRoute(
         path: '/budgets',
         builder: (context, state) => const BudgetScreen(),
       ),
@@ -128,10 +124,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       
       if (session == null && !isLoggingIn) return '/login';
       if (session != null && isLoggingIn) return '/dashboard';
-      
-      // We will handle profile check inside Dashboard for now to avoid async redirect complexity
-      // or we could use a text check if we had the profile loaded in memory.
-      
+
       return null;
     },
     refreshListenable: GoRouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),

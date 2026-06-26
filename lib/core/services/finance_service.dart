@@ -7,47 +7,7 @@ import 'package:budgetti/models/budget.dart' as model_budget;
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-abstract class FinanceService {
-  Future<List<model_account.Account>> getAccounts();
-  Stream<List<model_account.Account>> watchAccounts();
-  Future<void> addAccount(model_account.Account account);
-  Future<void> updateAccount(model_account.Account account);
-  Future<void> deleteAccount(String id);
-  Future<List<model_txn.Transaction>> getTransactions({
-    String? accountId,
-    DateTime? startDate,
-    DateTime? endDate,
-    List<String>? categories,
-    List<String>? tags,
-    int? limit,
-    int? offset,
-  });
-  Stream<List<model_txn.Transaction>> watchTransactions({
-    String? accountId,
-    DateTime? startDate,
-    DateTime? endDate,
-    List<String>? categories,
-    List<String>? tags,
-  });
-  Future<void> addTransaction(model_txn.Transaction transaction);
-  Future<void> updateTransaction(model_txn.Transaction transaction);
-  Future<void> deleteTransactions(List<String> ids);
-  Future<List<model.Category>> getCategories();
-  Future<void> addCategory(model.Category category);
-  Future<void> updateCategory(model.Category category);
-  Future<void> deleteCategory(String id);
-  Future<List<model_tag.Tag>> getTags();
-  Future<void> addTag(model_tag.Tag tag);
-  Future<void> updateTag(model_tag.Tag tag);
-  Future<void> deleteTag(String id);
-  Future<List<model_budget.Budget>> getBudgets();
-  Future<void> upsertBudget(model_budget.Budget budget);
-  Future<void> deleteBudget(String id);
-  Future<void> restoreDefaultCategories();
-  Future<void> restoreDefaultTags();
-}
-
-class LocalFinanceService implements FinanceService {
+class FinanceService {
   final AppDatabase _db;
   final String _userId;
   bool _initialized = false;
@@ -76,7 +36,7 @@ class LocalFinanceService implements FinanceService {
     (name: 'Gift', color: 0xFFFF5722),
   ];
 
-  LocalFinanceService(this._db, this._userId);
+  FinanceService(this._db, this._userId);
 
 
   /// Ensures user has default data (account, categories, tags)
@@ -144,7 +104,6 @@ class LocalFinanceService implements FinanceService {
     }
   }
 
-  @override
   Future<List<model_account.Account>> getAccounts() async {
     // Ensure user has default data on first access
     await _ensureUserDefaults();
@@ -235,7 +194,6 @@ class LocalFinanceService implements FinanceService {
     }).toList();
   }
 
-  @override
   Stream<List<model_account.Account>> watchAccounts() {
     // This will trigger whenever the accounts table changes.
     // To also trigger on transaction changes, we'd need a more complex stream.
@@ -243,7 +201,6 @@ class LocalFinanceService implements FinanceService {
     return _db.select(_db.accounts).watch().asyncMap((_) => getAccounts());
   }
 
-  @override
   Future<void> addAccount(model_account.Account account) async {
     final accountId = account.id.isEmpty ? const Uuid().v4() : account.id;
 
@@ -266,7 +223,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> updateAccount(model_account.Account account) async {
     if (account.isDefault) {
       // Unset other defaults for this user
@@ -286,7 +242,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> deleteAccount(String id) async {
     await (_db.update(_db.accounts)..where((t) => t.id.equals(id))).write(AccountsCompanion(
       isDeleted: const Value(true),
@@ -294,7 +249,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<List<model_txn.Transaction>> getTransactions({
     String? accountId,
     DateTime? startDate,
@@ -376,7 +330,6 @@ class LocalFinanceService implements FinanceService {
     return txns;
   }
 
-  @override
   Stream<List<model_txn.Transaction>> watchTransactions({
     String? accountId,
     DateTime? startDate,
@@ -434,7 +387,6 @@ class LocalFinanceService implements FinanceService {
     });
   }
 
-  @override
   Future<void> addTransaction(model_txn.Transaction transaction) async {
     await _db.into(_db.transactions).insert(TransactionsCompanion.insert(
       id: transaction.id.isEmpty ? const Uuid().v4() : transaction.id,
@@ -451,7 +403,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> updateTransaction(model_txn.Transaction transaction) async {
     await (_db.update(_db.transactions)..where((t) => t.id.equals(transaction.id))).write(TransactionsCompanion(
       accountId: Value(transaction.accountId),
@@ -466,7 +417,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> deleteTransactions(List<String> ids) async {
     if (ids.isEmpty) return;
     await (_db.update(_db.transactions)..where((t) => t.id.isIn(ids))).write(TransactionsCompanion(
@@ -475,7 +425,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<List<model.Category>> getCategories() async {
     final result = await (_db.select(_db.categories)
               ..where(
@@ -496,7 +445,6 @@ class LocalFinanceService implements FinanceService {
     )).toList();
   }
 
-  @override
   Future<void> addCategory(model.Category category) async {
     await _db.into(_db.categories).insert(CategoriesCompanion.insert(
       id: category.id.isEmpty ? const Uuid().v4() : category.id,
@@ -510,7 +458,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> updateCategory(model.Category category) async {
     await (_db.update(_db.categories)..where((t) => t.id.equals(category.id))).write(CategoriesCompanion(
       name: Value(category.name),
@@ -522,7 +469,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> deleteCategory(String id) async {
     await (_db.update(_db.categories)..where((t) => t.id.equals(id))).write(CategoriesCompanion(
       isDeleted: const Value(true),
@@ -530,7 +476,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<List<model_tag.Tag>> getTags() async {
     final result = await (_db.select(_db.tags)
       ..where(
@@ -546,7 +491,6 @@ class LocalFinanceService implements FinanceService {
     )).toList();
   }
 
-  @override
   Future<void> addTag(model_tag.Tag tag) async {
     await _db.into(_db.tags).insert(TagsCompanion.insert(
       id: tag.id.isEmpty ? const Uuid().v4() : tag.id,
@@ -557,7 +501,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> updateTag(model_tag.Tag tag) async {
     await (_db.update(_db.tags)..where((t) => t.id.equals(tag.id))).write(TagsCompanion(
       name: Value(tag.name),
@@ -566,7 +509,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> deleteTag(String id) async {
     await (_db.update(_db.tags)..where((t) => t.id.equals(id))).write(TagsCompanion(
       isDeleted: const Value(true),
@@ -574,7 +516,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<List<model_budget.Budget>> getBudgets() async {
     final result = await (_db.select(_db.budgets)
       ..where(
@@ -591,7 +532,6 @@ class LocalFinanceService implements FinanceService {
     )).toList();
   }
 
-  @override
   Future<void> upsertBudget(model_budget.Budget budget) async {
     // Check if exists for this user
     final exists = await (_db.select(_db.budgets)
@@ -621,7 +561,6 @@ class LocalFinanceService implements FinanceService {
     }
   }
 
-  @override
   Future<void> deleteBudget(String id) async {
     await (_db.update(_db.budgets)..where((t) => t.id.equals(id))).write(BudgetsCompanion(
       isDeleted: const Value(true),
@@ -629,7 +568,6 @@ class LocalFinanceService implements FinanceService {
     ));
   }
 
-  @override
   Future<void> restoreDefaultCategories() async {
     await _db.batch((batch) {
       for (final d in _defaultCategories) {
@@ -655,7 +593,6 @@ class LocalFinanceService implements FinanceService {
     // effectively resetting everything including isDeleted back to false (default).
   }
 
-  @override
   Future<void> restoreDefaultTags() async {
     await _db.batch((batch) {
       for (final d in _defaultTags) {

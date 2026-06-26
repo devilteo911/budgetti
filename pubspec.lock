@@ -313,14 +313,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.12"
-  draggable_scrollbar:
-    dependency: "direct main"
-    description:
-      name: draggable_scrollbar
-      sha256: a906e27fc1ee056e2942d66989dd0cb5b70a361e7d44af566cfa1b584054eac3
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.0"
   drift:
     dependency: "direct main"
     description:
@@ -479,7 +471,7 @@ packages:
     source: hosted
     version: "6.0.0"
   flutter_local_notifications_platform_interface:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: flutter_local_notifications_platform_interface
       sha256: "277d25d960c15674ce78ca97f57d0bae2ee401c844b6ac80fcd972a9c99d09fe"
@@ -576,22 +568,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.3.3+1"
-  google_mlkit_commons:
-    dependency: transitive
-    description:
-      name: google_mlkit_commons
-      sha256: "7e9a6d6e66b44aa8cfe944bda9bc3346c52486dd890ca49e5bc98845cda40d7f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.9.0"
-  google_mlkit_text_recognition:
-    dependency: "direct main"
-    description:
-      name: google_mlkit_text_recognition
-      sha256: e7609cec8de3022680a36ead8a8bafa9fd2360ea018a728feaad12dcb0e3c177
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.14.0"
   google_sign_in:
     dependency: "direct main"
     description:

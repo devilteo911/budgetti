@@ -18,7 +18,6 @@ import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
-import 'package:budgetti/core/services/google_sheets_service.dart';
 import 'package:budgetti/core/services/sheets_sync_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
 
@@ -50,16 +49,10 @@ final googleDriveServiceProvider = Provider<GoogleDriveService>((ref) {
   return GoogleDriveService(authService);
 });
 
-final googleSheetsServiceProvider = Provider<GoogleSheetsService>((ref) {
-  final authService = ref.watch(googleAuthServiceProvider);
-  return GoogleSheetsService(authService);
-});
-
 final sheetsSyncServiceProvider = Provider<SheetsSyncService>((ref) {
-  final sheetsService = ref.watch(googleSheetsServiceProvider);
   final authService = ref.watch(googleAuthServiceProvider);
   final persistence = ref.watch(persistenceServiceProvider);
-  return SheetsSyncService(sheetsService, authService, persistence);
+  return SheetsSyncService(authService, persistence);
 });
 
 /// Perform a full bidirectional sync with Google Sheets.
@@ -103,10 +96,7 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 });
 
 final ocrServiceProvider = Provider<OcrService>((ref) {
-  final persistenceService = ref.watch(persistenceServiceProvider);
-  final service = OcrService(persistenceService);
-  ref.onDispose(service.dispose);
-  return service;
+  return OcrService();
 });
 
 final importServiceProvider = Provider<ImportService>((ref) {
@@ -129,7 +119,7 @@ final financeServiceProvider = Provider<FinanceService>((ref) {
   final db = ref.watch(databaseProvider);
   // Watch currentUserIdProvider so this recreates when user changes
   final userId = ref.watch(currentUserIdProvider);
-  return LocalFinanceService(db, userId);
+  return FinanceService(db, userId);
 });
 
 final gmailServiceProvider = Provider<GmailService>((ref) {
