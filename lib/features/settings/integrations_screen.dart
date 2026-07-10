@@ -418,6 +418,63 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
 
   // ---------- Build ----------
 
+  // ---------- PocketBase sync ----------
+
+  Future<void> _showPbServerDialog() async {
+    final persistence = ref.read(persistenceServiceProvider);
+    final ctrl = TextEditingController(text: persistence.getServerUrl());
+    final url = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('PocketBase server'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+              hintText: 'http://100.64.0.1:8090'),
+          keyboardType: TextInputType.url,
+          autocorrect: false,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (url != null) {
+      await persistence.setServerUrl(url);
+      await ref
+          .read(notificationLogicProvider)
+          .updatePocketBaseSyncSchedule();
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _syncPocketBase() async {
+    setState(() => _isLoading = true);
+    try {
+      final summary = await performPocketBaseSync(ref);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            summary == null ? 'Configure the server URL first' : summary.toString(),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -426,6 +483,26 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     return SettingsScaffold(
       title: 'Integrations',
       children: [
+        SettingsSection(
+          title: 'Cloud sync',
+          children: [
+            SettingsTile(
+              icon: Icons.dns_outlined,
+              title: 'Server',
+              subtitle: persistence.getServerUrl().isEmpty
+                  ? 'Not configured'
+                  : persistence.getServerUrl(),
+              onTap: _showPbServerDialog,
+            ),
+            SettingsTile(
+              icon: Icons.sync,
+              iconColor: scheme.primary,
+              title: 'Sync now',
+              subtitle: persistence.getLastSyncSummary(),
+              onTap: _isLoading ? null : _syncPocketBase,
+            ),
+          ],
+        ),
         SettingsSection(
           title: 'Google Drive',
           children: [

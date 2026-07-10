@@ -19,9 +19,11 @@ import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/sheets_sync_service.dart';
+import 'package:budgetti/core/services/pocketbase_sync_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pocketbase/pocketbase.dart' as pb;
 import 'package:budgetti/core/services/import_service.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
 import 'package:budgetti/core/services/email_sync_service.dart';
@@ -90,6 +92,35 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   final authService = ref.watch(googleAuthServiceProvider);
   return BackupService(db, driveService, authService);
 });
+
+// ── PocketBase sync ────────────────────────────────────────────────────────
+final pocketbaseClientProvider = Provider<PocketBaseSyncClient>((ref) {
+  final persistence = ref.watch(persistenceServiceProvider);
+  final store = pb.AsyncAuthStore(
+    save: persistence.setPbAuth,
+    initial: persistence.getPbAuth(),
+  );
+  return PocketBaseSyncClient(
+    pb.PocketBase(persistence.getServerUrl(), authStore: store),
+  );
+});
+
+final pocketBaseSyncServiceProvider = Provider<PocketBaseSyncService>((ref) {
+  final client = ref.watch(pocketbaseClientProvider);
+  final db = ref.watch(databaseProvider);
+  final persistence = ref.watch(persistenceServiceProvider);
+  // The Drift `userId` column for rows synced down is the PB auth id — same
+  // value FinanceService filters on after the Phase 3 auth swap.
+  return PocketBaseSyncService(client, db, persistence, client.userId);
+});
+
+/// Runs a PocketBase sync. No-ops (returns null) when no server is configured.
+Future<SyncSummary?> performPocketBaseSync(WidgetRef ref) async {
+  if (ref.read(persistenceServiceProvider).getServerUrl().isEmpty) {
+    return null;
+  }
+  return ref.read(pocketBaseSyncServiceProvider).sync();
+}
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService();

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:meta/meta.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
@@ -122,13 +123,17 @@ class Budgets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Draft transactions parsed from bank (Widiba) emails, awaiting user review.
-/// The row is kept after approval/rejection so [gmailMessageId] acts as a
-/// permanent de-duplication ledger across re-syncs.
+/// Draft transactions awaiting review — captured from Widiba bank emails or
+/// Revolut Android notifications. [source] distinguishes them so the inbox
+/// resolves the correct wallet on approval. The row is kept after
+/// approval/rejection so [gmailMessageId] acts as a permanent
+/// de-duplication ledger across re-syncs.
 class PendingTransactions extends Table {
   TextColumn get id => text()();
   TextColumn get userId => text().nullable()();
   TextColumn get gmailMessageId => text()();
+  TextColumn get source =>
+      text().withDefault(const Constant('widiba'))(); // widiba | revolut
   TextColumn get emailSubject => text()();
   DateTimeColumn get emailReceivedAt => dateTime()();
 
@@ -166,8 +171,12 @@ class PendingTransactions extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// In-memory executor for tests (no file I/O, no platform plugins).
+  @visibleForTesting
+  AppDatabase.forExecutor(super.e);
+
   @override
-  int get schemaVersion => 10; // Incremented from 9
+  int get schemaVersion => 11; // v11: PendingTransactions.source
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -272,6 +281,11 @@ class AppDatabase extends _$AppDatabase {
               pendingTransactions, pendingTransactions.duplicateOfId);
           await m.addColumn(
               pendingTransactions, pendingTransactions.duplicateScore);
+        } catch (_) {}
+      }
+      if (from < 11) {
+        try {
+          await m.addColumn(pendingTransactions, pendingTransactions.source);
         } catch (_) {}
       }
     },

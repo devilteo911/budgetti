@@ -20,6 +20,7 @@ class NotificationLogic {
   static const int DAILY_REMINDER_ID = 999;
   static const String AUTO_BACKUP_TASK = "auto_backup_task";
   static const String GMAIL_SYNC_TASK = "gmail_sync_task";
+  static const String PB_SYNC_TASK = "pb_sync_task";
 
   Future<void> checkBudgetAlerts(Transaction newTransaction) async {
     if (!_persistenceService.getNotificationsEnabled() ||
@@ -152,6 +153,29 @@ class NotificationLogic {
     );
 
     print('📧 Gmail sync scheduled every 15 minutes');
+  }
+
+  /// Registers (or cancels) the daily PocketBase sync. Piggybacks the existing
+  /// workmanager setup rather than adding a second scheduler. Skipped until a
+  /// server URL is configured.
+  Future<void> updatePocketBaseSyncSchedule() async {
+    await Workmanager().cancelByUniqueName(PB_SYNC_TASK);
+
+    if (_persistenceService.getServerUrl().isEmpty) return;
+
+    await Workmanager().registerPeriodicTask(
+      PB_SYNC_TASK,
+      PB_SYNC_TASK,
+      frequency: const Duration(days: 1),
+      initialDelay: const Duration(hours: 6),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+        requiresBatteryNotLow: false,
+      ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    );
+
+    print('☁️ PocketBase sync scheduled daily');
   }
 }
 

@@ -207,7 +207,10 @@ class FinanceService {
     if (account.isDefault) {
       // Unset other defaults
       await (_db.update(_db.accounts)..where((t) => t.userId.equals(_userId)))
-          .write(const AccountsCompanion(isDefault: Value(false)));
+          .write(AccountsCompanion(
+            isDefault: const Value(false),
+            lastUpdated: Value(DateTime.now()), // must bump so the un-defaulting syncs
+          ));
     }
 
     await _db.into(_db.accounts).insert(AccountsCompanion.insert(
@@ -229,7 +232,10 @@ class FinanceService {
       await (_db.update(_db.accounts)..where(
             (t) => t.userId.equals(_userId) & t.id.equals(account.id).not(),
           ))
-          .write(const AccountsCompanion(isDefault: Value(false)));
+          .write(AccountsCompanion(
+            isDefault: const Value(false),
+            lastUpdated: Value(DateTime.now()), // must bump so the un-defaulting syncs
+          ));
     }
 
     await (_db.update(_db.accounts)..where((t) => t.id.equals(account.id))).write(AccountsCompanion(

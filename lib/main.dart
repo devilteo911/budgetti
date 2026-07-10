@@ -16,6 +16,8 @@ import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
 import 'package:budgetti/core/services/email_sync_service.dart';
+import 'package:budgetti/core/services/pocketbase_sync_service.dart';
+import 'package:pocketbase/pocketbase.dart' as pb;
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -83,6 +85,31 @@ void callbackDispatcher() {
         await db.close();
       }
     }
+
+    if (task == NotificationLogic.PB_SYNC_TASK) {
+      final prefs = await SharedPreferences.getInstance();
+      final persistence = PersistenceService(prefs);
+      if (persistence.getServerUrl().isEmpty) return Future.value(true);
+
+      final db = AppDatabase();
+      try {
+        final store = pb.AsyncAuthStore(
+          save: persistence.setPbAuth,
+          initial: persistence.getPbAuth(),
+        );
+        final client = PocketBaseSyncClient(
+          pb.PocketBase(persistence.getServerUrl(), authStore: store),
+        );
+        final service =
+            PocketBaseSyncService(client, db, persistence, client.userId);
+        final summary = await service.sync();
+        debugPrint('PocketBase sync (bg): $summary');
+      } catch (e) {
+        debugPrint('Error in background pb sync: $e');
+      } finally {
+        await db.close();
+      }
+    }
     return Future.value(true);
   });
 }
@@ -130,6 +157,7 @@ Future<void> main() async {
     ]);
     await container.read(notificationLogicProvider).updateAutoBackupSchedule();
     await container.read(notificationLogicProvider).updateGmailSyncSchedule();
+    await container.read(notificationLogicProvider).updatePocketBaseSyncSchedule();
 
     // Deep-link notification taps to the review inbox.
     final router = container.read(routerProvider);
@@ -148,6 +176,16 @@ Future<void> main() async {
             );
       } catch (e) {
         debugPrint('Foreground gmail sync failed: $e');
+      }
+    }
+
+    // Foreground PocketBase sync on launch (silently; background handles the
+    // daily cadence). Only when a server is configured.
+    if (container.read(persistenceServiceProvider).getServerUrl().isNotEmpty) {
+      try {
+        await container.read(pocketBaseSyncServiceProvider).sync();
+      } catch (e) {
+        debugPrint('Foreground PocketBase sync failed: $e');
       }
     }
   });

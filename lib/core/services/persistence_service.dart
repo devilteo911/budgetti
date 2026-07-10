@@ -149,5 +149,38 @@ class PersistenceService {
 
   bool getThemeGlass() => _prefs.getBool(_themeGlassKey) ?? false;
   Future<void> setThemeGlass(bool v) => _prefs.setBool(_themeGlassKey, v);
+
+  // PocketBase sync
+  static const _pbServerUrlKey = 'pb_server_url';
+  static const _pbLastSyncAtKey = 'pb_last_sync_at'; // millis since epoch
+  static const _pbLastSyncSummaryKey = 'pb_last_sync_summary';
+
+  /// Sync cursor: the max `lastUpdated` seen across the last completed sync.
+  /// Epoch on first sync so everything is treated as new.
+  DateTime getLastSyncAt() =>
+      DateTime.fromMillisecondsSinceEpoch(_prefs.getInt(_pbLastSyncAtKey) ?? 0);
+  Future<void> setLastSyncAt(DateTime t) =>
+      _prefs.setInt(_pbLastSyncAtKey, t.millisecondsSinceEpoch);
+
+  String getServerUrl() => _prefs.getString(_pbServerUrlKey) ?? '';
+  Future<void> setServerUrl(String url) =>
+      _prefs.setString(_pbServerUrlKey, url);
+
+  String getLastSyncSummary() =>
+      _prefs.getString(_pbLastSyncSummaryKey) ?? 'Never synced';
+  Future<void> setLastSyncSummary(String s) =>
+      _prefs.setString(_pbLastSyncSummaryKey, s);
+
+  /// PocketBase auth blob (token + record), persisted by AsyncAuthStore so a
+  /// cold start rehydrates the session without re-prompting login.
+  static const _pbAuthKey = 'pb_auth';
+  String? getPbAuth() => _prefs.getString(_pbAuthKey);
+  Future<void> setPbAuth(String? data) async {
+    if (data == null || data.isEmpty) {
+      await _prefs.remove(_pbAuthKey);
+    } else {
+      await _prefs.setString(_pbAuthKey, data);
+    }
+  }
 }
 

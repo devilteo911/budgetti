@@ -2834,6 +2834,16 @@ class $PendingTransactionsTable extends PendingTransactions
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('widiba'),
+  );
   static const VerificationMeta _emailSubjectMeta = const VerificationMeta(
     'emailSubject',
   );
@@ -2986,6 +2996,7 @@ class $PendingTransactionsTable extends PendingTransactions
     id,
     userId,
     gmailMessageId,
+    source,
     emailSubject,
     emailReceivedAt,
     parsedAmount,
@@ -3033,6 +3044,12 @@ class $PendingTransactionsTable extends PendingTransactions
       );
     } else if (isInserting) {
       context.missing(_gmailMessageIdMeta);
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
     }
     if (data.containsKey('email_subject')) {
       context.handle(
@@ -3172,6 +3189,10 @@ class $PendingTransactionsTable extends PendingTransactions
         DriftSqlType.string,
         data['${effectivePrefix}gmail_message_id'],
       )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
       emailSubject: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}email_subject'],
@@ -3238,6 +3259,7 @@ class PendingTransaction extends DataClass
   final String id;
   final String? userId;
   final String gmailMessageId;
+  final String source;
   final String emailSubject;
   final DateTime emailReceivedAt;
   final double parsedAmount;
@@ -3255,6 +3277,7 @@ class PendingTransaction extends DataClass
     required this.id,
     this.userId,
     required this.gmailMessageId,
+    required this.source,
     required this.emailSubject,
     required this.emailReceivedAt,
     required this.parsedAmount,
@@ -3277,6 +3300,7 @@ class PendingTransaction extends DataClass
       map['user_id'] = Variable<String>(userId);
     }
     map['gmail_message_id'] = Variable<String>(gmailMessageId);
+    map['source'] = Variable<String>(source);
     map['email_subject'] = Variable<String>(emailSubject);
     map['email_received_at'] = Variable<DateTime>(emailReceivedAt);
     map['parsed_amount'] = Variable<double>(parsedAmount);
@@ -3308,6 +3332,7 @@ class PendingTransaction extends DataClass
           ? const Value.absent()
           : Value(userId),
       gmailMessageId: Value(gmailMessageId),
+      source: Value(source),
       emailSubject: Value(emailSubject),
       emailReceivedAt: Value(emailReceivedAt),
       parsedAmount: Value(parsedAmount),
@@ -3341,6 +3366,7 @@ class PendingTransaction extends DataClass
       id: serializer.fromJson<String>(json['id']),
       userId: serializer.fromJson<String?>(json['userId']),
       gmailMessageId: serializer.fromJson<String>(json['gmailMessageId']),
+      source: serializer.fromJson<String>(json['source']),
       emailSubject: serializer.fromJson<String>(json['emailSubject']),
       emailReceivedAt: serializer.fromJson<DateTime>(json['emailReceivedAt']),
       parsedAmount: serializer.fromJson<double>(json['parsedAmount']),
@@ -3365,6 +3391,7 @@ class PendingTransaction extends DataClass
       'id': serializer.toJson<String>(id),
       'userId': serializer.toJson<String?>(userId),
       'gmailMessageId': serializer.toJson<String>(gmailMessageId),
+      'source': serializer.toJson<String>(source),
       'emailSubject': serializer.toJson<String>(emailSubject),
       'emailReceivedAt': serializer.toJson<DateTime>(emailReceivedAt),
       'parsedAmount': serializer.toJson<double>(parsedAmount),
@@ -3385,6 +3412,7 @@ class PendingTransaction extends DataClass
     String? id,
     Value<String?> userId = const Value.absent(),
     String? gmailMessageId,
+    String? source,
     String? emailSubject,
     DateTime? emailReceivedAt,
     double? parsedAmount,
@@ -3402,6 +3430,7 @@ class PendingTransaction extends DataClass
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
     gmailMessageId: gmailMessageId ?? this.gmailMessageId,
+    source: source ?? this.source,
     emailSubject: emailSubject ?? this.emailSubject,
     emailReceivedAt: emailReceivedAt ?? this.emailReceivedAt,
     parsedAmount: parsedAmount ?? this.parsedAmount,
@@ -3429,6 +3458,7 @@ class PendingTransaction extends DataClass
       gmailMessageId: data.gmailMessageId.present
           ? data.gmailMessageId.value
           : this.gmailMessageId,
+      source: data.source.present ? data.source.value : this.source,
       emailSubject: data.emailSubject.present
           ? data.emailSubject.value
           : this.emailSubject,
@@ -3473,6 +3503,7 @@ class PendingTransaction extends DataClass
           ..write('id: $id, ')
           ..write('userId: $userId, ')
           ..write('gmailMessageId: $gmailMessageId, ')
+          ..write('source: $source, ')
           ..write('emailSubject: $emailSubject, ')
           ..write('emailReceivedAt: $emailReceivedAt, ')
           ..write('parsedAmount: $parsedAmount, ')
@@ -3495,6 +3526,7 @@ class PendingTransaction extends DataClass
     id,
     userId,
     gmailMessageId,
+    source,
     emailSubject,
     emailReceivedAt,
     parsedAmount,
@@ -3516,6 +3548,7 @@ class PendingTransaction extends DataClass
           other.id == this.id &&
           other.userId == this.userId &&
           other.gmailMessageId == this.gmailMessageId &&
+          other.source == this.source &&
           other.emailSubject == this.emailSubject &&
           other.emailReceivedAt == this.emailReceivedAt &&
           other.parsedAmount == this.parsedAmount &&
@@ -3535,6 +3568,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
   final Value<String> id;
   final Value<String?> userId;
   final Value<String> gmailMessageId;
+  final Value<String> source;
   final Value<String> emailSubject;
   final Value<DateTime> emailReceivedAt;
   final Value<double> parsedAmount;
@@ -3553,6 +3587,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
     this.gmailMessageId = const Value.absent(),
+    this.source = const Value.absent(),
     this.emailSubject = const Value.absent(),
     this.emailReceivedAt = const Value.absent(),
     this.parsedAmount = const Value.absent(),
@@ -3572,6 +3607,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     required String id,
     this.userId = const Value.absent(),
     required String gmailMessageId,
+    this.source = const Value.absent(),
     required String emailSubject,
     required DateTime emailReceivedAt,
     required double parsedAmount,
@@ -3598,6 +3634,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     Expression<String>? id,
     Expression<String>? userId,
     Expression<String>? gmailMessageId,
+    Expression<String>? source,
     Expression<String>? emailSubject,
     Expression<DateTime>? emailReceivedAt,
     Expression<double>? parsedAmount,
@@ -3617,6 +3654,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
       if (id != null) 'id': id,
       if (userId != null) 'user_id': userId,
       if (gmailMessageId != null) 'gmail_message_id': gmailMessageId,
+      if (source != null) 'source': source,
       if (emailSubject != null) 'email_subject': emailSubject,
       if (emailReceivedAt != null) 'email_received_at': emailReceivedAt,
       if (parsedAmount != null) 'parsed_amount': parsedAmount,
@@ -3638,6 +3676,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     Value<String>? id,
     Value<String?>? userId,
     Value<String>? gmailMessageId,
+    Value<String>? source,
     Value<String>? emailSubject,
     Value<DateTime>? emailReceivedAt,
     Value<double>? parsedAmount,
@@ -3657,6 +3696,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       gmailMessageId: gmailMessageId ?? this.gmailMessageId,
+      source: source ?? this.source,
       emailSubject: emailSubject ?? this.emailSubject,
       emailReceivedAt: emailReceivedAt ?? this.emailReceivedAt,
       parsedAmount: parsedAmount ?? this.parsedAmount,
@@ -3685,6 +3725,9 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     }
     if (gmailMessageId.present) {
       map['gmail_message_id'] = Variable<String>(gmailMessageId.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
     }
     if (emailSubject.present) {
       map['email_subject'] = Variable<String>(emailSubject.value);
@@ -3737,6 +3780,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
           ..write('id: $id, ')
           ..write('userId: $userId, ')
           ..write('gmailMessageId: $gmailMessageId, ')
+          ..write('source: $source, ')
           ..write('emailSubject: $emailSubject, ')
           ..write('emailReceivedAt: $emailReceivedAt, ')
           ..write('parsedAmount: $parsedAmount, ')
@@ -5143,6 +5187,7 @@ typedef $$PendingTransactionsTableCreateCompanionBuilder =
       required String id,
       Value<String?> userId,
       required String gmailMessageId,
+      Value<String> source,
       required String emailSubject,
       required DateTime emailReceivedAt,
       required double parsedAmount,
@@ -5163,6 +5208,7 @@ typedef $$PendingTransactionsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String?> userId,
       Value<String> gmailMessageId,
+      Value<String> source,
       Value<String> emailSubject,
       Value<DateTime> emailReceivedAt,
       Value<double> parsedAmount,
@@ -5200,6 +5246,11 @@ class $$PendingTransactionsTableFilterComposer
 
   ColumnFilters<String> get gmailMessageId => $composableBuilder(
     column: $table.gmailMessageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5293,6 +5344,11 @@ class $$PendingTransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get emailSubject => $composableBuilder(
     column: $table.emailSubject,
     builder: (column) => ColumnOrderings(column),
@@ -5378,6 +5434,9 @@ class $$PendingTransactionsTableAnnotationComposer
     column: $table.gmailMessageId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
 
   GeneratedColumn<String> get emailSubject => $composableBuilder(
     column: $table.emailSubject,
@@ -5487,6 +5546,7 @@ class $$PendingTransactionsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<String> gmailMessageId = const Value.absent(),
+                Value<String> source = const Value.absent(),
                 Value<String> emailSubject = const Value.absent(),
                 Value<DateTime> emailReceivedAt = const Value.absent(),
                 Value<double> parsedAmount = const Value.absent(),
@@ -5505,6 +5565,7 @@ class $$PendingTransactionsTableTableManager
                 id: id,
                 userId: userId,
                 gmailMessageId: gmailMessageId,
+                source: source,
                 emailSubject: emailSubject,
                 emailReceivedAt: emailReceivedAt,
                 parsedAmount: parsedAmount,
@@ -5525,6 +5586,7 @@ class $$PendingTransactionsTableTableManager
                 required String id,
                 Value<String?> userId = const Value.absent(),
                 required String gmailMessageId,
+                Value<String> source = const Value.absent(),
                 required String emailSubject,
                 required DateTime emailReceivedAt,
                 required double parsedAmount,
@@ -5543,6 +5605,7 @@ class $$PendingTransactionsTableTableManager
                 id: id,
                 userId: userId,
                 gmailMessageId: gmailMessageId,
+                source: source,
                 emailSubject: emailSubject,
                 emailReceivedAt: emailReceivedAt,
                 parsedAmount: parsedAmount,
