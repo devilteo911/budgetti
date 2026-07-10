@@ -9,6 +9,7 @@ class SyncSummary {
   final int pushed;
   final int pulled;
   final int conflicts;
+  final int skipped;
   final DateTime? lastSyncAt;
   final String? error;
 
@@ -16,6 +17,7 @@ class SyncSummary {
     this.pushed = 0,
     this.pulled = 0,
     this.conflicts = 0,
+    this.skipped = 0,
     this.lastSyncAt,
     this.error,
   });
@@ -25,12 +27,13 @@ class SyncSummary {
   @override
   String toString() {
     if (error != null) return 'Sync failed';
-    if (!hasChanges) return 'Already in sync';
+    if (!hasChanges && skipped == 0) return 'Already in sync';
     final parts = <String>[];
     if (pushed > 0) parts.add('↑$pushed pushed');
     if (pulled > 0) parts.add('↓$pulled pulled');
     if (conflicts > 0) parts.add('$conflicts conflicts (local won)');
-    return parts.join(' · ');
+    if (skipped > 0) parts.add('$skipped skipped');
+    return parts.isEmpty ? 'Already in sync' : parts.join(' · ');
   }
 }
 
@@ -161,6 +164,7 @@ class PocketBaseSyncService {
     try {
       var cursor = _persistence.getLastSyncAt();
       var maxTs = cursor;
+      var skipped = 0;
 
       for (final spec in _specs) {
         // --- PULL ---
@@ -187,13 +191,22 @@ class PocketBaseSyncService {
         }
 
         // --- PUSH (skip rows just applied from remote) ---
+        // Resilient: a row PB rejects (e.g. per-device seed ids that aren't
+        // valid server PKs) is skipped + counted, not allowed to abort the
+        // whole sync. User-created rows use UUIDs and sync fine; defaults are
+        // re-seeded on every device so they don't need to travel.
         final changes = await spec.localChanges(_db, cursor, now);
         for (final row in changes) {
           if (applied.contains(row.id)) continue;
-          await _client.upsert(spec.collection, row.id, row.body);
-          pushed++;
-          final ts = row.lastUpdated ?? now;
-          if (ts.isAfter(maxTs)) maxTs = ts;
+          try {
+            await _client.upsert(spec.collection, row.id, row.body);
+            pushed++;
+            final ts = row.lastUpdated ?? now;
+            if (ts.isAfter(maxTs)) maxTs = ts;
+          } catch (e) {
+            debugPrint('PB sync: skip ${spec.collection}/${row.id}: $e');
+            skipped++;
+          }
         }
       }
 
@@ -202,6 +215,7 @@ class PocketBaseSyncService {
         pushed: pushed,
         pulled: pulled,
         conflicts: conflicts,
+        skipped: skipped,
         lastSyncAt: maxTs,
       );
       await _persistence.setLastSyncSummary(summary.toString());

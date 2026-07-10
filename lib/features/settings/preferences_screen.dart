@@ -5,7 +5,6 @@ import 'package:budgetti/features/settings/widgets/settings_section.dart';
 import 'package:budgetti/features/settings/widgets/settings_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 const _currencies = [
   {'code': 'EUR', 'symbol': '€', 'name': 'Euro'},
@@ -42,12 +41,7 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
   }
 
   Future<void> _updateCurrency(String newCurrency) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-    await Supabase.instance.client.from('profiles').update({
-      'currency': newCurrency,
-      'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', user.id);
+    await ref.read(persistenceServiceProvider).setCurrency(newCurrency);
     ref.invalidate(userProfileProvider);
   }
 
@@ -125,9 +119,8 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final persistence = ref.watch(persistenceServiceProvider);
-    final profileAsync = ref.watch(userProfileProvider);
     final currency =
-        profileAsync.asData?.value?['currency'] as String? ?? 'EUR';
+        ref.watch(userProfileProvider).value?['currency'] as String? ?? 'EUR';
 
     return SettingsScaffold(
       title: 'Preferences',

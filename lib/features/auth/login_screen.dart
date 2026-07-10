@@ -1,52 +1,47 @@
+import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pocketbase/pocketbase.dart' as pb;
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _isSignUp = false;
 
   Future<void> _submit() async {
     setState(() => _isLoading = true);
-    final supabase = Supabase.instance.client;
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
     try {
-      if (_isSignUp) {
-        await supabase.auth.signUp(email: email, password: password);
-        // Navigate to onboarding to set username
-        if (mounted) {
-          context.go('/onboarding');
-        }
-      } else {
-        await supabase.auth.signInWithPassword(email: email, password: password);
-        // Auth state change will be listened to in GoRouter redirect
-      }
-    } on AuthException catch (e) {
+      // Account is pre-created in PocketBase; this is the only login per
+      // device. The router redirect (refreshed by the auth notifier) takes
+      // over navigation to onboarding/dashboard on success.
+      await ref.read(authServiceProvider).login(email, password);
+    } on pb.ClientException catch (e) {
+      final msg = (e.response['message'] as String?) ?? 'Login failed';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message),
+            content: Text(msg),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
-    } catch (e) {
-       if (mounted) {
+    } catch (e, st) {
+      debugPrint('login: unexpected error: $e\n$st');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-            content: Text('Unexpected error: $e'),
+          SnackBar(
+            content: Text('Cannot reach server. Check the URL in Settings > Integrations.'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -91,6 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
                   decoration: const InputDecoration(
                     labelText: "Email",
                     prefixIcon: Icon(Icons.email_outlined),
@@ -118,17 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.backgroundBlack),
                         )
-                      : Text(_isSignUp ? "Sign Up" : "Log In"),
-                ),
-                const SizedBox(height: 16),
-
-                // Toggle
-                TextButton(
-                  onPressed: () => setState(() => _isSignUp = !_isSignUp),
-                  child: Text(
-                    _isSignUp ? "Already have an account? Log In" : "Don't have an account? Sign Up",
-                    style: const TextStyle(color: AppTheme.primaryGreen),
-                  ),
+                      : const Text("Log In"),
                 ),
               ],
             ),

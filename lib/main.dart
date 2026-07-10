@@ -3,7 +3,6 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/providers/providers.dart';
@@ -63,7 +62,7 @@ void callbackDispatcher() {
         await notificationService.init();
 
         final gmail = GmailService(authService);
-        // Background isolate has no Supabase session; approval re-stamps userId.
+        // Background isolate has no auth session; approval re-stamps userId.
         final sync = EmailSyncService(db, gmail, 'local');
 
         final newDrafts =
@@ -114,26 +113,45 @@ void callbackDispatcher() {
   });
 }
 
+/// Resolve the per-install local user id before the UI renders, so the Drift
+/// `userId` filter (used by FinanceService) is never empty. On first Phase-3
+/// launch this adopts the userId already present on existing (legacy) rows; a
+/// later PocketBase login unifies everything to the PB auth id.
+Future<void> _resolveLocalUserId(
+    AppDatabase db, PersistenceService persistence) async {
+  if (persistence.getLocalUserId().isNotEmpty) return;
+  for (final t
+      in ['transactions', 'accounts', 'categories', 'tags', 'budgets']) {
+    final rows = await db.customSelect(
+      'SELECT DISTINCT user_id FROM $t WHERE user_id IS NOT NULL LIMIT 1',
+    ).get();
+    if (rows.isNotEmpty) {
+      await persistence.setLocalUserId(rows.first.read<String>('user_id'));
+      return;
+    }
+  }
+  await persistence.setLocalUserId('local');
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // TODO: Replace with your actual Supabase URL and Anon Key
-  await Supabase.initialize(
-    url: 'https://weothkvnaixuhmrxyjoo.supabase.co',
-    anonKey: 'sb_publishable_8OhKK0gBTYX3qu8ux4nrGw_NerMCfbc',
-  );
-  
+
   final prefs = await SharedPreferences.getInstance();
-  
+
   // Must run before runApp: loads timezone data synchronously (tz.initializeTimeZones).
   // Placing it here keeps that blocking work outside the frame measurement window.
   final notificationService = NotificationService();
   await notificationService.init();
 
+  final db = AppDatabase();
+  final persistence = PersistenceService(prefs);
+  await _resolveLocalUserId(db, persistence);
+
   final container = ProviderContainer(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       notificationServiceProvider.overrideWithValue(notificationService),
+      databaseProvider.overrideWithValue(db),
     ],
   );
 
@@ -182,8 +200,10 @@ Future<void> main() async {
     // Foreground PocketBase sync on launch (silently; background handles the
     // daily cadence). Only when a server is configured.
     if (container.read(persistenceServiceProvider).getServerUrl().isNotEmpty) {
+      debugPrint('main: starting foreground PocketBase sync');
       try {
-        await container.read(pocketBaseSyncServiceProvider).sync();
+        final summary = await container.read(pocketBaseSyncServiceProvider).sync();
+        debugPrint('main: foreground sync -> $summary');
       } catch (e) {
         debugPrint('Foreground PocketBase sync failed: $e');
       }

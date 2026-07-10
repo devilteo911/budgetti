@@ -48,7 +48,7 @@ class Account {
       balance: (json['balance'] as num?)?.toDouble() ?? (json['initial_balance'] as num?)?.toDouble() ?? 0.0,
       initialBalance: (json['initial_balance'] as num?)?.toDouble() ?? 0.0,
       currency: json['currency'],
-      providerName: json['provider_name'] ?? 'Supabase',
+      providerName: json['provider_name'] ?? 'Imported',
       isDefault: json['is_default'] ?? false,
       initialBalanceDate: json['initial_balance_date'] != null
           ? DateTime.parse(json['initial_balance_date'])

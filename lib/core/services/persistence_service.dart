@@ -182,5 +182,32 @@ class PersistenceService {
       await _prefs.setString(_pbAuthKey, data);
     }
   }
+
+  // Local profile (username, currency, avatar) — single user, no cloud needed.
+  // Replaces the old cloud profiles table.
+  static const _usernameKey = 'profile_username';
+  static const _currencyKey = 'profile_currency';
+  static const _avatarPathKey = 'profile_avatar_path';
+
+  String getUsername() => _prefs.getString(_usernameKey) ?? '';
+  Future<void> setUsername(String v) => _prefs.setString(_usernameKey, v);
+
+  String getCurrency() => _prefs.getString(_currencyKey) ?? 'EUR';
+  Future<void> setCurrency(String v) => _prefs.setString(_currencyKey, v);
+
+  String? getAvatarPath() => _prefs.getString(_avatarPathKey);
+  Future<void> setAvatarPath(String? v) async {
+    if (v == null) {
+      await _prefs.remove(_avatarPathKey);
+    } else {
+      await _prefs.setString(_avatarPathKey, v);
+    }
+  }
+
+  /// Stable per-install user id used as the Drift `userId` filter before the
+  /// first PocketBase login, and unified to the PB auth id on login.
+  static const _localUserIdKey = 'local_user_id';
+  String getLocalUserId() => _prefs.getString(_localUserIdKey) ?? '';
+  Future<void> setLocalUserId(String v) => _prefs.setString(_localUserIdKey, v);
 }
 

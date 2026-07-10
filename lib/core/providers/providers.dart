@@ -10,7 +10,6 @@ import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/models/budget.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 
@@ -20,6 +19,7 @@ import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/sheets_sync_service.dart';
 import 'package:budgetti/core/services/pocketbase_sync_service.dart';
+import 'package:budgetti/core/services/auth_service.dart';
 import 'package:budgetti/core/services/ocr_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -93,24 +93,24 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService(db, driveService, authService);
 });
 
-// ── PocketBase sync ────────────────────────────────────────────────────────
-final pocketbaseClientProvider = Provider<PocketBaseSyncClient>((ref) {
+// ── PocketBase sync + auth ─────────────────────────────────────────────────
+final pocketbaseInstanceProvider = Provider<pb.PocketBase>((ref) {
   final persistence = ref.watch(persistenceServiceProvider);
   final store = pb.AsyncAuthStore(
     save: persistence.setPbAuth,
     initial: persistence.getPbAuth(),
   );
-  return PocketBaseSyncClient(
-    pb.PocketBase(persistence.getServerUrl(), authStore: store),
-  );
+  return pb.PocketBase(persistence.getServerUrl(), authStore: store);
+});
+
+final pocketbaseClientProvider = Provider<PocketBaseSyncClient>((ref) {
+  return PocketBaseSyncClient(ref.watch(pocketbaseInstanceProvider));
 });
 
 final pocketBaseSyncServiceProvider = Provider<PocketBaseSyncService>((ref) {
   final client = ref.watch(pocketbaseClientProvider);
   final db = ref.watch(databaseProvider);
   final persistence = ref.watch(persistenceServiceProvider);
-  // The Drift `userId` column for rows synced down is the PB auth id — same
-  // value FinanceService filters on after the Phase 3 auth swap.
   return PocketBaseSyncService(client, db, persistence, client.userId);
 });
 
@@ -121,6 +121,19 @@ Future<SyncSummary?> performPocketBaseSync(WidgetRef ref) async {
   }
   return ref.read(pocketBaseSyncServiceProvider).sync();
 }
+
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(
+    ref.watch(pocketbaseInstanceProvider),
+    ref.watch(persistenceServiceProvider),
+    ref.watch(databaseProvider),
+  );
+});
+
+// Emits on login/logout so auth-dependent providers + the router rebuild.
+final authStateProvider = StreamProvider<void>((ref) {
+  return ref.watch(authServiceProvider).changes;
+});
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService();
@@ -134,16 +147,14 @@ final importServiceProvider = Provider<ImportService>((ref) {
   return ImportService();
 });
 
-// Stream provider for Supabase auth state changes
-final authStateProvider = StreamProvider<AuthState>((ref) {
-  return Supabase.instance.client.auth.onAuthStateChange;
-});
-
-// Provider that tracks current user ID and updates when auth state changes
+// Current user id: the PocketBase auth id once logged in (read from the
+// persisted store, so it's available offline), else the stable per-install
+// local id resolved at startup. Rebuilds on login/logout.
 final currentUserIdProvider = Provider<String>((ref) {
-  // Watch authStateProvider to trigger updates on login/logout
   ref.watch(authStateProvider);
-  return Supabase.instance.client.auth.currentUser?.id ?? 'local';
+  final pbId = ref.watch(authServiceProvider).pbUserId;
+  if (pbId != null && pbId.isNotEmpty) return pbId;
+  return ref.watch(persistenceServiceProvider).getLocalUserId();
 });
 
 final financeServiceProvider = Provider<FinanceService>((ref) {
@@ -229,30 +240,23 @@ final budgetsProvider = FutureProvider<List<Budget>>((ref) async {
   }
 });
 
+/// Local profile (username, currency, avatar, email). Single user — no cloud.
+/// Kept as a FutureProvider so existing `.when`/`.value` callers keep working.
 final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
-  // Watch authStateProvider so this refreshes on login/logout
   ref.watch(authStateProvider);
-  
-  final user = Supabase.instance.client.auth.currentUser;
-  if (user == null) return null;
-  
-  try {
-    final data = await Supabase.instance.client
-        .from('profiles')
-        .select()
-        .eq('id', user.id)
-        .single();
-    return data;
-  } catch (e) {
-    return null; // Profile doesn't exist yet
-  }
+  final persistence = ref.watch(persistenceServiceProvider);
+  final auth = ref.watch(authServiceProvider);
+  return {
+    'username': persistence.getUsername(),
+    'email': auth.email,
+    'currency': persistence.getCurrency(),
+    'avatar_url': persistence.getAvatarPath(),
+  };
 });
 
 final currencyProvider = Provider<NumberFormat>((ref) {
   final profileAsync = ref.watch(userProfileProvider);
-  final currencyCode = profileAsync.value?['currency'] as String? ?? 'EUR';
-  
-  return NumberFormat.simpleCurrency(name: currencyCode);
+  return NumberFormat.simpleCurrency(name: profileAsync.value?['currency'] ?? 'EUR');
 });
 
 class BalanceVisibility extends Notifier<bool> {

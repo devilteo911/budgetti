@@ -3,7 +3,6 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -26,38 +25,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
 
     setState(() => _isLoading = true);
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    await ref.read(persistenceServiceProvider).setUsername(username);
+    ref.invalidate(userProfileProvider);
 
-    try {
-      // Insert profile into Supabase
-      await Supabase.instance.client.from('profiles').insert({
-        'id': user.id,
-        'username': username,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-
-      // Invalidate the provider so Dashboard refetches it
-      ref.invalidate(userProfileProvider);
-
-      if (mounted) {
-        context.go('/dashboard');
-      }
-    } catch (e) {
-      // Check if duplicate key error
-      if (e.toString().contains('duplicate key')) {
-         // If duplicate key, it means we already succeeded before but got stuck.
-         // Just proceed.
-         ref.invalidate(userProfileProvider);
-         if (mounted) context.go('/dashboard');
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    if (mounted) {
+      context.go('/dashboard');
     }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override

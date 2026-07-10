@@ -19,7 +19,7 @@ import 'package:budgetti/features/settings/tags_screen.dart';
 import 'package:budgetti/features/settings/wallets_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:budgetti/core/providers/providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -119,27 +119,32 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final session = Supabase.instance.client.auth.currentSession;
-      final isLoggingIn = state.uri.toString() == '/login';
-      
-      if (session == null && !isLoggingIn) return '/login';
-      if (session != null && isLoggingIn) return '/dashboard';
+      final auth = ref.read(authServiceProvider);
+      final loc = state.uri.toString();
+      final isAuthRoute = loc == '/login' || loc == '/onboarding';
 
+      // Not logged in → must authenticate (offline, a persisted session keeps
+      // isValid true, so this only fires on first run / after logout).
+      if (!auth.isLoggedIn && !isAuthRoute) return '/login';
+      // Logged in but no username yet → onboarding (once per device).
+      if (auth.isLoggedIn && (loc == '/login')) {
+        final hasUsername =
+            ref.read(persistenceServiceProvider).getUsername().isNotEmpty;
+        return hasUsername ? '/dashboard' : '/onboarding';
+      }
       return null;
     },
-    refreshListenable: GoRouterRefreshStream(Supabase.instance.client.auth.onAuthStateChange),
+    refreshListenable: GoRouterRefreshStream(ref.read(authServiceProvider).changes),
   );
 });
 
 class GoRouterRefreshStream extends ChangeNotifier {
-  GoRouterRefreshStream(Stream<AuthState> stream) {
+  GoRouterRefreshStream(Stream<void> stream) {
     notifyListeners();
-    _subscription = stream.asBroadcastStream().listen(
-      (dynamic _) => notifyListeners(),
-    );
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
   }
 
-  late final StreamSubscription<dynamic> _subscription;
+  late final StreamSubscription<void> _subscription;
 
   @override
   void dispose() {
