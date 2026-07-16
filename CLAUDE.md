@@ -23,7 +23,7 @@ After modifying `lib/core/database/database.dart`, always regenerate with `build
 - **State management**: Riverpod (`flutter_riverpod`) — all providers defined in `lib/core/providers/providers.dart`
 - **Routing**: GoRouter with `StatefulShellRoute` for bottom navigation — configured in `lib/core/router/app_router.dart`
 - **Database**: Drift ORM over SQLite for local persistence — schema in `lib/core/database/database.dart`, generated code in `database.g.dart`
-- **Backend**: Supabase for auth and cloud sync
+- **Backend**: PocketBase for auth and cloud sync (`PocketBaseSyncService`; auth via `AuthService` + `AsyncAuthStore`)
 - **Theme**: Material Design 3 dark theme — `lib/core/theme/app_theme.dart` (mint green primary #63E6BE, pure black background)
 
 ### Data flow

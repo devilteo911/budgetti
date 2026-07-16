@@ -67,6 +67,11 @@ class AuthService {
         variables: [Variable<String>(pbId), Variable<String>(pbId)],
       );
     }
+    // A changed user id means a different (or freshly reset) backend. Re-arm the
+    // sync cursor to epoch so every local row re-uploads to the new owner —
+    // otherwise the incremental push skips all existing data (its lastUpdated is
+    // older than the retained cursor) and the data is silently stranded.
+    await _persistence.setLastSyncAt(DateTime.fromMillisecondsSinceEpoch(0));
     await _persistence.setLocalUserId(pbId);
   }
 }

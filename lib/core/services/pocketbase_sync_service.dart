@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:drift/drift.dart';
@@ -144,6 +146,9 @@ class PocketBaseSyncService {
   final String _userId;
   bool _isSyncing = false;
 
+  /// True while a sync is in flight — drives the top-right spinner in the UI.
+  final ValueNotifier<bool> syncing = ValueNotifier<bool>(false);
+
   late final List<_Spec> _specs = [
     _categories,
     _tags,
@@ -159,6 +164,7 @@ class PocketBaseSyncService {
   Future<SyncSummary> sync() async {
     if (_isSyncing) return const SyncSummary();
     _isSyncing = true;
+    syncing.value = true;
     final now = DateTime.now();
     var pushed = 0, pulled = 0, conflicts = 0;
     try {
@@ -226,6 +232,7 @@ class PocketBaseSyncService {
       return SyncSummary(error: e.toString());
     } finally {
       _isSyncing = false;
+      syncing.value = false;
     }
   }
 
@@ -485,5 +492,58 @@ class PocketBaseSyncService {
               body: toBody(r),
             ))
         .toList();
+  }
+}
+
+/// Pushes to PocketBase the moment local data changes, instead of only on the
+/// daily schedule / manual "Sync now". Every insert/edit/delete on a synced
+/// table lands on the DB, so one debounced listener there covers all call
+/// sites (add modal, edit page, import, delete, email-inbox commit).
+///
+/// Debounced so a burst (e.g. an import of many rows) collapses to one sync.
+/// Pulled rows keep their remote `lastUpdated`, so applying them never looks
+/// like a fresh local change — no push/pull ping-pong.
+class PocketBaseAutoSync {
+  PocketBaseAutoSync({
+    required AppDatabase db,
+    required bool Function() isEnabled,
+    required Future<void> Function() runSync,
+    this.debounce = const Duration(seconds: 2),
+  })  : _db = db,
+        _isEnabled = isEnabled,
+        _runSync = runSync {
+    _sub = _db
+        .tableUpdates(TableUpdateQuery.onAllTables([
+          _db.transactions,
+          _db.accounts,
+          _db.budgets,
+          _db.categories,
+          _db.tags,
+        ]))
+        .listen((_) => _schedule());
+  }
+
+  final AppDatabase _db;
+  final bool Function() _isEnabled;
+  final Future<void> Function() _runSync;
+  final Duration debounce;
+  StreamSubscription<void>? _sub;
+  Timer? _timer;
+
+  void _schedule() {
+    if (!_isEnabled()) return; // no server configured → stay offline
+    _timer?.cancel();
+    _timer = Timer(debounce, () async {
+      try {
+        await _runSync();
+      } catch (e) {
+        debugPrint('PB auto-sync failed: $e');
+      }
+    });
+  }
+
+  void dispose() {
+    _timer?.cancel();
+    _sub?.cancel();
   }
 }

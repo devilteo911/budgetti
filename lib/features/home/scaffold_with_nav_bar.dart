@@ -1,3 +1,4 @@
+import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/glass.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/core/services/motion_service.dart';
@@ -122,11 +123,60 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with Wi
               ),
             ),
           ),
+          // Live backend-sync indicator, top-right, above all screens.
+          Positioned(
+            top: MediaQuery.of(context).viewPadding.top + 12,
+            right: 16,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: ref.watch(pocketBaseSyncServiceProvider).syncing,
+              builder: (context, syncing, _) =>
+                  syncing ? const _SyncSpinner() : const SizedBox.shrink(),
+            ),
+          ),
         ],
       ),
     );
   }
 
+}
+
+/// A spinning sync arrow shown while data is being pushed/pulled from the
+/// backend. Mounted only during a sync, so the animation stops when idle.
+class _SyncSpinner extends StatefulWidget {
+  const _SyncSpinner();
+
+  @override
+  State<_SyncSpinner> createState() => _SyncSpinnerState();
+}
+
+class _SyncSpinnerState extends State<_SyncSpinner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer.withValues(alpha: 0.7),
+        shape: BoxShape.circle,
+      ),
+      child: RotationTransition(
+        turns: _controller,
+        child: Icon(Icons.sync, size: 18, color: scheme.primary),
+      ),
+    );
+  }
 }
 
 class _NavSlot {

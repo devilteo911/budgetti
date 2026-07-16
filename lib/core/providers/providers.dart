@@ -122,6 +122,20 @@ Future<SyncSummary?> performPocketBaseSync(WidgetRef ref) async {
   return ref.read(pocketBaseSyncServiceProvider).sync();
 }
 
+/// Watches the local DB and pushes to PocketBase on every change (debounced),
+/// so edits reach the backend immediately without a manual "Sync now". Started
+/// once at launch; kept alive for the app's lifetime.
+final pocketBaseAutoSyncProvider = Provider<PocketBaseAutoSync>((ref) {
+  final persistence = ref.watch(persistenceServiceProvider);
+  final auto = PocketBaseAutoSync(
+    db: ref.watch(databaseProvider),
+    isEnabled: () => persistence.getServerUrl().isNotEmpty,
+    runSync: () => ref.read(pocketBaseSyncServiceProvider).sync(),
+  );
+  ref.onDispose(auto.dispose);
+  return auto;
+});
+
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(
     ref.watch(pocketbaseInstanceProvider),

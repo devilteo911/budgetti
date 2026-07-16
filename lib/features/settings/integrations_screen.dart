@@ -420,33 +420,59 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
 
   // ---------- PocketBase sync ----------
 
+  static const _defaultIp = '192.168.0.144';
+  static const _defaultPort = '8090';
+
   Future<void> _showPbServerDialog() async {
     final persistence = ref.read(persistenceServiceProvider);
-    final ctrl = TextEditingController(text: persistence.getServerUrl());
-    final url = await showDialog<String>(
+    // Split the stored http://ip:port back into its parts for editing.
+    final current = Uri.tryParse(persistence.getServerUrl());
+    final ipCtrl = TextEditingController(
+        text: (current?.host.isNotEmpty ?? false) ? current!.host : _defaultIp);
+    final portCtrl = TextEditingController(
+        text: (current?.hasPort ?? false) ? '${current!.port}' : _defaultPort);
+
+    final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('PocketBase server'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(
-              hintText: 'http://100.64.0.1:8090'),
-          keyboardType: TextInputType.url,
-          autocorrect: false,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: ipCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'IP address', hintText: _defaultIp),
+              keyboardType: TextInputType.number,
+              autocorrect: false,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: portCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Port', hintText: _defaultPort),
+              keyboardType: TextInputType.number,
+              autocorrect: false,
+            ),
+          ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Save'),
           ),
         ],
       ),
     );
-    if (url != null) {
-      await persistence.setServerUrl(url);
+
+    if (saved == true) {
+      final ip = ipCtrl.text.trim().isEmpty ? _defaultIp : ipCtrl.text.trim();
+      final port =
+          portCtrl.text.trim().isEmpty ? _defaultPort : portCtrl.text.trim();
+      await persistence.setServerUrl('http://$ip:$port');
       await ref
           .read(notificationLogicProvider)
           .updatePocketBaseSyncSchedule();

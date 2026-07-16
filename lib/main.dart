@@ -176,6 +176,8 @@ Future<void> main() async {
     await container.read(notificationLogicProvider).updateAutoBackupSchedule();
     await container.read(notificationLogicProvider).updateGmailSyncSchedule();
     await container.read(notificationLogicProvider).updatePocketBaseSyncSchedule();
+    // Start the live push: sync to PocketBase on every local data change.
+    container.read(pocketBaseAutoSyncProvider);
 
     // Deep-link notification taps to the review inbox.
     final router = container.read(routerProvider);
