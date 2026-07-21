@@ -1,5 +1,5 @@
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/widgets/pb_server_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocketbase/pocketbase.dart' as pb;
@@ -53,6 +53,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final serverUrl = ref.watch(persistenceServiceProvider).getServerUrl();
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -62,13 +63,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.wallet, size: 64, color: AppTheme.primaryGreen),
+                Icon(Icons.wallet, size: 64, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 24),
                 Text(
                   "Budgetti",
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.textWhite,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                   textAlign: TextAlign.center,
                 ),
@@ -76,7 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Text(
                   "Manage your finances like a pro",
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppTheme.textGrey,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                   textAlign: TextAlign.center,
                 ),
@@ -109,12 +110,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.backgroundBlack),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Theme.of(context).colorScheme.onPrimary),
                         )
                       : const Text("Log In"),
+                ),
+
+                // Reachable before login on purpose: with no server stored,
+                // every login attempt fails, and Settings > Integrations is
+                // behind the gate this would open.
+                TextButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
+                          if (await showPbServerDialog(context, ref) &&
+                              mounted) {
+                            setState(() {});
+                          }
+                        },
+                  child: Text(
+                    serverUrl.isEmpty ? 'Set server' : serverUrl,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
                 ),
               ],
             ),

@@ -176,20 +176,20 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 11; // v11: PendingTransactions.source
+  int get schemaVersion => 12; // v12: de-duplicate seeded categories/tags
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    // No seeding here. Defaults are owned by FinanceService._ensureUserDefaults,
+    // which stamps `userId` and derives ids from it. The seeders that used to
+    // live here wrote userId-less rows under a different id scheme, so the two
+    // sets never deduped against each other and every default showed up twice.
     onCreate: (Migrator m) async {
       await m.createAll();
-      await _seedCategories();
-      await _seedTags();
-      await _seedMainAccount();
     },
     onUpgrade: (Migrator m, int from, int to) async {
       if (from < 2) {
         await m.createTable(tags);
-        await _seedTags();
       }
       if (from < 3) {
         try {
@@ -236,8 +236,6 @@ class AppDatabase extends _$AppDatabase {
         } catch (e) {
           // Ignore
         }
-
-        await _seedMainAccount();
       }
       if (from < 6) {
         try {
@@ -288,92 +286,40 @@ class AppDatabase extends _$AppDatabase {
           await m.addColumn(pendingTransactions, pendingTransactions.source);
         } catch (_) {}
       }
-    },
-    beforeOpen: (details) async {
-      await _seedIfEmpty();
+      if (from < 12) {
+        await _dedupeSeededDefaults();
+      }
     },
   );
 
-  Future<void> _seedCategories() async {
-    final defaults = [
-      // Expenses
-      (name: 'Groceries', icon: 57954, color: 0xFF4CAF50, type: 'expense'),
-      (name: 'Transport', icon: 57675, color: 0xFF2196F3, type: 'expense'),
-      (name: 'Dining', icon: 57924, color: 0xFFFF9800, type: 'expense'),
-      (name: 'Shopping', icon: 59600, color: 0xFF9C27B0, type: 'expense'),
-      (name: 'Entertainment', icon: 58022, color: 0xFFFF5722, type: 'expense'),
-      (name: 'Health', icon: 58009, color: 0xFFF44336, type: 'expense'),
-      (name: 'Bills', icon: 59469, color: 0xFF607D8B, type: 'expense'), 
-      
-      // Income
-      (name: 'Salary', icon: 57357, color: 0xFF009688, type: 'income'),
-      (name: 'Freelance', icon: 59647, color: 0xFF3F51B5, type: 'income'),
-      (name: 'Investments', icon: 60232, color: 0xFF673AB7, type: 'income'), 
-    ];
+  /// One-off cleanup for the duplicate defaults two seeders used to create:
+  /// this class seeded userId-less rows keyed `<timestamp><name>`, while
+  /// FinanceService seeded `<userId>_cat_<name>`, so neither deduped the other
+  /// and every default existed twice. Keeps the oldest row per name (lowest
+  /// rowid = first inserted) and soft-deletes the newer copies.
+  ///
+  /// Safe against transactions: they reference categories and tags by NAME,
+  /// not by id, so the surviving row keeps matching. Soft delete (rather than
+  /// DELETE) is what the sync layer expects — a hard delete would come back on
+  /// the next pull.
+  @visibleForTesting
+  Future<void> dedupeForTest() => _dedupeSeededDefaults();
 
-    await batch((batch) {
-      batch.insertAll(categories, defaults.map((d) {
-        return CategoriesCompanion.insert(
-            id: DateTime.now().millisecondsSinceEpoch.toString() + d.name, 
-          name: d.name,
-          iconCode: d.icon,
-          colorHex: d.color,
-          type: d.type,
-        );
-      }));
-    });
-  }
-
-  Future<void> _seedTags() async {
-    final defaults = [
-      (name: 'Vacation', color: 0xFFE91E63),
-      (name: 'Family', color: 0xFF9C27B0),
-      (name: 'Work', color: 0xFF3F51B5),
-      (name: 'Personal', color: 0xFF00BCD4),
-      (name: 'Gift', color: 0xFFFF5722),
-    ];
-
-    await batch((batch) {
-      batch.insertAll(tags, defaults.map((d) {
-        return TagsCompanion.insert(
-          id: DateTime.now().millisecondsSinceEpoch.toString() + d.name,
-          name: d.name,
-          colorHex: d.color,
-        );
-      }));
-    });
-  }
-  
-  Future<void> _seedMainAccount() async {
-    // Only insert if no accounts exist
-    final count = await (select(accounts)..limit(1)).get();
-    if (count.isEmpty) {
-      await into(accounts).insert(
-        AccountsCompanion.insert(
-          id: '1',
-          name: 'Main Wallet',
-          balance: const Value(0.0),
-          currency: const Value('EUR'),
-          providerName: const Value('Local'),
-        ),
-        mode: InsertMode.insertOrIgnore,
+  Future<void> _dedupeSeededDefaults() async {
+    // Categories group by (name, type): the same name can legitimately exist
+    // as both an income and an expense category.
+    const keys = {'categories': 'name, type', 'tags': 'name'};
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    for (final entry in keys.entries) {
+      await customStatement(
+        'UPDATE ${entry.key} SET is_deleted = 1, last_updated = ? '
+        'WHERE is_deleted = 0 AND rowid NOT IN ('
+        '  SELECT MIN(rowid) FROM ${entry.key} WHERE is_deleted = 0'
+        '  GROUP BY ${entry.value}'
+        ')',
+        [now],
       );
     }
-  }
-
-  /// Seeds default categories if the table is empty
-  Future<void> _seedIfEmpty() async {
-    final count = await (select(categories)..limit(1)).get();
-    if (count.isEmpty) {
-      await _seedCategories();
-    }
-    
-    final tagCount = await (select(tags)..limit(1)).get();
-    if (tagCount.isEmpty) {
-      await _seedTags();
-    }
-    
-    await _seedMainAccount();
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
+import 'package:budgetti/core/widgets/pb_server_dialog.dart';
 import 'package:budgetti/features/settings/widgets/settings_scaffold.dart';
 import 'package:budgetti/features/settings/widgets/settings_section.dart';
 import 'package:budgetti/features/settings/widgets/settings_tile.dart';
@@ -133,6 +134,9 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
         await ref
             .read(backupServiceProvider)
             .restoreFromDrive(selected.id!);
+        // Restored rows carry the backup's userId/lastUpdated — claim them
+        // for this user and re-arm the sync cursor or they never sync.
+        await ref.read(authServiceProvider).adoptLocalData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Restore successful')),
@@ -405,6 +409,9 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
       setState(() => _isLoading = true);
       try {
         await ref.read(backupServiceProvider).importDatabase(file);
+        // Restored rows carry the backup's userId/lastUpdated — claim them
+        // for this user and re-arm the sync cursor or they never sync.
+        await ref.read(authServiceProvider).adoptLocalData();
         ref.invalidate(transactionsProvider);
         ref.invalidate(categoriesProvider);
         ref.invalidate(tagsProvider);
@@ -420,71 +427,29 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
 
   // ---------- PocketBase sync ----------
 
-  static const _defaultIp = '192.168.0.144';
-  static const _defaultPort = '8090';
-
   Future<void> _showPbServerDialog() async {
-    final persistence = ref.read(persistenceServiceProvider);
-    // Split the stored http://ip:port back into its parts for editing.
-    final current = Uri.tryParse(persistence.getServerUrl());
-    final ipCtrl = TextEditingController(
-        text: (current?.host.isNotEmpty ?? false) ? current!.host : _defaultIp);
-    final portCtrl = TextEditingController(
-        text: (current?.hasPort ?? false) ? '${current!.port}' : _defaultPort);
-
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('PocketBase server'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: ipCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'IP address', hintText: _defaultIp),
-              keyboardType: TextInputType.number,
-              autocorrect: false,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: portCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Port', hintText: _defaultPort),
-              keyboardType: TextInputType.number,
-              autocorrect: false,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (saved == true) {
-      final ip = ipCtrl.text.trim().isEmpty ? _defaultIp : ipCtrl.text.trim();
-      final port =
-          portCtrl.text.trim().isEmpty ? _defaultPort : portCtrl.text.trim();
-      await persistence.setServerUrl('http://$ip:$port');
-      await ref
-          .read(notificationLogicProvider)
-          .updatePocketBaseSyncSchedule();
-      if (mounted) setState(() {});
-    }
+    if (!await showPbServerDialog(context, ref)) return;
+    await ref.read(notificationLogicProvider).updatePocketBaseSyncSchedule();
+    if (mounted) setState(() {});
   }
 
-  Future<void> _syncPocketBase() async {
+  Future<void> _syncPocketBase({
+    bool full = false,
+    bool pull = true,
+    bool push = true,
+  }) async {
     setState(() => _isLoading = true);
     try {
-      final summary = await performPocketBaseSync(ref);
+      final summary =
+          await performPocketBaseSync(ref, full: full, pull: pull, push: push);
       if (!mounted) return;
+      if (summary != null && summary.pulled > 0) {
+        ref.invalidate(transactionsProvider);
+        ref.invalidate(categoriesProvider);
+        ref.invalidate(tagsProvider);
+        ref.invalidate(accountsProvider);
+        ref.invalidate(budgetsProvider);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -525,7 +490,24 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
               iconColor: scheme.primary,
               title: 'Sync now',
               subtitle: persistence.getLastSyncSummary(),
-              onTap: _isLoading ? null : _syncPocketBase,
+              onTap: _isLoading ? null : () => _syncPocketBase(),
+            ),
+            SettingsTile(
+              icon: Icons.cloud_upload_outlined,
+              title: 'Push everything',
+              subtitle: 'Upload all local data (categories, tags, wallets, '
+                  'transactions, budgets) to the server',
+              onTap: _isLoading
+                  ? null
+                  : () => _syncPocketBase(full: true, pull: false),
+            ),
+            SettingsTile(
+              icon: Icons.cloud_download_outlined,
+              title: 'Pull everything',
+              subtitle: 'Download all server data to this device',
+              onTap: _isLoading
+                  ? null
+                  : () => _syncPocketBase(full: true, push: false),
             ),
           ],
         ),

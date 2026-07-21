@@ -111,15 +111,26 @@ final pocketBaseSyncServiceProvider = Provider<PocketBaseSyncService>((ref) {
   final client = ref.watch(pocketbaseClientProvider);
   final db = ref.watch(databaseProvider);
   final persistence = ref.watch(persistenceServiceProvider);
-  return PocketBaseSyncService(client, db, persistence, client.userId);
+  // currentUserIdProvider (not client.userId captured once): a service built
+  // before login held userId '' and stamped every pulled row invisible.
+  final userId = ref.watch(currentUserIdProvider);
+  return PocketBaseSyncService(client, db, persistence, userId);
 });
 
 /// Runs a PocketBase sync. No-ops (returns null) when no server is configured.
-Future<SyncSummary?> performPocketBaseSync(WidgetRef ref) async {
+/// [full] + [pull]/[push] select the git-style variants (pull/push everything).
+Future<SyncSummary?> performPocketBaseSync(
+  WidgetRef ref, {
+  bool full = false,
+  bool pull = true,
+  bool push = true,
+}) async {
   if (ref.read(persistenceServiceProvider).getServerUrl().isEmpty) {
     return null;
   }
-  return ref.read(pocketBaseSyncServiceProvider).sync();
+  return ref
+      .read(pocketBaseSyncServiceProvider)
+      .sync(full: full, pull: pull, push: push);
 }
 
 /// Watches the local DB and pushes to PocketBase on every change (debounced),

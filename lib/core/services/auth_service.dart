@@ -59,6 +59,17 @@ class AuthService {
     final pbId = pbUserId;
     if (pbId == null || pbId.isEmpty) return;
     if (_persistence.getLocalUserId() == pbId) return;
+    await adoptLocalData();
+  }
+
+  /// Unconditionally claim every local row for the logged-in PB user and
+  /// re-arm the sync cursor to epoch. Beyond login-time unification, this is
+  /// the mandatory chaser of every backup restore: restored rows carry the
+  /// backup's old userId (invisible to FinanceService) and old lastUpdated
+  /// (behind the cursor, so the incremental push would strand them).
+  Future<void> adoptLocalData() async {
+    final pbId = pbUserId;
+    if (pbId == null || pbId.isEmpty) return;
 
     const tables = ['categories', 'tags', 'accounts', 'transactions', 'budgets'];
     for (final t in tables) {
@@ -67,10 +78,6 @@ class AuthService {
         variables: [Variable<String>(pbId), Variable<String>(pbId)],
       );
     }
-    // A changed user id means a different (or freshly reset) backend. Re-arm the
-    // sync cursor to epoch so every local row re-uploads to the new owner —
-    // otherwise the incremental push skips all existing data (its lastUpdated is
-    // older than the retained cursor) and the data is silently stranded.
     await _persistence.setLastSyncAt(DateTime.fromMillisecondsSinceEpoch(0));
     await _persistence.setLocalUserId(pbId);
   }

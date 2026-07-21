@@ -39,19 +39,33 @@ class FinanceService {
   FinanceService(this._db, this._userId);
 
 
+  /// True when the database already holds an account, a category or a tag —
+  /// from any user, deleted or not.
+  Future<bool> _hasAnyUserData() async {
+    for (final rows in [
+      await (_db.select(_db.accounts)..limit(1)).get(),
+      await (_db.select(_db.categories)..limit(1)).get(),
+      await (_db.select(_db.tags)..limit(1)).get(),
+    ]) {
+      if (rows.isNotEmpty) return true;
+    }
+    return false;
+  }
+
   /// Ensures user has default data (account, categories, tags)
   Future<void> _ensureUserDefaults() async {
     if (_initialized) return;
     _initialized = true;
 
-    // Check if user has any accounts
-    final accountCount =
-        await (_db.select(_db.accounts)
-              ..where((tbl) => tbl.userId.equals(_userId))
-              ..limit(1))
-            .get();
+    // Seed only a genuinely empty database — never "empty for this user".
+    // A per-user check re-seeds whenever the rows are there but attributed to
+    // someone else: userId-less legacy rows, or rows _unifyUserId is about to
+    // re-stamp onto the PocketBase id. That produced a second copy of every
+    // default. Soft-deleted rows count as existing on purpose, so re-seeding
+    // can't resurrect something deliberately deleted.
+    final hasAny = await _hasAnyUserData();
 
-    if (accountCount.isEmpty) {
+    if (!hasAny) {
       // Create Main Wallet for this user
       await _db
           .into(_db.accounts)

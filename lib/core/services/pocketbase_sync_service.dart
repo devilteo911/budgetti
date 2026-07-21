@@ -15,6 +15,10 @@ class SyncSummary {
   final DateTime? lastSyncAt;
   final String? error;
 
+  /// First per-row rejection message, so "N skipped" is diagnosable from the
+  /// Settings subtitle instead of only from debug logs.
+  final String? firstSkipReason;
+
   const SyncSummary({
     this.pushed = 0,
     this.pulled = 0,
@@ -22,6 +26,7 @@ class SyncSummary {
     this.skipped = 0,
     this.lastSyncAt,
     this.error,
+    this.firstSkipReason,
   });
 
   bool get hasChanges => pushed + pulled + conflicts > 0;
@@ -34,7 +39,11 @@ class SyncSummary {
     if (pushed > 0) parts.add('↑$pushed pushed');
     if (pulled > 0) parts.add('↓$pulled pulled');
     if (conflicts > 0) parts.add('$conflicts conflicts (local won)');
-    if (skipped > 0) parts.add('$skipped skipped');
+    if (skipped > 0) {
+      parts.add(firstSkipReason == null
+          ? '$skipped skipped'
+          : '$skipped skipped ($firstSkipReason)');
+    }
     return parts.isEmpty ? 'Already in sync' : parts.join(' · ');
   }
 }
@@ -88,7 +97,30 @@ class PocketBaseSyncClient implements SyncClient {
       }
     }
   }
+
+  /// Live (non-deleted) row counts per collection for the current user.
+  /// Drives the post-login sync-setup choice ("the server already has N…").
+  Future<Map<String, int>> counts() async {
+    final out = <String, int>{};
+    for (final c in syncedCollections) {
+      final page = await client
+          .collection(c)
+          .getList(page: 1, perPage: 1, filter: 'isDeleted = false');
+      out[c] = page.totalItems;
+    }
+    return out;
+  }
 }
+
+/// The five LWW-synced collections, in push order (parents before rows that
+/// reference them by name/id).
+const syncedCollections = [
+  'categories',
+  'tags',
+  'accounts',
+  'transactions',
+  'budgets',
+];
 
 /// One synced Drift table → one PocketBase collection. The generic
 /// push/pull/LWW loop in [PocketBaseSyncService] drives these; only the
@@ -102,15 +134,29 @@ class _Spec {
   final Future<void> Function(
           AppDatabase db, String userId, Map<String, dynamic> row)
       applyRemote;
+
+  /// Writes `lastUpdated = now` on [ids]. Called only for rows the server
+  /// actually accepted — see the push loop in [PocketBaseSyncService.sync].
+  final Future<void> Function(AppDatabase db, Set<String> ids, DateTime now)
+      stamp;
   const _Spec(this.collection, this.localChanges, this.localLastUpdated,
-      this.applyRemote);
+      this.applyRemote, this.stamp);
 }
 
 class _Row {
   final String id;
   final DateTime? lastUpdated;
   final Map<String, dynamic> body;
-  const _Row({required this.id, this.lastUpdated, required this.body});
+
+  /// Row arrived with NULL `lastUpdated` (seed / restored backup) — it needs a
+  /// stamp, but only once the push succeeds.
+  final bool needsStamp;
+  const _Row({
+    required this.id,
+    this.lastUpdated,
+    required this.body,
+    this.needsStamp = false,
+  });
 }
 
 String? _toIso(DateTime? d) => d?.toUtc().toIso8601String();
@@ -161,68 +207,109 @@ class PocketBaseSyncService {
 
   bool get isSyncing => _isSyncing;
 
-  Future<SyncSummary> sync() async {
+  /// [full] ignores the stored cursor and considers every row on both sides —
+  /// the recovery lever for a poisoned cursor (rows stranded behind it) and
+  /// the engine of the git-style "push/pull everything" actions. [pull] /
+  /// [push] select the direction; the stored cursor is only advanced by a
+  /// bidirectional run, so a one-way pass can never strand the other side.
+  Future<SyncSummary> sync({
+    bool full = false,
+    bool pull = true,
+    bool push = true,
+  }) async {
     if (_isSyncing) return const SyncSummary();
     _isSyncing = true;
     syncing.value = true;
     final now = DateTime.now();
     var pushed = 0, pulled = 0, conflicts = 0;
     try {
-      var cursor = _persistence.getLastSyncAt();
+      final cursor =
+          full ? DateTime.fromMillisecondsSinceEpoch(0) : _persistence.getLastSyncAt();
       var maxTs = cursor;
       var skipped = 0;
+      String? firstSkipReason;
+      // Oldest lastUpdated among rows the server rejected: the cursor must
+      // stay behind it, or the row is never selected again (the exact bug
+      // that stranded a whole ledger behind an advanced cursor).
+      DateTime? minFailedTs;
 
       for (final spec in _specs) {
         // --- PULL ---
-        final remote = await _client.listChanges(spec.collection, cursor);
         final applied = <String>{};
-        if (remote.isNotEmpty) {
-          final localMap = await spec.localLastUpdated(
-              _db, remote.map((r) => r['id'] as String).toSet());
-          for (final r in remote) {
-            final id = r['id'] as String;
-            final remoteTs = _fromIso(r['lastUpdated']);
-            final localTs = localMap[id];
-            if (localTs != null &&
-                remoteTs != null &&
-                localTs.isAfter(remoteTs)) {
-              conflicts++; // local wins; its edit is pushed below
-              continue;
+        if (pull) {
+          final remote = await _client.listChanges(spec.collection, cursor);
+          if (remote.isNotEmpty) {
+            final localMap = await spec.localLastUpdated(
+                _db, remote.map((r) => r['id'] as String).toSet());
+            for (final r in remote) {
+              final id = r['id'] as String;
+              final remoteTs = _fromIso(r['lastUpdated']);
+              final localTs = localMap[id];
+              if (localTs != null &&
+                  remoteTs != null &&
+                  localTs.isAfter(remoteTs)) {
+                conflicts++; // local wins; its edit is pushed below
+                continue;
+              }
+              await spec.applyRemote(_db, _userId, r);
+              applied.add(id);
+              pulled++;
+              if (remoteTs != null && remoteTs.isAfter(maxTs)) maxTs = remoteTs;
             }
-            await spec.applyRemote(_db, _userId, r);
-            applied.add(id);
-            pulled++;
-            if (remoteTs != null && remoteTs.isAfter(maxTs)) maxTs = remoteTs;
           }
         }
 
         // --- PUSH (skip rows just applied from remote) ---
         // Resilient: a row PB rejects (e.g. per-device seed ids that aren't
         // valid server PKs) is skipped + counted, not allowed to abort the
-        // whole sync. User-created rows use UUIDs and sync fine; defaults are
-        // re-seeded on every device so they don't need to travel.
-        final changes = await spec.localChanges(_db, cursor, now);
-        for (final row in changes) {
-          if (applied.contains(row.id)) continue;
-          try {
-            await _client.upsert(spec.collection, row.id, row.body);
-            pushed++;
-            final ts = row.lastUpdated ?? now;
-            if (ts.isAfter(maxTs)) maxTs = ts;
-          } catch (e) {
-            debugPrint('PB sync: skip ${spec.collection}/${row.id}: $e');
-            skipped++;
+        // whole sync.
+        //
+        // A rejected row must keep its NULL `lastUpdated` so the next sync
+        // selects it again. Stamping before the push (as this used to do)
+        // burned the only marker that said "not on the server yet", and once
+        // the cursor advanced past it the row was excluded forever.
+        if (push) {
+          final changes = await spec.localChanges(_db, cursor, now);
+          final toStamp = <String>{};
+          for (final row in changes) {
+            if (applied.contains(row.id)) continue;
+            try {
+              await _client.upsert(spec.collection, row.id, row.body);
+              pushed++;
+              if (row.needsStamp) toStamp.add(row.id);
+              final ts = row.lastUpdated ?? now;
+              if (ts.isAfter(maxTs)) maxTs = ts;
+            } catch (e) {
+              debugPrint('PB sync: skip ${spec.collection}/${row.id}: $e');
+              skipped++;
+              firstSkipReason ??= '${spec.collection}/${row.id}';
+              final ts = row.lastUpdated;
+              if (ts != null &&
+                  (minFailedTs == null || ts.isBefore(minFailedTs))) {
+                minFailedTs = ts;
+              }
+            }
           }
+          if (toStamp.isNotEmpty) await spec.stamp(_db, toStamp, now);
         }
       }
 
-      await _persistence.setLastSyncAt(maxTs);
+      // Cursor semantics: "both sides agree up to T" — so only a
+      // bidirectional run may move it, and never past a rejected row.
+      if (pull && push) {
+        var newCursor = maxTs;
+        if (minFailedTs != null && minFailedTs.isBefore(newCursor)) {
+          newCursor = minFailedTs.subtract(const Duration(milliseconds: 1));
+        }
+        await _persistence.setLastSyncAt(newCursor);
+      }
       final summary = SyncSummary(
         pushed: pushed,
         pulled: pulled,
         conflicts: conflicts,
         skipped: skipped,
         lastSyncAt: maxTs,
+        firstSkipReason: firstSkipReason,
       );
       await _persistence.setLastSyncSummary(summary.toString());
       return summary;
@@ -245,12 +332,9 @@ class PocketBaseSyncService {
                     t.lastUpdated.isBiggerThanValue(cursor) |
                     t.lastUpdated.isNull()))
               .get();
-          return _stampAndMap(rows, now,
+          return _mapRows(rows, now,
               idOf: (c) => c.id,
               lastUpdatedOf: (c) => c.lastUpdated,
-              stampWrite: (ids) => (db.update(db.categories)
-                    ..where((t) => t.id.isIn(ids)))
-                  .write(CategoriesCompanion(lastUpdated: Value(now))),
             toBody: (c) => {
               'name': c.name,
               'iconCode': c.iconCode,
@@ -281,6 +365,9 @@ class PocketBaseSyncService {
               ),
               mode: InsertMode.insertOrReplace,
             ),
+        (db, ids, now) => (db.update(db.categories)
+              ..where((t) => t.id.isIn(ids)))
+            .write(CategoriesCompanion(lastUpdated: Value(now))),
       );
 
   // ── tags ────────────────────────────────────────────────────────────────
@@ -292,12 +379,9 @@ class PocketBaseSyncService {
                     t.lastUpdated.isBiggerThanValue(cursor) |
                     t.lastUpdated.isNull()))
               .get();
-          return _stampAndMap(rows, now,
+          return _mapRows(rows, now,
               idOf: (t) => t.id,
               lastUpdatedOf: (t) => t.lastUpdated,
-              stampWrite: (ids) => (db.update(db.tags)
-                    ..where((t) => t.id.isIn(ids)))
-                  .write(TagsCompanion(lastUpdated: Value(now))),
             toBody: (t) => {
               'name': t.name,
               'colorHex': t.colorHex,
@@ -321,6 +405,8 @@ class PocketBaseSyncService {
               ),
               mode: InsertMode.insertOrReplace,
             ),
+        (db, ids, now) => (db.update(db.tags)..where((t) => t.id.isIn(ids)))
+            .write(TagsCompanion(lastUpdated: Value(now))),
       );
 
   // ── accounts ────────────────────────────────────────────────────────────
@@ -332,12 +418,9 @@ class PocketBaseSyncService {
                     t.lastUpdated.isBiggerThanValue(cursor) |
                     t.lastUpdated.isNull()))
               .get();
-          return _stampAndMap(rows, now,
+          return _mapRows(rows, now,
               idOf: (a) => a.id,
               lastUpdatedOf: (a) => a.lastUpdated,
-              stampWrite: (ids) => (db.update(db.accounts)
-                    ..where((t) => t.id.isIn(ids)))
-                  .write(AccountsCompanion(lastUpdated: Value(now))),
             toBody: (a) => {
               'name': a.name,
               'balance': a.balance,
@@ -370,6 +453,8 @@ class PocketBaseSyncService {
               ),
               mode: InsertMode.insertOrReplace,
             ),
+        (db, ids, now) => (db.update(db.accounts)..where((t) => t.id.isIn(ids)))
+            .write(AccountsCompanion(lastUpdated: Value(now))),
       );
 
   // ── transactions ─────────────────────────────────────────────────────────
@@ -381,12 +466,9 @@ class PocketBaseSyncService {
                     t.lastUpdated.isBiggerThanValue(cursor) |
                     t.lastUpdated.isNull()))
               .get();
-          return _stampAndMap(rows, now,
+          return _mapRows(rows, now,
               idOf: (t) => t.id,
               lastUpdatedOf: (t) => t.lastUpdated,
-              stampWrite: (ids) => (db.update(db.transactions)
-                    ..where((t) => t.id.isIn(ids)))
-                  .write(TransactionsCompanion(lastUpdated: Value(now))),
             toBody: (t) => {
               'accountId': t.accountId,
               'toAccountId': t.toAccountId,
@@ -423,6 +505,9 @@ class PocketBaseSyncService {
               ),
               mode: InsertMode.insertOrReplace,
             ),
+        (db, ids, now) => (db.update(db.transactions)
+              ..where((t) => t.id.isIn(ids)))
+            .write(TransactionsCompanion(lastUpdated: Value(now))),
       );
 
   // ── budgets ──────────────────────────────────────────────────────────────
@@ -434,12 +519,9 @@ class PocketBaseSyncService {
                     t.lastUpdated.isBiggerThanValue(cursor) |
                     t.lastUpdated.isNull()))
               .get();
-          return _stampAndMap(rows, now,
+          return _mapRows(rows, now,
               idOf: (b) => b.id,
               lastUpdatedOf: (b) => b.lastUpdated,
-              stampWrite: (ids) => (db.update(db.budgets)
-                    ..where((t) => t.id.isIn(ids)))
-                  .write(BudgetsCompanion(lastUpdated: Value(now))),
             toBody: (b) => {
               'category': b.category,
               'limitAmount': b.limitAmount,
@@ -466,30 +548,26 @@ class PocketBaseSyncService {
               ),
               mode: InsertMode.insertOrReplace,
             ),
+        (db, ids, now) => (db.update(db.budgets)..where((t) => t.id.isIn(ids)))
+            .write(BudgetsCompanion(lastUpdated: Value(now))),
       );
 
-  /// Stamps NULL-`lastUpdated` rows (seeds / restored backups) with [now],
-  /// writes the stamp back so they don't re-sync, and maps every row to a
-  /// [_Row] body for push.
-  Future<List<_Row>> _stampAndMap<T>(
+  /// Maps rows to [_Row] bodies for push, flagging NULL-`lastUpdated` rows
+  /// (seeds / restored backups) as needing a stamp. The stamp itself is
+  /// written by the push loop, and only for rows the server accepted.
+  List<_Row> _mapRows<T>(
     List<T> rows,
     DateTime now, {
     required String Function(T) idOf,
     required DateTime? Function(T) lastUpdatedOf,
-    required Future<void> Function(Set<String> ids) stampWrite,
     required Map<String, dynamic> Function(T) toBody,
-  }) async {
-    final nullIds = <String>{};
-    for (final r in rows) {
-      if (lastUpdatedOf(r) == null) nullIds.add(idOf(r));
-    }
-    if (nullIds.isNotEmpty) await stampWrite(nullIds);
-
+  }) {
     return rows
         .map((r) => _Row(
               id: idOf(r),
               lastUpdated: lastUpdatedOf(r) ?? now,
               body: toBody(r),
+              needsStamp: lastUpdatedOf(r) == null,
             ))
         .toList();
   }

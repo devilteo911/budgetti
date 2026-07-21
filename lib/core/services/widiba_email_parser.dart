@@ -5,6 +5,7 @@
 /// Known subjects:
 ///   - "Pagamento con Carta di debito"        -> expense
 ///   - "Pagamento bollettino CBILL"           -> expense
+///   - "Modello F24 inserito"                  -> expense
 ///   - "Hai ricevuto un accredito"            -> income
 ///   - "Bonifico SEPA ... a tuo favore"       -> income
 ///   - "Bonifico SEPA inoltrato/istantaneo"   -> undecided (expense or transfer)
@@ -74,6 +75,9 @@ class WidibaEmailParser {
     }
     if (haystack.contains('bonifico')) {
       return _parseSepaTransfer(text, receivedAt, snippet);
+    }
+    if (haystack.contains('f24')) {
+      return _parseF24(text, receivedAt, snippet);
     }
     return null;
   }
@@ -211,6 +215,49 @@ class WidibaEmailParser {
     DateTime receivedAt,
     String snippet,
   ) {
+    final debit = _parseStructuredDebit(text, receivedAt);
+    if (debit == null) return null;
+
+    final causale = _labelValue(text, 'Causale');
+
+    return ParsedWidibaEmail(
+      amount: -debit.amount,
+      description: causale ?? 'Bollettino CBILL',
+      date: debit.date,
+      type: 'expense',
+      counterparty: null,
+      rawSnippet: snippet,
+    );
+  }
+
+  // "Modello F24 inserito il 14/05/2026 ... Importo 250,00 € [Commissioni ...]".
+  // Same structured-debit shape as CBILL; the payee is always the tax authority,
+  // so the description is fixed rather than pulled from a causale.
+  ParsedWidibaEmail? _parseF24(
+    String text,
+    DateTime receivedAt,
+    String snippet,
+  ) {
+    final debit = _parseStructuredDebit(text, receivedAt);
+    if (debit == null) return null;
+
+    return ParsedWidibaEmail(
+      amount: -debit.amount,
+      description: 'Modello F24',
+      date: debit.date,
+      type: 'expense',
+      counterparty: null,
+      rawSnippet: snippet,
+    );
+  }
+
+  /// Shared extraction for Widiba's structured debit emails (CBILL, F24):
+  /// the `Importo` plus every `Commissioni` line (all part of the real debit),
+  /// and the `inserito il` date. Null when there is no amount to invent.
+  ({double amount, DateTime date})? _parseStructuredDebit(
+    String text,
+    DateTime receivedAt,
+  ) {
     final amountMatch =
         RegExp(r'Importo\s+([\d.]+,\d{2})\s*€', caseSensitive: false)
             .firstMatch(text);
@@ -232,16 +279,7 @@ class WidibaEmailParser {
             ?.group(1);
     final date = (dateStr != null ? _parseDate(dateStr) : null) ?? receivedAt;
 
-    final causale = _labelValue(text, 'Causale');
-
-    return ParsedWidibaEmail(
-      amount: -amount!,
-      description: causale ?? 'Bollettino CBILL',
-      date: date,
-      type: 'expense',
-      counterparty: null,
-      rawSnippet: snippet,
-    );
+    return (amount: amount!, date: date);
   }
 
   /// Value of a label/value pair in the bank's table emails, stopping at the

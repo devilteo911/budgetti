@@ -87,6 +87,38 @@ void main() {
     });
   });
 
+  group('Modello F24 inserito', () {
+    const body = 'Ciao Matteo, '
+        'Modello F24 inserito il 14/05/2026 '
+        'Importo 250,00 € Commissioni Banca 1,40 € '
+        'A presto, il tuo team Widiba';
+
+    test('parses as a negative expense with fixed description', () {
+      final r = parser.parse(
+        subject: 'Modello F24 inserito',
+        body: body,
+        receivedAt: received,
+      );
+
+      expect(r, isNotNull);
+      expect(r!.type, 'expense');
+      expect(r.amount, closeTo(-251.40, 0.001));
+      expect(r.description, 'Modello F24');
+      expect(r.date, DateTime(2026, 5, 14));
+    });
+
+    test('routes from body when the subject does not', () {
+      final r = parser.parse(
+        subject: 'Notifica operazione',
+        body: body,
+        receivedAt: received,
+      );
+      expect(r, isNotNull);
+      expect(r!.description, 'Modello F24');
+      expect(r.amount, closeTo(-251.40, 0.001));
+    });
+  });
+
   group('real HTML samples', () {
     test('card payment HTML parses through the strip pipeline', () {
       const html = '''

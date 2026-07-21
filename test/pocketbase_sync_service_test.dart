@@ -42,8 +42,12 @@ class _FakeClient implements SyncClient {
     }).map((e) => {...e.value, 'id': e.key}).toList();
   }
 
+  /// Test seam: ids the server refuses (bad id pattern, validation, outage).
+  final Set<String> reject = {};
+
   @override
   Future<void> upsert(String c, String id, Map<String, dynamic> body) async {
+    if (reject.contains(id)) throw Exception('rejected: $id');
     _store.putIfAbsent(c, () => {})[id] = Map<String, dynamic>.from(body);
   }
 
@@ -84,6 +88,35 @@ Future<Category?> _category(AppDatabase db, String id) =>
     (db.select(db.categories)..where((t) => t.id.equals(id))).getSingleOrNull();
 
 void main() {
+  test('a row the server rejects is retried on the next sync', () async {
+    final (db, persistence, client, service) = await _harness();
+    // NULL lastUpdated = the seed / restored-backup path, which is how a
+    // restored ledger arrives. These are the rows that got stamped-then-lost.
+    for (final id in ['c1', 'c2']) {
+      await db.into(db.categories).insert(CategoriesCompanion.insert(
+            id: id,
+            name: id,
+            iconCode: 1,
+            colorHex: 2,
+            type: 'expense',
+            userId: const Value('u1'),
+          ));
+    }
+    client.reject.add('c2');
+
+    final first = await service.sync();
+    expect(first.pushed, 1);
+    expect(first.skipped, 1);
+
+    // Whatever made the server refuse it is gone (outage over, id fixed).
+    client.reject.clear();
+    final second = await service.sync();
+
+    expect(second.pushed, 1,
+        reason: 'c2 must be retried, not silently dropped forever');
+    expect(client._store['categories']!.containsKey('c2'), isTrue);
+  });
+
   test('first sync: pushes all local rows, advances the cursor', () async {
     final (db, persistence, client, service) = await _harness();
     final t1 = DateTime(2026, 7, 1, 10);
@@ -254,5 +287,104 @@ void main() {
     // Second sync must not re-push the now-stamped seed.
     final second = await service.sync();
     expect(second.pushed, 0);
+  });
+
+  test('full push rescues rows stranded behind a poisoned cursor', () async {
+    final (db, persistence, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c1',
+          name: 'Stranded',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t1),
+        ));
+    // The historical bug: cursor advanced past the row without it ever
+    // reaching the server.
+    await persistence.setLastSyncAt(DateTime(2026, 7, 10));
+
+    final incremental = await service.sync();
+    expect(incremental.pushed, 0, reason: 'incremental cannot see it');
+
+    final fullPush = await service.sync(full: true, pull: false);
+    expect(fullPush.pushed, 1);
+    expect(client._store['categories']!['c1']!['name'], 'Stranded');
+    // One-way runs must not move the cursor.
+    expect(persistence.getLastSyncAt(), DateTime(2026, 7, 10));
+  });
+
+  test('a rejected timestamped row rewinds the cursor and is retried',
+      () async {
+    final (db, persistence, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    final t2 = DateTime(2026, 7, 1, 11);
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c1',
+          name: 'Rejected',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t1),
+        ));
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c2',
+          name: 'Accepted',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t2),
+        ));
+    client.reject.add('c1');
+
+    final first = await service.sync();
+    expect(first.pushed, 1);
+    expect(first.skipped, 1);
+    // Cursor must stay behind the rejected row, not jump to t2.
+    expect(persistence.getLastSyncAt().isBefore(t1), isTrue);
+
+    client.reject.clear();
+    final second = await service.sync();
+    expect(client._store['categories']!.containsKey('c1'), isTrue,
+        reason: 'c1 must be retried once the server accepts it again');
+    expect(second.skipped, 0);
+  });
+
+  test('pull-only does not push, push-only does not pull', () async {
+    final t1 = DateTime(2026, 7, 1, 10);
+    final (db, persistence, client, service) = await _harness(initialStore: {
+      'categories': {
+        'remote1': {
+          'name': 'Remote',
+          'iconCode': 1,
+          'colorHex': 2,
+          'type': 'expense',
+          'isDeleted': false,
+          'lastUpdated': t1.toUtc().toIso8601String(),
+        },
+      },
+    });
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'local1',
+          name: 'Local',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t1),
+        ));
+
+    final pullOnly = await service.sync(full: true, push: false);
+    expect(pullOnly.pulled, 1);
+    expect(pullOnly.pushed, 0);
+    expect(client._store['categories']!.containsKey('local1'), isFalse);
+    expect(await _category(db, 'remote1'), isNotNull);
+
+    final pushOnly = await service.sync(full: true, pull: false);
+    expect(pushOnly.pushed, greaterThanOrEqualTo(1));
+    expect(client._store['categories']!.containsKey('local1'), isTrue);
   });
 }

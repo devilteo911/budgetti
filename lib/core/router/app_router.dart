@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:budgetti/features/auth/login_screen.dart';
 import 'package:budgetti/features/auth/onboarding_screen.dart';
+import 'package:budgetti/features/auth/sync_setup_screen.dart';
 import 'package:budgetti/features/dashboard/dashboard_screen.dart';
 import 'package:budgetti/features/profile/profile_screen.dart';
 import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
@@ -40,6 +41,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/sync-setup',
+        builder: (context, state) => const SyncSetupScreen(),
       ),
       // ShellRoute for Bottom Navigation
       StatefulShellRoute(
@@ -126,11 +131,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Not logged in → must authenticate (offline, a persisted session keeps
       // isValid true, so this only fires on first run / after logout).
       if (!auth.isLoggedIn && !isAuthRoute) return '/login';
-      // Logged in but no username yet → onboarding (once per device).
+      // Fresh login (still sitting on /login): decide how this device and the
+      // server line up first; the sync-setup screen then forwards to
+      // onboarding (no username yet) or the dashboard.
       if (auth.isLoggedIn && (loc == '/login')) {
-        final hasUsername =
-            ref.read(persistenceServiceProvider).getUsername().isNotEmpty;
-        return hasUsername ? '/dashboard' : '/onboarding';
+        final p = ref.read(persistenceServiceProvider);
+        if (p.getServerUrl().isNotEmpty) return '/sync-setup';
+        return p.getUsername().isNotEmpty ? '/dashboard' : '/onboarding';
       }
       return null;
     },
