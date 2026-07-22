@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/models/account.dart' as model_account;
 import 'package:budgetti/models/category.dart' as model;
@@ -12,20 +13,22 @@ class FinanceService {
   final String _userId;
   bool _initialized = false;
 
-  static const List<({String name, int icon, int color, String type})>
+  // IconData (not raw ints) so the codepoint can never silently drift from
+  // the glyph it names — which is how the original seed shipped wrong icons.
+  static final List<({String name, IconData icon, int color, String type})>
   _defaultCategories = [
     // Expenses
-    (name: 'Groceries', icon: 57954, color: 0xFF4CAF50, type: 'expense'),
-    (name: 'Transport', icon: 57675, color: 0xFF2196F3, type: 'expense'),
-    (name: 'Dining', icon: 57924, color: 0xFFFF9800, type: 'expense'),
-    (name: 'Shopping', icon: 59600, color: 0xFF9C27B0, type: 'expense'),
-    (name: 'Entertainment', icon: 58022, color: 0xFFFF5722, type: 'expense'),
-    (name: 'Health', icon: 58009, color: 0xFFF44336, type: 'expense'),
-    (name: 'Bills', icon: 59469, color: 0xFF607D8B, type: 'expense'),
+    (name: 'Groceries', icon: Icons.local_grocery_store, color: 0xFF4CAF50, type: 'expense'),
+    (name: 'Transport', icon: Icons.directions_car, color: 0xFF2196F3, type: 'expense'),
+    (name: 'Dining', icon: Icons.restaurant, color: 0xFFFF9800, type: 'expense'),
+    (name: 'Shopping', icon: Icons.shopping_bag, color: 0xFF9C27B0, type: 'expense'),
+    (name: 'Entertainment', icon: Icons.movie, color: 0xFFFF5722, type: 'expense'),
+    (name: 'Health', icon: Icons.local_hospital, color: 0xFFF44336, type: 'expense'),
+    (name: 'Bills', icon: Icons.receipt_long, color: 0xFF607D8B, type: 'expense'),
     // Income
-    (name: 'Salary', icon: 57357, color: 0xFF009688, type: 'income'),
-    (name: 'Freelance', icon: 59647, color: 0xFF3F51B5, type: 'income'),
-    (name: 'Investments', icon: 60232, color: 0xFF673AB7, type: 'income'),
+    (name: 'Salary', icon: Icons.payments, color: 0xFF009688, type: 'income'),
+    (name: 'Freelance', icon: Icons.laptop_mac, color: 0xFF3F51B5, type: 'income'),
+    (name: 'Investments', icon: Icons.trending_up, color: 0xFF673AB7, type: 'income'),
   ];
 
   static const List<({String name, int color})> _defaultTags = [
@@ -90,7 +93,7 @@ class FinanceService {
             return CategoriesCompanion.insert(
               id: '${_userId}_cat_${d.name}',
               name: d.name,
-              iconCode: d.icon,
+              iconCode: d.icon.codePoint,
               colorHex: d.color,
               type: d.type,
               userId: Value(_userId),
@@ -116,6 +119,9 @@ class FinanceService {
         );
       });
     }
+
+    // Rewrite default-category icons still holding a legacy (broken) codepoint.
+    await _repairDefaultCategoryIcons();
   }
 
   Future<List<model_account.Account>> getAccounts() async {
@@ -588,6 +594,40 @@ class FinanceService {
     ));
   }
 
+  /// One-shot repair: the original seed shipped with wrong Material codepoints,
+  /// so default categories rendered as unrelated glyphs (Groceries=fence,
+  /// Health=plane…). Rewrite only the icon where it still holds a known-bad value
+  /// and bump lastUpdated so the fix push-syncs. Never touches name/colour or a
+  /// category the user already re-iconed (its codepoint won't match). Idempotent.
+  Future<void> _repairDefaultCategoryIcons() async {
+    const legacyBad = <String, int>{
+      'Groceries': 57954,
+      'Transport': 57675,
+      'Dining': 57924,
+      'Shopping': 59600,
+      'Entertainment': 58022,
+      'Health': 58009,
+      'Bills': 59469,
+      'Salary': 57357,
+      'Freelance': 59647,
+      'Investments': 60232,
+    };
+    for (final d in _defaultCategories) {
+      final legacy = legacyBad[d.name];
+      if (legacy == null) continue;
+      final row = await (_db.select(_db.categories)
+            ..where((t) => t.id.equals('${_userId}_cat_${d.name}')))
+          .getSingleOrNull();
+      if (row == null || row.iconCode != legacy) continue;
+      await (_db.update(_db.categories)
+            ..where((t) => t.id.equals('${_userId}_cat_${d.name}')))
+          .write(CategoriesCompanion(
+        iconCode: Value(d.icon.codePoint),
+        lastUpdated: Value(DateTime.now()),
+      ));
+    }
+  }
+
   Future<void> restoreDefaultCategories() async {
     await _db.batch((batch) {
       for (final d in _defaultCategories) {
@@ -596,7 +636,7 @@ class FinanceService {
           CategoriesCompanion.insert(
             id: '${_userId}_cat_${d.name}',
             name: d.name,
-            iconCode: d.icon,
+            iconCode: d.icon.codePoint,
             colorHex: d.color,
             type: d.type,
             userId: Value(_userId),
