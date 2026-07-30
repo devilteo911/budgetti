@@ -105,8 +105,8 @@ class RevolutNotificationParser {
     final tail = haystack.substring(amountEnd);
     final m = RegExp(r'^\s*(?:presso|at|from|da|to|per|in|a|[·•\-–—:])\s+(.{2,})$')
         .firstMatch(tail);
-    final name = m?.group(1)?.trim().replaceAll(RegExp(r'[.·,]+$'), '');
-    if (name != null && name.isNotEmpty) return _titleCase(name);
+    final name = _merchantOnly(m?.group(1) ?? '');
+    if (name.isNotEmpty) return _titleCase(name);
 
     final t = title.trim();
     if (t.isEmpty || _genericTitles.contains(t.toLowerCase())) return null;
@@ -115,6 +115,23 @@ class RevolutNotificationParser {
     if (_amountRe.hasMatch(' ${t.toLowerCase()} ')) return null;
     return t;
   }
+
+  /// Revolut glues the running balance and a category emoji onto the merchant
+  /// ("… presso Vega Carburanti 🚎 ⚠️ Saldo: 24,53 €"). Cut at whichever of the
+  /// balance word or a second amount comes first, then drop the surrounding
+  /// punctuation and symbols so the ledger reads "Vega Carburanti".
+  String _merchantOnly(String raw) {
+    final cut = [
+      RegExp(r'\b(saldo|balance)\b').firstMatch(raw)?.start,
+      _amountRe.firstMatch(raw)?.start,
+    ].whereType<int>().fold(raw.length, (a, b) => b < a ? b : a);
+    return raw.substring(0, cut).replaceAll(_edgeJunkRe, '');
+  }
+
+  static final _edgeJunkRe = RegExp(
+    r'^[\s\p{P}\p{S}\p{M}]+|[\s\p{P}\p{S}\p{M}]+$',
+    unicode: true,
+  );
 
   /// Merchant names arrive shouted ("LO CHEF") or lowercased depending on the
   /// template; normalise so the ledger reads consistently.
@@ -178,6 +195,16 @@ const _expenseHints = <String>[' at ', ' presso ', ' to '];
 /// Non-money pushes. Kept narrow: over-matching here silently drops real
 /// movements, which is the failure mode this whole pipeline exists to avoid.
 const _noiseMarkers = <String>[
+  // One card payment is pushed three times — the pre-auth hold, the adjustment
+  // to the real amount, then "hai pagato X presso Y" when it settles. Only the
+  // last is the movement; the first two are the same money counted twice.
+  // ponytail: if a hold is ever seen settling with no payment push, the planned
+  // CSV statement import is the backstop, not a fourth template here.
+  'temporary hold', 'blocco temporaneo', 'importo bloccato',
+  'pagamento aggiornato', 'payment updated', 'importo aggiornato',
+  // Balance warnings quote a threshold ("Saldo inferiore a €30"), which the
+  // amount-first parser would otherwise book as a €30 top-up.
+  'saldo inferiore', 'low balance', 'saldo basso',
   'estratto conto', 'statement is ready', 'statement ready',
   'codice di verifica', 'verification code', 'security code',
   'codice di sicurezza', 'accedi al tuo account', 'log in to',

@@ -5,6 +5,7 @@ import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
 import 'package:budgetti/features/transactions/widgets/ledger_field_row.dart';
 import 'package:budgetti/features/transactions/widgets/type_selector.dart';
+import 'package:budgetti/models/installment.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,7 +32,7 @@ class AddTransactionModal extends ConsumerStatefulWidget {
 
 class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     with SingleTickerProviderStateMixin {
-  static const _itemCount = 8;
+  static const _itemCount = 9;
 
   late final AnimationController _animation;
   late final List<Animation<double>> _itemAnimations;
@@ -47,6 +48,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   List<String> _selectedTags = [];
   String? _selectedAccountId;
   String? _selectedToAccountId;
+  String? _selectedInstallmentId;
 
   @override
   void initState() {
@@ -74,6 +76,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       _selectedTags = List.from(t.tags);
       _selectedAccountId = t.accountId;
       _selectedToAccountId = t.toAccountId;
+      _selectedInstallmentId = t.installmentId;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -168,6 +171,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
           : (_selectedCategory ?? 'Uncategorized'),
       type: _type,
       tags: _selectedTags,
+      // Only an expense can be a rate; switching type away from expense drops
+      // a link the user made before switching.
+      installmentId: _type == 'expense' ? _selectedInstallmentId : null,
     );
 
     final service = ref.read(financeServiceProvider);
@@ -342,7 +348,11 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                 ],
                 _staggered(6, _buildDateRow()),
                 const LedgerDivider(),
-                _staggered(7, _buildTagsSection()),
+                if (_type == 'expense' && _hasPlans) ...[
+                  _staggered(7, _buildInstallmentRow()),
+                  const LedgerDivider(),
+                ],
+                _staggered(8, _buildTagsSection()),
                 const SizedBox(height: 28),
                 Row(
                   children: [
@@ -486,6 +496,83 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3,
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Plans worth offering: everything still running, plus whichever plan this
+  /// transaction is already linked to (so an old link stays visible and
+  /// removable after the plan has settled).
+  List<Installment> get _linkablePlans {
+    final all = ref.watch(installmentsProvider).value ?? const [];
+    return all
+        .where((p) => p.isActive() || p.id == _selectedInstallmentId)
+        .toList();
+  }
+
+  bool get _hasPlans => _linkablePlans.isNotEmpty;
+
+  Widget _buildInstallmentRow() {
+    final plans = _linkablePlans;
+    final selected =
+        plans.where((p) => p.id == _selectedInstallmentId).firstOrNull;
+    return LedgerFieldRow(
+      kicker: 'INSTALLMENT',
+      value: selected?.description,
+      placeholder: 'Not a rate',
+      leadingIcon: Icons.receipt_long_outlined,
+      onTap: () => _showInstallmentPicker(plans),
+    );
+  }
+
+  void _showInstallmentPicker(List<Installment> plans) {
+    final scheme = Theme.of(context).colorScheme;
+    final currency = ref.read(currencyProvider);
+    showModalBottomSheet(
+      useRootNavigator: true,
+      context: context,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          children: [
+            ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: const Text('Not a rate'),
+              selected: _selectedInstallmentId == null,
+              onTap: () {
+                setState(() => _selectedInstallmentId = null);
+                Navigator.pop(sheetContext);
+              },
+            ),
+            for (final p in plans)
+              ListTile(
+                leading: const Icon(Icons.receipt_long_outlined),
+                title: Text(p.description),
+                subtitle: Text(
+                  '${currency.format(p.amountPerInstallment)} × '
+                  '${p.installmentCount} · ${p.paidCount()} due so far',
+                ),
+                selected: _selectedInstallmentId == p.id,
+                onTap: () {
+                  setState(() {
+                    _selectedInstallmentId = p.id;
+                    // A rate's amount is known — prefill it when the field is
+                    // still empty, rather than making the user retype it.
+                    if (_amountController.text.trim().isEmpty) {
+                      _amountController.text =
+                          p.amountPerInstallment.toStringAsFixed(2);
+                    }
+                  });
+                  Navigator.pop(sheetContext);
+                },
+              ),
+          ],
         ),
       ),
     );

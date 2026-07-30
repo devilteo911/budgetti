@@ -1716,6 +1716,17 @@ class $TransactionsTable extends Transactions
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       ).withConverter<List<String>?>($TransactionsTable.$convertertagsn);
+  static const VerificationMeta _installmentIdMeta = const VerificationMeta(
+    'installmentId',
+  );
+  @override
+  late final GeneratedColumn<String> installmentId = GeneratedColumn<String>(
+    'installment_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -1754,6 +1765,7 @@ class $TransactionsTable extends Transactions
     type,
     date,
     tags,
+    installmentId,
     isDeleted,
     lastUpdated,
   ];
@@ -1836,6 +1848,15 @@ class $TransactionsTable extends Transactions
     } else if (isInserting) {
       context.missing(_dateMeta);
     }
+    if (data.containsKey('installment_id')) {
+      context.handle(
+        _installmentIdMeta,
+        installmentId.isAcceptableOrUnknown(
+          data['installment_id']!,
+          _installmentIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -1902,6 +1923,10 @@ class $TransactionsTable extends Transactions
           data['${effectivePrefix}tags'],
         ),
       ),
+      installmentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}installment_id'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -1935,6 +1960,11 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final String type;
   final DateTime date;
   final List<String>? tags;
+
+  /// Id of the [Installments] plan this charge pays a rate of, null otherwise.
+  /// Not a real FK: rows arrive from sync in any order, so referential
+  /// integrity is enforced nowhere and a dangling id just reads as unlinked.
+  final String? installmentId;
   final bool isDeleted;
   final DateTime? lastUpdated;
   const Transaction({
@@ -1948,6 +1978,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.type,
     required this.date,
     this.tags,
+    this.installmentId,
     required this.isDeleted,
     this.lastUpdated,
   });
@@ -1974,6 +2005,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         $TransactionsTable.$convertertagsn.toSql(tags),
       );
     }
+    if (!nullToAbsent || installmentId != null) {
+      map['installment_id'] = Variable<String>(installmentId);
+    }
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || lastUpdated != null) {
       map['last_updated'] = Variable<DateTime>(lastUpdated);
@@ -1999,6 +2033,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       type: Value(type),
       date: Value(date),
       tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
+      installmentId: installmentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(installmentId),
       isDeleted: Value(isDeleted),
       lastUpdated: lastUpdated == null && nullToAbsent
           ? const Value.absent()
@@ -2022,6 +2059,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       type: serializer.fromJson<String>(json['type']),
       date: serializer.fromJson<DateTime>(json['date']),
       tags: serializer.fromJson<List<String>?>(json['tags']),
+      installmentId: serializer.fromJson<String?>(json['installmentId']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
     );
@@ -2040,6 +2078,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'type': serializer.toJson<String>(type),
       'date': serializer.toJson<DateTime>(date),
       'tags': serializer.toJson<List<String>?>(tags),
+      'installmentId': serializer.toJson<String?>(installmentId),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
     };
@@ -2056,6 +2095,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     String? type,
     DateTime? date,
     Value<List<String>?> tags = const Value.absent(),
+    Value<String?> installmentId = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> lastUpdated = const Value.absent(),
   }) => Transaction(
@@ -2069,6 +2109,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     type: type ?? this.type,
     date: date ?? this.date,
     tags: tags.present ? tags.value : this.tags,
+    installmentId: installmentId.present
+        ? installmentId.value
+        : this.installmentId,
     isDeleted: isDeleted ?? this.isDeleted,
     lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
   );
@@ -2088,6 +2131,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       type: data.type.present ? data.type.value : this.type,
       date: data.date.present ? data.date.value : this.date,
       tags: data.tags.present ? data.tags.value : this.tags,
+      installmentId: data.installmentId.present
+          ? data.installmentId.value
+          : this.installmentId,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       lastUpdated: data.lastUpdated.present
           ? data.lastUpdated.value
@@ -2108,6 +2154,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('type: $type, ')
           ..write('date: $date, ')
           ..write('tags: $tags, ')
+          ..write('installmentId: $installmentId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated')
           ..write(')'))
@@ -2126,6 +2173,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     type,
     date,
     tags,
+    installmentId,
     isDeleted,
     lastUpdated,
   );
@@ -2143,6 +2191,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.type == this.type &&
           other.date == this.date &&
           other.tags == this.tags &&
+          other.installmentId == this.installmentId &&
           other.isDeleted == this.isDeleted &&
           other.lastUpdated == this.lastUpdated);
 }
@@ -2158,6 +2207,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String> type;
   final Value<DateTime> date;
   final Value<List<String>?> tags;
+  final Value<String?> installmentId;
   final Value<bool> isDeleted;
   final Value<DateTime?> lastUpdated;
   final Value<int> rowid;
@@ -2172,6 +2222,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.type = const Value.absent(),
     this.date = const Value.absent(),
     this.tags = const Value.absent(),
+    this.installmentId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2187,6 +2238,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.type = const Value.absent(),
     required DateTime date,
     this.tags = const Value.absent(),
+    this.installmentId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2206,6 +2258,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? type,
     Expression<DateTime>? date,
     Expression<String>? tags,
+    Expression<String>? installmentId,
     Expression<bool>? isDeleted,
     Expression<DateTime>? lastUpdated,
     Expression<int>? rowid,
@@ -2221,6 +2274,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (type != null) 'type': type,
       if (date != null) 'date': date,
       if (tags != null) 'tags': tags,
+      if (installmentId != null) 'installment_id': installmentId,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (lastUpdated != null) 'last_updated': lastUpdated,
       if (rowid != null) 'rowid': rowid,
@@ -2238,6 +2292,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<String>? type,
     Value<DateTime>? date,
     Value<List<String>?>? tags,
+    Value<String?>? installmentId,
     Value<bool>? isDeleted,
     Value<DateTime?>? lastUpdated,
     Value<int>? rowid,
@@ -2253,6 +2308,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       type: type ?? this.type,
       date: date ?? this.date,
       tags: tags ?? this.tags,
+      installmentId: installmentId ?? this.installmentId,
       isDeleted: isDeleted ?? this.isDeleted,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       rowid: rowid ?? this.rowid,
@@ -2294,6 +2350,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
         $TransactionsTable.$convertertagsn.toSql(tags.value),
       );
     }
+    if (installmentId.present) {
+      map['installment_id'] = Variable<String>(installmentId.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -2319,6 +2378,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('type: $type, ')
           ..write('date: $date, ')
           ..write('tags: $tags, ')
+          ..write('installmentId: $installmentId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated, ')
           ..write('rowid: $rowid')
@@ -2791,6 +2851,637 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
           ..write('category: $category, ')
           ..write('limitAmount: $limitAmount, ')
           ..write('period: $period, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('lastUpdated: $lastUpdated, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $InstallmentsTable extends Installments
+    with TableInfo<$InstallmentsTable, Installment> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $InstallmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totalAmountMeta = const VerificationMeta(
+    'totalAmount',
+  );
+  @override
+  late final GeneratedColumn<double> totalAmount = GeneratedColumn<double>(
+    'total_amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _installmentCountMeta = const VerificationMeta(
+    'installmentCount',
+  );
+  @override
+  late final GeneratedColumn<int> installmentCount = GeneratedColumn<int>(
+    'installment_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startDate = GeneratedColumn<DateTime>(
+    'start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _lastUpdatedMeta = const VerificationMeta(
+    'lastUpdated',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastUpdated = GeneratedColumn<DateTime>(
+    'last_updated',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    description,
+    totalAmount,
+    installmentCount,
+    startDate,
+    category,
+    accountId,
+    isDeleted,
+    lastUpdated,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'installments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Installment> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_descriptionMeta);
+    }
+    if (data.containsKey('total_amount')) {
+      context.handle(
+        _totalAmountMeta,
+        totalAmount.isAcceptableOrUnknown(
+          data['total_amount']!,
+          _totalAmountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_totalAmountMeta);
+    }
+    if (data.containsKey('installment_count')) {
+      context.handle(
+        _installmentCountMeta,
+        installmentCount.isAcceptableOrUnknown(
+          data['installment_count']!,
+          _installmentCountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_installmentCountMeta);
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startDateMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('last_updated')) {
+      context.handle(
+        _lastUpdatedMeta,
+        lastUpdated.isAcceptableOrUnknown(
+          data['last_updated']!,
+          _lastUpdatedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Installment map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Installment(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      )!,
+      totalAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}total_amount'],
+      )!,
+      installmentCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}installment_count'],
+      )!,
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_date'],
+      )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      ),
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      lastUpdated: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_updated'],
+      ),
+    );
+  }
+
+  @override
+  $InstallmentsTable createAlias(String alias) {
+    return $InstallmentsTable(attachedDatabase, alias);
+  }
+}
+
+class Installment extends DataClass implements Insertable<Installment> {
+  final String id;
+  final String? userId;
+  final String description;
+  final double totalAmount;
+  final int installmentCount;
+  final DateTime startDate;
+  final String? category;
+  final String? accountId;
+  final bool isDeleted;
+  final DateTime? lastUpdated;
+  const Installment({
+    required this.id,
+    this.userId,
+    required this.description,
+    required this.totalAmount,
+    required this.installmentCount,
+    required this.startDate,
+    this.category,
+    this.accountId,
+    required this.isDeleted,
+    this.lastUpdated,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    map['description'] = Variable<String>(description);
+    map['total_amount'] = Variable<double>(totalAmount);
+    map['installment_count'] = Variable<int>(installmentCount);
+    map['start_date'] = Variable<DateTime>(startDate);
+    if (!nullToAbsent || category != null) {
+      map['category'] = Variable<String>(category);
+    }
+    if (!nullToAbsent || accountId != null) {
+      map['account_id'] = Variable<String>(accountId);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || lastUpdated != null) {
+      map['last_updated'] = Variable<DateTime>(lastUpdated);
+    }
+    return map;
+  }
+
+  InstallmentsCompanion toCompanion(bool nullToAbsent) {
+    return InstallmentsCompanion(
+      id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      description: Value(description),
+      totalAmount: Value(totalAmount),
+      installmentCount: Value(installmentCount),
+      startDate: Value(startDate),
+      category: category == null && nullToAbsent
+          ? const Value.absent()
+          : Value(category),
+      accountId: accountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountId),
+      isDeleted: Value(isDeleted),
+      lastUpdated: lastUpdated == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastUpdated),
+    );
+  }
+
+  factory Installment.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Installment(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      description: serializer.fromJson<String>(json['description']),
+      totalAmount: serializer.fromJson<double>(json['totalAmount']),
+      installmentCount: serializer.fromJson<int>(json['installmentCount']),
+      startDate: serializer.fromJson<DateTime>(json['startDate']),
+      category: serializer.fromJson<String?>(json['category']),
+      accountId: serializer.fromJson<String?>(json['accountId']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
+      'description': serializer.toJson<String>(description),
+      'totalAmount': serializer.toJson<double>(totalAmount),
+      'installmentCount': serializer.toJson<int>(installmentCount),
+      'startDate': serializer.toJson<DateTime>(startDate),
+      'category': serializer.toJson<String?>(category),
+      'accountId': serializer.toJson<String?>(accountId),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
+    };
+  }
+
+  Installment copyWith({
+    String? id,
+    Value<String?> userId = const Value.absent(),
+    String? description,
+    double? totalAmount,
+    int? installmentCount,
+    DateTime? startDate,
+    Value<String?> category = const Value.absent(),
+    Value<String?> accountId = const Value.absent(),
+    bool? isDeleted,
+    Value<DateTime?> lastUpdated = const Value.absent(),
+  }) => Installment(
+    id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
+    description: description ?? this.description,
+    totalAmount: totalAmount ?? this.totalAmount,
+    installmentCount: installmentCount ?? this.installmentCount,
+    startDate: startDate ?? this.startDate,
+    category: category.present ? category.value : this.category,
+    accountId: accountId.present ? accountId.value : this.accountId,
+    isDeleted: isDeleted ?? this.isDeleted,
+    lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
+  );
+  Installment copyWithCompanion(InstallmentsCompanion data) {
+    return Installment(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      totalAmount: data.totalAmount.present
+          ? data.totalAmount.value
+          : this.totalAmount,
+      installmentCount: data.installmentCount.present
+          ? data.installmentCount.value
+          : this.installmentCount,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      category: data.category.present ? data.category.value : this.category,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      lastUpdated: data.lastUpdated.present
+          ? data.lastUpdated.value
+          : this.lastUpdated,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Installment(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('description: $description, ')
+          ..write('totalAmount: $totalAmount, ')
+          ..write('installmentCount: $installmentCount, ')
+          ..write('startDate: $startDate, ')
+          ..write('category: $category, ')
+          ..write('accountId: $accountId, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('lastUpdated: $lastUpdated')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    description,
+    totalAmount,
+    installmentCount,
+    startDate,
+    category,
+    accountId,
+    isDeleted,
+    lastUpdated,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Installment &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.description == this.description &&
+          other.totalAmount == this.totalAmount &&
+          other.installmentCount == this.installmentCount &&
+          other.startDate == this.startDate &&
+          other.category == this.category &&
+          other.accountId == this.accountId &&
+          other.isDeleted == this.isDeleted &&
+          other.lastUpdated == this.lastUpdated);
+}
+
+class InstallmentsCompanion extends UpdateCompanion<Installment> {
+  final Value<String> id;
+  final Value<String?> userId;
+  final Value<String> description;
+  final Value<double> totalAmount;
+  final Value<int> installmentCount;
+  final Value<DateTime> startDate;
+  final Value<String?> category;
+  final Value<String?> accountId;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> lastUpdated;
+  final Value<int> rowid;
+  const InstallmentsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.description = const Value.absent(),
+    this.totalAmount = const Value.absent(),
+    this.installmentCount = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.category = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  InstallmentsCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    required String description,
+    required double totalAmount,
+    required int installmentCount,
+    required DateTime startDate,
+    this.category = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       description = Value(description),
+       totalAmount = Value(totalAmount),
+       installmentCount = Value(installmentCount),
+       startDate = Value(startDate);
+  static Insertable<Installment> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? description,
+    Expression<double>? totalAmount,
+    Expression<int>? installmentCount,
+    Expression<DateTime>? startDate,
+    Expression<String>? category,
+    Expression<String>? accountId,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? lastUpdated,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (description != null) 'description': description,
+      if (totalAmount != null) 'total_amount': totalAmount,
+      if (installmentCount != null) 'installment_count': installmentCount,
+      if (startDate != null) 'start_date': startDate,
+      if (category != null) 'category': category,
+      if (accountId != null) 'account_id': accountId,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (lastUpdated != null) 'last_updated': lastUpdated,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  InstallmentsCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? userId,
+    Value<String>? description,
+    Value<double>? totalAmount,
+    Value<int>? installmentCount,
+    Value<DateTime>? startDate,
+    Value<String?>? category,
+    Value<String?>? accountId,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? lastUpdated,
+    Value<int>? rowid,
+  }) {
+    return InstallmentsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      description: description ?? this.description,
+      totalAmount: totalAmount ?? this.totalAmount,
+      installmentCount: installmentCount ?? this.installmentCount,
+      startDate: startDate ?? this.startDate,
+      category: category ?? this.category,
+      accountId: accountId ?? this.accountId,
+      isDeleted: isDeleted ?? this.isDeleted,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (totalAmount.present) {
+      map['total_amount'] = Variable<double>(totalAmount.value);
+    }
+    if (installmentCount.present) {
+      map['installment_count'] = Variable<int>(installmentCount.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<DateTime>(startDate.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (lastUpdated.present) {
+      map['last_updated'] = Variable<DateTime>(lastUpdated.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InstallmentsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('description: $description, ')
+          ..write('totalAmount: $totalAmount, ')
+          ..write('installmentCount: $installmentCount, ')
+          ..write('startDate: $startDate, ')
+          ..write('category: $category, ')
+          ..write('accountId: $accountId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated, ')
           ..write('rowid: $rowid')
@@ -3808,6 +4499,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $BudgetsTable budgets = $BudgetsTable(this);
+  late final $InstallmentsTable installments = $InstallmentsTable(this);
   late final $PendingTransactionsTable pendingTransactions =
       $PendingTransactionsTable(this);
   @override
@@ -3820,6 +4512,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     accounts,
     transactions,
     budgets,
+    installments,
     pendingTransactions,
   ];
 }
@@ -4618,6 +5311,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<String> type,
       required DateTime date,
       Value<List<String>?> tags,
+      Value<String?> installmentId,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -4634,6 +5328,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<String> type,
       Value<DateTime> date,
       Value<List<String>?> tags,
+      Value<String?> installmentId,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -4697,6 +5392,11 @@ class $$TransactionsTableFilterComposer
   get tags => $composableBuilder(
     column: $table.tags,
     builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get installmentId => $composableBuilder(
+    column: $table.installmentId,
+    builder: (column) => ColumnFilters(column),
   );
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
@@ -4769,6 +5469,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get installmentId => $composableBuilder(
+    column: $table.installmentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -4823,6 +5528,11 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumnWithTypeConverter<List<String>?, String> get tags =>
       $composableBuilder(column: $table.tags, builder: (column) => column);
 
+  GeneratedColumn<String> get installmentId => $composableBuilder(
+    column: $table.installmentId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
@@ -4873,6 +5583,7 @@ class $$TransactionsTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
                 Value<List<String>?> tags = const Value.absent(),
+                Value<String?> installmentId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -4887,6 +5598,7 @@ class $$TransactionsTableTableManager
                 type: type,
                 date: date,
                 tags: tags,
+                installmentId: installmentId,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,
@@ -4903,6 +5615,7 @@ class $$TransactionsTableTableManager
                 Value<String> type = const Value.absent(),
                 required DateTime date,
                 Value<List<String>?> tags = const Value.absent(),
+                Value<String?> installmentId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -4917,6 +5630,7 @@ class $$TransactionsTableTableManager
                 type: type,
                 date: date,
                 tags: tags,
+                installmentId: installmentId,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,
@@ -5180,6 +5894,309 @@ typedef $$BudgetsTableProcessedTableManager =
       $$BudgetsTableUpdateCompanionBuilder,
       (Budget, BaseReferences<_$AppDatabase, $BudgetsTable, Budget>),
       Budget,
+      PrefetchHooks Function()
+    >;
+typedef $$InstallmentsTableCreateCompanionBuilder =
+    InstallmentsCompanion Function({
+      required String id,
+      Value<String?> userId,
+      required String description,
+      required double totalAmount,
+      required int installmentCount,
+      required DateTime startDate,
+      Value<String?> category,
+      Value<String?> accountId,
+      Value<bool> isDeleted,
+      Value<DateTime?> lastUpdated,
+      Value<int> rowid,
+    });
+typedef $$InstallmentsTableUpdateCompanionBuilder =
+    InstallmentsCompanion Function({
+      Value<String> id,
+      Value<String?> userId,
+      Value<String> description,
+      Value<double> totalAmount,
+      Value<int> installmentCount,
+      Value<DateTime> startDate,
+      Value<String?> category,
+      Value<String?> accountId,
+      Value<bool> isDeleted,
+      Value<DateTime?> lastUpdated,
+      Value<int> rowid,
+    });
+
+class $$InstallmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $InstallmentsTable> {
+  $$InstallmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get totalAmount => $composableBuilder(
+    column: $table.totalAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get installmentCount => $composableBuilder(
+    column: $table.installmentCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$InstallmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $InstallmentsTable> {
+  $$InstallmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get totalAmount => $composableBuilder(
+    column: $table.totalAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get installmentCount => $composableBuilder(
+    column: $table.installmentCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$InstallmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $InstallmentsTable> {
+  $$InstallmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get totalAmount => $composableBuilder(
+    column: $table.totalAmount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get installmentCount => $composableBuilder(
+    column: $table.installmentCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => column,
+  );
+}
+
+class $$InstallmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $InstallmentsTable,
+          Installment,
+          $$InstallmentsTableFilterComposer,
+          $$InstallmentsTableOrderingComposer,
+          $$InstallmentsTableAnnotationComposer,
+          $$InstallmentsTableCreateCompanionBuilder,
+          $$InstallmentsTableUpdateCompanionBuilder,
+          (
+            Installment,
+            BaseReferences<_$AppDatabase, $InstallmentsTable, Installment>,
+          ),
+          Installment,
+          PrefetchHooks Function()
+        > {
+  $$InstallmentsTableTableManager(_$AppDatabase db, $InstallmentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$InstallmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$InstallmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$InstallmentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<String> description = const Value.absent(),
+                Value<double> totalAmount = const Value.absent(),
+                Value<int> installmentCount = const Value.absent(),
+                Value<DateTime> startDate = const Value.absent(),
+                Value<String?> category = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> lastUpdated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => InstallmentsCompanion(
+                id: id,
+                userId: userId,
+                description: description,
+                totalAmount: totalAmount,
+                installmentCount: installmentCount,
+                startDate: startDate,
+                category: category,
+                accountId: accountId,
+                isDeleted: isDeleted,
+                lastUpdated: lastUpdated,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> userId = const Value.absent(),
+                required String description,
+                required double totalAmount,
+                required int installmentCount,
+                required DateTime startDate,
+                Value<String?> category = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> lastUpdated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => InstallmentsCompanion.insert(
+                id: id,
+                userId: userId,
+                description: description,
+                totalAmount: totalAmount,
+                installmentCount: installmentCount,
+                startDate: startDate,
+                category: category,
+                accountId: accountId,
+                isDeleted: isDeleted,
+                lastUpdated: lastUpdated,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$InstallmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $InstallmentsTable,
+      Installment,
+      $$InstallmentsTableFilterComposer,
+      $$InstallmentsTableOrderingComposer,
+      $$InstallmentsTableAnnotationComposer,
+      $$InstallmentsTableCreateCompanionBuilder,
+      $$InstallmentsTableUpdateCompanionBuilder,
+      (
+        Installment,
+        BaseReferences<_$AppDatabase, $InstallmentsTable, Installment>,
+      ),
+      Installment,
       PrefetchHooks Function()
     >;
 typedef $$PendingTransactionsTableCreateCompanionBuilder =
@@ -5663,6 +6680,8 @@ class $AppDatabaseManager {
       $$TransactionsTableTableManager(_db, _db.transactions);
   $$BudgetsTableTableManager get budgets =>
       $$BudgetsTableTableManager(_db, _db.budgets);
+  $$InstallmentsTableTableManager get installments =>
+      $$InstallmentsTableTableManager(_db, _db.installments);
   $$PendingTransactionsTableTableManager get pendingTransactions =>
       $$PendingTransactionsTableTableManager(_db, _db.pendingTransactions);
 }

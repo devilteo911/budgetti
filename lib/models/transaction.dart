@@ -11,6 +11,9 @@ class Transaction {
   final String type; // 'income', 'expense', or 'transfer'
   final List<String> tags;
 
+  /// Id of the installment plan this charge pays a rate of, if any.
+  final String? installmentId;
+
   Transaction({
     required this.id,
     required this.accountId,
@@ -21,6 +24,7 @@ class Transaction {
     required this.category,
     this.type = 'expense',
     this.tags = const [],
+    this.installmentId,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -59,6 +63,7 @@ class Transaction {
                       : 'expense'))
               .toString(),
       tags: tags,
+      installmentId: json["installment_id"]?.toString(),
     );
   }
 
@@ -72,6 +77,7 @@ class Transaction {
       'type': type,
       'date': date.toIso8601String(),
       'tags': tags,
+      'installment_id': installmentId,
     };
   }
 
@@ -85,6 +91,8 @@ class Transaction {
     String? category,
     String? type,
     List<String>? tags,
+    String? installmentId,
+    bool clearInstallment = false,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -96,6 +104,8 @@ class Transaction {
       category: category ?? this.category,
       type: type ?? this.type,
       tags: tags ?? this.tags,
+      installmentId:
+          clearInstallment ? null : (installmentId ?? this.installmentId),
     );
   }
 }

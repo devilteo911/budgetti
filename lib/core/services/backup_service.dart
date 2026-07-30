@@ -138,6 +138,7 @@ class BackupService {
     final categories = await _db.select(_db.categories).get();
     final tags = await _db.select(_db.tags).get();
     final budgets = await _db.select(_db.budgets).get();
+    final installments = await _db.select(_db.installments).get();
 
     // 2. Convert to JSON
     final data = {
@@ -147,6 +148,7 @@ class BackupService {
       'categories': categories.map((e) => e.toJson()).toList(),
       'tags': tags.map((e) => e.toJson()).toList(),
       'budgets': budgets.map((e) => e.toJson()).toList(),
+      'installments': installments.map((e) => e.toJson()).toList(),
     };
 
     final jsonString = jsonEncode(data);
@@ -229,12 +231,17 @@ class BackupService {
     final budgets = (data['budgets'] as List)
         .map((e) => Budget.fromJson(e as Map<String, dynamic>))
         .toList();
+    // Optional: backups written before installments existed simply have none.
+    final installments = ((data['installments'] as List?) ?? const [])
+        .map((e) => Installment.fromJson(e as Map<String, dynamic>))
+        .toList();
 
     // 3. Replace data in transaction
     await _db.transaction(() async {
       // Clear all tables
       await _db.delete(_db.transactions).go();
       await _db.delete(_db.budgets).go();
+      await _db.delete(_db.installments).go();
       await _db.delete(_db.accounts).go();
       await _db.delete(_db.categories).go();
       await _db.delete(_db.tags).go();
@@ -245,6 +252,7 @@ class BackupService {
         batch.insertAll(_db.categories, categories);
         batch.insertAll(_db.tags, tags);
         batch.insertAll(_db.budgets, budgets);
+        batch.insertAll(_db.installments, installments);
         batch.insertAll(_db.transactions, transactions);
       });
     });

@@ -5,6 +5,7 @@ import 'package:budgetti/models/category.dart' as model;
 import 'package:budgetti/models/transaction.dart' as model_txn;
 import 'package:budgetti/models/tag.dart' as model_tag;
 import 'package:budgetti/models/budget.dart' as model_budget;
+import 'package:budgetti/models/installment.dart' as model_installment;
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -344,6 +345,7 @@ class FinanceService {
             type: t.type,
       date: t.date,
       tags: t.tags ?? [],
+      installmentId: t.installmentId,
     )).toList();
 
     // Secondary filtering for tags if provided
@@ -401,6 +403,7 @@ class FinanceService {
               type: t.type,
               date: t.date,
               tags: t.tags ?? [],
+              installmentId: t.installmentId,
             ),
           )
           .toList();
@@ -424,6 +427,7 @@ class FinanceService {
             type: Value(transaction.type),
       date: transaction.date,
       tags: Value(transaction.tags),
+            installmentId: Value(transaction.installmentId),
             userId: Value(_userId),
       lastUpdated: Value(DateTime.now()),
     ));
@@ -439,6 +443,7 @@ class FinanceService {
         type: Value(transaction.type),
       date: Value(transaction.date),
       tags: Value(transaction.tags),
+      installmentId: Value(transaction.installmentId),
       lastUpdated: Value(DateTime.now()),
     ));
   }
@@ -589,6 +594,71 @@ class FinanceService {
 
   Future<void> deleteBudget(String id) async {
     await (_db.update(_db.budgets)..where((t) => t.id.equals(id))).write(BudgetsCompanion(
+      isDeleted: const Value(true),
+      lastUpdated: Value(DateTime.now()),
+    ));
+  }
+
+  /// Installment plans, newest first. Progress is derived per-plan (see
+  /// [model_installment.Installment]) — nothing here tracks paid rates.
+  Stream<List<model_installment.Installment>> watchInstallments() {
+    final query = _db.select(_db.installments)
+      ..where((t) => t.isDeleted.equals(false) & t.userId.equals(_userId))
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.startDate, mode: OrderingMode.desc),
+      ]);
+    return query.watch().map(
+          (rows) => rows
+              .map((r) => model_installment.Installment(
+                    id: r.id,
+                    userId: r.userId ?? 'local',
+                    description: r.description,
+                    totalAmount: r.totalAmount,
+                    installmentCount: r.installmentCount,
+                    startDate: r.startDate,
+                    category: r.category,
+                    accountId: r.accountId,
+                  ))
+              .toList(),
+        );
+  }
+
+  Future<void> upsertInstallment(model_installment.Installment plan) async {
+    await _db.into(_db.installments).insert(
+          InstallmentsCompanion.insert(
+            id: plan.id.isEmpty ? const Uuid().v4() : plan.id,
+            description: plan.description,
+            totalAmount: plan.totalAmount,
+            installmentCount: plan.installmentCount,
+            startDate: plan.startDate,
+            category: Value(plan.category),
+            accountId: Value(plan.accountId),
+            userId: Value(_userId),
+            isDeleted: const Value(false),
+            lastUpdated: Value(DateTime.now()),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+  }
+
+  /// Attach [transactionId] to an installment plan, or detach it with a null
+  /// [installmentId]. One field, so the whole link/unlink flow on both clients
+  /// is this call.
+  Future<void> linkTransactionToInstallment(
+    String transactionId,
+    String? installmentId,
+  ) async {
+    await (_db.update(_db.transactions)
+          ..where((t) => t.id.equals(transactionId)))
+        .write(TransactionsCompanion(
+      installmentId: Value(installmentId),
+      lastUpdated: Value(DateTime.now()),
+    ));
+  }
+
+  Future<void> deleteInstallment(String id) async {
+    await (_db.update(_db.installments)..where((t) => t.id.equals(id)))
+        .write(InstallmentsCompanion(
       isDeleted: const Value(true),
       lastUpdated: Value(DateTime.now()),
     ));

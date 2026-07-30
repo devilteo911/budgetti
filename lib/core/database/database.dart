@@ -93,6 +93,11 @@ class Transactions extends Table {
   DateTimeColumn get date => dateTime()();
   TextColumn get tags => text().map(const ListStringConverter()).nullable()();
 
+  /// Id of the [Installments] plan this charge pays a rate of, null otherwise.
+  /// Not a real FK: rows arrive from sync in any order, so referential
+  /// integrity is enforced nowhere and a dangling id just reads as unlinked.
+  TextColumn get installmentId => text().nullable()();
+
   // Sync fields
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastUpdated => dateTime().nullable()();
@@ -114,6 +119,32 @@ class Budgets extends Table {
   TextColumn get category => text()();
   RealColumn get limitAmount => real()();
   TextColumn get period => text()(); // 'monthly', 'weekly', etc.
+
+  // Sync fields
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get lastUpdated => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// An installment plan ("pagamento a rate"): a fixed total split over N equal
+/// monthly charges starting at [startDate].
+///
+/// ponytail: the schedule is derived, not stored — no per-rate row and no
+/// generated transactions. The real charges already arrive from bank capture,
+/// so materialising them here would double-count. See `models/installment.dart`
+/// for the derivation (paid / remaining / next due). Monthly only; add a
+/// `period` column if a non-monthly plan ever shows up.
+class Installments extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get description => text()();
+  RealColumn get totalAmount => real()();
+  IntColumn get installmentCount => integer()();
+  DateTimeColumn get startDate => dateTime()(); // date of the first rate
+  TextColumn get category => text().nullable()();
+  TextColumn get accountId => text().nullable()();
 
   // Sync fields
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
@@ -166,7 +197,15 @@ class PendingTransactions extends Table {
 }
 
 @DriftDatabase(
-  tables: [Categories, Tags, Accounts, Transactions, Budgets, PendingTransactions],
+  tables: [
+    Categories,
+    Tags,
+    Accounts,
+    Transactions,
+    Budgets,
+    Installments,
+    PendingTransactions,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -176,7 +215,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 12; // v12: de-duplicate seeded categories/tags
+  int get schemaVersion => 14; // v14: transactions link to an installment plan
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -288,6 +327,14 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 12) {
         await _dedupeSeededDefaults();
+      }
+      if (from < 13) {
+        await m.createTable(installments);
+      }
+      if (from < 14) {
+        try {
+          await m.addColumn(transactions, transactions.installmentId);
+        } catch (_) {}
       }
     },
   );

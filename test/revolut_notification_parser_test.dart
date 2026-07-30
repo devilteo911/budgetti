@@ -153,6 +153,52 @@ void main() {
     });
   });
 
+  // Captured verbatim from the phone, 30 Jul 2026 21:12 — one €10 fuel payment
+  // that Revolut pushed four times. Three of the four became drafts before this
+  // group existed, so a single purchase read as −34,53 twice plus a +30 credit.
+  group('one payment, four pushes', () {
+    test('the pre-auth hold is not a movement', () {
+      const title = '34,53 € temporary hold ⛽';
+      const text = 'Any unused balance will be returned to you once the '
+          'transaction is settled. Tap for more';
+
+      expect(run(title, text), isNull);
+      expect(parser.looksTransactional(title, text), isFalse);
+    });
+
+    test('the hold being adjusted to the real amount is not a movement', () {
+      const title = 'Vega Carburanti';
+      const text = '🚎️️ Pagamento aggiornato da 34,53 € a 10 €\n'
+          'Saldo di EUR: 24,53 €';
+
+      expect(run(title, text), isNull);
+      expect(parser.looksTransactional(title, text), isFalse);
+    });
+
+    test('the low-balance warning is not a €30 top-up', () {
+      const title = 'Saldo inferiore a €30 👀';
+      const text = 'Se puoi, ricarica subito il conto in modo che la tua '
+          'prossima transazione vada a buon fine';
+
+      expect(run(title, text), isNull);
+      expect(parser.looksTransactional(title, text), isFalse);
+    });
+
+    test('only the settled payment becomes a draft, balance stripped off', () {
+      final r = run(
+        'Vega Carburanti',
+        'Hai pagato 10 € presso Vega Carburanti 🚎️️\n'
+            '⚠️ Saldo: 24,53 €',
+      );
+
+      expect(r, isNotNull);
+      expect(r!.type, 'expense');
+      expect(r.amount, -10.0);
+      expect(r.counterparty, 'Vega Carburanti');
+      expect(r.description, 'Vega Carburanti');
+    });
+  });
+
   group('unreadable but transactional', () {
     test('a movement wording with no amount is surfaced for review', () {
       const title = 'Revolut';

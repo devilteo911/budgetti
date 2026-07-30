@@ -173,6 +173,15 @@ Future<void> main() async {
     ],
   );
 
+  // Drift only notifies streams about writes made in their own isolate, and the
+  // workmanager tasks (bank capture, PocketBase sync) run in another one. So on
+  // a warm resume the review inbox and the ledger still showed whatever was
+  // there when the app was backgrounded — a Revolut spend captured meanwhile
+  // was in the database but invisible until the process was killed and
+  // relaunched. Re-run every open query instead.
+  // (The listener registers itself with WidgetsBinding, which keeps it alive.)
+  AppLifecycleListener(onResume: () => db.markTablesUpdated(db.allTables));
+
   runApp(
     UncontrolledProviderScope(container: container,
       child: const BudgettiApp(),

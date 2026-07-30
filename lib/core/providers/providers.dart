@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budgetti/core/database/database.dart'
-    hide Category, Tag, Account, Transaction, Budget;
+    hide Category, Tag, Account, Transaction, Budget, Installment;
 import 'package:budgetti/core/database/database.dart' as db show Transaction;
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/account.dart';
@@ -8,6 +8,7 @@ import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/models/budget.dart';
+import 'package:budgetti/models/installment.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
@@ -271,6 +272,18 @@ final budgetsProvider = FutureProvider<List<Budget>>((ref) async {
   } catch (e) {
     return [];
   }
+});
+
+/// Live installment plans (all of them — active/settled is derived per plan).
+final installmentsProvider = StreamProvider<List<Installment>>((ref) {
+  return ref.watch(financeServiceProvider).watchInstallments();
+});
+
+/// Total still owed across the plans that aren't settled yet — the figure the
+/// dashboard card and the screen header both show.
+final installmentsOwedProvider = Provider<double>((ref) {
+  final plans = ref.watch(installmentsProvider).value ?? const [];
+  return plans.fold<double>(0, (s, p) => s + p.remainingAmount());
 });
 
 /// Local profile (username, currency, avatar, email). Single user — no cloud.

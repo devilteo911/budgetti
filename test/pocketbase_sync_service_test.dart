@@ -31,9 +31,14 @@ class _FakeClient implements SyncClient {
 
   _FakeClient(this.userId);
 
+  /// Test seam: collections the server doesn't serve at all — a 404 before
+  /// their migration has run, or a permissions/outage failure.
+  final Set<String> failCollections = {};
+
   @override
   Future<List<Map<String, dynamic>>> listChanges(
       String c, DateTime since) async {
+    if (failCollections.contains(c)) throw Exception('404: no collection $c');
     final entries = _store[c]?.entries.toList() ?? const [];
     return entries.where((e) {
       final lu = e.value['lastUpdated'] as String?;
@@ -72,6 +77,7 @@ Future<(AppDatabase, PersistenceService, _FakeClient, PocketBaseSyncService)>
   await db.delete(db.accounts).go();
   await db.delete(db.transactions).go();
   await db.delete(db.budgets).go();
+  await db.delete(db.installments).go();
   final client = _FakeClient(userId);
   if (initialStore != null) {
     for (final entry in initialStore.entries) {
@@ -351,6 +357,152 @@ void main() {
     expect(client._store['categories']!.containsKey('c1'), isTrue,
         reason: 'c1 must be retried once the server accepts it again');
     expect(second.skipped, 0);
+  });
+
+  test('an installment plan round-trips push → pull with every field', () async {
+    final (db, _, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    await db.into(db.installments).insert(InstallmentsCompanion.insert(
+          id: 'ins1',
+          userId: const Value('u1'),
+          description: 'Divano',
+          totalAmount: 2400,
+          installmentCount: 24,
+          startDate: DateTime(2026, 2, 15),
+          category: const Value('Shopping'),
+          accountId: const Value('acc1'),
+          lastUpdated: Value(t1),
+        ));
+    // A charge attached to the plan: the link rides on the transaction.
+    await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'tx1',
+          userId: const Value('u1'),
+          amount: -100,
+          description: 'Rata divano',
+          category: 'Shopping',
+          date: t1,
+          installmentId: const Value('ins1'),
+          lastUpdated: Value(t1),
+        ));
+
+    await service.sync();
+
+    expect(client._store['transactions']!['tx1']!['installmentId'], 'ins1');
+
+    // The pushed body must use exactly the PocketBase field names from
+    // pb_migrations/1751000007_installments.js — a typo here syncs silently
+    // wrong data.
+    final pushed = client._store['installments']!['ins1']!;
+    expect(pushed['description'], 'Divano');
+    expect(pushed['totalAmount'], 2400);
+    expect(pushed['installmentCount'], 24);
+    expect(pushed['startDate'], DateTime(2026, 2, 15).toUtc().toIso8601String());
+    expect(pushed['category'], 'Shopping');
+    expect(pushed['accountId'], 'acc1');
+    expect(pushed['isDeleted'], false);
+
+    // A fresh device pulls it back into Drift unchanged.
+    SharedPreferences.setMockInitialValues({});
+    final prefs2 = await SharedPreferences.getInstance();
+    final db2 = AppDatabase.forExecutor(NativeDatabase.memory());
+    await db2.delete(db2.installments).go();
+    await db2.delete(db2.transactions).go();
+    final service2 = PocketBaseSyncService(
+        client, db2, PersistenceService(prefs2), 'u1');
+
+    await service2.sync();
+
+    final row = await (db2.select(db2.installments)
+          ..where((t) => t.id.equals('ins1')))
+        .getSingleOrNull();
+    expect(row, isNotNull);
+    expect(row!.description, 'Divano');
+    expect(row.totalAmount, 2400);
+    expect(row.installmentCount, 24);
+    expect(row.startDate.toUtc(), DateTime(2026, 2, 15).toUtc());
+    expect(row.category, 'Shopping');
+    expect(row.accountId, 'acc1');
+
+    // The link survives the round-trip too, so the other device shows the same
+    // rate attached to the same plan.
+    final tx = await (db2.select(db2.transactions)
+          ..where((t) => t.id.equals('tx1')))
+        .getSingleOrNull();
+    expect(tx?.installmentId, 'ins1');
+  });
+
+  test('an unlinked transaction stays unlinked through PocketBase', () async {
+    // PB stores an unset text field as '', not null — pulled back naively that
+    // becomes an empty plan id, which reads as "linked to nothing".
+    final t1 = DateTime(2026, 7, 1, 10);
+    final (db, _, __, service) = await _harness(initialStore: {
+      'transactions': {
+        'tx-plain': {
+          'accountId': 'acc1',
+          'amount': -20.0,
+          'description': 'Coffee',
+          'category': 'Dining',
+          'type': 'expense',
+          'date': t1.toUtc().toIso8601String(),
+          'tags': <String>[],
+          'installmentId': '', // PB's empty text
+          'isDeleted': false,
+          'lastUpdated': t1.toUtc().toIso8601String(),
+        },
+      },
+    });
+
+    await service.sync(full: true, push: false);
+
+    final tx = await (db.select(db.transactions)
+          ..where((t) => t.id.equals('tx-plain')))
+        .getSingleOrNull();
+    expect(tx, isNotNull);
+    expect(tx!.installmentId, isNull);
+  });
+
+  test('a collection the server does not have yet cannot break the others',
+      () async {
+    // The upgrade window: a phone on the new build syncing against a server
+    // whose installments migration has not run. That 404 used to abort the
+    // whole sync, taking the ledger down with it.
+    final (db, persistence, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    client.failCollections.add('installments');
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c1',
+          name: 'Food',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t1),
+        ));
+
+    final summary = await service.sync();
+
+    expect(summary.pushed, 1, reason: 'categories still sync');
+    expect(summary.skipped, 1, reason: 'the failure is reported, not hidden');
+    expect(summary.error, isNull, reason: 'the run is partial, not failed');
+    // The cursor is global — advancing it would strand installments forever.
+    expect(persistence.getLastSyncAt(),
+        DateTime.fromMillisecondsSinceEpoch(0));
+
+    // Once the server catches up, the frozen cursor lets everything through.
+    client.failCollections.clear();
+    await db.into(db.installments).insert(InstallmentsCompanion.insert(
+          id: 'ins1',
+          userId: const Value('u1'),
+          description: 'Divano',
+          totalAmount: 1200,
+          installmentCount: 12,
+          startDate: DateTime(2026, 6, 1),
+          lastUpdated: Value(t1),
+        ));
+    final second = await service.sync();
+    expect(second.skipped, 0);
+    expect(client._store['installments']!.containsKey('ins1'), isTrue);
+    expect(persistence.getLastSyncAt(), t1);
   });
 
   test('pull-only does not push, push-only does not pull', () async {
