@@ -1,48 +1,65 @@
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 class TransactionFilterSheet extends ConsumerWidget {
   const TransactionFilterSheet({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final filters = ref.watch(transactionFiltersProvider);
-    final categoriesAsync = ref.watch(categoriesProvider);
-    final tagsAsync = ref.watch(tagsProvider);
+    final notifier = ref.read(transactionFiltersProvider.notifier);
+    final categories = ref.watch(categoriesProvider).value ?? const [];
+    final tags = ref.watch(tagsProvider).value ?? const [];
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: AppTheme.backgroundBlack,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    final range = filters.dateRange;
+    final customLabel = range != null && !_isPredefined(range)
+        ? '${DateFormat('dd MMM').format(range.start)} → ${DateFormat('dd MMM').format(range.end)}'
+        : 'Custom';
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        4,
+        20,
+        16 + MediaQuery.of(context).viewPadding.bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                "Filters",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Filters',
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  ref.read(transactionFiltersProvider.notifier).reset();
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  "Reset All",
-                  style: TextStyle(color: Colors.redAccent),
+              if (!filters.isEmpty)
+                TextButton(
+                  onPressed: () {
+                    notifier.reset();
+                    Navigator.pop(context);
+                  },
+                  child: Text(
+                    'RESET ALL',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: scheme.error,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
           Flexible(
@@ -50,159 +67,74 @@ class TransactionFilterSheet extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 24),
-                  // Date Filter
-                  const Text(
-                    "Date Range",
-                    style: TextStyle(color: AppTheme.textGrey, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      _FilterChip(
-                        label: "All Time",
-                        isSelected: filters.dateRange == null,
-                        onSelected: (_) => ref.read(transactionFiltersProvider.notifier).setDateRange(null),
-                      ),
-                      _FilterChip(
-                        label: "Last 7 Days",
-                        isSelected: _isSameRange(filters.dateRange, _getRange(7)),
-                        onSelected: (_) => ref.read(transactionFiltersProvider.notifier).setDateRange(_getRange(7)),
-                      ),
-                      _FilterChip(
-                        label: "Last 30 Days",
-                        isSelected: _isSameRange(filters.dateRange, _getRange(30)),
-                        onSelected: (_) => ref.read(transactionFiltersProvider.notifier).setDateRange(_getRange(30)),
-                      ),
-                      _FilterChip(
-                        label: "Custom",
-                        isSelected: filters.dateRange != null && !_isPredefined(filters.dateRange!),
-                        onSelected: (_) async {
-                          final range = await showDateRangePicker(
-                            context: context,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime.now(),
-                            builder: (context, child) => Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: const ColorScheme.dark(
-                                  primary: AppTheme.primaryGreen,
-                                  onPrimary: AppTheme.backgroundBlack,
-                                  surface: AppTheme.surfaceGrey,
-                                  onSurface: Colors.white,
-                                ),
-                              ),
-                              child: child!,
-                            ),
-                          );
-                          if (range != null) {
-                            ref.read(transactionFiltersProvider.notifier).setDateRange(range);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Categories Filter
-                  const Text(
-                    "Categories",
-                    style: TextStyle(color: AppTheme.textGrey, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  categoriesAsync.when(
-                    data: (categories) => Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: categories.map((category) {
-                        final isSelected = filters.categories.contains(category.name);
-                        return FilterChip(
-                          label: Text(category.name),
-                          selected: isSelected,
-                          onSelected: (_) => ref.read(transactionFiltersProvider.notifier).toggleCategory(category.name),
-                          backgroundColor: AppTheme.surfaceGrey,
-                          selectedColor: AppTheme.primaryGreen.withOpacity(0.3),
-                          checkmarkColor: AppTheme.primaryGreen,
-                          labelStyle: TextStyle(
-                            color: isSelected ? AppTheme.primaryGreen : Colors.white,
-                            fontSize: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: isSelected ? AppTheme.primaryGreen : Colors.transparent,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                  const SizedBox(height: 16),
+                  const _SectionLabel('DATE RANGE'),
+                  _ChipWrap(children: [
+                    _Chip(
+                      label: 'All Time',
+                      selected: range == null,
+                      onTap: () => notifier.setDateRange(null),
                     ),
-                    loading: () => const LinearProgressIndicator(color: AppTheme.primaryGreen),
-                    error: (_, __) => const Text("Error loading categories", style: TextStyle(color: Colors.red)),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Tags Filter
-                  const Text(
-                    "Tags",
-                    style: TextStyle(color: AppTheme.textGrey, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  tagsAsync.when(
-                    data: (tags) => Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: tags.map((tag) {
-                        final isSelected = filters.tags.contains(tag.name);
-                        return FilterChip(
-                          label: Text(tag.name),
-                          selected: isSelected,
-                          onSelected: (_) => ref.read(transactionFiltersProvider.notifier).toggleTag(tag.name),
-                          backgroundColor: AppTheme.surfaceGrey,
-                          selectedColor: Color(tag.colorHex).withOpacity(0.3),
-                          checkmarkColor: Color(tag.colorHex),
-                          labelStyle: TextStyle(
-                            color: isSelected ? Color(tag.colorHex) : Colors.white,
-                            fontSize: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: isSelected ? Color(tag.colorHex) : Colors.transparent,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                    _Chip(
+                      label: 'Last 7 Days',
+                      selected: _isSameRange(range, _getRange(7)),
+                      onTap: () => notifier.setDateRange(_getRange(7)),
                     ),
-                    loading: () => const LinearProgressIndicator(color: AppTheme.primaryGreen),
-                    error: (_, __) => const Text("Error loading tags", style: TextStyle(color: Colors.red)),
-                  ),
+                    _Chip(
+                      label: 'Last 30 Days',
+                      selected: _isSameRange(range, _getRange(30)),
+                      onTap: () => notifier.setDateRange(_getRange(30)),
+                    ),
+                    _Chip(
+                      label: customLabel,
+                      selected: range != null && !_isPredefined(range),
+                      onTap: () async {
+                        // ponytail: the picker inherits the app theme — no
+                        // per-sheet ColorScheme override to keep in sync.
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          initialDateRange: range,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) notifier.setDateRange(picked);
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
+                  const _SectionLabel('CATEGORIES'),
+                  _ChipWrap(children: [
+                    for (final c in categories)
+                      _Chip(
+                        label: c.name,
+                        accent: Color(c.colorHex),
+                        selected: filters.categories.contains(c.name),
+                        onTap: () => notifier.toggleCategory(c.name),
+                      ),
+                  ]),
+                  const SizedBox(height: 20),
+                  const _SectionLabel('TAGS'),
+                  _ChipWrap(children: [
+                    for (final t in tags)
+                      _Chip(
+                        label: t.name,
+                        accent: Color(t.colorHex),
+                        selected: filters.tags.contains(t.name),
+                        onTap: () => notifier.toggleTag(t.name),
+                      ),
+                  ]),
                   const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text(
-                "Apply Filters",
-                style: TextStyle(
-                  color: AppTheme.backgroundBlack,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: const Text('Apply Filters'),
             ),
           ),
-          const SizedBox(height: 16),
         ],
       ),
     );
@@ -211,56 +143,97 @@ class TransactionFilterSheet extends ConsumerWidget {
   DateTimeRange _getRange(int days) {
     final now = DateTime.now();
     return DateTimeRange(
-      start: DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1)),
+      start: DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: days - 1)),
       end: DateTime(now.year, now.month, now.day),
     );
   }
 
   bool _isSameRange(DateTimeRange? r1, DateTimeRange r2) {
     if (r1 == null) return false;
-    return r1.start.year == r2.start.year &&
-        r1.start.month == r2.start.month &&
-        r1.start.day == r2.start.day &&
-        r1.end.year == r2.end.year &&
-        r1.end.month == r2.end.month &&
-        r1.end.day == r2.end.day;
+    return DateUtils.isSameDay(r1.start, r2.start) &&
+        DateUtils.isSameDay(r1.end, r2.end);
   }
 
-  bool _isPredefined(DateTimeRange range) {
-    return _isSameRange(range, _getRange(7)) || _isSameRange(range, _getRange(30));
+  bool _isPredefined(DateTimeRange range) =>
+      _isSameRange(range, _getRange(7)) || _isSameRange(range, _getRange(30));
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        text,
+        style: GoogleFonts.jetBrainsMono(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 2.2,
+        ),
+      ),
+    );
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final ValueChanged<bool> onSelected;
+class _ChipWrap extends StatelessWidget {
+  final List<Widget> children;
 
-  const _FilterChip({
+  const _ChipWrap({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(spacing: 8, runSpacing: 8, children: children);
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final Color? accent;
+  final VoidCallback onTap;
+
+  const _Chip({
     required this.label,
-    required this.isSelected,
-    required this.onSelected,
+    required this.selected,
+    required this.onTap,
+    this.accent,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: onSelected,
-      backgroundColor: AppTheme.surfaceGrey,
-      selectedColor: AppTheme.primaryGreen.withOpacity(0.3),
-      labelStyle: TextStyle(
-        color: isSelected ? AppTheme.primaryGreen : Colors.white,
-        fontSize: 12,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: isSelected ? AppTheme.primaryGreen : Colors.transparent,
+    final scheme = Theme.of(context).colorScheme;
+    final color = accent ?? scheme.primary;
+
+    return Material(
+      color: selected ? color.withValues(alpha: 0.10) : scheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? color.withValues(alpha: 0.45) : Colors.transparent,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? color : scheme.onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
         ),
       ),
-      showCheckmark: false,
     );
   }
 }

@@ -591,6 +591,11 @@ final tagMapProvider = Provider<Map<String, Tag>>((ref) {
   return {for (var t in tags) t.name: t};
 });
 
+final accountMapProvider = Provider<Map<String, Account>>((ref) {
+  final accounts = ref.watch(accountsProvider).value ?? [];
+  return {for (var a in accounts) a.id: a};
+});
+
 // Cache providers for colors and icons to avoid per-frame allocations
 final categoryColorCacheProvider = Provider<Map<String, Color>>((ref) {
   final categories = ref.watch(categoriesProvider).value ?? [];

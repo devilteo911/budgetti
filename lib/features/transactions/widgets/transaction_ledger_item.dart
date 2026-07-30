@@ -25,7 +25,14 @@ class TransactionLedgerItem extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final categoryMap = ref.watch(categoryMapProvider);
     final tagMap = ref.watch(tagMapProvider);
+    final accountMap = ref.watch(accountMapProvider);
     final formatter = ref.watch(currencyProvider);
+
+    // ponytail: with a single wallet the label is noise — only show it once
+    // there is something to tell apart. For transfers it's the source wallet.
+    final walletName = accountMap.length > 1
+        ? accountMap[transaction.accountId]?.name
+        : null;
 
     final isTransfer = transaction.type == 'transfer';
     final isIncome = transaction.amount > 0 && !isTransfer;
@@ -148,16 +155,36 @@ class TransactionLedgerItem extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Padding(
-                padding: const EdgeInsets.only(top: 1),
-                child: Text(
-                  amountText,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: amountColor,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                  ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 110),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      amountText,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: amountColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (walletName != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        walletName.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

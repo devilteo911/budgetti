@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/account.dart';
 
 class WalletPickerSheet extends ConsumerWidget {
@@ -20,6 +19,7 @@ class WalletPickerSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     final accountsAsync = ref.watch(accountsProvider);
     final currencyFormatter = ref.watch(currencyProvider);
 
@@ -28,7 +28,7 @@ class WalletPickerSheet extends ConsumerWidget {
         maxHeight: MediaQuery.of(context).size.height * 0.75,
       ),
       child: Padding(
-        padding: const EdgeInsets.only(top: 24, bottom: 8),
+        padding: const EdgeInsets.only(top: 20, bottom: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -36,102 +36,42 @@ class WalletPickerSheet extends ConsumerWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppTheme.textGrey.withOpacity(0.3),
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              style: TextStyle(
+                color: scheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             accountsAsync.when(
               data: (accounts) => Flexible(
                 child: ListView(
                   shrinkWrap: true,
                   children: [
                     if (showAllWalletsOption)
-                      ListTile(
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 24),
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: selectedWalletId == null
-                                ? AppTheme.primaryGreen.withOpacity(0.1)
-                                : AppTheme.surfaceGreyLight,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.all_inclusive,
-                            color: selectedWalletId == null
-                                ? AppTheme.primaryGreen
-                                : AppTheme.textGrey,
-                          ),
-                        ),
-                        title: Text(
-                          "All Wallets",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: selectedWalletId == null
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        trailing: selectedWalletId == null
-                            ? const Icon(Icons.check_circle,
-                                color: AppTheme.primaryGreen)
-                            : null,
+                      _WalletTile(
+                        icon: Icons.all_inclusive,
+                        name: 'All Wallets',
+                        isSelected: selectedWalletId == null,
                         onTap: () {
                           onWalletSelected(null);
                           Navigator.pop(context);
                         },
                       ),
                     ...accounts.map((account) {
-                      final isSelected = account.id == selectedWalletId;
-                      return ListTile(
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primaryGreen.withOpacity(0.1)
-                                : AppTheme.surfaceGreyLight,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.account_balance_wallet,
-                            color: isSelected
-                                ? AppTheme.primaryGreen
-                                : AppTheme.textGrey,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          account.name,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        subtitle: Text(
-                          currencyFormatter.format(account.balance),
-                          style: TextStyle(
-                              color: isSelected
-                                  ? AppTheme.primaryGreen
-                                  : AppTheme.textGrey),
-                        ),
-                        trailing: isSelected
-                            ? const Icon(Icons.check_circle,
-                                color: AppTheme.primaryGreen)
-                            : null,
+                      return _WalletTile(
+                        icon: Icons.account_balance_wallet,
+                        name: account.name,
+                        subtitle: currencyFormatter.format(account.balance),
+                        isSelected: account.id == selectedWalletId,
                         onTap: () {
                           onWalletSelected(account);
                           Navigator.pop(context);
@@ -141,17 +81,15 @@ class WalletPickerSheet extends ConsumerWidget {
                   ],
                 ),
               ),
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(color: AppTheme.primaryGreen),
-                ),
+              loading: () => const Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(),
               ),
-              error: (e, s) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text("Error: $e",
-                      style: const TextStyle(color: Colors.red)),
+              error: (e, s) => Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  "Error: $e",
+                  style: TextStyle(color: scheme.error),
                 ),
               ),
             ),
@@ -159,6 +97,56 @@ class WalletPickerSheet extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WalletTile extends StatelessWidget {
+  final IconData icon;
+  final String name;
+  final String? subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _WalletTile({
+    required this.icon,
+    required this.name,
+    required this.isSelected,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = isSelected ? scheme.primary : scheme.onSurfaceVariant;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? scheme.primary.withValues(alpha: 0.12)
+              : scheme.surfaceContainerHighest,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: accent, size: 20),
+      ),
+      title: Text(
+        name,
+        style: TextStyle(
+          color: scheme.onSurface,
+          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!, style: TextStyle(color: accent)),
+      trailing: isSelected
+          ? Icon(Icons.check_circle, color: scheme.primary)
+          : null,
+      onTap: onTap,
     );
   }
 }
