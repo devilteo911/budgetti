@@ -6,8 +6,11 @@ import android.service.notification.StatusBarNotification
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val REVOLUT_PKG = "com.revolut.bug"
+// ponytail: prefix match, not an exact id — Revolut ships regional/variant
+// package names and an exact string silently captures nothing when it drifts.
+private const val REVOLUT_PKG_PREFIX = "com.revolut"
 private const val BUFFER_FILE = "revolut_notifications.json"
+private const val MAX_BUFFERED = 300
 
 /// Captures Revolut card-spend notifications into a JSON buffer file that the
 /// Flutter side drains on sync. Inert until the user grants Notification access
@@ -15,7 +18,7 @@ private const val BUFFER_FILE = "revolut_notifications.json"
 /// getApplicationSupportDirectory(), so pulls work from any isolate.
 class RevolutNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (sbn.packageName != REVOLUT_PKG) return
+        if (!sbn.packageName.startsWith(REVOLUT_PKG_PREFIX)) return
         val n = sbn.notification ?: return
         val extras = n.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
@@ -38,6 +41,13 @@ class RevolutNotificationListener : NotificationListenerService() {
             put("text", text)
             put("when", whenMs)
         })
+
+        // The Flutter side drains every 15 min, so this only bites if the app
+        // never runs. Drop the oldest rather than let the file (and the O(n)
+        // rewrite on every notification) grow without bound.
+        // ponytail: fixed cap; if drains can lag for days, buffer to SQLite instead.
+        while (buffer.length() > MAX_BUFFERED) buffer.remove(0)
+
         writeBuffer(buffer)
     }
 

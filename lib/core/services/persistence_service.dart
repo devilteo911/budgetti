@@ -26,6 +26,7 @@ class PersistenceService {
   static const _lastAutoBackupKey = 'last_auto_backup_timestamp';
   static const _emailSyncEnabledKey = 'email_sync_enabled';
   static const _emailSyncWindowDaysKey = 'email_sync_window_days';
+  static const _revolutSyncEnabledKey = 'revolut_sync_enabled';
 
   bool getNotificationsEnabled() =>
       _prefs.getBool(_notificationsEnabledKey) ?? true;
@@ -64,6 +65,13 @@ class PersistenceService {
   int getEmailSyncWindowDays() => _prefs.getInt(_emailSyncWindowDaysKey) ?? 7;
   Future<void> setEmailSyncWindowDays(int days) =>
       _prefs.setInt(_emailSyncWindowDaysKey, days);
+
+  // Revolut notification capture. Independent of the email sync: it needs no
+  // Google account, only Android notification access.
+  bool getRevolutSyncEnabled() =>
+      _prefs.getBool(_revolutSyncEnabledKey) ?? false;
+  Future<void> setRevolutSyncEnabled(bool enabled) =>
+      _prefs.setBool(_revolutSyncEnabledKey, enabled);
 
   int getLastAutoBackupTimestamp() => _prefs.getInt(_lastAutoBackupKey) ?? 0;
   Future<void> setLastAutoBackupTimestamp(int timestamp) =>

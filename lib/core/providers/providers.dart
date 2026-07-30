@@ -26,7 +26,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pocketbase/pocketbase.dart' as pb;
 import 'package:budgetti/core/services/import_service.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
-import 'package:budgetti/core/services/email_sync_service.dart';
+import 'package:budgetti/core/services/bank_sync_service.dart';
+import 'package:budgetti/core/services/notification_listener_service.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -194,11 +195,18 @@ final gmailServiceProvider = Provider<GmailService>((ref) {
   return GmailService(authService);
 });
 
-final emailSyncServiceProvider = Provider<EmailSyncService>((ref) {
+/// Bridge to the Android notification listener: permission check and the
+/// deep-link to the system screen that grants it.
+final notificationListenerProvider =
+    Provider<NotificationListenerService>((ref) {
+  return const NotificationListenerService();
+});
+
+final bankSyncServiceProvider = Provider<BankSyncService>((ref) {
   final db = ref.watch(databaseProvider);
   final gmail = ref.watch(gmailServiceProvider);
   final userId = ref.watch(currentUserIdProvider);
-  return EmailSyncService(db, gmail, userId);
+  return BankSyncService(db, gmail, userId);
 });
 
 final pendingTransactionServiceProvider =

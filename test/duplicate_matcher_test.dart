@@ -1,4 +1,4 @@
-import 'package:budgetti/core/services/email_sync_service.dart';
+import 'package:budgetti/core/services/bank_sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

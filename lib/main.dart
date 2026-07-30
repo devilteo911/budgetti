@@ -14,7 +14,7 @@ import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
-import 'package:budgetti/core/services/email_sync_service.dart';
+import 'package:budgetti/core/services/bank_sync_service.dart';
 import 'package:budgetti/core/services/pocketbase_sync_service.dart';
 import 'package:pocketbase/pocketbase.dart' as pb;
 
@@ -51,22 +51,40 @@ void callbackDispatcher() {
     if (task == NotificationLogic.GMAIL_SYNC_TASK) {
       final prefs = await SharedPreferences.getInstance();
       final persistence = PersistenceService(prefs);
-      if (!persistence.getEmailSyncEnabled()) return Future.value(true);
+      final emailEnabled = persistence.getEmailSyncEnabled();
+      final revolutEnabled = persistence.getRevolutSyncEnabled();
+      if (!emailEnabled && !revolutEnabled) return Future.value(true);
 
       final db = AppDatabase();
       final authService = GoogleAuthService();
       final notificationService = NotificationService();
 
       try {
-        await authService.signInSilently();
         await notificationService.init();
 
         final gmail = GmailService(authService);
         // Background isolate has no auth session; approval re-stamps userId.
-        final sync = EmailSyncService(db, gmail, 'local');
+        final sync = BankSyncService(db, gmail, 'local');
+        final newDrafts = <PendingTransaction>[];
 
-        final newDrafts =
-            await sync.sync(days: persistence.getEmailSyncWindowDays());
+        // The two halves are independent: a Gmail auth failure must not stop
+        // the (offline, local) notification drain.
+        if (emailEnabled) {
+          try {
+            await authService.signInSilently();
+            newDrafts.addAll(
+                await sync.sync(days: persistence.getEmailSyncWindowDays()));
+          } catch (e) {
+            debugPrint('Error in background gmail sync: $e');
+          }
+        }
+        if (revolutEnabled) {
+          try {
+            newDrafts.addAll(await sync.syncNotifications());
+          } catch (e) {
+            debugPrint('Error in background revolut drain: $e');
+          }
+        }
 
         // 'skipped' rows are surfaced in the review inbox, not notified.
         for (final draft in newDrafts.where((d) => d.status == 'pending')) {
@@ -77,9 +95,9 @@ void callbackDispatcher() {
             type: draft.suggestedType,
           );
         }
-        debugPrint('Gmail sync (bg): ${newDrafts.length} new drafts');
+        debugPrint('Bank sync (bg): ${newDrafts.length} new drafts');
       } catch (e) {
-        debugPrint('Error in background gmail sync: $e');
+        debugPrint('Error in background bank sync: $e');
       } finally {
         await db.close();
       }
@@ -174,7 +192,7 @@ Future<void> main() async {
       Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode),
     ]);
     await container.read(notificationLogicProvider).updateAutoBackupSchedule();
-    await container.read(notificationLogicProvider).updateGmailSyncSchedule();
+    await container.read(notificationLogicProvider).updateBankSyncSchedule();
     await container.read(notificationLogicProvider).updatePocketBaseSyncSchedule();
     // Start the live push: sync to PocketBase on every local data change.
     container.read(pocketBaseAutoSyncProvider);
@@ -187,15 +205,21 @@ Future<void> main() async {
 
     // Foreground sync on launch: silently refresh the review inbox (the
     // background task is what fires notifications when the app is closed).
-    if (prefs.getBool('email_sync_enabled') == true) {
+    final persistence = container.read(persistenceServiceProvider);
+    if (persistence.getEmailSyncEnabled()) {
       try {
-        await container.read(emailSyncServiceProvider).sync(
-              days: container
-                  .read(persistenceServiceProvider)
-                  .getEmailSyncWindowDays(),
-            );
+        await container
+            .read(bankSyncServiceProvider)
+            .sync(days: persistence.getEmailSyncWindowDays());
       } catch (e) {
         debugPrint('Foreground gmail sync failed: $e');
+      }
+    }
+    if (persistence.getRevolutSyncEnabled()) {
+      try {
+        await container.read(bankSyncServiceProvider).syncNotifications();
+      } catch (e) {
+        debugPrint('Foreground revolut drain failed: $e');
       }
     }
 

@@ -7,8 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-/// Review inbox for transaction drafts parsed from Widiba emails. Approving a
-/// draft creates a real transaction (mapped to the "widiba" wallet); SEPA
+/// Review inbox for transaction drafts captured from the bank: Widiba
+/// notification emails and Revolut push notifications. Approving a draft creates
+/// a real transaction, mapped to the wallet matching the draft's source; SEPA
 /// transfers ask whether they're an expense or a wallet-to-wallet transfer.
 class EmailInboxScreen extends ConsumerWidget {
   const EmailInboxScreen({super.key});
@@ -42,7 +43,7 @@ class EmailInboxScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
                   child: Text(
-                    'Email non riconosciute',
+                    'Messaggi non riconosciuti',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -62,6 +63,14 @@ class EmailInboxScreen extends ConsumerWidget {
     );
   }
 }
+
+/// Human name of a draft's capture source, shown so the user can tell which
+/// wallet a draft will land in before approving it.
+String sourceLabel(String source) => switch (source) {
+      'revolut' => 'Revolut',
+      'widiba' => 'Widiba',
+      _ => source,
+    };
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.scheme});
@@ -96,7 +105,13 @@ class _DraftCard extends ConsumerWidget {
 
     final (icon, typeLabel) = switch (draft.suggestedType) {
       'income' => (Icons.south_west, 'Accredito'),
-      'undecided' => (Icons.help_outline, 'Bonifico SEPA — da decidere'),
+      // Only Widiba's SEPA transfers land undecided, hence the specific wording.
+      'undecided' => (
+          Icons.help_outline,
+          draft.source == 'widiba'
+              ? 'Bonifico SEPA — da decidere'
+              : 'Movimento — da decidere'
+        ),
       _ => (Icons.north_east, 'Pagamento'),
     };
 
@@ -113,10 +128,18 @@ class _DraftCard extends ConsumerWidget {
             children: [
               Icon(icon, size: 18, color: scheme.onSurfaceVariant),
               const SizedBox(width: 6),
-              Text(typeLabel,
-                  style: TextStyle(
-                      fontSize: 12, color: scheme.onSurfaceVariant)),
-              const Spacer(),
+              // Expanded, not Spacer: the long "da decidere" label plus a
+              // four-figure amount overflows the row on a narrow phone.
+              Expanded(
+                child: Text(
+                  '$typeLabel · ${sourceLabel(draft.source)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 8),
               Text(
                 currency.format(draft.parsedAmount),
                 style: TextStyle(
@@ -199,7 +222,7 @@ class _DraftCard extends ConsumerWidget {
       }
     }
 
-    var sourceId = await service.resolveWidibaAccountId();
+    var sourceId = await service.resolveAccountIdForSource(draft.source);
     if (sourceId == null) {
       if (!context.mounted) return;
       sourceId = await _pickSourceAccount(context, ref);
@@ -291,7 +314,7 @@ class _DraftCard extends ConsumerWidget {
   }
 }
 
-/// A transaction-looking email the parser couldn't read. Shown so the sync
+/// A transaction-looking message the parser couldn't read. Shown so the sync
 /// never swallows movements silently; tap reveals the raw snippet.
 class _SkippedCard extends ConsumerWidget {
   const _SkippedCard({required this.item});
@@ -325,7 +348,9 @@ class _SkippedCard extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Email del ${DateFormat('dd MMM yyyy').format(item.emailReceivedAt)} '
+            '${item.source == 'revolut' ? 'Notifica' : 'Email'} '
+            '${sourceLabel(item.source)} del '
+            '${DateFormat('dd MMM yyyy').format(item.emailReceivedAt)} '
             '— non sono riuscito a leggerla',
             style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           ),

@@ -33,11 +33,17 @@ class PendingTransactionService {
       ..orderBy([(t) => OrderingTerm.desc(t.emailReceivedAt)]);
   }
 
-  /// The wallet whose name contains "widiba" (case-insensitive), or null.
-  Future<String?> resolveWidibaAccountId() async {
+  /// The wallet a draft's [source] belongs to: the one whose name (or provider)
+  /// mentions the bank, e.g. source 'revolut' -> a wallet called "Revolut".
+  /// Null when there's no match, in which case the inbox asks the user.
+  Future<String?> resolveAccountIdForSource(String source) async {
+    final needle = source.toLowerCase();
     final accounts = await _finance.getAccounts();
     for (final a in accounts) {
-      if (a.name.toLowerCase().contains('widiba')) return a.id;
+      if (a.name.toLowerCase().contains(needle) ||
+          a.providerName.toLowerCase().contains(needle)) {
+        return a.id;
+      }
     }
     return null;
   }

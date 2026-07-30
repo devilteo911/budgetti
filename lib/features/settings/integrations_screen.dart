@@ -20,15 +20,26 @@ class IntegrationsScreen extends ConsumerStatefulWidget {
   ConsumerState<IntegrationsScreen> createState() => _IntegrationsScreenState();
 }
 
-class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
+class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
+    with WidgetsBindingObserver {
   bool _isLoading = false;
+  bool _notificationAccess = false;
   GoogleSignInAccount? _googleUser;
   StreamSubscription<GoogleSignInAccount?>? _googleUserSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeGoogleDriveState();
+    _refreshNotificationAccess();
+  }
+
+  /// Notification access is granted on a system screen, so the only way to know
+  /// it changed is to re-read it when the user comes back to the app.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshNotificationAccess();
   }
 
   void _initializeGoogleDriveState() {
@@ -45,6 +56,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _googleUserSubscription?.cancel();
     super.dispose();
   }
@@ -241,7 +253,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
     try {
       final persistence = ref.read(persistenceServiceProvider);
       final rows = await ref
-          .read(emailSyncServiceProvider)
+          .read(bankSyncServiceProvider)
           .sync(days: persistence.getEmailSyncWindowDays());
       final drafts = rows.where((r) => r.status == 'pending').length;
       final skipped = rows.where((r) => r.status == 'skipped').length;
@@ -333,6 +345,90 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
         ],
       ),
     );
+  }
+
+  // ---------- Bank notification capture (Revolut) ----------
+
+  Future<void> _refreshNotificationAccess() async {
+    final granted =
+        await ref.read(notificationListenerProvider).isAccessEnabled();
+    if (mounted) setState(() => _notificationAccess = granted);
+  }
+
+  /// Turning the switch on is useless without Android's notification access, so
+  /// send the user straight to the system screen that grants it. The switch
+  /// itself is still stored — [didChangeAppLifecycleState] re-reads the real
+  /// permission when they come back.
+  Future<void> _toggleRevolutSync(bool enabled) async {
+    final persistence = ref.read(persistenceServiceProvider);
+    await persistence.setRevolutSyncEnabled(enabled);
+    await ref.read(notificationLogicProvider).updateBankSyncSchedule();
+    if (mounted) setState(() {});
+
+    if (!enabled) return;
+    await _refreshNotificationAccess();
+    if (!mounted || _notificationAccess) return;
+
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Accesso alle notifiche'),
+        content: const Text(
+          'Per leggere le notifiche di Revolut, Budgetti ha bisogno '
+          'dell\'accesso alle notifiche di sistema. Aprire le impostazioni?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Più tardi'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Apri impostazioni'),
+          ),
+        ],
+      ),
+    );
+    if (go == true) {
+      await ref.read(notificationListenerProvider).openSettings();
+    }
+  }
+
+  Future<void> _syncRevolutNow() async {
+    setState(() => _isLoading = true);
+    try {
+      await _refreshNotificationAccess();
+      final rows =
+          await ref.read(bankSyncServiceProvider).syncNotifications();
+      final drafts = rows.where((r) => r.status == 'pending').length;
+      final skipped = rows.where((r) => r.status == 'skipped').length;
+      if (mounted) {
+        final parts = [
+          if (drafts > 0) '$drafts nuove transazioni da rivedere',
+          if (skipped > 0) '$skipped notifiche non riconosciute',
+        ];
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(parts.isEmpty
+                ? _notificationAccess
+                    ? 'Nessuna nuova notifica Revolut'
+                    : 'Accesso alle notifiche non concesso'
+                : parts.join(' · ')),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lettura notifiche fallita: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   // ---------- Auto backup ----------
@@ -581,7 +677,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
                     await persistence.setEmailSyncEnabled(v);
                     await ref
                         .read(notificationLogicProvider)
-                        .updateGmailSyncSchedule();
+                        .updateBankSyncSchedule();
                     if (mounted) setState(() {});
                   },
                 ),
@@ -602,6 +698,43 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen> {
               ],
             ],
           ),
+        // Outside the Google gate on purpose: reading Revolut's notifications
+        // needs Android notification access, not a Google account.
+        SettingsSection(
+          title: 'Sincronizzazione notifiche banca',
+          children: [
+            SettingsTile(
+              icon: Icons.notifications_active_outlined,
+              iconColor: scheme.primary,
+              title: 'Sincronizza notifiche Revolut',
+              subtitle: 'Crea bozze dalle notifiche push di Revolut',
+              trailing: Switch(
+                value: persistence.getRevolutSyncEnabled(),
+                onChanged: _toggleRevolutSync,
+              ),
+            ),
+            if (persistence.getRevolutSyncEnabled()) ...[
+              SettingsTile(
+                icon: _notificationAccess
+                    ? Icons.verified_user_outlined
+                    : Icons.error_outline,
+                iconColor: _notificationAccess ? scheme.primary : scheme.error,
+                title: 'Accesso alle notifiche',
+                subtitle: _notificationAccess
+                    ? 'Concesso'
+                    : 'Non concesso — tocca per aprire le impostazioni',
+                onTap: () =>
+                    ref.read(notificationListenerProvider).openSettings(),
+              ),
+              SettingsTile(
+                icon: Icons.sync,
+                iconColor: scheme.primary,
+                title: 'Leggi notifiche ora',
+                onTap: _isLoading ? null : _syncRevolutNow,
+              ),
+            ],
+          ],
+        ),
         SettingsSection(
           title: 'Auto Backup',
           children: [

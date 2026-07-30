@@ -230,12 +230,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               ref.read(accountsProvider.future),
               performSheetsSync(ref),
             ];
-            if (ref.read(persistenceServiceProvider).getEmailSyncEnabled()) {
-              tasks.add(ref.read(emailSyncServiceProvider).sync(
-                    days: ref
-                        .read(persistenceServiceProvider)
-                        .getEmailSyncWindowDays(),
-                  ));
+            final persistence = ref.read(persistenceServiceProvider);
+            if (persistence.getEmailSyncEnabled()) {
+              tasks.add(ref
+                  .read(bankSyncServiceProvider)
+                  .sync(days: persistence.getEmailSyncWindowDays()));
+            }
+            if (persistence.getRevolutSyncEnabled()) {
+              tasks.add(ref.read(bankSyncServiceProvider).syncNotifications());
             }
             await Future.wait(tasks);
           },

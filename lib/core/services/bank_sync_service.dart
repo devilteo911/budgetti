@@ -1,25 +1,47 @@
+import 'dart:convert';
+
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
+import 'package:budgetti/core/services/notification_listener_service.dart';
+import 'package:budgetti/core/services/revolut_notification_parser.dart';
 import 'package:budgetti/core/services/widiba_email_parser.dart';
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
-/// Fetches Widiba emails, parses them into transaction drafts, de-duplicates
-/// against already-seen Gmail message ids, and stores fresh drafts in
-/// [PendingTransactions] for the user to review. Account mapping and the final
-/// [Transactions] insert happen at approval time, not here.
-class EmailSyncService {
+/// Captures bank movements into [PendingTransactions] drafts for the user to
+/// review. Two capture paths, one review inbox:
+///
+///   - [sync] pulls Widiba notification emails over Gmail.
+///   - [syncNotifications] drains Revolut's Android push notifications.
+///
+/// Both de-duplicate against already-seen external ids, flag likely repeats of
+/// existing transactions, and surface anything unreadable rather than dropping
+/// it. Account mapping and the final [Transactions] insert happen at approval
+/// time, not here.
+///
+/// Note the column names: `gmailMessageId` is the generic external id (a Gmail
+/// message id or a notification content hash) and `emailSubject` /
+/// `emailReceivedAt` hold the notification title / post time for the Revolut
+/// path. They predate the second source; `source` is what tells the rows apart.
+class BankSyncService {
   final AppDatabase _db;
   final GmailService _gmail;
   final WidibaEmailParser _parser;
+  final RevolutNotificationParser _revolutParser;
+  final NotificationListenerService _notifications;
   final String _userId;
 
-  EmailSyncService(
+  BankSyncService(
     this._db,
     this._gmail,
     this._userId, {
     WidibaEmailParser parser = const WidibaEmailParser(),
-  }) : _parser = parser;
+    RevolutNotificationParser revolutParser = const RevolutNotificationParser(),
+    NotificationListenerService notifications = const NotificationListenerService(),
+  })  : _parser = parser,
+        _revolutParser = revolutParser,
+        _notifications = notifications;
 
   /// Runs one sync pass. Returns the newly inserted rows: parsed drafts
   /// (status 'pending') plus surfaced unparsable emails (status 'skipped').
@@ -96,8 +118,108 @@ class EmailSyncService {
     }
 
     if (insertedIds.isEmpty) return const [];
+    return _rowsById(insertedIds);
+  }
+
+  /// Drains the Revolut notification buffer into drafts. Same review inbox,
+  /// dedup ledger and duplicate flagging as the email path.
+  ///
+  /// One difference from [sync]: a drained notification is gone from the buffer
+  /// for good, so there is no retry pass. Notifications the parser can't read
+  /// are surfaced with their raw text and stay that way — the fix is to teach
+  /// the parser the template and re-enter that one by hand.
+  Future<List<PendingTransaction>> syncNotifications() async {
+    final notifications = await _notifications.pull();
+    if (notifications.isEmpty) return const [];
+
+    final existingIds = await _existingGmailIds();
+    final insertedIds = <String>[];
+
+    for (final n in notifications) {
+      final externalId = _notificationId(n);
+      if (existingIds.contains(externalId)) continue;
+      existingIds.add(externalId);
+
+      final title = n.title.trim().isEmpty ? 'Notifica Revolut' : n.title.trim();
+      final parsed =
+          _revolutParser.parse(title: n.title, text: n.text, when: n.when);
+
+      if (parsed == null) {
+        final surfaced = _revolutParser.looksTransactional(n.title, n.text);
+        final raw = [n.title.trim(), n.text.trim()]
+            .where((s) => s.isNotEmpty)
+            .join(' ⟂ ');
+        await _db.into(_db.pendingTransactions).insert(
+              PendingTransactionsCompanion.insert(
+                id: 'pending_$externalId',
+                userId: Value(_userId),
+                gmailMessageId: externalId,
+                source: const Value('revolut'),
+                emailSubject: title,
+                emailReceivedAt: n.when.toLocal(),
+                parsedAmount: 0,
+                parsedDescription: title,
+                parsedDate: n.when.toLocal(),
+                suggestedType: const Value('undecided'),
+                rawSnippet: Value(raw.length > 240 ? '${raw.substring(0, 240)}…' : raw),
+                status: Value(surfaced ? 'skipped' : 'ignored'),
+                createdAt: DateTime.now(),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+        if (surfaced) insertedIds.add('pending_$externalId');
+        if (!surfaced) debugPrint('RevolutSync: ignored "$title"');
+        continue;
+      }
+
+      final duplicate = await _findDuplicate(parsed);
+
+      await _db.into(_db.pendingTransactions).insert(
+            PendingTransactionsCompanion.insert(
+              id: 'pending_$externalId',
+              userId: Value(_userId),
+              gmailMessageId: externalId,
+              source: const Value('revolut'),
+              emailSubject: title,
+              emailReceivedAt: n.when.toLocal(),
+              parsedAmount: parsed.amount,
+              parsedDescription: parsed.description,
+              parsedDate: parsed.date,
+              suggestedType: Value(parsed.type),
+              suggestedCategory: Value(guessCategory(parsed)),
+              counterparty: Value(parsed.counterparty),
+              rawSnippet: Value(parsed.rawSnippet),
+              createdAt: DateTime.now(),
+              duplicateOfId: Value(duplicate?.transactionId),
+              duplicateScore: Value(duplicate?.score),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      insertedIds.add('pending_$externalId');
+    }
+
+    if (insertedIds.isEmpty) return const [];
+    return _rowsById(insertedIds);
+  }
+
+  /// Content hash, not the Android notification key: apps reuse notification
+  /// ids, so keying on `sbn.key` would make two unrelated spends collide and
+  /// silently drop the second one.
+  ///
+  /// ponytail: this does collapse two byte-identical notifications posted in
+  /// the same millisecond — same merchant, same amount, same instant. If real
+  /// double-charges start going missing, add the notification key back as a
+  /// tiebreaker.
+  String _notificationId(RawNotification n) {
+    final digest = sha1.convert(utf8.encode(
+      '${n.title}|${n.text}|${n.when.millisecondsSinceEpoch}',
+    ));
+    return 'rev_${digest.toString().substring(0, 16)}';
+  }
+
+  Future<List<PendingTransaction>> _rowsById(List<String> ids) {
     return (_db.select(_db.pendingTransactions)
-          ..where((t) => t.id.isIn(insertedIds))
+          ..where((t) => t.id.isIn(ids))
           ..orderBy([(t) => OrderingTerm.desc(t.emailReceivedAt)]))
         .get();
   }
@@ -168,7 +290,7 @@ class EmailSyncService {
   /// Looks for an existing transaction the draft may be repeating: same
   /// amount, within ±3 days, with date proximity and description similarity
   /// combined into a confidence score. Returns the best match above threshold.
-  Future<DuplicateMatch?> _findDuplicate(ParsedWidibaEmail parsed) async {
+  Future<DuplicateMatch?> _findDuplicate(ParsedBankDraft parsed) async {
     final day =
         DateTime(parsed.date.year, parsed.date.month, parsed.date.day);
     final candidates = await (_db.select(_db.transactions)
@@ -269,7 +391,7 @@ Set<String> _tokens(String s) {
 /// Best-effort category guess from the merchant/counterparty text. Returns null
 /// when nothing matches, so the review UI can fall back to "uncategorised".
 /// Italian merchant keywords mapped to the app's (English) category names.
-String? guessCategory(ParsedWidibaEmail parsed) {
+String? guessCategory(ParsedBankDraft parsed) {
   final text = '${parsed.description} ${parsed.counterparty ?? ''}'.toLowerCase();
 
   final table = parsed.type == 'income' ? _incomeKeywords : _expenseKeywords;

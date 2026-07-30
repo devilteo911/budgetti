@@ -13,32 +13,16 @@
 ///     the real notification)
 library;
 
-/// Result of parsing a single Widiba email. [amount] is signed
-/// (negative = money out). [type] is one of income/expense/undecided.
-class ParsedWidibaEmail {
-  final double amount;
-  final String description;
-  final DateTime date;
-  final String type;
-  final String? counterparty;
-  final String rawSnippet;
+import 'package:budgetti/core/services/bank_draft.dart';
 
-  const ParsedWidibaEmail({
-    required this.amount,
-    required this.description,
-    required this.date,
-    required this.type,
-    required this.counterparty,
-    required this.rawSnippet,
-  });
-}
+export 'package:budgetti/core/services/bank_draft.dart' show ParsedBankDraft;
 
 class WidibaEmailParser {
   const WidibaEmailParser();
 
   /// Returns a parsed draft, or null if the email is unrecognised or is missing
   /// the amount (the one field we never invent).
-  ParsedWidibaEmail? parse({
+  ParsedBankDraft? parse({
     required String subject,
     required String body,
     required DateTime receivedAt,
@@ -57,7 +41,7 @@ class WidibaEmailParser {
         _route(text.toLowerCase(), text, receivedAt, snippet);
   }
 
-  ParsedWidibaEmail? _route(
+  ParsedBankDraft? _route(
     String haystack,
     String text,
     DateTime receivedAt,
@@ -85,7 +69,7 @@ class WidibaEmailParser {
   // "il giorno 04/06/2026 alle ore 13:06 hai effettuato un pagamento di 11,00
   //  euro con Carta di debito n. **** **30 presso LO CHEF."
   // The payment may carry a channel qualifier: "un pagamento INTERNET di".
-  ParsedWidibaEmail? _parseCardPayment(
+  ParsedBankDraft? _parseCardPayment(
     String text,
     DateTime receivedAt,
     String snippet,
@@ -102,7 +86,7 @@ class WidibaEmailParser {
     final merchant = m.group(4)!.trim();
     final date = _parseDate(m.group(1)!, time: m.group(2)) ?? receivedAt;
 
-    return ParsedWidibaEmail(
+    return ParsedBankDraft(
       amount: -amount,
       description: merchant,
       date: date,
@@ -116,7 +100,7 @@ class WidibaEmailParser {
   // per Bonifico a tuo favore ... ORD: Giada Lagetti BIC: REVOITM2XXX 04.06.26"
   // Label/value form (instant SEPA in your favour): "Importo 7,00 € ...
   // Ordinante ... Causale ..."
-  ParsedWidibaEmail? _parseCredit(
+  ParsedBankDraft? _parseCredit(
     String text,
     DateTime receivedAt,
     String snippet,
@@ -155,7 +139,7 @@ class WidibaEmailParser {
 
     final description = ordinante ?? causale ?? 'Accredito';
 
-    return ParsedWidibaEmail(
+    return ParsedBankDraft(
       amount: amount,
       description: description,
       date: date,
@@ -169,7 +153,7 @@ class WidibaEmailParser {
   // "... Importo 300,00 € Commissioni bancarie 0,00 € Dal Conto 6003/656696
   //  Al conto IT82R... ID transazione (CRO) A100... Data di addebito 22/05/2026
   //  Causale Acconto per acquisto moto targata ..."
-  ParsedWidibaEmail? _parseSepaTransfer(
+  ParsedBankDraft? _parseSepaTransfer(
     String text,
     DateTime receivedAt,
     String snippet,
@@ -198,7 +182,7 @@ class WidibaEmailParser {
 
     final causale = _labelValue(text, 'Causale');
 
-    return ParsedWidibaEmail(
+    return ParsedBankDraft(
       amount: -amount,
       description: causale ?? 'Bonifico SEPA',
       date: date,
@@ -210,7 +194,7 @@ class WidibaEmailParser {
 
   // "Pagamento inserito il 14/05/2026 ... Importo 136,00 € Commissioni Banca
   //  1,40 € ... Causale Quota 2026 Money Management Imposte e tasse"
-  ParsedWidibaEmail? _parseCbill(
+  ParsedBankDraft? _parseCbill(
     String text,
     DateTime receivedAt,
     String snippet,
@@ -220,7 +204,7 @@ class WidibaEmailParser {
 
     final causale = _labelValue(text, 'Causale');
 
-    return ParsedWidibaEmail(
+    return ParsedBankDraft(
       amount: -debit.amount,
       description: causale ?? 'Bollettino CBILL',
       date: debit.date,
@@ -233,7 +217,7 @@ class WidibaEmailParser {
   // "Modello F24 inserito il 14/05/2026 ... Importo 250,00 € [Commissioni ...]".
   // Same structured-debit shape as CBILL; the payee is always the tax authority,
   // so the description is fixed rather than pulled from a causale.
-  ParsedWidibaEmail? _parseF24(
+  ParsedBankDraft? _parseF24(
     String text,
     DateTime receivedAt,
     String snippet,
@@ -241,7 +225,7 @@ class WidibaEmailParser {
     final debit = _parseStructuredDebit(text, receivedAt);
     if (debit == null) return null;
 
-    return ParsedWidibaEmail(
+    return ParsedBankDraft(
       amount: -debit.amount,
       description: 'Modello F24',
       date: debit.date,

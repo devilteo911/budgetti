@@ -38,6 +38,8 @@ class RawNotification {
 /// MainActivity channel handler isn't alive. The channel is reserved for the
 /// foreground-only permission check and settings deep-link.
 class NotificationListenerService {
+  const NotificationListenerService();
+
   static const _channel = MethodChannel('budgetti/notifications');
   static const _bufferFile = 'revolut_notifications.json';
 

@@ -133,12 +133,19 @@ class NotificationLogic {
     );
   }
 
-  /// Registers (or cancels) the periodic background poll of Widiba emails.
-  /// 15 minutes is the Android minimum for periodic work.
-  Future<void> updateGmailSyncSchedule() async {
+  /// Registers (or cancels) the periodic bank-capture poll: Widiba emails over
+  /// Gmail and/or the Revolut notification buffer. One task serves both — 15
+  /// minutes is the Android minimum for periodic work, and there's no reason to
+  /// wake the device twice.
+  ///
+  /// The task keeps its original unique name so an already-registered schedule
+  /// from a previous install still gets cancelled here.
+  Future<void> updateBankSyncSchedule() async {
     await Workmanager().cancelByUniqueName(GMAIL_SYNC_TASK);
 
-    if (!_persistenceService.getEmailSyncEnabled()) return;
+    final email = _persistenceService.getEmailSyncEnabled();
+    final revolut = _persistenceService.getRevolutSyncEnabled();
+    if (!email && !revolut) return;
 
     await Workmanager().registerPeriodicTask(
       GMAIL_SYNC_TASK,
@@ -146,13 +153,16 @@ class NotificationLogic {
       frequency: const Duration(minutes: 15),
       initialDelay: const Duration(minutes: 15),
       constraints: Constraints(
-        networkType: NetworkType.connected,
+        // Draining notifications is local work, so don't make it wait for a
+        // connection; only the Gmail half actually needs one.
+        networkType: revolut ? NetworkType.notRequired : NetworkType.connected,
         requiresBatteryNotLow: false,
       ),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
 
-    print('📧 Gmail sync scheduled every 15 minutes');
+    print('🏦 Bank sync scheduled every 15 minutes '
+        '(email: $email, revolut: $revolut)');
   }
 
   /// Registers (or cancels) the daily PocketBase sync. Piggybacks the existing
