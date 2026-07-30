@@ -102,7 +102,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
     final tagsAsync = ref.watch(tagsProvider);
     final accountsAsync = ref.watch(accountsProvider);
     
-    final categoryColors = ref.watch(categoryColorCacheProvider);
+    final categoryColors = ref.watch(categoryColorCacheProvider(Theme.of(context).colorScheme.brightness));
     final tagColors = ref.watch(tagColorCacheProvider);
 
     return SafeArea(

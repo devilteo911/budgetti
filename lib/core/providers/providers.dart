@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 
 import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
@@ -596,17 +597,27 @@ final accountMapProvider = Provider<Map<String, Account>>((ref) {
   return {for (var a in accounts) a.id: a};
 });
 
-// Cache providers for colors and icons to avoid per-frame allocations
-final categoryColorCacheProvider = Provider<Map<String, Color>>((ref) {
+// Cache providers for colors and icons to avoid per-frame allocations.
+// Both resolve through core/theme/ledger_style.dart rather than the stored
+// colorHex/iconCode — see that file for why.
+final categoryColorCacheProvider =
+    Provider.family<Map<String, Color>, Brightness>((ref, brightness) {
   final categories = ref.watch(categoriesProvider).value ?? [];
-  return {for (var c in categories) c.name: Color(c.colorHex)};
+  return buildCategoryColors(
+    [for (final c in categories) (name: c.name, type: c.type)],
+    brightness,
+  );
 });
 
 final categoryIconCacheProvider = Provider<Map<String, IconData>>((ref) {
   final categories = ref.watch(categoriesProvider).value ?? [];
   return {
     for (var c in categories)
-      c.name: IconData(c.iconCode, fontFamily: 'MaterialIcons')
+      c.name: categoryIcon(
+        c.name,
+        iconCode: c.iconCode,
+        isIncome: c.type == 'income',
+      )
   };
 });
 

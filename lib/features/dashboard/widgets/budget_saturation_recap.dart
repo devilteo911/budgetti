@@ -1,5 +1,6 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,9 @@ class BudgetSaturationRecap extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final catColors = ref.watch(categoryColorCacheProvider(scheme.brightness));
+    final catIcons = ref.watch(categoryIconCacheProvider);
     final budgetsAsync = ref.watch(budgetsProvider);
     final transactionsAsync = ref.watch(transactionsProvider(null));
     final categoriesAsync = ref.watch(categoriesProvider);
@@ -112,9 +116,9 @@ class BudgetSaturationRecap extends ConsumerWidget {
                             color: AppTheme.surfaceGrey,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: Color(
-                                category.colorHex,
-                              ).withOpacity(0.3),
+                              color: (catColors[category.name] ??
+                                      unknownCategoryInk(scheme))
+                                  .withValues(alpha: 0.3),
                               width: 1.5,
                             ),
                           ),
@@ -124,8 +128,10 @@ class BudgetSaturationRecap extends ConsumerWidget {
                               Row(
                                 children: [
                                   Icon(
-                                    IconData(category.iconCode, fontFamily: 'MaterialIcons'),
-                                    color: Color(category.colorHex),
+                                    catIcons[category.name] ??
+                                        categoryIcon(category.name),
+                                    color: catColors[category.name] ??
+                                        unknownCategoryInk(scheme),
                                     size: 20,
                                   ),
                                   const SizedBox(width: 8),

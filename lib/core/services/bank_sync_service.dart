@@ -4,6 +4,7 @@ import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
 import 'package:budgetti/core/services/notification_listener_service.dart';
 import 'package:budgetti/core/services/revolut_notification_parser.dart';
+import 'package:budgetti/core/services/revolut_statement_parser.dart';
 import 'package:budgetti/core/services/widiba_email_parser.dart';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
@@ -202,6 +203,92 @@ class BankSyncService {
     return _rowsById(insertedIds);
   }
 
+  /// Turns Revolut's "Estratto conto" CSV into drafts. Same review inbox as the
+  /// other two paths, so the user still approves row by row.
+  ///
+  /// Two dedup layers, because the statement overlaps whatever the notification
+  /// listener already caught: an identical row imported before is skipped by its
+  /// external id, a movement already sitting in the inbox is skipped by day +
+  /// amount, and one already approved into [Transactions] comes through flagged
+  /// as a duplicate for the user to reject.
+  Future<RevolutImportResult> importStatement(String csv) async {
+    final statement = const RevolutStatementParser().parse(csv);
+    final existingIds = await _existingGmailIds();
+    final pending = await _pendingKeys();
+    final insertedIds = <String>[];
+    var duplicates = 0;
+
+    for (final draft in statement.rows) {
+      final externalId = _statementId(draft);
+      if (existingIds.contains(externalId)) {
+        duplicates++;
+        continue;
+      }
+      final key = _dayAmountKey(draft.date, draft.amount);
+      if (pending.contains(key)) {
+        duplicates++;
+        continue;
+      }
+      existingIds.add(externalId);
+      pending.add(key);
+
+      final duplicate = await _findDuplicate(draft);
+
+      await _db.into(_db.pendingTransactions).insert(
+            PendingTransactionsCompanion.insert(
+              id: 'pending_$externalId',
+              userId: Value(_userId),
+              gmailMessageId: externalId,
+              source: const Value('revolut'),
+              emailSubject: draft.description,
+              emailReceivedAt: draft.date,
+              parsedAmount: draft.amount,
+              parsedDescription: draft.description,
+              parsedDate: draft.date,
+              suggestedType: Value(draft.type),
+              suggestedCategory: Value(guessCategory(draft)),
+              counterparty: Value(draft.counterparty),
+              rawSnippet: Value(draft.rawSnippet),
+              createdAt: DateTime.now(),
+              duplicateOfId: Value(duplicate?.transactionId),
+              duplicateScore: Value(duplicate?.score),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      insertedIds.add('pending_$externalId');
+    }
+
+    return RevolutImportResult(
+      drafts: insertedIds.isEmpty ? const [] : await _rowsById(insertedIds),
+      duplicates: duplicates,
+      unreadable: statement.skipped.length,
+    );
+  }
+
+  /// Stable across re-imports of an overlapping statement: the same movement
+  /// hashes the same however many times the CSV is exported.
+  String _statementId(ParsedBankDraft draft) {
+    final day = DateTime(draft.date.year, draft.date.month, draft.date.day);
+    final digest = sha1.convert(utf8.encode(
+      '${day.toIso8601String()}|${draft.amount.toStringAsFixed(2)}|${draft.description}',
+    ));
+    return 'revcsv_${digest.toString().substring(0, 16)}';
+  }
+
+  /// Day + amount is all a statement row and a push notification agree on: a
+  /// push says "Vega Carburanti", the statement may say something longer.
+  String _dayAmountKey(DateTime date, double amount) =>
+      '${date.year}-${date.month}-${date.day}|${amount.toStringAsFixed(2)}';
+
+  Future<Set<String>> _pendingKeys() async {
+    final rows = await (_db.select(_db.pendingTransactions)
+          ..where((t) => t.status.equals('pending')))
+        .get();
+    return rows
+        .map((r) => _dayAmountKey(r.parsedDate, r.parsedAmount))
+        .toSet();
+  }
+
   /// Content hash, not the Android notification key: apps reuse notification
   /// ids, so keying on `sbn.key` would make two unrelated spends collide and
   /// silently drop the second one.
@@ -323,6 +410,19 @@ class BankSyncService {
     }
     return best;
   }
+}
+
+/// What one statement import produced: the drafts to review, how many rows were
+/// already known, and how many table lines the parser couldn't read.
+class RevolutImportResult {
+  final List<PendingTransaction> drafts;
+  final int duplicates;
+  final int unreadable;
+  const RevolutImportResult({
+    required this.drafts,
+    required this.duplicates,
+    required this.unreadable,
+  });
 }
 
 class DuplicateMatch {

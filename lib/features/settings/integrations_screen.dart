@@ -10,6 +10,7 @@ import 'package:budgetti/features/settings/widgets/settings_tile.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
@@ -431,6 +432,55 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     }
   }
 
+  /// Revolut's own CSV export, picked from storage. The phone is the only place
+  /// that file can be produced, which is why this lives here and not only on the
+  /// web dashboard. Rows land in the same review inbox as the notifications —
+  /// nothing is written to the ledger until the user approves it.
+  Future<void> _importRevolutStatement() async {
+    // FileType.any, not a 'csv' extension filter: Android's document picker
+    // hands CSVs over as text/comma-separated-values or octet-stream depending
+    // on the provider, and the filtered picker then greys the file out.
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    final path = result?.files.single.path;
+    if (path == null || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final csv = await File(path).readAsString();
+      final r = await ref.read(bankSyncServiceProvider).importStatement(csv);
+      if (!mounted) return;
+      final parts = [
+        if (r.drafts.isNotEmpty) '${r.drafts.length} da rivedere',
+        if (r.duplicates > 0) '${r.duplicates} già presenti',
+        if (r.unreadable > 0) '${r.unreadable} righe illeggibili',
+      ];
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(parts.isEmpty
+              ? 'Nessuna transazione trovata nel file'
+              : parts.join(' · ')),
+          action: r.drafts.isEmpty
+              ? null
+              : SnackBarAction(
+                  label: 'Rivedi',
+                  onPressed: () => context.push('/review-inbox'),
+                ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Import estratto conto fallito: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   // ---------- Auto backup ----------
 
   Future<void> _pickAutoBackupTime() async {
@@ -733,6 +783,15 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
                 onTap: _isLoading ? null : _syncRevolutNow,
               ),
             ],
+            // Outside the switch: the CSV works with notification capture off,
+            // and it's the only way to get movements from before it was on.
+            SettingsTile(
+              icon: Icons.upload_file_outlined,
+              iconColor: scheme.primary,
+              title: 'Importa estratto conto Revolut',
+              subtitle: 'Da CSV — crea bozze da rivedere, salta i doppioni',
+              onTap: _isLoading ? null : _importRevolutStatement,
+            ),
           ],
         ),
         SettingsSection(

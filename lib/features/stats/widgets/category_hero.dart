@@ -4,8 +4,10 @@ import 'package:budgetti/models/transaction.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 
-class CategoryHero extends StatelessWidget {
+class CategoryHero extends ConsumerWidget {
   final Category category;
   final List<Transaction> transactionsForPeriod;
   final StatsPeriod period;
@@ -20,9 +22,11 @@ class CategoryHero extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final catColor = Color(category.colorHex);
+    final catColor = ref.watch(
+            categoryColorCacheProvider(scheme.brightness))[category.name] ??
+        unknownCategoryInk(scheme);
     final now = DateTime.now();
     final isMonthly = period.month != null;
 

@@ -1,5 +1,6 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,9 @@ class _ExpenseDistributionChartState extends ConsumerState<ExpenseDistributionCh
     );
     final categoryMap = ref.watch(categoryMapProvider);
     final currencyFormatter = ref.watch(currencyProvider);
+    final scheme = Theme.of(context).colorScheme;
+    final catColors = ref.watch(categoryColorCacheProvider(scheme.brightness));
+    final catIcons = ref.watch(categoryIconCacheProvider);
 
     return statsAsync.when(
       loading: () => const Center(
@@ -87,7 +91,8 @@ class _ExpenseDistributionChartState extends ConsumerState<ExpenseDistributionCh
                           (data.value / stats.totalExpenses * 100).toStringAsFixed(1);
 
                       return PieChartSectionData(
-                        color: Color(category.colorHex),
+                        color: catColors[category.name] ??
+                            unknownCategoryInk(scheme),
                         value: data.value,
                         title: isTouched ? "$percentage%" : '',
                         radius: radius,
@@ -115,7 +120,8 @@ class _ExpenseDistributionChartState extends ConsumerState<ExpenseDistributionCh
                 final percentage =
                     (entry.value / stats.totalExpenses * 100).toStringAsFixed(1);
 
-                return _buildLegendItem(category, entry.value, percentage, currencyFormatter);
+                return _buildLegendItem(category, entry.value, percentage,
+                    currencyFormatter, catColors, catIcons, scheme);
               }),
             ],
           ),
@@ -125,7 +131,14 @@ class _ExpenseDistributionChartState extends ConsumerState<ExpenseDistributionCh
   }
 
   Widget _buildLegendItem(
-      Category category, double value, String percentage, dynamic currencyFormatter) {
+      Category category,
+      double value,
+      String percentage,
+      dynamic currencyFormatter,
+      Map<String, Color> catColors,
+      Map<String, IconData> catIcons,
+      ColorScheme scheme) {
+    final catColor = catColors[category.name] ?? unknownCategoryInk(scheme);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -139,14 +152,14 @@ class _ExpenseDistributionChartState extends ConsumerState<ExpenseDistributionCh
             width: 12,
             height: 12,
             decoration: BoxDecoration(
-              color: Color(category.colorHex),
+              color: catColor,
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 12),
           Icon(
-            IconData(category.iconCode, fontFamily: 'MaterialIcons'),
-            color: Color(category.colorHex),
+            catIcons[category.name] ?? categoryIcon(category.name),
+            color: catColor,
             size: 16,
           ),
           const SizedBox(width: 8),

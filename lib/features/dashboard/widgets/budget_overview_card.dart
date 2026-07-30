@@ -16,7 +16,7 @@ class BudgetOverviewCard extends ConsumerWidget {
     final currency = ref.watch(currencyProvider);
     final budgets = ref.watch(budgetsProvider).value ?? const [];
     final spending = ref.watch(budgetStatsProvider).value ?? const {};
-    final catColors = ref.watch(categoryColorCacheProvider);
+    final catColors = ref.watch(categoryColorCacheProvider(Theme.of(context).colorScheme.brightness));
 
     final border = BorderSide(color: scheme.outline.withValues(alpha: 0.12));
     final boxBorder = Border(bottom: border, left: border, right: border);

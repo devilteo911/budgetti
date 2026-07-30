@@ -1,4 +1,5 @@
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/features/stats/widgets/budget_progress.dart';
 import 'package:budgetti/features/stats/widgets/category_hero.dart';
 import 'package:budgetti/features/stats/widgets/category_trend_chart.dart';
@@ -69,7 +70,9 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
         ),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (all) {
-          final catColor = Color(widget.category.colorHex);
+          final catColor = ref.watch(categoryColorCacheProvider(
+                  scheme.brightness))[widget.category.name] ??
+              unknownCategoryInk(scheme);
           final categoryAll = all
               .where((t) =>
                   t.category == widget.category.name && t.amount < 0)

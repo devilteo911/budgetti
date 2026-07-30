@@ -443,7 +443,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
 
   Widget _buildCategoryRow() {
     final categoriesAsync = ref.watch(categoriesProvider);
-    final colors = ref.watch(categoryColorCacheProvider);
+    final colors = ref.watch(categoryColorCacheProvider(Theme.of(context).colorScheme.brightness));
     final icons = ref.watch(categoryIconCacheProvider);
     return categoriesAsync.when(
       loading: () => LedgerFieldRow(

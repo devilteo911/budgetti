@@ -4,6 +4,7 @@ import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
@@ -187,7 +188,7 @@ class CategoriesScreen extends ConsumerWidget {
   }
 }
 
-class _CategoryTile extends StatelessWidget {
+class _CategoryTile extends ConsumerWidget {
   final Category category;
   final VoidCallback onTap;
   final Future<void> Function() onDelete;
@@ -199,9 +200,13 @@ class _CategoryTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final color = Color(category.colorHex);
+    // Show what the category actually looks like everywhere else, not the
+    // stored colorHex — otherwise this screen is the one place that disagrees.
+    final color = ref.watch(categoryColorCacheProvider(
+            scheme.brightness))[category.name] ??
+        unknownCategoryInk(scheme);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -258,8 +263,9 @@ class _CategoryTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      IconData(category.iconCode,
-                          fontFamily: 'MaterialIcons'),
+                      ref.watch(categoryIconCacheProvider)[category.name] ??
+                          categoryIcon(category.name,
+                              iconCode: category.iconCode),
                       color: color,
                       size: 22,
                     ),

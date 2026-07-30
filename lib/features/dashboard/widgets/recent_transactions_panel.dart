@@ -17,7 +17,7 @@ class RecentTransactionsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final currency = ref.watch(currencyProvider);
-    final catColors = ref.watch(categoryColorCacheProvider);
+    final catColors = ref.watch(categoryColorCacheProvider(Theme.of(context).colorScheme.brightness));
 
     final border = BorderSide(color: scheme.outline.withValues(alpha: 0.12));
     final rowBorder = BorderSide(color: scheme.outline.withValues(alpha: 0.06));

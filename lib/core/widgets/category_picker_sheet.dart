@@ -21,7 +21,7 @@ class CategoryPickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categoriesAsync = ref.watch(categoriesProvider);
-    final categoryColors = ref.watch(categoryColorCacheProvider);
+    final categoryColors = ref.watch(categoryColorCacheProvider(Theme.of(context).colorScheme.brightness));
     final categoryIcons = ref.watch(categoryIconCacheProvider);
 
     return ConstrainedBox(

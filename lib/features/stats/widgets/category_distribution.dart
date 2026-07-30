@@ -1,9 +1,12 @@
+import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-class CategoryDistribution extends StatefulWidget {
+class CategoryDistribution extends ConsumerStatefulWidget {
   final List<MapEntry<String, double>> sortedEntries;
   final Map<String, Category> categoryMap;
   final double total;
@@ -18,10 +21,11 @@ class CategoryDistribution extends StatefulWidget {
   });
 
   @override
-  State<CategoryDistribution> createState() => _CategoryDistributionState();
+  ConsumerState<CategoryDistribution> createState() =>
+      _CategoryDistributionState();
 }
 
-class _CategoryDistributionState extends State<CategoryDistribution> {
+class _CategoryDistributionState extends ConsumerState<CategoryDistribution> {
   int? _focused;
 
   @override
@@ -30,9 +34,16 @@ class _CategoryDistributionState extends State<CategoryDistribution> {
       return const SizedBox.shrink();
     }
 
-    final resolved = widget.sortedEntries
-        .map((e) => _ResolvedEntry(entry: e, category: _resolve(e.key)))
-        .toList();
+    final scheme = Theme.of(context).colorScheme;
+    final catColors = ref.watch(categoryColorCacheProvider(scheme.brightness));
+    final resolved = widget.sortedEntries.map((e) {
+      final category = _resolve(e.key);
+      return _ResolvedEntry(
+        entry: e,
+        category: category,
+        color: catColors[category.name] ?? unknownCategoryInk(scheme),
+      );
+    }).toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -74,9 +85,13 @@ class _CategoryDistributionState extends State<CategoryDistribution> {
 class _ResolvedEntry {
   final MapEntry<String, double> entry;
   final Category category;
-  _ResolvedEntry({required this.entry, required this.category});
+  final Color color;
+  _ResolvedEntry({
+    required this.entry,
+    required this.category,
+    required this.color,
+  });
   double get value => entry.value;
-  Color get color => Color(category.colorHex);
   String get name => category.name;
 }
 

@@ -2,8 +2,11 @@ import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
+import 'package:budgetti/core/providers/providers.dart';
 
-class BudgetRow extends StatelessWidget {
+class BudgetRow extends ConsumerWidget {
   final int rank;
   final Category category;
   final double spent;
@@ -28,9 +31,11 @@ class BudgetRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final catColor = Color(category.colorHex);
+    final catColor = ref.watch(
+            categoryColorCacheProvider(scheme.brightness))[category.name] ??
+        unknownCategoryInk(scheme);
     final hasLimit = limit > 0;
     final rawPct = hasLimit ? spent / limit : 0.0;
     final pct = rawPct.clamp(0.0, 1.0);
@@ -69,7 +74,8 @@ class BudgetRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Icon(
-                  IconData(category.iconCode, fontFamily: 'MaterialIcons'),
+                  ref.watch(categoryIconCacheProvider)[category.name] ??
+                      categoryIcon(category.name, iconCode: category.iconCode),
                   color: catColor,
                   size: 18,
                 ),

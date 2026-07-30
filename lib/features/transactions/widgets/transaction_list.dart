@@ -105,46 +105,57 @@ class _TransactionListState extends ConsumerState<TransactionList>
           child: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final itemIndex = index ~/ 2;
-                if (itemIndex >= monthTxns.length) return null;
-                final isDivider = index.isOdd;
-                if (isDivider) {
-                  if (itemIndex >= monthTxns.length - 1) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Container(
-                      height: 1,
-                      color: scheme.outlineVariant.withValues(alpha: 0.18),
+                final txn = monthTxns[index];
+                final isLast = index == monthTxns.length - 1;
+                // Name the wallet only when it changes, so a run of rows from
+                // the same account says it once instead of eleven times.
+                final showWallet = index == 0 ||
+                    monthTxns[index - 1].accountId != txn.accountId;
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TransactionLedgerItem(
+                      key: ValueKey(txn.id),
+                      transaction: txn,
+                      isSelected: widget.selectedIds.contains(txn.id),
+                      showWallet: showWallet,
+                      onLongPress: () => widget.onToggleSelection(txn.id),
+                      onTap: () {
+                        if (isSelectionMode) {
+                          widget.onToggleSelection(txn.id);
+                        } else {
+                          final originalIndex =
+                              widget.transactions.indexOf(txn);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => TransactionDetailScreen(
+                                transactions: widget.transactions,
+                                initialIndex: originalIndex,
+                              ),
+                            ),
+                          );
+                        }
+                      },
                     ),
-                  );
-                }
-                final txn = monthTxns[itemIndex];
-                return TransactionLedgerItem(
-                  key: ValueKey(txn.id),
-                  transaction: txn,
-                  isSelected: widget.selectedIds.contains(txn.id),
-                  onLongPress: () => widget.onToggleSelection(txn.id),
-                  onTap: () {
-                    if (isSelectionMode) {
-                      widget.onToggleSelection(txn.id);
-                    } else {
-                      final originalIndex =
-                          widget.transactions.indexOf(txn);
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => TransactionDetailScreen(
-                            transactions: widget.transactions,
-                            initialIndex: originalIndex,
-                          ),
+                    // The rule separates content, so it starts at the title
+                    // column rather than slicing the whole screen.
+                    if (!isLast)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: kLedgerInset + kLedgerTextOffset,
+                          right: kLedgerInset,
                         ),
-                      );
-                    }
-                  },
+                        child: Container(
+                          height: 1,
+                          color:
+                              scheme.outlineVariant.withValues(alpha: 0.22),
+                        ),
+                      ),
+                  ],
                 );
               },
-              childCount: monthTxns.length * 2,
+              childCount: monthTxns.length,
             ),
           ),
         ),

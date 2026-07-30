@@ -34,7 +34,9 @@ class SectionLabel extends StatelessWidget {
           if (count != null) ...[
             const SizedBox(width: 10),
             Text(
-              count.toString().padLeft(2, '0'),
+              // A count, not a code — zero-padding made "7 movements" read
+              // as "07".
+              count.toString(),
               style: GoogleFonts.jetBrainsMono(
                 color: scheme.onSurfaceVariant,
                 fontSize: 10,

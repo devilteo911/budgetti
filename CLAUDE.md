@@ -44,7 +44,31 @@ Drift SQLite + Supabase (data layer)
 
 ### Database schema (Drift)
 
-Tables: Categories, Tags, Accounts, Transactions, Budgets. All tables have `userId`, `isDeleted` (soft delete), and `lastUpdated` (sync tracking) fields.
+Tables: Categories, Tags, Accounts, Transactions, Budgets, Installments. All tables have `userId`, `isDeleted` (soft delete), and `lastUpdated` (sync tracking) fields.
+
+**Cross-isolate writes.** Drift only notifies streams about writes made in their
+own isolate, and the `workmanager` tasks (bank capture, PocketBase sync) run in
+a separate one — their rows land in SQLite but no `watch()` in the UI isolate
+hears about them, so a warm resume shows pre-background state. `main()` covers
+this with an `AppLifecycleListener` that calls `markTablesUpdated(db.allTables)`
+on resume; any new background writer is already covered by it.
+
+### Installment plans
+
+`Installments` stores a purchase paid in equal monthly rates: total, rate count
+and the date of the *first* rate. Everything else — rates paid, still owed, next
+due date, active/settled — is derived in `models/installment.dart` from today's
+date, so there is no per-rate row, no generated transactions (bank capture
+already posts the real charges) and no monthly bookkeeping. `web/src/finance.ts
+installmentStatus` is the mirror; keep the two in step, both are tested
+(`test/installment_test.dart`, `web/src/finance.test.ts`). Screen:
+`/installments`, reached from the dashboard `InstallmentsCard`.
+
+A real charge is tied to a plan by `transactions.installmentId` (nullable, no
+FK — sync delivers rows in any order, so a dangling id just reads as unlinked).
+Set it from the transaction editor's INSTALLMENT row or from the plan sheet's
+linked-payments list. The links are evidence, not arithmetic: they never change
+what the plan says you owe, they only expose a rate nobody recorded.
 
 ### Transaction types
 

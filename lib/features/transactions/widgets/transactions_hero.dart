@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
+import 'package:budgetti/features/transactions/widgets/transaction_ledger_item.dart'
+    show kLedgerInset;
 
 class TransactionsHero extends ConsumerWidget {
   const TransactionsHero({super.key});
@@ -15,11 +18,16 @@ class TransactionsHero extends ConsumerWidget {
     final currency = ref.watch(currencyProvider);
 
     final periodLabel = _periodLabel(filters.dateRange);
-    final netColor = totals.net >= 0 ? scheme.primary : scheme.error;
+    // Same two inks the rows use. Side-by-side totals are the one place colour
+    // earns its keep, because here the directions are being compared.
+    final netColor = totals.net >= 0
+        ? incomeInk(scheme.brightness)
+        : expenseInk(scheme.brightness);
     final netPrefix = totals.net > 0 ? '+' : '';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+      padding: const EdgeInsets.fromLTRB(
+          kLedgerInset, 8, kLedgerInset, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -55,7 +63,7 @@ class TransactionsHero extends ConsumerWidget {
                 child: _Stat(
                   label: 'INCOME',
                   value: currency.format(totals.income),
-                  color: scheme.primary,
+                  color: incomeInk(scheme.brightness),
                 ),
               ),
               _Divider(color: scheme.outlineVariant.withValues(alpha: 0.35)),
@@ -63,14 +71,14 @@ class TransactionsHero extends ConsumerWidget {
                 child: _Stat(
                   label: 'EXPENSE',
                   value: currency.format(totals.expense),
-                  color: scheme.error,
+                  color: expenseInk(scheme.brightness),
                 ),
               ),
               _Divider(color: scheme.outlineVariant.withValues(alpha: 0.35)),
               Expanded(
                 child: _Stat(
-                  label: 'COUNT',
-                  value: totals.count.toString().padLeft(2, '0'),
+                  label: 'MOVEMENTS',
+                  value: totals.count.toString(),
                   color: scheme.onSurface,
                 ),
               ),
@@ -127,8 +135,10 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // No leading pad: the first stat has to start on the same left edge as the
+    // headline above it. Breathing room comes from the dividers instead.
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.only(right: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -168,6 +178,11 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, height: 30, color: color);
+    return Container(
+      width: 1,
+      height: 30,
+      margin: const EdgeInsets.only(right: 12),
+      color: color,
+    );
   }
 }
