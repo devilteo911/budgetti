@@ -744,11 +744,15 @@ final budgetStatsProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
 
 class StatsData {
   final Map<String, double> categoryTotals;
+  // Tag totals can sum above totalExpenses: a transaction may carry several
+  // tags and counts once per tag.
+  final Map<String, double> tagTotals;
   final Map<String, Map<String, double>> monthlyBreakdown;
   final double totalExpenses;
 
   StatsData({
     required this.categoryTotals,
+    required this.tagTotals,
     required this.monthlyBreakdown,
     required this.totalExpenses,
   });
@@ -785,6 +789,7 @@ final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
       return true;
     }).toList();
     final categoryTotals = <String, double>{};
+    final tagTotals = <String, double>{};
     final monthlyBreakdown = <String, Map<String, double>>{};
     double totalExpenses = 0.0;
 
@@ -793,6 +798,9 @@ final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
       if (t.amount < 0) {
         categoryTotals[t.category] =
             (categoryTotals[t.category] ?? 0) + t.amount.abs();
+        for (final tag in t.tags) {
+          tagTotals[tag] = (tagTotals[tag] ?? 0) + t.amount.abs();
+        }
         totalExpenses += t.amount.abs();
       }
 
@@ -813,6 +821,7 @@ final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
 
     return StatsData(
       categoryTotals: categoryTotals,
+      tagTotals: tagTotals,
       monthlyBreakdown: monthlyBreakdown,
       totalExpenses: totalExpenses,
     );

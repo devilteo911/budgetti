@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,12 +14,31 @@ class SpendingLineChart extends ConsumerWidget {
     final chartsDataAsync = ref.watch(chartsDataProvider);
     final granularity = ref.watch(chartGranularityProvider);
     final currencyFormatter = ref.watch(currencyProvider);
+    final scope = ref.watch(statsScopeProvider);
+    final scheme = Theme.of(context).colorScheme;
+    final brightness = scheme.brightness;
+
+    // Reds for expenses, greens for income, brand ink for "all". The line
+    // sweeps soft → strong along the chart; the fill fades downward.
+    final accent = switch (scope) {
+      StatsScope.expenses => expenseInk(brightness),
+      StatsScope.income => incomeInk(brightness),
+      StatsScope.all => scheme.primary,
+    };
+    final lineGradient = LinearGradient(
+      colors: [accent.withValues(alpha: 0.35), accent],
+    );
+    final fillGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [accent.withValues(alpha: 0.20), accent.withValues(alpha: 0.02)],
+    );
 
     return chartsDataAsync.when(
-      loading: () => const SizedBox(
+      loading: () => SizedBox(
         height: 200,
         child: Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+          child: CircularProgressIndicator(color: scheme.primary),
         ),
       ),
       error: (err, _) => SizedBox(
@@ -28,12 +47,12 @@ class SpendingLineChart extends ConsumerWidget {
       ),
       data: (data) {
         if (data.isEmpty) {
-          return const SizedBox(
+          return SizedBox(
             height: 200,
             child: Center(
               child: Text(
                 "No data available",
-                style: TextStyle(color: AppTheme.textGrey),
+                style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             ),
           );
@@ -56,7 +75,7 @@ class SpendingLineChart extends ConsumerWidget {
                 maxY: maxAmount * 1.2,
                 lineTouchData: LineTouchData(
                   touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => AppTheme.surfaceGrey,
+                    getTooltipColor: (_) => scheme.surfaceContainer,
                     getTooltipItems: (touchedSpots) =>
                         touchedSpots.map((spot) {
                           final point = data[spot.x.toInt()];
@@ -76,8 +95,8 @@ class SpendingLineChart extends ConsumerWidget {
                           }
                           return LineTooltipItem(
                             '$dateLabel\n${currencyFormatter.format(spot.y)}',
-                            const TextStyle(
-                              color: AppTheme.primaryGreen,
+                            TextStyle(
+                              color: accent,
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
                             ),
@@ -89,7 +108,7 @@ class SpendingLineChart extends ConsumerWidget {
                   show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (_) => FlLine(
-                    color: AppTheme.surfaceGreyLight.withValues(alpha: 0.15),
+                    color: scheme.surfaceContainerHigh.withValues(alpha: 0.15),
                     strokeWidth: 1,
                   ),
                 ),
@@ -129,8 +148,8 @@ class SpendingLineChart extends ConsumerWidget {
                           meta: meta,
                           child: Text(
                             text,
-                            style: const TextStyle(
-                              color: AppTheme.textGrey,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
                               fontSize: 10,
                             ),
                           ),
@@ -154,16 +173,22 @@ class SpendingLineChart extends ConsumerWidget {
                     spots: spots,
                     isCurved: true,
                     curveSmoothness: 0.3,
-                    color: AppTheme.primaryGreen,
+                    color: accent,
+                    gradient: lineGradient,
                     barWidth: 2.5,
                     isStrokeCapRound: true,
-                    dotData: const FlDotData(show: true),
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, _, __, ___) =>
+                          FlDotCirclePainter(
+                        radius: 3,
+                        color: accent,
+                        strokeWidth: 0,
+                      ),
+                    ),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.12),
+                      gradient: fillGradient,
                     ),
                   ),
                 ],

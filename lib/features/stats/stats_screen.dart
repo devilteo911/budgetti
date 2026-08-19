@@ -1,4 +1,5 @@
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/features/stats/category_details_screen.dart';
 import 'package:budgetti/features/stats/widgets/category_distribution.dart';
@@ -14,6 +15,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+/// What the DISTRIBUTION and BREAKDOWN sections slice expenses by.
+enum _StatsDimension { categories, tags }
+
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
 
@@ -24,6 +28,7 @@ class StatsScreen extends ConsumerStatefulWidget {
 class _StatsScreenState extends ConsumerState<StatsScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _entrance;
+  _StatsDimension _dimension = _StatsDimension.categories;
 
   @override
   void initState() {
@@ -44,6 +49,21 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     _entrance
       ..reset()
       ..forward();
+  }
+
+  void _openCategoryDetails(String name) {
+    final category = ref.read(categoryMapProvider)[name] ??
+        Category(
+          id: '',
+          userId: '',
+          name: name,
+          iconCode: Icons.help_outline.codePoint,
+          colorHex: 0xFF9E9E9E,
+          type: 'expense',
+        );
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => CategoryDetailsScreen(category: category)),
+    );
   }
 
   @override
@@ -78,8 +98,23 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
           final isEmpty =
               stats.categoryTotals.isEmpty && stats.monthlyBreakdown.isEmpty;
           final totalExpenses = stats.totalExpenses;
-          final sortedCategoryEntries = stats.categoryTotals.entries.toList()
+          final isTags = _dimension == _StatsDimension.tags;
+          final sortedEntries = (isTags ? stats.tagTotals : stats.categoryTotals)
+              .entries
+              .toList()
             ..sort((a, b) => b.value.compareTo(a.value));
+          final tagColors = ref.watch(tagColorCacheProvider);
+          final catColors =
+              ref.watch(categoryColorCacheProvider(scheme.brightness));
+          final catIcons = ref.watch(categoryIconCacheProvider);
+          final colorMap = isTags ? tagColors : catColors;
+          final iconFor = isTags
+              ? (String _) => Icons.sell_outlined
+              : (String name) => catIcons[name] ??
+                  categoryIcon(
+                    name,
+                    iconCode: categoryMap[name]?.iconCode,
+                  );
 
           return CustomScrollView(
             slivers: [
@@ -96,7 +131,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   end: 0.55,
                   child: const SliverToBoxAdapter(child: StatsHero()),
                 ),
-                if (sortedCategoryEntries.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: _DimensionToggle(
+                    value: _dimension,
+                    onChanged: (d) {
+                      if (d == _dimension) return;
+                      setState(() => _dimension = d);
+                      _replay();
+                    },
+                  ),
+                ),
+                if (sortedEntries.isNotEmpty) ...[
                   Stagger(
                     controller: _entrance,
                     begin: 0.10,
@@ -104,7 +149,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     child: SliverToBoxAdapter(
                       child: SectionLabel(
                         text: 'DISTRIBUTION',
-                        count: sortedCategoryEntries.length,
+                        count: sortedEntries.length,
                       ),
                     ),
                   ),
@@ -114,12 +159,16 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     end: 0.75,
                     child: SliverToBoxAdapter(
                       child: CategoryDistribution(
-                        sortedEntries: sortedCategoryEntries,
-                        categoryMap: categoryMap,
+                        sortedEntries: sortedEntries,
+                        colorMap: colorMap,
                         total: totalExpenses,
                         currencyFormatter: currencyFormatter,
                       ),
                     ),
+                  ),
+                ] else ...[
+                  const SliverToBoxAdapter(
+                    child: _NoTagsHint(),
                   ),
                 ],
                 Stagger(
@@ -141,7 +190,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     ),
                   ),
                 ),
-                if (sortedCategoryEntries.isNotEmpty) ...[
+                if (sortedEntries.isNotEmpty) ...[
                   Stagger(
                     controller: _entrance,
                     begin: 0.35,
@@ -154,11 +203,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     controller: _entrance,
                     begin: 0.40,
                     end: 0.95,
-                    child: _CategorySliver(
-                      sortedEntries: sortedCategoryEntries,
-                      categoryMap: categoryMap,
+                    child: _BreakdownSliver(
+                      sortedEntries: sortedEntries,
+                      colorMap: colorMap,
+                      iconFor: iconFor,
                       total: totalExpenses,
                       currencyFormatter: currencyFormatter,
+                      onTap: isTags
+                          ? null
+                          : (name) => _openCategoryDetails(name),
                     ),
                   ),
                 ],
@@ -192,17 +245,21 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
   }
 }
 
-class _CategorySliver extends StatelessWidget {
+class _BreakdownSliver extends StatelessWidget {
   final List<MapEntry<String, double>> sortedEntries;
-  final Map<String, Category> categoryMap;
+  final Map<String, Color> colorMap;
+  final IconData Function(String name) iconFor;
   final double total;
   final NumberFormat currencyFormatter;
+  final void Function(String name)? onTap;
 
-  const _CategorySliver({
+  const _BreakdownSliver({
     required this.sortedEntries,
-    required this.categoryMap,
+    required this.colorMap,
+    required this.iconFor,
     required this.total,
     required this.currencyFormatter,
+    this.onTap,
   });
 
   @override
@@ -212,32 +269,18 @@ class _CategorySliver extends StatelessWidget {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           final entry = sortedEntries[index];
-          final category = categoryMap[entry.key] ??
-              Category(
-                id: '',
-                userId: '',
-                name: entry.key,
-                iconCode: Icons.help_outline.codePoint,
-                colorHex: 0xFF9E9E9E,
-                type: 'expense',
-              );
           final isLast = index == sortedEntries.length - 1;
           return Column(
             children: [
               CategoryRow(
                 rank: index + 1,
-                category: category,
+                name: entry.key,
+                color: colorMap[entry.key] ?? unknownCategoryInk(scheme),
+                icon: iconFor(entry.key),
                 amount: entry.value,
                 total: total,
                 currencyFormatter: currencyFormatter,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          CategoryDetailsScreen(category: category),
-                    ),
-                  );
-                },
+                onTap: onTap == null ? null : () => onTap!(entry.key),
               ),
               if (!isLast)
                 Padding(
@@ -251,6 +294,99 @@ class _CategorySliver extends StatelessWidget {
           );
         },
         childCount: sortedEntries.length,
+      ),
+    );
+  }
+}
+
+/// Stadium pill pair switching the breakdown dimension. Matches the
+/// StatsFilterBar chip styling so the two rows read as one family.
+class _DimensionToggle extends StatelessWidget {
+  final _StatsDimension value;
+  final ValueChanged<_StatsDimension> onChanged;
+
+  const _DimensionToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Row(
+        children: [
+          for (var i = 0; i < _StatsDimension.values.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            _ToggleSegment(
+              label: switch (_StatsDimension.values[i]) {
+                _StatsDimension.categories => 'Categories',
+                _StatsDimension.tags => 'Tags',
+              },
+              selected: _StatsDimension.values[i] == value,
+              onTap: () => onChanged(_StatsDimension.values[i]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ToggleSegment extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ToggleSegment({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bg = selected ? scheme.primary : scheme.surfaceContainerHigh;
+    final fg = selected ? scheme.onPrimary : scheme.onSurface;
+    final border = selected
+        ? scheme.primary
+        : scheme.outlineVariant.withValues(alpha: 0.4);
+
+    return Material(
+      color: bg,
+      shape: StadiumBorder(side: BorderSide(color: border)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: fg,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoTagsHint extends StatelessWidget {
+  const _NoTagsHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Text(
+        'No tagged expenses in this period.',
+        style: TextStyle(
+          color: scheme.onSurfaceVariant,
+          fontSize: 13,
+          height: 1.4,
+        ),
       ),
     );
   }

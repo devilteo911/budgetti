@@ -1,31 +1,29 @@
-import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
-import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-class CategoryDistribution extends ConsumerStatefulWidget {
+/// Stacked distribution bar + legend. Keys in [sortedEntries] are names
+/// (category or tag); [colorMap] resolves each to its ink.
+class CategoryDistribution extends StatefulWidget {
   final List<MapEntry<String, double>> sortedEntries;
-  final Map<String, Category> categoryMap;
+  final Map<String, Color> colorMap;
   final double total;
   final NumberFormat currencyFormatter;
 
   const CategoryDistribution({
     super.key,
     required this.sortedEntries,
-    required this.categoryMap,
+    required this.colorMap,
     required this.total,
     required this.currencyFormatter,
   });
 
   @override
-  ConsumerState<CategoryDistribution> createState() =>
-      _CategoryDistributionState();
+  State<CategoryDistribution> createState() => _CategoryDistributionState();
 }
 
-class _CategoryDistributionState extends ConsumerState<CategoryDistribution> {
+class _CategoryDistributionState extends State<CategoryDistribution> {
   int? _focused;
 
   @override
@@ -35,15 +33,12 @@ class _CategoryDistributionState extends ConsumerState<CategoryDistribution> {
     }
 
     final scheme = Theme.of(context).colorScheme;
-    final catColors = ref.watch(categoryColorCacheProvider(scheme.brightness));
-    final resolved = widget.sortedEntries.map((e) {
-      final category = _resolve(e.key);
-      return _ResolvedEntry(
-        entry: e,
-        category: category,
-        color: catColors[category.name] ?? unknownCategoryInk(scheme),
-      );
-    }).toList();
+    final resolved = widget.sortedEntries
+        .map((e) => _ResolvedEntry(
+              entry: e,
+              color: widget.colorMap[e.key] ?? unknownCategoryInk(scheme),
+            ))
+        .toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -68,31 +63,17 @@ class _CategoryDistributionState extends ConsumerState<CategoryDistribution> {
       ),
     );
   }
-
-  Category _resolve(String key) {
-    return widget.categoryMap[key] ??
-        Category(
-          id: '',
-          userId: '',
-          name: key,
-          iconCode: Icons.help_outline.codePoint,
-          colorHex: 0xFF9E9E9E,
-          type: 'expense',
-        );
-  }
 }
 
 class _ResolvedEntry {
   final MapEntry<String, double> entry;
-  final Category category;
   final Color color;
   _ResolvedEntry({
     required this.entry,
-    required this.category,
     required this.color,
   });
   double get value => entry.value;
-  String get name => category.name;
+  String get name => entry.key;
 }
 
 class _StackedBar extends StatelessWidget {

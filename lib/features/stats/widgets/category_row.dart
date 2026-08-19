@@ -1,35 +1,34 @@
-import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:budgetti/core/theme/ledger_style.dart';
-import 'package:budgetti/core/providers/providers.dart';
 
-class CategoryRow extends ConsumerWidget {
+/// Ledger row for one slice of a breakdown. Caller resolves the name's ink
+/// and icon — works for categories and tags alike.
+class CategoryRow extends StatelessWidget {
   final int rank;
-  final Category category;
+  final String name;
+  final Color color;
+  final IconData icon;
   final double amount;
   final double total;
   final NumberFormat currencyFormatter;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const CategoryRow({
     super.key,
     required this.rank,
-    required this.category,
+    required this.name,
+    required this.color,
+    required this.icon,
     required this.amount,
     required this.total,
     required this.currencyFormatter,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final catColor = ref.watch(
-            categoryColorCacheProvider(scheme.brightness))[category.name] ??
-        unknownCategoryInk(scheme);
     final pct = total > 0 ? (amount / total * 100) : 0.0;
 
     return InkWell(
@@ -42,7 +41,7 @@ class CategoryRow extends ConsumerWidget {
               width: 3,
               height: 34,
               decoration: BoxDecoration(
-                color: catColor,
+                color: color,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -60,19 +59,14 @@ class CategoryRow extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Icon(
-              ref.watch(categoryIconCacheProvider)[category.name] ??
-                  categoryIcon(category.name, iconCode: category.iconCode),
-              color: catColor,
-              size: 18,
-            ),
+            Icon(icon, color: color, size: 18),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    category.name,
+                    name,
                     style: TextStyle(
                       color: scheme.onSurface,
                       fontSize: 15,
