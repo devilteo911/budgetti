@@ -222,11 +222,18 @@ class FinanceService {
     }).toList();
   }
 
+  /// Live accounts with derived balances. Balances fold in transactions, so
+  /// the pulse watches both tables — a synced transaction must move the
+  /// balance even when the accounts table itself didn't change.
   Stream<List<model_account.Account>> watchAccounts() {
-    // This will trigger whenever the accounts table changes.
-    // To also trigger on transaction changes, we'd need a more complex stream.
-    // For now, watching accounts is better than nothing, but let's see if we can do more.
-    return _db.select(_db.accounts).watch().asyncMap((_) => getAccounts());
+    final pulse = _db
+        .customSelect(
+          'SELECT (SELECT COUNT(*) FROM accounts) + '
+          '(SELECT COUNT(*) FROM transactions) AS rows',
+          readsFrom: {_db.accounts, _db.transactions},
+        )
+        .watch();
+    return pulse.asyncMap((_) => getAccounts());
   }
 
   Future<void> addAccount(model_account.Account account) async {
@@ -456,25 +463,29 @@ class FinanceService {
     ));
   }
 
-  Future<List<model.Category>> getCategories() async {
-    final result = await (_db.select(_db.categories)
-              ..where(
-                (tbl) =>
-                    tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
-              )
-      ..orderBy([(t) => OrderingTerm(expression: t.name)])
-    ).get();
+  MultiSelectable<Category> _categoriesQuery() =>
+      _db.select(_db.categories)
+        ..where(
+          (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
+        )
+        ..orderBy([(t) => OrderingTerm(expression: t.name)]);
 
-    return result.map((c) => model.Category(
-      id: c.id,
-      userId: c.userId ?? 'local',
-      name: c.name,
-      iconCode: c.iconCode,
-      colorHex: c.colorHex,
-      type: c.type,
-      description: c.description,
-    )).toList();
+  Future<List<model.Category>> getCategories() async {
+    return (await _categoriesQuery().get()).map(_toCategory).toList();
   }
+
+  Stream<List<model.Category>> watchCategories() =>
+      _categoriesQuery().watch().map((rows) => rows.map(_toCategory).toList());
+
+  model.Category _toCategory(Category c) => model.Category(
+        id: c.id,
+        userId: c.userId ?? 'local',
+        name: c.name,
+        iconCode: c.iconCode,
+        colorHex: c.colorHex,
+        type: c.type,
+        description: c.description,
+      );
 
   Future<void> addCategory(model.Category category) async {
     await _db.into(_db.categories).insert(CategoriesCompanion.insert(
@@ -545,20 +556,21 @@ class FinanceService {
     ));
   }
 
-  Future<List<model_tag.Tag>> getTags() async {
-    final result = await (_db.select(_db.tags)
-      ..where(
-              (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
-            )
-    ).get();
+  MultiSelectable<Tag> _tagsQuery() => _db.select(_db.tags)
+    ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
 
-    return result.map((t) => model_tag.Tag(
-      id: t.id,
-      userId: t.userId ?? 'local',
-      name: t.name,
-      colorHex: t.colorHex,
-    )).toList();
-  }
+  Future<List<model_tag.Tag>> getTags() async =>
+      (await _tagsQuery().get()).map(_toTag).toList();
+
+  Stream<List<model_tag.Tag>> watchTags() =>
+      _tagsQuery().watch().map((rows) => rows.map(_toTag).toList());
+
+  model_tag.Tag _toTag(Tag t) => model_tag.Tag(
+        id: t.id,
+        userId: t.userId ?? 'local',
+        name: t.name,
+        colorHex: t.colorHex,
+      );
 
   Future<void> addTag(model_tag.Tag tag) async {
     await _db.into(_db.tags).insert(TagsCompanion.insert(
@@ -608,21 +620,22 @@ class FinanceService {
     ));
   }
 
-  Future<List<model_budget.Budget>> getBudgets() async {
-    final result = await (_db.select(_db.budgets)
-      ..where(
-              (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
-            )
-    ).get();
+  MultiSelectable<Budget> _budgetsQuery() => _db.select(_db.budgets)
+    ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
 
-    return result.map((b) => model_budget.Budget(
-      id: b.id,
-      category: b.category,
-      userId: b.userId ?? 'local',
-      limit: b.limitAmount,
-      period: b.period,
-    )).toList();
-  }
+  Future<List<model_budget.Budget>> getBudgets() async =>
+      (await _budgetsQuery().get()).map(_toBudget).toList();
+
+  Stream<List<model_budget.Budget>> watchBudgets() =>
+      _budgetsQuery().watch().map((rows) => rows.map(_toBudget).toList());
+
+  model_budget.Budget _toBudget(Budget b) => model_budget.Budget(
+        id: b.id,
+        category: b.category,
+        userId: b.userId ?? 'local',
+        limit: b.limitAmount,
+        period: b.period,
+      );
 
   Future<void> upsertBudget(model_budget.Budget budget) async {
     // Check if exists for this user

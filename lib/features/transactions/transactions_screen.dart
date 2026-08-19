@@ -234,7 +234,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ref.invalidate(accountsProvider);
             final tasks = <Future>[
               notifier.refresh(),
-              ref.read(accountsProvider.future),
               performSheetsSync(ref),
             ];
             final persistence = ref.read(persistenceServiceProvider);

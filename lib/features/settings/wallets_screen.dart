@@ -37,9 +37,10 @@ class WalletsScreen extends ConsumerWidget {
         ],
       ),
       body: RefreshIndicator(
+        // Accounts are stream-backed now, so local edits land on their own;
+        // pulling from the server is what a manual refresh means here.
         onRefresh: () async {
-          ref.invalidate(accountsProvider);
-          await ref.read(accountsProvider.future);
+          await performPocketBaseSync(ref);
         },
         child: accountsAsync.when(
           skipLoadingOnRefresh: true,

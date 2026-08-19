@@ -66,7 +66,7 @@ Future<SyncResult> performSheetsSync(WidgetRef ref) async {
   final syncService = ref.read(sheetsSyncServiceProvider);
   final financeService = ref.read(financeServiceProvider);
 
-  final accounts = await ref.read(accountsProvider.future);
+  final accounts = await financeService.getAccounts();
   final accountNameToId = <String, String>{};
   final accountIdToName = <String, String>{};
   for (final a in accounts) {
@@ -243,9 +243,12 @@ final duplicateSourceTxProvider =
   return ref.watch(pendingTransactionServiceProvider).getTransactionById(txId);
 });
 
-final accountsProvider = FutureProvider<List<Account>>((ref) async {
-  final service = ref.watch(financeServiceProvider);
-  return service.getAccounts();
+// Watched, not Future-cached: rows also arrive from PocketBase sync (launch,
+// pull-to-refresh, background task + resume), and a FutureProvider only
+// re-ran on manual invalidation — the dashboard balance went stale after
+// every sync while the transaction list beside it updated.
+final accountsProvider = StreamProvider<List<Account>>((ref) {
+  return ref.watch(financeServiceProvider).watchAccounts();
 });
 
 final transactionsProvider = StreamProvider.family<List<Transaction>, String?>((
@@ -256,23 +259,16 @@ final transactionsProvider = StreamProvider.family<List<Transaction>, String?>((
   return service.watchTransactions(accountId: accountId);
 });
 
-final categoriesProvider = FutureProvider<List<Category>>((ref) async {
-  final service = ref.watch(financeServiceProvider);
-  return service.getCategories();
+final categoriesProvider = StreamProvider<List<Category>>((ref) {
+  return ref.watch(financeServiceProvider).watchCategories();
 });
 
-final tagsProvider = FutureProvider<List<Tag>>((ref) async {
-  final service = ref.watch(financeServiceProvider);
-  return service.getTags();
+final tagsProvider = StreamProvider<List<Tag>>((ref) {
+  return ref.watch(financeServiceProvider).watchTags();
 });
 
-final budgetsProvider = FutureProvider<List<Budget>>((ref) async {
-  try {
-    final service = ref.watch(financeServiceProvider);
-    return await service.getBudgets();
-  } catch (e) {
-    return [];
-  }
+final budgetsProvider = StreamProvider<List<Budget>>((ref) {
+  return ref.watch(financeServiceProvider).watchBudgets();
 });
 
 /// Live installment plans (all of them — active/settled is derived per plan).
