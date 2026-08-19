@@ -31,7 +31,10 @@ class SettingsSection extends StatelessWidget {
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      // stretch keeps the card full-width for every section; children
+      // that size to content (e.g. the palette Wrap) would otherwise
+      // render a narrower card than their siblings.
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 12, top: 24),
