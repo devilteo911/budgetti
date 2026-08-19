@@ -497,14 +497,52 @@ class FinanceService {
   }
 
   Future<void> updateCategory(model.Category category) async {
-    await (_db.update(_db.categories)..where((t) => t.id.equals(category.id))).write(CategoriesCompanion(
-      name: Value(category.name),
-      iconCode: Value(category.iconCode),
-      colorHex: Value(category.colorHex),
-      type: Value(category.type),
-      description: Value(category.description),
-      lastUpdated: Value(DateTime.now()),
-    ));
+    final old = await (_db.select(_db.categories)
+          ..where((t) => t.id.equals(category.id)))
+        .getSingle();
+    await _db.transaction(() async {
+      await (_db.update(_db.categories)..where((t) => t.id.equals(category.id))).write(CategoriesCompanion(
+        name: Value(category.name),
+        iconCode: Value(category.iconCode),
+        colorHex: Value(category.colorHex),
+        type: Value(category.type),
+        description: Value(category.description),
+        lastUpdated: Value(DateTime.now()),
+      ));
+      // A rename follows into every row that stores the label by name —
+      // otherwise history stays on the old name and fragments.
+      if (old.name != category.name) {
+        final now = DateTime.now();
+        await (_db.update(_db.transactions)
+              ..where((t) =>
+                  t.category.equals(old.name) & t.userId.equals(_userId)))
+            .write(TransactionsCompanion(
+          category: Value(category.name),
+          lastUpdated: Value(now),
+        ));
+        await (_db.update(_db.budgets)
+              ..where((t) =>
+                  t.category.equals(old.name) & t.userId.equals(_userId)))
+            .write(BudgetsCompanion(
+          category: Value(category.name),
+          lastUpdated: Value(now),
+        ));
+        await (_db.update(_db.installments)
+              ..where((t) =>
+                  t.category.equals(old.name) & t.userId.equals(_userId)))
+            .write(InstallmentsCompanion(
+          category: Value(category.name),
+          lastUpdated: Value(now),
+        ));
+        await (_db.update(_db.pendingTransactions)
+              ..where((t) =>
+                  t.suggestedCategory.equals(old.name) &
+                  t.userId.equals(_userId)))
+            .write(PendingTransactionsCompanion(
+          suggestedCategory: Value(category.name),
+        ));
+      }
+    });
   }
 
   Future<void> deleteCategory(String id) async {
@@ -540,11 +578,34 @@ class FinanceService {
   }
 
   Future<void> updateTag(model_tag.Tag tag) async {
-    await (_db.update(_db.tags)..where((t) => t.id.equals(tag.id))).write(TagsCompanion(
-      name: Value(tag.name),
-      colorHex: Value(tag.colorHex),
-      lastUpdated: Value(DateTime.now()),
-    ));
+    final old = await (_db.select(_db.tags)..where((t) => t.id.equals(tag.id)))
+        .getSingle();
+    await _db.transaction(() async {
+      await (_db.update(_db.tags)..where((t) => t.id.equals(tag.id))).write(TagsCompanion(
+        name: Value(tag.name),
+        colorHex: Value(tag.colorHex),
+        lastUpdated: Value(DateTime.now()),
+      ));
+      if (old.name != tag.name) {
+        // tags is a JSON array — rewrite only exact element matches, so a
+        // rename of "Gift" never touches a hypothetical "Gifts".
+        final now = DateTime.now();
+        final rows = await (_db.select(_db.transactions)
+              ..where((t) =>
+                  t.tags.isNotNull() & t.userId.equals(_userId)))
+            .get();
+        for (final row in rows) {
+          final tags = row.tags ?? const <String>[];
+          if (!tags.contains(old.name)) continue;
+          await (_db.update(_db.transactions)
+                ..where((t) => t.id.equals(row.id)))
+              .write(TransactionsCompanion(
+            tags: Value([...tags.where((t) => t != old.name), tag.name]),
+            lastUpdated: Value(now),
+          ));
+        }
+      }
+    });
   }
 
   Future<void> deleteTag(String id) async {
