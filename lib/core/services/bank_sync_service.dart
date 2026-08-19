@@ -44,6 +44,26 @@ class BankSyncService {
         _revolutParser = revolutParser,
         _notifications = notifications;
 
+  /// Keyword rules name the app's *default* categories, but the user may have
+  /// renamed or deleted them ("Dining" → "Eating out"). Resolve the rule's
+  /// name against the live set: exact name first, then the per-user seed id —
+  /// `…_cat_Dining` survives a rename, only `name` changes — else null, so
+  /// the review falls back to "uncategorised" instead of pre-selecting a
+  /// label that no longer exists.
+  Future<String?> _liveCategory(String? rule) async {
+    if (rule == null) return null;
+    final rows = await (_db.select(_db.categories)
+          ..where((t) => t.isDeleted.equals(false) & t.userId.equals(_userId)))
+        .get();
+    for (final r in rows) {
+      if (r.name == rule) return rule;
+    }
+    for (final r in rows) {
+      if (r.id.endsWith('_cat_$rule')) return r.name;
+    }
+    return null;
+  }
+
   /// Runs one sync pass. Returns the newly inserted rows: parsed drafts
   /// (status 'pending') plus surfaced unparsable emails (status 'skipped').
   /// Previously skipped emails are re-fetched and retried every pass, so a
@@ -103,7 +123,7 @@ class BankSyncService {
               parsedDescription: parsed.description,
               parsedDate: parsed.date,
               suggestedType: Value(parsed.type),
-              suggestedCategory: Value(guessCategory(parsed)),
+              suggestedCategory: Value(await _liveCategory(guessCategory(parsed))),
               counterparty: Value(parsed.counterparty),
               rawSnippet: Value(parsed.rawSnippet),
               createdAt: DateTime.now(),
@@ -187,7 +207,7 @@ class BankSyncService {
               parsedDescription: parsed.description,
               parsedDate: parsed.date,
               suggestedType: Value(parsed.type),
-              suggestedCategory: Value(guessCategory(parsed)),
+              suggestedCategory: Value(await _liveCategory(guessCategory(parsed))),
               counterparty: Value(parsed.counterparty),
               rawSnippet: Value(parsed.rawSnippet),
               createdAt: DateTime.now(),
@@ -255,7 +275,7 @@ class BankSyncService {
               parsedDescription: draft.description,
               parsedDate: draft.date,
               suggestedType: Value(draft.type),
-              suggestedCategory: Value(guessCategory(draft)),
+              suggestedCategory: Value(await _liveCategory(guessCategory(draft))),
               counterparty: Value(draft.counterparty),
               rawSnippet: Value(draft.rawSnippet),
               createdAt: DateTime.now(),

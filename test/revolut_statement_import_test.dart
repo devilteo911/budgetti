@@ -38,9 +38,23 @@ BankSyncService _service(AppDatabase db) =>
 void main() {
   setUpAll(_ensureSqlite);
 
+  // The keyword guesser only suggests categories that actually exist for the
+  // user — mirror the seeded id _ensureUserDefaults would have created.
+  void seedCategory(AppDatabase db, String id, String name) {
+    db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: id,
+          userId: const Value('user-a'),
+          name: name,
+          iconCode: 0,
+          colorHex: 0,
+          type: 'expense',
+        ));
+  }
+
   test('imports statement rows as drafts to review', () async {
     final db = AppDatabase.forExecutor(NativeDatabase.memory());
     addTearDown(db.close);
+    seedCategory(db, 'user-a_cat_Groceries', 'Groceries');
 
     final r = await _service(db).importStatement(_csv);
 
@@ -54,6 +68,44 @@ void main() {
     expect(conad.suggestedType, 'expense');
     expect(conad.suggestedCategory, 'Groceries'); // guessed from the merchant
     expect(conad.source, 'revolut');
+  });
+
+  // The real case this came from: "Dining" was renamed to "Eating out", but
+  // restaurant keywords kept pre-selecting the dead name in the review inbox.
+  test('a keyword hit on a renamed category suggests the current name',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    seedCategory(db, 'user-a_cat_Dining', 'Eating out');
+
+    const csv = '''
+"Conto personale (EUR)",,,,,,,
+Data,Descrizione,Categoria,"Denaro in entrata/uscita",Saldo,"Imposte ritenute","Altre imposte",Costi
+"24 giu 2026","Ristorante Dal Toscano",Esercente,"-32,00€","68,00€","0,00€","0,00€","0,00€"
+Totale,,,"68,00€",,"0,00€","0,00€","0,00€"
+''';
+    final r = await _service(db).importStatement(csv);
+
+    final row = r.drafts.single;
+    expect(row.suggestedCategory, 'Eating out');
+  });
+
+  test('a keyword hit with no live category left suggests nothing', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    // Only an unrelated category exists: "Dining" was deleted, not renamed.
+    seedCategory(db, 'cat-other', 'Other');
+
+    const csv = '''
+"Conto personale (EUR)",,,,,,,
+Data,Descrizione,Categoria,"Denaro in entrata/uscita",Saldo,"Imposte ritenute","Altre imposte",Costi
+"24 giu 2026","Ristorante Dal Toscano",Esercente,"-32,00€","68,00€","0,00€","0,00€","0,00€"
+Totale,,,"68,00€",,"0,00€","0,00€","0,00€"
+''';
+    final r = await _service(db).importStatement(csv);
+
+    // Null, not a dead name — the review falls back to "uncategorised".
+    expect(r.drafts.single.suggestedCategory, isNull);
   });
 
   test('re-importing an overlapping statement adds nothing', () async {
