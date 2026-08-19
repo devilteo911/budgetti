@@ -849,14 +849,25 @@ class ChartDataPoint {
   ChartDataPoint(this.label, this.amount);
 }
 
-final chartsDataProvider = Provider<AsyncValue<List<ChartDataPoint>>>((ref) {
+/// Per-bucket trend series, split by sign. Scoped stats modes plot one of
+/// the two; "all" overlays both — a single abs() series would mash income
+/// and expenses into "money moved", which says nothing.
+class ChartSeries {
+  final List<ChartDataPoint> expenses;
+  final List<ChartDataPoint> income;
+
+  ChartSeries({required this.expenses, required this.income});
+
+  bool get isEmpty => expenses.isEmpty && income.isEmpty;
+}
+
+final chartsDataProvider = Provider<AsyncValue<ChartSeries>>((ref) {
   final granularity = ref.watch(chartGranularityProvider);
   final period = ref.watch(selectedStatsPeriodProvider);
-  final scope = ref.watch(statsScopeProvider);
   final transactionsAsync = ref.watch(transactionsProvider(null));
 
   return transactionsAsync.whenData((allTransactions) {
-    if (allTransactions.isEmpty) return [];
+    if (allTransactions.isEmpty) return ChartSeries(expenses: [], income: []);
 
     final transactions = allTransactions.where((t) {
       if (t.date.year != period.year) return false;
@@ -864,23 +875,13 @@ final chartsDataProvider = Provider<AsyncValue<List<ChartDataPoint>>>((ref) {
       return true;
     }).toList();
 
-    if (transactions.isEmpty) return [];
+    if (transactions.isEmpty) return ChartSeries(expenses: [], income: []);
 
-    final scopedTransactions = transactions.where((t) {
-      switch (scope) {
-        case StatsScope.expenses:
-          return t.amount < 0;
-        case StatsScope.income:
-          return t.amount > 0;
-        case StatsScope.all:
-          return t.amount != 0;
-      }
-    }).toList();
-    if (scopedTransactions.isEmpty) return [];
+    final expenseBuckets = <DateTime, double>{};
+    final incomeBuckets = <DateTime, double>{};
 
-    final Map<DateTime, double> groupedData = {};
-
-    for (var t in scopedTransactions) {
+    for (var t in transactions) {
+      if (t.amount == 0) continue;
       DateTime key;
       switch (granularity) {
         case ChartGranularity.daily:
@@ -898,13 +899,16 @@ final chartsDataProvider = Provider<AsyncValue<List<ChartDataPoint>>>((ref) {
           key = DateTime(t.date.year, t.date.month, 1);
           break;
       }
-      groupedData[key] = (groupedData[key] ?? 0) + t.amount.abs();
+      final buckets = t.amount < 0 ? expenseBuckets : incomeBuckets;
+      buckets[key] = (buckets[key] ?? 0) + t.amount.abs();
     }
 
-    final sortedKeys = groupedData.keys.toList()..sort();
-    return sortedKeys
-        .map((key) => ChartDataPoint(key, groupedData[key]!))
-        .toList();
+    List<ChartDataPoint> sorted(Map<DateTime, double> buckets) {
+      final keys = buckets.keys.toList()..sort();
+      return keys.map((k) => ChartDataPoint(k, buckets[k]!)).toList();
+    }
+
+    return ChartSeries(expenses: sorted(expenseBuckets), income: sorted(incomeBuckets));
   });
 });
 
