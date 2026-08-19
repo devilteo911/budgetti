@@ -53,7 +53,7 @@ class AuthService {
   /// (FinanceService filters by the current user id) and gives sync the right
   /// owner. Idempotent — no-op once localUserId == pbUserId.
   ///
-  /// Only the five synced tables; [PendingTransactions] is device-local
+  /// Only the synced tables; [PendingTransactions] is device-local
   /// (review-inbox capture state) and isn't owner-scoped.
   Future<void> _unifyUserId() async {
     final pbId = pbUserId;
@@ -71,7 +71,14 @@ class AuthService {
     final pbId = pbUserId;
     if (pbId == null || pbId.isEmpty) return;
 
-    const tables = ['categories', 'tags', 'accounts', 'transactions', 'budgets'];
+    const tables = [
+      'categories',
+      'tags',
+      'accounts',
+      'transactions',
+      'budgets',
+      'installments', // synced collection since v13 — a miss ghosts plans
+    ];
     for (final t in tables) {
       await _db.customUpdate(
         'UPDATE $t SET user_id = ? WHERE user_id IS NULL OR user_id <> ?',

@@ -70,8 +70,12 @@ void callbackDispatcher() {
         await notificationService.init();
 
         final gmail = GmailService(authService);
-        // Background isolate has no auth session; approval re-stamps userId.
-        final sync = BankSyncService(db, gmail, 'local');
+        // Drafts must carry the userId the foreground filters by: 'local'
+        // pre-login, the PB id after adoptLocalData re-stamps everything —
+        // a hardcoded 'local' made bg-captured drafts invisible and broke
+        // category matching post-login.
+        final uid = persistence.getLocalUserId();
+        final sync = BankSyncService(db, gmail, uid.isEmpty ? 'local' : uid);
         final newDrafts = <PendingTransaction>[];
 
         // The two halves are independent: a Gmail auth failure must not stop
@@ -145,8 +149,14 @@ void callbackDispatcher() {
 Future<void> _resolveLocalUserId(
     AppDatabase db, PersistenceService persistence) async {
   if (persistence.getLocalUserId().isNotEmpty) return;
-  for (final t
-      in ['transactions', 'accounts', 'categories', 'tags', 'budgets']) {
+  for (final t in [
+    'transactions',
+    'accounts',
+    'categories',
+    'tags',
+    'budgets',
+    'installments',
+  ]) {
     final rows = await db.customSelect(
       'SELECT DISTINCT user_id FROM $t WHERE user_id IS NOT NULL LIMIT 1',
     ).get();
