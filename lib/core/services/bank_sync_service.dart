@@ -314,8 +314,11 @@ class BankSyncService {
   /// How many drafts already sit in the inbox per day+amount, so an import can
   /// skip exactly that many and let the extra repeats through.
   Future<Map<String, int>> _pendingKeys() async {
+    // Source-scoped: this layer skips statement rows the push listener
+    // already caught, and those drafts are 'revolut'. A same-day same-amount
+    // Widiba draft must not mask a Revolut statement row.
     final rows = await (_db.select(_db.pendingTransactions)
-          ..where((t) => t.status.equals('pending')))
+          ..where((t) => t.status.equals('pending') & t.source.equals('revolut')))
         .get();
     final counts = <String, int>{};
     for (final r in rows) {

@@ -5,6 +5,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 // ponytail: prefix match, not an exact id — Revolut ships regional/variant
 // package names and an exact string silently captures nothing when it drifts.
@@ -58,6 +59,17 @@ class RevolutNotificationListener : NotificationListenerService() {
     }
 
     private fun writeBuffer(arr: JSONArray) {
-        openFileOutput(BUFFER_FILE, MODE_PRIVATE).use { it.write(arr.toString().toByteArray()) }
+        // Write-then-rename: openFileOutput truncates first, so a kill
+        // mid-write left a truncated file the Dart drain would read as
+        // corrupt JSON. The rename window is single-instruction small.
+        val tmp = File(getFilesDir(), "$BUFFER_FILE.tmp")
+        openFileOutput("$BUFFER_FILE.tmp", MODE_PRIVATE)
+            .use { it.write(arr.toString().toByteArray()) }
+        val target = File(getFilesDir(), BUFFER_FILE)
+        target.delete()
+        if (!tmp.renameTo(target)) {
+            openFileOutput(BUFFER_FILE, MODE_PRIVATE)
+                .use { it.write(arr.toString().toByteArray()) }
+        }
     }
 }

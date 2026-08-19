@@ -48,16 +48,26 @@ class NotificationListenerService {
     final file = File('${dir.path}/$_bufferFile');
     if (!await file.exists()) return const [];
     final contents = await file.readAsString();
-    try {
-      await file.delete();
-    } catch (_) {}
-    if (contents.isEmpty) return const [];
+    // Delete only after a successful decode: the buffer is the only copy of
+    // the captured pushes, and the listener's next write replaces the file
+    // wholesale — so a corrupt buffer left in place self-heals instead of
+    // being silently discarded.
+    if (contents.isEmpty) {
+      try {
+        await file.delete();
+      } catch (_) {}
+      return const [];
+    }
     try {
       final list = jsonDecode(contents) as List<dynamic>;
-      return list
+      final parsed = list
           .cast<Map<String, dynamic>>()
           .map(RawNotification.fromJson)
           .toList();
+      try {
+        await file.delete();
+      } catch (_) {}
+      return parsed;
     } catch (_) {
       return const [];
     }
