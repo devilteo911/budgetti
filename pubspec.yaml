@@ -105,4 +105,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/budgetti.png
+    # Bundled Google Fonts (google_fonts resolves these before any network
+    # fetch — with allowRuntimeFetching = false this is the only source).
+    - assets/google_fonts/
 

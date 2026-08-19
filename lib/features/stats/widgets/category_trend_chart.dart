@@ -32,9 +32,9 @@ class CategoryTrendChart extends StatelessWidget {
           context.l10n.statsNoTrendData.toUpperCase(),
           style: GoogleFonts.jetBrainsMono(
             color: scheme.onSurfaceVariant,
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
-            letterSpacing: 2.0,
+            letterSpacing: 1.2,
           ),
         ),
       );
@@ -82,8 +82,8 @@ class CategoryTrendChart extends StatelessWidget {
                     '${DateFormat('MMM yyyy').format(date)}\n',
                     GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
-                      fontSize: 9,
-                      letterSpacing: 1.4,
+                      fontSize: 11,
+                      letterSpacing: 1.2,
                       fontWeight: FontWeight.w600,
                     ),
                     children: [
@@ -131,9 +131,9 @@ class CategoryTrendChart extends StatelessWidget {
                         DateFormat('MMM').format(date).toUpperCase(),
                         style: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant,
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 1.4,
+                          letterSpacing: 1.2,
                         ),
                       ),
                     );

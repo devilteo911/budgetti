@@ -47,8 +47,8 @@ class CarouselCard extends StatelessWidget {
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
-                      letterSpacing: 1.8,
-                      fontSize: 10,
+                      letterSpacing: 1.2,
+                      fontSize: 11,
                     ),
                   ),
                 ),

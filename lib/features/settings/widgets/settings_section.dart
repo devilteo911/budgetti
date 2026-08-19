@@ -44,7 +44,7 @@ class SettingsSection extends StatelessWidget {
               color: scheme.onSurface.withValues(alpha: 0.4),
               fontSize: 11,
               fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
+              letterSpacing: 1.2,
             ),
           ),
         ),

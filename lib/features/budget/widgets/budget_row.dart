@@ -103,7 +103,7 @@ class BudgetRow extends ConsumerWidget {
                             : context.l10n.budgetNoLimit,
                         style: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 0.6,
                         ),
@@ -121,7 +121,7 @@ class BudgetRow extends ConsumerWidget {
                         color: hasLimit ? scheme.onSurface : scheme.onSurfaceVariant,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -137,9 +137,9 @@ class BudgetRow extends ConsumerWidget {
                         context.l10n.budgetSet,
                         style: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 1.6,
+                          letterSpacing: 1.2,
                         ),
                       ),
                   ],
@@ -176,7 +176,7 @@ class _PctBadge extends StatelessWidget {
       text,
       style: GoogleFonts.jetBrainsMono(
         color: color,
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.6,
       ),

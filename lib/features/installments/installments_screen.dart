@@ -144,9 +144,9 @@ class _Hero extends StatelessWidget {
             context.l10n.instStillOwed,
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
-              letterSpacing: 2.4,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 10),
@@ -282,7 +282,7 @@ class _PlanRow extends StatelessWidget {
                     context.l10n.instPaidOf(paid, plan.installmentCount),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
-                      fontSize: 10,
+                      fontSize: 11,
                       letterSpacing: 0.6,
                     ),
                   ),
@@ -296,7 +296,7 @@ class _PlanRow extends StatelessWidget {
                         color: linkedCount >= paid
                             ? scheme.primary
                             : scheme.onSurfaceVariant,
-                        fontSize: 10,
+                        fontSize: 11,
                         letterSpacing: 0.6,
                       ),
                     ),
@@ -310,7 +310,7 @@ class _PlanRow extends StatelessWidget {
                             DateFormat.MMMd().format(next)),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
-                      fontSize: 10,
+                      fontSize: 11,
                       letterSpacing: 0.6,
                     ),
                   ),
@@ -350,9 +350,9 @@ class _EmptyState extends StatelessWidget {
             context.l10n.instNoPlans,
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
-              letterSpacing: 2.4,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 8),

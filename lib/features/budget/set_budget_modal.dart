@@ -141,9 +141,9 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
               context.l10n.budgetMonthlyLimit,
               style: GoogleFonts.jetBrainsMono(
                 color: scheme.onSurfaceVariant,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 2.2,
+                letterSpacing: 1.2,
               ),
             ),
             const SizedBox(height: 8),

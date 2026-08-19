@@ -324,9 +324,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashStatNet => 'Net';
 
   @override
-  String get dashStatSave => 'Save';
-
-  @override
   String get dashStillOwedLabel => 'Still owed';
 
   @override

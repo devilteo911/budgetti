@@ -407,9 +407,9 @@ class _Label extends StatelessWidget {
       text,
       style: GoogleFonts.jetBrainsMono(
         color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: FontWeight.w600,
-        letterSpacing: 2.2,
+        letterSpacing: 1.2,
       ),
     );
   }

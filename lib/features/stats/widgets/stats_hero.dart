@@ -124,9 +124,9 @@ class _Kicker extends StatelessWidget {
       text,
       style: GoogleFonts.jetBrainsMono(
         color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: FontWeight.w600,
-        letterSpacing: 2.2,
+        letterSpacing: 1.2,
       ),
     );
   }
@@ -199,9 +199,9 @@ class _SecondaryStat extends StatelessWidget {
             label,
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              letterSpacing: 1.8,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 6),
@@ -214,7 +214,7 @@ class _SecondaryStat extends StatelessWidget {
                 color: valueColor,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
+                letterSpacing: 0,
               ),
             ),
           ),

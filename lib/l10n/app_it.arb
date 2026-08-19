@@ -97,7 +97,6 @@
   "dashStatIn": "Entrate",
   "dashStatOut": "Uscite",
   "dashStatNet": "Netto",
-  "dashStatSave": "Risparmio",
   "dashStillOwedLabel": "Ancora da pagare",
   "dashPerMonth": "{amount} al mese",
   "dashPlansLabel": "Piani",

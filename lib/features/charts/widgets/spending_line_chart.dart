@@ -231,7 +231,7 @@ class SpendingLineChart extends ConsumerWidget {
                                 text,
                                 style: TextStyle(
                                   color: scheme.onSurfaceVariant,
-                                  fontSize: 10,
+                                  fontSize: 11,
                                 ),
                               ),
                             );

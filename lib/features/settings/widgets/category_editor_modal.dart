@@ -332,9 +332,9 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                         group.name.toUpperCase(),
                                         style: TextStyle(
                                           color: Colors.white.withOpacity(0.3),
-                                          fontSize: 10,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.w900,
-                                          letterSpacing: 1.5,
+                                          letterSpacing: 1.2,
                                         ),
                                       ),
                                     ),
@@ -486,7 +486,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
           color: Colors.white.withOpacity(0.4),
           fontSize: 11,
           fontWeight: FontWeight.w900,
-          letterSpacing: 1.5,
+          letterSpacing: 1.2,
         ),
       ),
     );

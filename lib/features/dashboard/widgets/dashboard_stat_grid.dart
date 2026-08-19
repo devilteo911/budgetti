@@ -15,7 +15,6 @@ class DashboardStatGrid extends ConsumerWidget {
     final income = stats?.monthlyIncome ?? 0;
     final expense = stats?.monthlyExpenses ?? 0;
     final net = income - expense;
-    final savePct = income > 0 ? (net / income * 100).clamp(-999, 999) : 0;
 
     final border = BorderSide(color: scheme.outline.withValues(alpha: 0.12));
 
@@ -28,8 +27,7 @@ class DashboardStatGrid extends ConsumerWidget {
           children: [
             _Cell(label: context.l10n.dashStatIn.toUpperCase(), value: _compact(income), color: scheme.primary, border: border),
             _Cell(label: context.l10n.dashStatOut.toUpperCase(), value: _compact(-expense), color: const Color(0xFFFF5C6C), border: border),
-            _Cell(label: context.l10n.dashStatNet.toUpperCase(), value: _compact(net), color: scheme.onSurface, border: border),
-            _Cell(label: context.l10n.dashStatSave.toUpperCase(), value: '${savePct.toStringAsFixed(0)}%', color: scheme.onSurface, border: BorderSide.none),
+            _Cell(label: context.l10n.dashStatNet.toUpperCase(), value: _compact(net), color: scheme.onSurface, border: BorderSide.none),
           ],
         ),
       ),
@@ -74,8 +72,8 @@ class _Cell extends StatelessWidget {
               label,
               style: GoogleFonts.jetBrainsMono(
                 color: scheme.onSurfaceVariant,
-                fontSize: 9,
-                letterSpacing: 1.8,
+                fontSize: 11,
+                letterSpacing: 1.2,
                 fontWeight: FontWeight.w500,
               ),
             ),

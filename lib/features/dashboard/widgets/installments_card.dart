@@ -89,7 +89,7 @@ class InstallmentsCard extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.jetBrainsMono(
                                   color: scheme.onSurfaceVariant,
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   letterSpacing: 0.6,
                                 ),
                               ),
@@ -99,7 +99,7 @@ class InstallmentsCard extends ConsumerWidget {
                               '${p.paidCount()}/${p.installmentCount}',
                               style: GoogleFonts.jetBrainsMono(
                                 color: scheme.onSurface,
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -111,7 +111,7 @@ class InstallmentsCard extends ConsumerWidget {
                       context.l10n.dashMorePlans(active.length - 3),
                       style: GoogleFonts.jetBrainsMono(
                         color: scheme.onSurfaceVariant,
-                        fontSize: 10,
+                        fontSize: 11,
                         letterSpacing: 0.6,
                       ),
                     ),
@@ -122,7 +122,7 @@ class InstallmentsCard extends ConsumerWidget {
                         .toUpperCase(),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.primary,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.6,
                     ),
@@ -148,8 +148,8 @@ class _KLabel extends StatelessWidget {
       text,
       style: GoogleFonts.jetBrainsMono(
         color: scheme.onSurfaceVariant,
-        fontSize: 10,
-        letterSpacing: 1.8,
+        fontSize: 11,
+        letterSpacing: 1.2,
         fontWeight: FontWeight.w500,
       ),
     );

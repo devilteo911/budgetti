@@ -43,9 +43,9 @@ class AmountHeroField extends StatelessWidget {
             _kicker(context),
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
-              letterSpacing: 2.4,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 12),

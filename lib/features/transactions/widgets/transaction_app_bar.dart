@@ -48,7 +48,7 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
             color: scheme.onSurface,
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            letterSpacing: 1.8,
+            letterSpacing: 1.2,
           ),
         ),
         actions: [
@@ -96,9 +96,9 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 context.l10n.txLedger.toUpperCase(),
                 style: GoogleFonts.jetBrainsMono(
                   color: scheme.onSurfaceVariant,
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 2.2,
+                  letterSpacing: 1.2,
                 ),
               ),
               const SizedBox(height: 2),

@@ -80,7 +80,7 @@ class CategoryRow extends StatelessWidget {
                     context.l10n.statsPctOf(pct.toStringAsFixed(1)),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 0.4,
                     ),
@@ -95,7 +95,7 @@ class CategoryRow extends StatelessWidget {
                 color: scheme.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
+                letterSpacing: 0,
               ),
             ),
           ],

@@ -38,9 +38,9 @@ class ActiveFilterChip extends StatelessWidget {
                 prefix!,
                 style: GoogleFonts.jetBrainsMono(
                   color: accent.withValues(alpha: 0.7),
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.6,
+                  letterSpacing: 1.2,
                 ),
               ),
               const SizedBox(width: 6),
@@ -49,7 +49,7 @@ class ActiveFilterChip extends StatelessWidget {
               label,
               style: GoogleFonts.jetBrainsMono(
                 color: accent,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),

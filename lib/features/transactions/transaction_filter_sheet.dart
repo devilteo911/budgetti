@@ -55,9 +55,9 @@ class TransactionFilterSheet extends ConsumerWidget {
                     context.l10n.txResetAll.toUpperCase(),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.error,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.4,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
@@ -176,9 +176,9 @@ class _SectionLabel extends StatelessWidget {
         text,
         style: GoogleFonts.jetBrainsMono(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
-          fontSize: 9,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
-          letterSpacing: 2.2,
+          letterSpacing: 1.2,
         ),
       ),
     );

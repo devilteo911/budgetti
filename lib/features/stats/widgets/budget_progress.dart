@@ -36,9 +36,9 @@ class BudgetProgress extends StatelessWidget {
                 context.l10n.statsMonthlyBudget.toUpperCase(),
                 style: GoogleFonts.jetBrainsMono(
                   color: scheme.onSurfaceVariant,
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 1.8,
+                  letterSpacing: 1.2,
                 ),
               ),
               const Spacer(),
@@ -53,7 +53,7 @@ class BudgetProgress extends StatelessWidget {
                   '${pct.toStringAsFixed(0)}%',
                   style: GoogleFonts.jetBrainsMono(
                     color: fillColor,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.4,
                   ),
@@ -91,7 +91,7 @@ class BudgetProgress extends StatelessWidget {
                   color: scheme.onSurface,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
+                  letterSpacing: 0,
                 ),
               ),
               Text(
@@ -100,7 +100,7 @@ class BudgetProgress extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  letterSpacing: -0.2,
+                  letterSpacing: 0,
                 ),
               ),
               const Spacer(),
@@ -111,7 +111,7 @@ class BudgetProgress extends StatelessWidget {
                       .toUpperCase(),
                   style: GoogleFonts.jetBrainsMono(
                     color: scheme.error,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.2,
                   ),
@@ -126,7 +126,7 @@ class BudgetProgress extends StatelessWidget {
                       .toUpperCase(),
                   style: GoogleFonts.jetBrainsMono(
                     color: scheme.onSurfaceVariant,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.2,
                   ),

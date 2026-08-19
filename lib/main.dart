@@ -21,6 +21,7 @@ import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
 import 'package:budgetti/core/services/bank_sync_service.dart';
 import 'package:budgetti/core/services/pocketbase_sync_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:pocketbase/pocketbase.dart' as pb;
 
 @pragma('vm:entry-point')
@@ -159,6 +160,10 @@ Future<void> _resolveLocalUserId(
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Fonts are bundled in assets/google_fonts — never fetch (or flash a
+  // Roboto fallback) at runtime, including first launch offline.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Italian month/day names for DateFormat once the locale is 'it'.
   await initializeDateFormatting();

@@ -59,9 +59,9 @@ class TypeSelector extends StatelessWidget {
                 label,
                 style: GoogleFonts.jetBrainsMono(
                   color: isSelected ? onAccent : scheme.onSurfaceVariant,
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.8,
+                  letterSpacing: 1.2,
                 ),
               ),
             ),

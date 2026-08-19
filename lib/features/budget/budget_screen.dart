@@ -244,7 +244,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen>
                                                 : context.l10n.instAddPlan,
                                             style: GoogleFonts.jetBrainsMono(
                                               color: scheme.onSurfaceVariant,
-                                              fontSize: 10,
+                                              fontSize: 11,
                                               fontWeight: FontWeight.w500,
                                               letterSpacing: 0.6,
                                             ),
@@ -425,9 +425,9 @@ class _EmptyState extends StatelessWidget {
             context.l10n.budgetNoCategories,
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
-              letterSpacing: 2.4,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 8),
@@ -464,9 +464,9 @@ class _ErrorView extends StatelessWidget {
               context.l10n.budgetErrorLabel,
               style: GoogleFonts.jetBrainsMono(
                 color: scheme.error,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 2.4,
+                letterSpacing: 1.2,
               ),
             ),
             const SizedBox(height: 8),

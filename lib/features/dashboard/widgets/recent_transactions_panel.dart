@@ -44,8 +44,8 @@ class RecentTransactionsPanel extends ConsumerWidget {
                     text: TextSpan(
                       style: GoogleFonts.jetBrainsMono(
                         color: scheme.onSurfaceVariant,
-                        fontSize: 10,
-                        letterSpacing: 2.0,
+                        fontSize: 11,
+                        letterSpacing: 1.2,
                         fontWeight: FontWeight.w500,
                       ),
                       children: [
@@ -68,7 +68,7 @@ class RecentTransactionsPanel extends ConsumerWidget {
                       '${context.l10n.dashAllLabel.toUpperCase()} →',
                       style: GoogleFonts.jetBrainsMono(
                         color: scheme.primary,
-                        fontSize: 10,
+                        fontSize: 11,
                         letterSpacing: 1.0,
                         fontWeight: FontWeight.w500,
                       )),
@@ -155,7 +155,7 @@ class _Row extends StatelessWidget {
                   t.category.toUpperCase(),
                   style: GoogleFonts.jetBrainsMono(
                     color: scheme.onSurfaceVariant,
-                    fontSize: 9,
+                    fontSize: 11,
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -180,7 +180,7 @@ class _Row extends StatelessWidget {
                 _relDate(context, t.date),
                 style: GoogleFonts.jetBrainsMono(
                   color: scheme.onSurfaceVariant,
-                  fontSize: 9,
+                  fontSize: 11,
                   letterSpacing: 0.6,
                 ),
               ),

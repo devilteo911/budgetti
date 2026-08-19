@@ -97,7 +97,6 @@
   "dashStatIn": "In",
   "dashStatOut": "Out",
   "dashStatNet": "Net",
-  "dashStatSave": "Save",
   "dashStillOwedLabel": "Still owed",
   "dashPerMonth": "{amount} / month",
   "dashPlansLabel": "Plans",

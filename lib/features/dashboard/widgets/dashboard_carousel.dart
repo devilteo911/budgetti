@@ -149,7 +149,7 @@ class _WalletsRecapCard extends ConsumerWidget {
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: 0.6,
             ),
           ),
@@ -198,7 +198,7 @@ class _WalletsRecapCard extends ConsumerWidget {
                           style: GoogleFonts.jetBrainsMono(
                             color: scheme.primary,
                             fontWeight: FontWeight.w500,
-                            fontSize: 10,
+                            fontSize: 11,
                             letterSpacing: 1.0,
                           ),
                         ),

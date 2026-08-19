@@ -47,7 +47,7 @@ class BudgetOverviewCard extends ConsumerWidget {
                     Text(context.l10n.dashSetUpBudgetsSubtitle,
                         style: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant,
-                          fontSize: 10,
+                          fontSize: 11,
                           letterSpacing: 0.6,
                         )),
                   ],
@@ -178,7 +178,7 @@ class BudgetOverviewCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.jetBrainsMono(
                               color: scheme.onSurfaceVariant,
-                              fontSize: 10,
+                              fontSize: 11,
                               letterSpacing: 0.6,
                             ),
                           ),
@@ -187,7 +187,7 @@ class BudgetOverviewCard extends ConsumerWidget {
                           currency.format(spent),
                           style: GoogleFonts.jetBrainsMono(
                             color: scheme.onSurface,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -216,8 +216,8 @@ class _KLabel extends StatelessWidget {
       text,
       style: GoogleFonts.jetBrainsMono(
         color: scheme.onSurfaceVariant,
-        fontSize: 10,
-        letterSpacing: 1.8,
+        fontSize: 11,
+        letterSpacing: 1.2,
         fontWeight: FontWeight.w500,
       ),
     );

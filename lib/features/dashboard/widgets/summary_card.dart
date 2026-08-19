@@ -48,7 +48,7 @@ class SummaryCard extends ConsumerWidget {
             style: GoogleFonts.bricolageGrotesque(
               fontWeight: FontWeight.w800,
               color: scheme.onSurface,
-              letterSpacing: -1.2,
+              letterSpacing: 0,
               height: 1.0,
               fontSize: 30,
             ),
@@ -92,7 +92,7 @@ class SummaryCard extends ConsumerWidget {
                     style: GoogleFonts.jetBrainsMono(
                       color: trendColor,
                       fontWeight: FontWeight.w500,
-                      fontSize: 10,
+                      fontSize: 11,
                       letterSpacing: 0.4,
                     ),
                   ),

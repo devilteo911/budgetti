@@ -680,12 +680,6 @@ abstract class AppLocalizations {
   /// **'Net'**
   String get dashStatNet;
 
-  /// No description provided for @dashStatSave.
-  ///
-  /// In en, this message translates to:
-  /// **'Save'**
-  String get dashStatSave;
-
   /// No description provided for @dashStillOwedLabel.
   ///
   /// In en, this message translates to:

@@ -160,7 +160,7 @@ class TransactionLedgerItem extends ConsumerWidget {
                       ),
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
+                      letterSpacing: 0,
                       height: 1.2,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
@@ -173,7 +173,7 @@ class TransactionLedgerItem extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.jetBrainsMono(
                         color: scheme.onSurfaceVariant,
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.2,
                         height: 1.0,
@@ -236,7 +236,7 @@ class _MetaRow extends StatelessWidget {
               name,
               style: TextStyle(
                 color: ink,
-                fontSize: 9.5,
+                fontSize: 11.5,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
               ),
