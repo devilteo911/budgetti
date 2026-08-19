@@ -27,8 +27,11 @@ class AppearanceScreen extends ConsumerWidget {
                 final palettes = darkDynamic == null
                     ? AppPalette.values.where((p) => p != AppPalette.dynamic)
                     : AppPalette.values;
-                Color swatchOf(AppPalette p) =>
-                    p == AppPalette.dynamic ? darkDynamic!.primary : p.swatch;
+                Color swatchOf(AppPalette p) => p == AppPalette.dynamic
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? darkDynamic!.primary
+                        : lightDynamic!.primary)
+                    : p.swatch;
                 return Padding(
                   padding: const EdgeInsets.all(16),
                   child: Wrap(
@@ -47,10 +50,12 @@ class AppearanceScreen extends ConsumerWidget {
                             color: color,
                             shape: BoxShape.circle,
                             border: Border.all(
+                              // Hairline outline keeps pale swatches
+                              // (Monet on light wallpapers) visible.
                               color: selected
                                   ? scheme.onSurface
-                                  : Colors.transparent,
-                              width: 3,
+                                  : scheme.outlineVariant,
+                              width: selected ? 3 : 1,
                             ),
                             boxShadow: selected
                                 ? [
