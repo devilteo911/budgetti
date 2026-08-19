@@ -104,13 +104,6 @@ class Transactions extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
-
-  // List of indexes for this table
-  List<Index> get indexes => [
-    Index('idx_transactions_date', 'ON transactions (date DESC)'),
-    Index('idx_transactions_account', 'ON transactions (account_id)'),
-    Index('idx_transactions_user', 'ON transactions (user_id)'),
-  ];
 }
 
 class Budgets extends Table {
@@ -189,11 +182,6 @@ class PendingTransactions extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
-
-  List<Index> get indexes => [
-    Index('idx_pending_gmail', 'ON pending_transactions (gmail_message_id)'),
-    Index('idx_pending_status', 'ON pending_transactions (status)'),
-  ];
 }
 
 @DriftDatabase(
@@ -215,7 +203,42 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 14; // v14: transactions link to an installment plan
+  int get schemaVersion => 15; // v15: indexes actually get created (see below)
+
+  /// Every index the schema declares, as full CREATE statements. Drift's
+  /// codegen only picks up `@TableIndex` annotations — the plain
+  /// `List<Index> get indexes` getters these used to live in were ignored, so
+  /// fresh installs had none. (The old v8 upgrade step never created them
+  /// either: `Index()` takes a full CREATE statement, but it was handed only
+  /// the `ON …` tail, which is a syntax error that the swallow-all catch
+  /// around it hid — no install ever had these.)
+  static const List<(String, String)> _indexes = [
+    (
+      'idx_transactions_date',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions (date DESC)',
+    ),
+    (
+      'idx_transactions_account',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (account_id)',
+    ),
+    (
+      'idx_transactions_user',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions (user_id)',
+    ),
+    // Transfer-destination balance aggregation filters on to_account_id.
+    (
+      'idx_transactions_to_account',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_to_account ON transactions (to_account_id)',
+    ),
+    (
+      'idx_pending_gmail',
+      'CREATE INDEX IF NOT EXISTS idx_pending_gmail ON pending_transactions (gmail_message_id)',
+    ),
+    (
+      'idx_pending_status',
+      'CREATE INDEX IF NOT EXISTS idx_pending_status ON pending_transactions (status)',
+    ),
+  ];
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -225,6 +248,9 @@ class AppDatabase extends _$AppDatabase {
     // sets never deduped against each other and every default showed up twice.
     onCreate: (Migrator m) async {
       await m.createAll();
+      for (final (name, stmt) in _indexes) {
+        await m.createIndex(Index(name, stmt));
+      }
     },
     onUpgrade: (Migrator m, int from, int to) async {
       if (from < 2) {
@@ -292,23 +318,7 @@ class AppDatabase extends _$AppDatabase {
           // Ignore: column might already exist
         }
       }
-      if (from < 8) {
-        try {
-          await m.createIndex(
-            Index('idx_transactions_date', 'ON transactions (date DESC)'),
-          );
-        } catch (_) {}
-        try {
-          await m.createIndex(
-            Index('idx_transactions_account', 'ON transactions (account_id)'),
-          );
-        } catch (_) {}
-        try {
-          await m.createIndex(
-            Index('idx_transactions_user', 'ON transactions (user_id)'),
-          );
-        } catch (_) {}
-      }
+      // (v8's index creation never worked — see [_indexes]; v15 creates them.)
       if (from < 9) {
         await m.createTable(pendingTransactions);
       }
@@ -335,6 +345,11 @@ class AppDatabase extends _$AppDatabase {
         try {
           await m.addColumn(transactions, transactions.installmentId);
         } catch (_) {}
+      }
+      if (from < 15) {
+        for (final (name, stmt) in _indexes) {
+          await m.createIndex(Index(name, stmt));
+        }
       }
     },
   );
