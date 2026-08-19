@@ -7,7 +7,8 @@ enum AppPalette {
   mint,
   purple,
   slate,
-  amber;
+  amber,
+  dynamic;
 
   String get label => switch (this) {
         AppPalette.ocean => 'Ocean',
@@ -15,6 +16,7 @@ enum AppPalette {
         AppPalette.purple => 'Purple',
         AppPalette.slate => 'Slate',
         AppPalette.amber => 'Amber',
+        AppPalette.dynamic => 'Monet',
       };
 
   Color get seed => switch (this) {
@@ -23,15 +25,19 @@ enum AppPalette {
         AppPalette.purple => const Color(0xFF6750A4),
         AppPalette.slate => const Color(0xFF535E6C),
         AppPalette.amber => const Color(0xFF8B5000),
+        // Unused: dynamic schemes come from the wallpaper, not a seed.
+        AppPalette.dynamic => const Color(0xFF356859),
       };
 
   /// Swatch shown in palette picker (uses dark-mode primary for contrast).
+  /// Placeholder for `dynamic` — the picker paints the live wallpaper color.
   Color get swatch => switch (this) {
         AppPalette.ocean => const Color(0xFF98CCF9),
         AppPalette.mint => const Color(0xFF9CD1BD),
         AppPalette.purple => const Color(0xFFCFBCFF),
         AppPalette.slate => const Color(0xFFB4C7D9),
         AppPalette.amber => const Color(0xFFFFB870),
+        AppPalette.dynamic => const Color(0xFF9CD1BD),
       };
 }
 
@@ -63,25 +69,23 @@ class AppTheme {
 
   static ColorScheme _buildScheme(
     AppPalette palette,
-    Brightness brightness, {
-    bool amoled = false,
-  }) {
-    var scheme = ColorScheme.fromSeed(
-      seedColor: palette.seed,
-      brightness: brightness,
-    );
-    if (brightness == Brightness.dark && amoled) {
-      scheme = scheme.copyWith(surface: const Color(0xFF000000));
-    }
-    return scheme;
-  }
+    Brightness brightness,
+  ) =>
+      ColorScheme.fromSeed(
+        seedColor: palette.seed,
+        brightness: brightness,
+      );
 
   static ThemeData buildTheme({
     required AppPalette palette,
     required Brightness brightness,
     bool amoled = false,
+    ColorScheme? dynamicScheme,
   }) {
-    final scheme = _buildScheme(palette, brightness, amoled: amoled);
+    var scheme = dynamicScheme ?? _buildScheme(palette, brightness);
+    if (brightness == Brightness.dark && amoled) {
+      scheme = scheme.copyWith(surface: const Color(0xFF000000));
+    }
 
     final baseText = brightness == Brightness.dark
         ? ThemeData.dark().textTheme

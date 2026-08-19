@@ -1,5 +1,6 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:budgetti/features/settings/widgets/settings_scaffold.dart';
 import 'package:budgetti/features/settings/widgets/settings_section.dart';
 import 'package:flutter/material.dart';
@@ -20,45 +21,59 @@ class AppearanceScreen extends ConsumerWidget {
         SettingsSection(
           title: 'Palette',
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: AppPalette.values.map((p) {
-                  final selected = settings.palette == p;
-                  return GestureDetector(
-                    onTap: () => notifier.setPalette(p),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: p.swatch,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: selected
-                              ? scheme.onSurface
-                              : Colors.transparent,
-                          width: 3,
+            DynamicColorBuilder(
+              builder: (lightDynamic, darkDynamic) {
+                // Monet only exists where the OS exposes wallpaper colors.
+                final palettes = darkDynamic == null
+                    ? AppPalette.values.where((p) => p != AppPalette.dynamic)
+                    : AppPalette.values;
+                Color swatchOf(AppPalette p) =>
+                    p == AppPalette.dynamic ? darkDynamic!.primary : p.swatch;
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: palettes.map((p) {
+                      final selected = settings.palette == p;
+                      final color = swatchOf(p);
+                      return GestureDetector(
+                        onTap: () => notifier.setPalette(p),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: selected
+                                  ? scheme.onSurface
+                                  : Colors.transparent,
+                              width: 3,
+                            ),
+                            boxShadow: selected
+                                ? [
+                                    BoxShadow(
+                                      color: color.withValues(alpha: 0.5),
+                                      blurRadius: 12,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: selected
+                              ? Icon(Icons.check,
+                                  size: 22, color: scheme.surface)
+                              : p == AppPalette.dynamic
+                                  ? Icon(Icons.wallpaper,
+                                      size: 22, color: scheme.onSurface)
+                                  : null,
                         ),
-                        boxShadow: selected
-                            ? [
-                                BoxShadow(
-                                  color: p.swatch.withValues(alpha: 0.5),
-                                  blurRadius: 12,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: selected
-                          ? Icon(Icons.check,
-                              size: 22, color: scheme.surface)
-                          : null,
-                    ),
-                  );
-                }).toList(),
-              ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
             ),
           ],
         ),

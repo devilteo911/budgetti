@@ -1,5 +1,6 @@
 import 'package:budgetti/core/router/app_router.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -254,20 +255,30 @@ class BudgettiApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final settings = ref.watch(themeSettingsProvider);
 
-    return MaterialApp.router(
-      title: 'Budgetti',
-      theme: AppTheme.buildTheme(
-        palette: settings.palette,
-        brightness: Brightness.light,
-      ),
-      darkTheme: AppTheme.buildTheme(
-        palette: settings.palette,
-        brightness: Brightness.dark,
-        amoled: settings.amoled,
-      ),
-      themeMode: settings.mode,
-      routerConfig: router,
-      debugShowCheckedModeBanner: false,
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) {
+        // Monet: use the wallpaper-derived scheme when available
+        // (Android 12+); other palettes and unsupported platforms
+        // fall back to the seed scheme.
+        final dynamic = settings.palette == AppPalette.dynamic;
+        return MaterialApp.router(
+          title: 'Budgetti',
+          theme: AppTheme.buildTheme(
+            palette: settings.palette,
+            brightness: Brightness.light,
+            dynamicScheme: dynamic ? lightDynamic : null,
+          ),
+          darkTheme: AppTheme.buildTheme(
+            palette: settings.palette,
+            brightness: Brightness.dark,
+            amoled: settings.amoled,
+            dynamicScheme: dynamic ? darkDynamic : null,
+          ),
+          themeMode: settings.mode,
+          routerConfig: router,
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
   }
 }
