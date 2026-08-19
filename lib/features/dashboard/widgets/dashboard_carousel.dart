@@ -6,7 +6,6 @@ import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/dashboard/widgets/carousel_card.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
-import 'package:budgetti/features/dashboard/widgets/net_flow_card.dart';
 
 class DashboardCarousel extends ConsumerStatefulWidget {
   const DashboardCarousel({super.key});
@@ -41,7 +40,6 @@ class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
             controller: _controller,
             onPageChanged: (i) => setState(() => _page = i),
             children: [
-              const _PageSlot(child: NetFlowCard()),
               _PageSlot(
                 child: SummaryCard(
                   title: context.l10n.dashTotalBalance,
@@ -63,7 +61,7 @@ class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
         const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(3, (i) {
+          children: List.generate(2, (i) {
             final active = i == _page;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 200),

@@ -85,51 +85,6 @@ class TransactionLedgerItemSkeleton extends StatelessWidget {
   }
 }
 
-class BudgetSaturationRecapSkeleton extends StatelessWidget {
-  const BudgetSaturationRecapSkeleton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Skeleton(height: 24, width: 180), // Title "Budget Saturation"
-        const SizedBox(height: 16),
-        // 3 items
-        for (int i = 0; i < 3; i++)
-          Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceGrey,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppTheme.surfaceGreyLight.withOpacity(0.3),
-                width: 1.5,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Skeleton(height: 20, width: 20, borderRadius: 4),
-                    const SizedBox(width: 8),
-                    const Skeleton(height: 16, width: 100),
-                    const Spacer(),
-                    const Skeleton(height: 12, width: 120),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Skeleton(height: 6, width: double.infinity, borderRadius: 4),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class DashboardSkeleton extends StatelessWidget {
   const DashboardSkeleton({super.key});
 
@@ -164,9 +119,6 @@ class DashboardSkeleton extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          // Budget Saturation
-          const BudgetSaturationRecapSkeleton(),
-          const SizedBox(height: 32),
           // Recent Transactions
           Column(
             children: [
