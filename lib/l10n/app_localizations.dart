@@ -686,18 +686,6 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get dashStatSave;
 
-  /// No description provided for @dashTrackInstallments.
-  ///
-  /// In en, this message translates to:
-  /// **'Track installments'**
-  String get dashTrackInstallments;
-
-  /// No description provided for @dashTrackInstallmentsSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'See what you still owe on monthly rates'**
-  String get dashTrackInstallmentsSubtitle;
-
   /// No description provided for @dashStillOwedLabel.
   ///
   /// In en, this message translates to:

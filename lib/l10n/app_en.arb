@@ -98,8 +98,6 @@
   "dashStatOut": "Out",
   "dashStatNet": "Net",
   "dashStatSave": "Save",
-  "dashTrackInstallments": "Track installments",
-  "dashTrackInstallmentsSubtitle": "See what you still owe on monthly rates",
   "dashStillOwedLabel": "Still owed",
   "dashPerMonth": "{amount} / month",
   "dashPlansLabel": "Plans",

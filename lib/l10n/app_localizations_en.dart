@@ -327,13 +327,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashStatSave => 'Save';
 
   @override
-  String get dashTrackInstallments => 'Track installments';
-
-  @override
-  String get dashTrackInstallmentsSubtitle =>
-      'See what you still owe on monthly rates';
-
-  @override
   String get dashStillOwedLabel => 'Still owed';
 
   @override

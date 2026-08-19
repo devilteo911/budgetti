@@ -7,10 +7,11 @@ import 'package:intl/intl.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 
-/// Dashboard entry point for installment plans: what's still owed and the next
-/// rate due. Same bordered-strip language as [BudgetOverviewCard], including
-/// its empty state — that's the only way to reach the screen and create the
-/// first plan.
+/// Dashboard read for running installment plans: what's still owed and the
+/// next rate due. Same bordered-strip language as [BudgetOverviewCard].
+/// Hidden while no plan is active — the persistent entry point for the screen
+/// is the "Pagamenti a rate" row on /budgets, so the home never advertises an
+/// unused feature.
 class InstallmentsCard extends ConsumerWidget {
   const InstallmentsCard({super.key});
 
@@ -24,43 +25,7 @@ class InstallmentsCard extends ConsumerWidget {
     final border = BorderSide(color: scheme.outline.withValues(alpha: 0.12));
     final boxBorder = Border(bottom: border, left: border, right: border);
 
-    if (active.isEmpty) {
-      return InkWell(
-        onTap: () => context.push('/installments'),
-        child: Container(
-          decoration: BoxDecoration(border: boxBorder),
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Icon(Icons.receipt_long_outlined, color: scheme.primary, size: 24),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(context.l10n.dashTrackInstallments,
-                        style: GoogleFonts.bricolageGrotesque(
-                          color: scheme.onSurface,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        )),
-                    const SizedBox(height: 2),
-                    Text(context.l10n.dashTrackInstallmentsSubtitle,
-                        style: GoogleFonts.jetBrainsMono(
-                          color: scheme.onSurfaceVariant,
-                          fontSize: 10,
-                          letterSpacing: 0.6,
-                        )),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward,
-                  color: scheme.onSurfaceVariant, size: 16),
-            ],
-          ),
-        ),
-      );
-    }
+    if (active.isEmpty) return const SizedBox.shrink();
 
     final owed = active.fold<double>(0, (s, p) => s + p.remainingAmount());
     final monthly =

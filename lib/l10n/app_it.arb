@@ -98,8 +98,6 @@
   "dashStatOut": "Uscite",
   "dashStatNet": "Netto",
   "dashStatSave": "Risparmio",
-  "dashTrackInstallments": "Traccia le rate",
-  "dashTrackInstallmentsSubtitle": "Vedi quanto ti resta da pagare sulle rate mensili",
   "dashStillOwedLabel": "Ancora da pagare",
   "dashPerMonth": "{amount} al mese",
   "dashPlansLabel": "Piani",

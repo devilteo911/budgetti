@@ -10,6 +10,7 @@ import 'package:budgetti/features/stats/widgets/stagger.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -66,6 +67,13 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen>
     final budgetStatsAsync = ref.watch(budgetStatsProvider);
     final budgetMap = ref.watch(budgetMapProvider);
     final currencyFormatter = ref.watch(currencyProvider);
+    // For the installments entry row: its subline shows the monthly rate
+    // commitment while plans are running.
+    final runningPlans = (ref.watch(installmentsProvider).value ?? const [])
+        .where((p) => p.isActive())
+        .toList();
+    final plansMonthly =
+        runningPlans.fold<double>(0, (s, p) => s + p.amountPerInstallment);
 
     return Scaffold(
       appBar: AppBar(
@@ -187,6 +195,71 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen>
                           child: _EmptyState(),
                         )
                       else ...[
+                        // Persistent entry point for installment plans — the
+                        // dashboard card only shows while a plan is running.
+                        // Same row language as the budget rows below.
+                        Stagger(
+                          controller: _entrance,
+                          begin: 0.05,
+                          end: 0.60,
+                          child: SliverToBoxAdapter(
+                            child: InkWell(
+                              onTap: () => context.push('/installments'),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 3,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                        color: scheme.primary,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Icon(Icons.receipt_long_outlined,
+                                        color: scheme.primary, size: 18),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            context.l10n.instScreenTitle,
+                                            style: TextStyle(
+                                              color: scheme.onSurface,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            runningPlans.isNotEmpty
+                                                ? context.l10n.dashPerMonth(
+                                                    currencyFormatter.format(
+                                                        plansMonthly))
+                                                : context.l10n.instAddPlan,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: scheme.onSurfaceVariant,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                              letterSpacing: 0.6,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right,
+                                        color: scheme.onSurfaceVariant, size: 22),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         if (active.isNotEmpty) ...[
                           Stagger(
                             controller: _entrance,
