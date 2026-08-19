@@ -464,13 +464,24 @@ class TransactionFiltersNotifier extends Notifier<TransactionFilterState> {
     return TransactionFilterState(
       dateRange: DateTimeRange(
         start: DateTime(now.year, 1, 1),
-        end: DateTime(now.year, 12, 31),
+        end: DateTime(now.year, 12, 31, 23, 59, 59, 999),
       ),
     );
   }
 
   void setDateRange(DateTimeRange? range) {
-    state = state.copyWith(dateRange: () => range);
+    // Filter ranges are calendar dates. Entries carry a time-of-day (bank
+    // drafts, same-day manual entries), so an end at midnight would drop the
+    // range's last day everywhere the range is applied.
+    final normalized = range == null
+        ? null
+        : DateTimeRange(
+            start: DateTime(
+                range.start.year, range.start.month, range.start.day),
+            end: DateTime(range.end.year, range.end.month, range.end.day, 23,
+                59, 59, 999),
+          );
+    state = state.copyWith(dateRange: () => normalized);
   }
 
   void toggleCategory(String category) {
@@ -600,11 +611,11 @@ final filteredTotalsProvider = Provider<FilteredTotals>((ref) {
       continue;
     }
 
-    count++;
     if (t.type == 'transfer') continue;
-    if (t.amount > 0) {
+    count++;
+    if (t.isIncome) {
       income += t.amount;
-    } else {
+    } else if (t.isExpense) {
       expense += t.amount.abs();
     }
   }
@@ -702,15 +713,18 @@ final dashboardStatsProvider = Provider<AsyncValue<DashboardStats>>((ref) {
             if (t.date.month != currentMonth || t.date.year != currentYear) {
               continue;
             }
-            if (t.type == 'income') {
+            if (t.isIncome) {
               monthlyIncome += t.amount;
-            } else if (t.amount < 0 && t.type != 'transfer') {
+            } else if (t.isExpense) {
               monthlyExpenses += t.amount.abs();
             }
           }
 
+          // Transfers excluded: a wallet-to-wallet move isn't income/expense,
+          // and transfers are stored positive — summing them raw would show
+          // self-transfers as a positive trend.
           final netFlow = transactions
-              .where((t) => t.date.isAfter(last30Days))
+              .where((t) => t.date.isAfter(last30Days) && t.type != 'transfer')
               .fold(0.0, (sum, t) => sum + t.amount);
 
           return AsyncData(
@@ -763,7 +777,7 @@ final budgetStatsProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
     for (var t in transactions) {
       if (t.date.year == now.year &&
           t.date.month == now.month &&
-          t.amount < 0) {
+          t.isExpense) {
         categorySpending[t.category] =
             (categorySpending[t.category] ?? 0) + t.amount.abs();
       }
@@ -823,9 +837,10 @@ final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
     final monthlyBreakdown = <String, Map<String, double>>{};
     double totalExpenses = 0.0;
 
+    final monthFmt = DateFormat('yyyy-MM');
     for (var t in transactions) {
-      // Distribution & Total
-      if (t.amount < 0) {
+      // Distribution & Total — transfers are neither income nor expense.
+      if (t.isExpense) {
         categoryTotals[t.category] =
             (categoryTotals[t.category] ?? 0) + t.amount.abs();
         for (final tag in t.tags) {
@@ -835,15 +850,15 @@ final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
       }
 
       // Breakdown
-      final monthKey = DateFormat('yyyy-MM').format(t.date);
+      final monthKey = monthFmt.format(t.date);
       if (!monthlyBreakdown.containsKey(monthKey)) {
         monthlyBreakdown[monthKey] = {'earned': 0.0, 'spent': 0.0};
       }
 
-      if (t.amount > 0) {
+      if (t.isIncome) {
         monthlyBreakdown[monthKey]!['earned'] =
             monthlyBreakdown[monthKey]!['earned']! + t.amount;
-      } else {
+      } else if (t.isExpense) {
         monthlyBreakdown[monthKey]!['spent'] =
             monthlyBreakdown[monthKey]!['spent']! + t.amount.abs();
       }
@@ -911,7 +926,8 @@ final chartsDataProvider = Provider<AsyncValue<ChartSeries>>((ref) {
     final incomeBuckets = <DateTime, double>{};
 
     for (var t in transactions) {
-      if (t.amount == 0) continue;
+      // Transfers are stored positive and would land in the income series.
+      if (t.amount == 0 || t.type == 'transfer') continue;
       DateTime key;
       switch (granularity) {
         case ChartGranularity.daily:
@@ -1015,6 +1031,10 @@ class PaginatedTransactionsNotifier
   }
 
   Future<void> _fetchBatch() async {
+    // Claim the in-flight flag synchronously: loadMore's guard reads it, and
+    // without this two rapid calls both fetched from the same offset and
+    // appended the same page twice.
+    state = state.copyWith(isLoading: true);
     final filters = ref.read(transactionFiltersProvider);
     final walletId = ref.read(selectedWalletIdProvider);
     final service = ref.read(financeServiceProvider);

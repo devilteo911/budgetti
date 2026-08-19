@@ -14,6 +14,12 @@ class Transaction {
   /// Id of the installment plan this charge pays a rate of, if any.
   final String? installmentId;
 
+  /// Income/expense aggregates skip transfers — a wallet-to-wallet move is
+  /// neither. Sign decides within the rest, so legacy/imported rows whose
+  /// `type` disagrees with their sign still classify consistently everywhere.
+  bool get isIncome => type != 'transfer' && amount > 0;
+  bool get isExpense => type != 'transfer' && amount < 0;
+
   Transaction({
     required this.id,
     required this.accountId,
