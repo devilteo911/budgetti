@@ -43,6 +43,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   final _descriptionController = TextEditingController();
 
   bool _isScanning = false;
+  bool _saving = false;
   String _type = 'expense';
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
@@ -148,6 +149,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
       _toast(context.l10n.txPleaseSelectWallet);
@@ -179,10 +181,17 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     );
 
     final service = ref.read(financeServiceProvider);
-    if (widget.transaction != null) {
-      await service.updateTransaction(transaction);
-    } else {
-      await service.addTransaction(transaction);
+    // Claim synchronously: without the flag a double-tap fires two awaits,
+    // each inserting its own row.
+    setState(() => _saving = true);
+    try {
+      if (widget.transaction != null) {
+        await service.updateTransaction(transaction);
+      } else {
+        await service.addTransaction(transaction);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
 
     ref.read(notificationLogicProvider).checkBudgetAlerts(transaction);
@@ -369,7 +378,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                             : context.l10n.commonSave.toUpperCase(),
                         color: scheme.primary,
                         onColor: scheme.onPrimary,
-                        onTap: _submit,
+                        onTap: _saving ? null : _submit,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -879,7 +888,9 @@ class _SaveButton extends StatelessWidget {
   final String label;
   final Color color;
   final Color onColor;
-  final VoidCallback onTap;
+
+  /// Null while a save is in flight — the tap guard against double-booking.
+  final VoidCallback? onTap;
 
   const _SaveButton({
     required this.label,

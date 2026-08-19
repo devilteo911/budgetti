@@ -70,8 +70,18 @@ class PendingTransactionService {
       type: type,
     );
 
-    await _finance.addTransaction(tx);
-    await _markStatus(draft.id, 'approved');
+    await _db.transaction(() async {
+      // Re-check under the transaction: a double-tap or a crash-retried
+      // approval must not book the same draft twice.
+      final still = await (_db.select(_db.pendingTransactions)
+            ..where(
+                (t) => t.id.equals(draft.id) & t.status.equals('pending')))
+          .getSingleOrNull();
+      if (still == null) return;
+
+      await _finance.addTransaction(tx);
+      await _markStatus(draft.id, 'approved');
+    });
     return tx;
   }
 
