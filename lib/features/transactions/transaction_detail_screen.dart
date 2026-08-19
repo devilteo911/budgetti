@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/features/transactions/widgets/transaction_page.dart';
@@ -45,9 +46,9 @@ class _TransactionDetailScreenState
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          "Fast Categorization",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          context.l10n.txFastCategorization,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
       body: PageView.builder(

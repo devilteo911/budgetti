@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,13 +39,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ref.invalidate(userProfileProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile picture updated')),
+          SnackBar(content: Text(context.l10n.authAvatarUpdated)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving image: $e')),
+          SnackBar(content: Text(context.l10n.authAvatarSaveError(e.toString()))),
         );
       }
     } finally {
@@ -65,14 +66,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profile = ref.watch(userProfileProvider).value;
     final username = (profile?['username'] as String?)?.isNotEmpty == true
         ? profile!['username'] as String
-        : 'User';
+        : context.l10n.authUser;
     final email = profile?['email'] as String? ?? '';
     final avatarPath = profile?['avatar_url'] as String?;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Profile',
+          context.l10n.authProfileTitle,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: scheme.onSurface,
@@ -167,7 +168,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           FilledButton.icon(
             onPressed: _isLoading ? null : _signOut,
             icon: const Icon(Icons.logout),
-            label: const Text('Sign Out'),
+            label: Text(context.l10n.authSignOut),
             style: FilledButton.styleFrom(
               backgroundColor: scheme.errorContainer,
               foregroundColor: scheme.onErrorContainer,

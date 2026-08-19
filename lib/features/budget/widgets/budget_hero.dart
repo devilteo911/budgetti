@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -43,8 +44,8 @@ class BudgetHero extends StatelessWidget {
         children: [
           _Kicker(
             text: hasBudget
-                ? 'UTILIZATION  ·  $monthLabel'
-                : 'NO BUDGETS SET  ·  $monthLabel',
+                ? context.l10n.budgetUtilizationOf(monthLabel)
+                : context.l10n.budgetNoBudgetsSet(monthLabel),
           ),
           const SizedBox(height: 10),
           _HeroNumber(
@@ -57,7 +58,7 @@ class BudgetHero extends StatelessWidget {
           Text(
             hasBudget
                 ? '${currencyFormatter.format(spent)}  /  ${currencyFormatter.format(limit)}'
-                : 'Tap a category below to set a limit.',
+                : context.l10n.budgetTapToSet,
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 11,
@@ -75,18 +76,20 @@ class BudgetHero extends StatelessWidget {
           _SecondaryRow(
             items: [
               _SecondaryStat(
-                label: 'SPENT',
+                label: context.l10n.budgetSpent,
                 value: currencyFormatter.format(spent),
                 valueColor: scheme.onSurface,
               ),
               _SecondaryStat(
-                label: 'BUDGETED',
+                label: context.l10n.budgetBudgeted,
                 value: hasBudget ? currencyFormatter.format(limit) : '—',
                 valueColor:
                     hasBudget ? scheme.onSurface : scheme.onSurfaceVariant,
               ),
               _SecondaryStat(
-                label: remainingPositive ? 'REMAINING' : 'OVER',
+                label: remainingPositive
+                    ? context.l10n.budgetRemaining
+                    : context.l10n.budgetOver,
                 value: hasBudget
                     ? currencyFormatter
                         .format(remainingPositive ? remaining : -remaining)
@@ -98,7 +101,7 @@ class BudgetHero extends StatelessWidget {
                         : scheme.error,
               ),
               _SecondaryStat(
-                label: 'TRACKED',
+                label: context.l10n.budgetTracked,
                 value: activeCount.toString().padLeft(2, '0'),
                 valueColor: scheme.onSurface,
               ),

@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -76,7 +77,7 @@ class CategoryRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${pct.toStringAsFixed(1)}% of total',
+                    context.l10n.statsPctOf(pct.toStringAsFixed(1)),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
                       fontSize: 10,

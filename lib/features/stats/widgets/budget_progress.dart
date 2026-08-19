@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -32,7 +33,7 @@ class BudgetProgress extends StatelessWidget {
           Row(
             children: [
               Text(
-                'MONTHLY BUDGET',
+                context.l10n.statsMonthlyBudget.toUpperCase(),
                 style: GoogleFonts.jetBrainsMono(
                   color: scheme.onSurfaceVariant,
                   fontSize: 9,
@@ -105,7 +106,9 @@ class BudgetProgress extends StatelessWidget {
               const Spacer(),
               if (over)
                 Text(
-                  '+${currencyFormatter.format(spent - limit)} OVER',
+                  context.l10n
+                      .statsOver(currencyFormatter.format(spent - limit))
+                      .toUpperCase(),
                   style: GoogleFonts.jetBrainsMono(
                     color: scheme.error,
                     fontSize: 10,
@@ -115,7 +118,12 @@ class BudgetProgress extends StatelessWidget {
                 )
               else
                 Text(
-                  '${currencyFormatter.format((limit - spent).clamp(0, double.infinity))} LEFT',
+                  context.l10n
+                      .statsLeft(
+                        currencyFormatter
+                            .format((limit - spent).clamp(0, double.infinity)),
+                      )
+                      .toUpperCase(),
                   style: GoogleFonts.jetBrainsMono(
                     color: scheme.onSurfaceVariant,
                     fontSize: 10,

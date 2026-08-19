@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +20,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final username = _usernameController.text.trim();
     if (username.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username must be at least 3 characters')),
+        SnackBar(content: Text(context.l10n.authUsernameMinLength(3))),
       );
       return;
     }
@@ -37,7 +38,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Who are you?")),
+      appBar: AppBar(title: Text(context.l10n.authWhoAreYou)),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -46,22 +47,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             const Icon(Icons.person_pin, size: 64, color: AppTheme.primaryGreen),
             const SizedBox(height: 24),
             Text(
-              "Choose a Username",
+              context.l10n.authChooseUsername,
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              "Tell us what to call you in the app.",
+              context.l10n.authUsernameHint,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textGrey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             TextField(
               controller: _usernameController,
-              decoration: const InputDecoration(
-                labelText: "Username",
-                prefixIcon: Icon(Icons.alternate_email),
+              decoration: InputDecoration(
+                labelText: context.l10n.authUsername,
+                prefixIcon: const Icon(Icons.alternate_email),
               ),
               onSubmitted: (_) => _submit(),
             ),
@@ -73,7 +74,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: _isLoading
                     ? const SizedBox(
                         height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text("Get Started"),
+                    : Text(context.l10n.authGetStarted),
               ),
             ),
           ],

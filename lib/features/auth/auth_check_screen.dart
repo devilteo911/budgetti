@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -31,13 +32,15 @@ class AuthCheckScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.cloud_off, size: 64, color: AppTheme.textGrey),
               const SizedBox(height: 16),
-              const Text(
-                "Connection Error",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                context.l10n.authConnectionError,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
-                err.toString().contains('PGRST116') ? "Profile missing (Error)" : "Detailed error: $err",
+                err.toString().contains('PGRST116')
+                    ? context.l10n.authProfileMissing
+                    : context.l10n.authDetailedError(err.toString()),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppTheme.textGrey),
               ),
@@ -45,7 +48,7 @@ class AuthCheckScreen extends ConsumerWidget {
               ElevatedButton(
                 onPressed: () => ref.invalidate(userProfileProvider),
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
-                child: const Text("Retry", style: TextStyle(color: Colors.black)),
+                child: Text(context.l10n.commonRetry, style: const TextStyle(color: Colors.black)),
               ),
             ],
           ),

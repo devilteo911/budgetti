@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,10 +26,10 @@ class StatsFilterBar extends ConsumerWidget {
   }
 }
 
-String _scopeLabel(StatsScope s) => switch (s) {
-      StatsScope.all => 'All',
-      StatsScope.expenses => 'Expenses',
-      StatsScope.income => 'Income',
+String _scopeLabel(BuildContext context, StatsScope s) => switch (s) {
+      StatsScope.all => context.l10n.commonAll,
+      StatsScope.expenses => context.l10n.statsScopeExpenses,
+      StatsScope.income => context.l10n.statsScopeIncome,
     };
 
 class _ClusterRow extends ConsumerWidget {
@@ -41,7 +42,8 @@ class _ClusterRow extends ConsumerWidget {
     final isMonthlyMode = period.month != null;
     final now = DateTime.now();
 
-    final viewLabel = isMonthlyMode ? 'Month' : 'Year';
+    final viewLabel =
+        isMonthlyMode ? context.l10n.statsMonth : context.l10n.statsYear;
     final periodValue = isMonthlyMode
         ? DateFormat('MMM yyyy').format(DateTime(period.year, period.month!))
         : '${period.year}';
@@ -54,7 +56,7 @@ class _ClusterRow extends ConsumerWidget {
       child: Row(
         children: [
           _LabeledCluster(
-            value: _scopeLabel(scope),
+            value: _scopeLabel(context, scope),
             selected: scope != StatsScope.all,
             onTap: () => _openScopeSheet(context, ref, scope),
           ),
@@ -193,7 +195,7 @@ void _openScopeSheet(
         children: [
           for (final s in StatsScope.values)
             ListTile(
-              title: Text(_scopeLabel(s)),
+              title: Text(_scopeLabel(sheetCtx, s)),
               trailing: s == current ? const Icon(Icons.check) : null,
               onTap: () {
                 ref.read(statsScopeProvider.notifier).set(s);
@@ -222,7 +224,7 @@ void _openViewSheet(
         children: [
           ListTile(
             leading: const Icon(Icons.calendar_today),
-            title: const Text('Year'),
+            title: Text(sheetCtx.l10n.statsYear),
             trailing: !isMonthlyMode ? const Icon(Icons.check) : null,
             onTap: () {
               ref.read(selectedStatsPeriodProvider.notifier).setMonth(null);
@@ -234,7 +236,7 @@ void _openViewSheet(
           ),
           ListTile(
             leading: const Icon(Icons.calendar_view_month),
-            title: const Text('Month'),
+            title: Text(sheetCtx.l10n.statsMonth),
             trailing: isMonthlyMode ? const Icon(Icons.check) : null,
             onTap: () {
               ref
@@ -283,7 +285,7 @@ void _openPeriodSheet(
               Padding(
                 padding: const EdgeInsets.only(bottom: 12, left: 4),
                 child: Text(
-                  'Year',
+                  sheetCtx.l10n.statsYear,
                   style: Theme.of(sheetCtx).textTheme.labelLarge,
                 ),
               ),
@@ -309,7 +311,7 @@ void _openPeriodSheet(
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12, left: 4),
                   child: Text(
-                    'Month',
+                    sheetCtx.l10n.statsMonth,
                     style: Theme.of(sheetCtx).textTheme.labelLarge,
                   ),
                 ),

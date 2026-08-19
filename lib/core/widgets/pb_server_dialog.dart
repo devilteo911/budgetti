@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,14 +34,14 @@ Future<bool> showPbServerDialog(BuildContext context, WidgetRef ref) async {
   final saved = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('PocketBase server'),
+      title: Text(ctx.l10n.setPbServerTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: hostCtrl,
-            decoration: const InputDecoration(
-                labelText: 'Host or IP', hintText: kDefaultPbHost),
+            decoration: InputDecoration(
+                labelText: ctx.l10n.setPbHost, hintText: kDefaultPbHost),
             // Plain text, not number: a Tailscale hostname is as valid here
             // as a LAN address.
             autocorrect: false,
@@ -48,8 +49,8 @@ Future<bool> showPbServerDialog(BuildContext context, WidgetRef ref) async {
           const SizedBox(height: 12),
           TextField(
             controller: portCtrl,
-            decoration: const InputDecoration(
-                labelText: 'Port', hintText: kDefaultPbPort),
+            decoration: InputDecoration(
+                labelText: ctx.l10n.setPbPort, hintText: kDefaultPbPort),
             keyboardType: TextInputType.number,
             autocorrect: false,
           ),
@@ -58,10 +59,10 @@ Future<bool> showPbServerDialog(BuildContext context, WidgetRef ref) async {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel')),
+            child: Text(ctx.l10n.commonCancel)),
         TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save')),
+            child: Text(ctx.l10n.commonSave)),
       ],
     ),
   );

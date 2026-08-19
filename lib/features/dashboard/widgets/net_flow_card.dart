@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/dashboard/widgets/carousel_card.dart';
 
@@ -16,10 +17,10 @@ class NetFlowCard extends ConsumerWidget {
 
     final stats = statsAsync.value;
     if (stats == null) {
-      return const CarouselCard(
+      return CarouselCard(
         icon: Icons.sync_alt_rounded,
-        label: 'THIS MONTH',
-        child: SizedBox.shrink(),
+        label: context.l10n.dashThisMonthLabel.toUpperCase(),
+        child: const SizedBox.shrink(),
       );
     }
 
@@ -36,7 +37,7 @@ class NetFlowCard extends ConsumerWidget {
 
     return CarouselCard(
       icon: Icons.sync_alt_rounded,
-      label: 'THIS MONTH',
+      label: context.l10n.dashThisMonthLabel.toUpperCase(),
       trailing: Text(
         "${netPositive ? "+" : ""}${fmt(net)}",
         style: GoogleFonts.jetBrainsMono(
@@ -55,7 +56,7 @@ class NetFlowCard extends ConsumerWidget {
               Expanded(
                 child: _FlowLine(
                   icon: Icons.arrow_downward_rounded,
-                  label: "Income",
+                  label: context.l10n.commonIncome,
                   amount: fmt(income),
                   color: scheme.primary,
                 ),
@@ -64,7 +65,7 @@ class NetFlowCard extends ConsumerWidget {
               Expanded(
                 child: _FlowLine(
                   icon: Icons.arrow_upward_rounded,
-                  label: "Expenses",
+                  label: context.l10n.dashExpenses,
                   amount: fmt(expenses),
                   color: scheme.error,
                 ),

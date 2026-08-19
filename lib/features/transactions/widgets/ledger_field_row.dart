@@ -1,10 +1,11 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class LedgerFieldRow extends StatelessWidget {
   final String kicker;
   final String? value;
-  final String placeholder;
+  final String? placeholder;
   final IconData? leadingIcon;
   final Color? leadingColor;
   final bool showStripe;
@@ -17,7 +18,7 @@ class LedgerFieldRow extends StatelessWidget {
     super.key,
     required this.kicker,
     this.value,
-    this.placeholder = 'Select',
+    this.placeholder,
     this.leadingIcon,
     this.leadingColor,
     this.showStripe = false,
@@ -76,7 +77,9 @@ class LedgerFieldRow extends StatelessWidget {
               Expanded(
                 child: valueOverride ??
                     Text(
-                      hasValue ? value! : placeholder,
+                      hasValue
+                          ? value!
+                          : (placeholder ?? context.l10n.txSelect),
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.right,
                       style: TextStyle(

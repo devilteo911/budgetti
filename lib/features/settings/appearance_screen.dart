@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:dynamic_color/dynamic_color.dart';
@@ -16,10 +17,35 @@ class AppearanceScreen extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return SettingsScaffold(
-      title: 'Appearance',
+      title: context.l10n.setAppearance,
       children: [
         SettingsSection(
-          title: 'Palette',
+          title: context.l10n.setLanguage,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  segments: [
+                    ButtonSegment(
+                      value: 'system',
+                      label: Text(context.l10n.commonSystem),
+                      icon: const Icon(Icons.language),
+                    ),
+                    ButtonSegment(value: 'it', label: Text('Italiano')),
+                    ButtonSegment(value: 'en', label: Text('English')),
+                  ],
+                  selected: {ref.watch(localeSettingsProvider).language},
+                  onSelectionChanged: (s) =>
+                      ref.read(localeSettingsProvider.notifier).setLanguage(s.first),
+                ),
+              ),
+            ),
+          ],
+        ),
+        SettingsSection(
+          title: context.l10n.setPalette,
           children: [
             DynamicColorBuilder(
               builder: (lightDynamic, darkDynamic) {
@@ -83,28 +109,28 @@ class AppearanceScreen extends ConsumerWidget {
           ],
         ),
         SettingsSection(
-          title: 'Brightness',
+          title: context.l10n.setBrightness,
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
               child: SizedBox(
                 width: double.infinity,
                 child: SegmentedButton<ThemeMode>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: ThemeMode.system,
-                      label: Text('System'),
-                      icon: Icon(Icons.brightness_auto),
+                      label: Text(context.l10n.commonSystem),
+                      icon: const Icon(Icons.brightness_auto),
                     ),
                     ButtonSegment(
                       value: ThemeMode.light,
-                      label: Text('Light'),
-                      icon: Icon(Icons.light_mode),
+                      label: Text(context.l10n.setThemeLight),
+                      icon: const Icon(Icons.light_mode),
                     ),
                     ButtonSegment(
                       value: ThemeMode.dark,
-                      label: Text('Dark'),
-                      icon: Icon(Icons.dark_mode),
+                      label: Text(context.l10n.setThemeDark),
+                      icon: const Icon(Icons.dark_mode),
                     ),
                   ],
                   selected: {settings.mode},
@@ -115,17 +141,17 @@ class AppearanceScreen extends ConsumerWidget {
           ],
         ),
         SettingsSection(
-          title: 'Effects',
+          title: context.l10n.setEffects,
           children: [
             SwitchListTile(
-              title: const Text('AMOLED black'),
-              subtitle: const Text('Pure black background in dark mode'),
+              title: Text(context.l10n.setAmoledBlack),
+              subtitle: Text(context.l10n.setAmoledBlackSubtitle),
               value: settings.amoled,
               onChanged: notifier.setAmoled,
             ),
             SwitchListTile(
-              title: const Text('Liquid glass'),
-              subtitle: const Text('Frosted blur on nav bar and sheets'),
+              title: Text(context.l10n.setLiquidGlass),
+              subtitle: Text(context.l10n.setLiquidGlassSubtitle),
               value: settings.glass,
               onChanged: notifier.setGlass,
             ),

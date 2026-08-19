@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/settings/widgets/category_editor_modal.dart';
 import 'package:budgetti/models/category.dart';
@@ -38,7 +39,7 @@ class CategoriesScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Categories',
+          context.l10n.setCategories,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: scheme.onSurface,
@@ -58,18 +59,18 @@ class CategoriesScreen extends ConsumerWidget {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Restore Defaults?'),
-                  content: const Text(
-                    'This will restore default categories if they were deleted or modified. Your custom categories will not be affected.',
+                  title: Text(ctx.l10n.setRestoreDefaultsTitle),
+                  content: Text(
+                    ctx.l10n.setRestoreCategoriesBody,
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
+                      child: Text(ctx.l10n.commonCancel),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Restore'),
+                      child: Text(ctx.l10n.setRestore),
                     ),
                   ],
                 ),
@@ -81,17 +82,17 @@ class CategoriesScreen extends ConsumerWidget {
                 ref.invalidate(categoriesProvider);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Default categories restored'),
+                    SnackBar(
+                      content: Text(context.l10n.setCategoriesRestored),
                     ),
                   );
                 }
               }
             },
-            itemBuilder: (_) => const [
+            itemBuilder: (_) => [
               PopupMenuItem<String>(
                 value: 'restore',
-                child: Text('Restore Defaults'),
+                child: Text(context.l10n.setRestoreDefaults),
               ),
             ],
           ),
@@ -109,7 +110,7 @@ class CategoriesScreen extends ConsumerWidget {
                       color: scheme.onSurface.withValues(alpha: 0.3)),
                   const SizedBox(height: 16),
                   Text(
-                    'No categories yet',
+                    context.l10n.setNoCategories,
                     style: TextStyle(
                       color: scheme.onSurface.withValues(alpha: 0.6),
                     ),
@@ -120,7 +121,7 @@ class CategoriesScreen extends ConsumerWidget {
                       HapticFeedback.heavyImpact();
                       _showEditor(context, ref);
                     },
-                    child: const Text('Create your first category'),
+                    child: Text(context.l10n.setCreateFirstCategory),
                   ),
                 ],
               ),
@@ -136,7 +137,7 @@ class CategoriesScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
               if (expense.isNotEmpty) ...[
-                _sectionLabel(context, 'Expenses'),
+                _sectionLabel(context, context.l10n.setExpenses),
                 ...expense.map((c) => _CategoryTile(
                       category: c,
                       onTap: () => _showEditor(context, ref, category: c),
@@ -150,7 +151,7 @@ class CategoriesScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
               ],
               if (income.isNotEmpty) ...[
-                _sectionLabel(context, 'Income'),
+                _sectionLabel(context, context.l10n.setIncome),
                 ...income.map((c) => _CategoryTile(
                       category: c,
                       onTap: () => _showEditor(context, ref, category: c),
@@ -166,7 +167,8 @@ class CategoriesScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) =>
+            Center(child: Text(context.l10n.setErrorWithDetails(e.toString()))),
       ),
     );
   }
@@ -226,19 +228,19 @@ class _CategoryTile extends ConsumerWidget {
           return await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Delete Category?'),
+              title: Text(ctx.l10n.setDeleteCategoryTitle),
               content: Text(
-                "Are you sure you want to delete '${category.name}'?",
+                ctx.l10n.setDeleteConfirmBody(category.name),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel'),
+                  child: Text(ctx.l10n.commonCancel),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, true),
                   style: TextButton.styleFrom(foregroundColor: scheme.error),
-                  child: const Text('Delete'),
+                  child: Text(ctx.l10n.commonDelete),
                 ),
               ],
             ),

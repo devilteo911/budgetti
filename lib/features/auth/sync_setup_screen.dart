@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +22,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   Map<String, int>? _serverCounts; // null = still loading
   String? _serverError;
   int _localTxCount = 0;
-  String? _busy; // label of the action in flight, null = idle
+  String? _busy; // action id in flight ('download'|'upload'|'restore'), null = idle
 
   @override
   void initState() {
@@ -68,30 +69,35 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     ref.invalidate(budgetsProvider);
   }
 
-  Future<void> _run(String label, Future<void> Function() action) async {
-    setState(() => _busy = label);
+  Future<void> _run(String action, Future<void> Function() task) async {
+    setState(() => _busy = action);
     try {
-      await action();
+      await task();
       _invalidateFinance();
       if (mounted) _finish();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$label failed: $e')));
+        final label = switch (action) {
+          'download' => context.l10n.authActionDownload,
+          'upload' => context.l10n.authActionUpload,
+          _ => context.l10n.authActionRestore,
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.authActionFailed(label, e.toString()))));
       }
     } finally {
       if (mounted) setState(() => _busy = null);
     }
   }
 
-  Future<void> _pullServer() => _run('Download', () async {
+  Future<void> _pullServer() => _run('download', () async {
         final s = await ref
             .read(pocketBaseSyncServiceProvider)
             .sync(full: true, push: false);
         if (s.error != null) throw Exception(s.error);
       });
 
-  Future<void> _pushDevice() => _run('Upload', () async {
+  Future<void> _pushDevice() => _run('upload', () async {
         final s = await ref
             .read(pocketBaseSyncServiceProvider)
             .sync(full: true, pull: false);
@@ -105,7 +111,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     );
     if (result == null || !mounted) return;
     final file = File(result.files.single.path!);
-    await _run('Restore', () async {
+    await _run('restore', () async {
       await ref.read(backupServiceProvider).importDatabase(file);
       // Claim restored rows for this user + re-arm the cursor, then upload.
       await ref.read(authServiceProvider).adoptLocalData();
@@ -126,7 +132,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     final loading = counts == null && _serverError == null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Set up sync'), automaticallyImplyLeading: false),
+      appBar: AppBar(title: Text(context.l10n.authSyncSetupTitle), automaticallyImplyLeading: false),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),
@@ -134,20 +140,19 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
             Icon(Icons.sync, size: 56, color: scheme.primary),
             const SizedBox(height: 16),
             Text(
-              'How should this device and the server line up?',
+              context.l10n.authSyncSetupSubtitle,
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               loading
-                  ? 'Checking the server…'
+                  ? context.l10n.authCheckingServer
                   : _serverError != null
-                      ? 'Could not reach the server.'
+                      ? context.l10n.authServerUnreachable
                       : serverTotal > 0
-                          ? 'The server already has data for this account '
-                              '($serverTx transactions).'
-                          : 'The server has no data for this account yet.',
+                          ? context.l10n.authServerHasData(serverTx)
+                          : context.l10n.authServerNoData,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -160,40 +165,38 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
               if (_serverError != null)
                 _ActionCard(
                   icon: Icons.refresh,
-                  title: 'Retry',
-                  subtitle: 'Check the server connection again',
+                  title: context.l10n.commonRetry,
+                  subtitle: context.l10n.authRetrySubtitle,
                   onTap: _busy == null ? _load : null,
                 ),
               if (_serverError == null && serverTotal > 0)
                 _ActionCard(
                   icon: Icons.cloud_download_outlined,
-                  title: 'Use the server\'s data',
-                  subtitle: 'Download everything to this device '
-                      '($serverTx transactions)',
-                  busy: _busy == 'Download',
+                  title: context.l10n.authUseServerData,
+                  subtitle: context.l10n.authUseServerDataSubtitle(serverTx),
+                  busy: _busy == 'download',
                   onTap: _busy == null ? _pullServer : null,
                 ),
               if (_serverError == null)
                 _ActionCard(
                   icon: Icons.cloud_upload_outlined,
-                  title: 'Upload this device\'s data',
-                  subtitle:
-                      'Push all local data to the server ($_localTxCount transactions)',
-                  busy: _busy == 'Upload',
+                  title: context.l10n.authUploadDeviceData,
+                  subtitle: context.l10n.authUploadDeviceDataSubtitle(_localTxCount),
+                  busy: _busy == 'upload',
                   onTap: _busy == null ? _pushDevice : null,
                 ),
               if (_serverError == null)
                 _ActionCard(
                   icon: Icons.settings_backup_restore,
-                  title: 'Restore a backup file',
-                  subtitle: 'Load a Budgetti JSON backup, then upload it',
-                  busy: _busy == 'Restore',
+                  title: context.l10n.authRestoreBackup,
+                  subtitle: context.l10n.authRestoreBackupSubtitle,
+                  busy: _busy == 'restore',
                   onTap: _busy == null ? _restoreBackup : null,
                 ),
               _ActionCard(
                 icon: Icons.arrow_forward,
-                title: 'Continue without syncing',
-                subtitle: 'Keep local and server data as they are for now',
+                title: context.l10n.authContinueWithoutSync,
+                subtitle: context.l10n.authContinueWithoutSyncSubtitle,
                 onTap: _busy == null ? _finish : null,
               ),
             ],

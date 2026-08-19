@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/router/app_router.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:dynamic_color/dynamic_color.dart';
@@ -5,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
@@ -36,10 +40,11 @@ void callbackDispatcher() {
         await notificationService.showBackupNotification(success: true, isProgress: true);
 
         final success = await backupService.performAutoBackup(persistence);
-        
+
+        final l10n = await backgroundL10n();
         await notificationService.showBackupNotification(
-          success: success, 
-          message: success ? "Auto-backup completed successfully." : "Auto-backup failed. Check settings.",
+          success: success,
+          message: success ? l10n.notifBackupDone : l10n.notifBackupFailed,
         );
       } catch (e) {
         debugPrint('Error in background backup task: $e');
@@ -155,6 +160,9 @@ Future<void> _resolveLocalUserId(
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Italian month/day names for DateFormat once the locale is 'it'.
+  await initializeDateFormatting();
+
   final prefs = await SharedPreferences.getInstance();
 
   // Must run before runApp: loads timezone data synchronously (tz.initializeTimeZones).
@@ -254,6 +262,15 @@ class BudgettiApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final settings = ref.watch(themeSettingsProvider);
+    final localeSettings = ref.watch(localeSettingsProvider);
+
+    // Keep intl (DateFormat) in step with the UI locale. In 'system' mode
+    // MaterialApp resolves the platform locale itself; mirror that here.
+    final intlLocale = localeSettings.resolve() ??
+        (WidgetsBinding.instance.platformDispatcher.locale.languageCode == 'it'
+            ? const Locale('it')
+            : const Locale('en'));
+    Intl.defaultLocale = intlLocale.toString();
 
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
@@ -263,6 +280,9 @@ class BudgettiApp extends ConsumerWidget {
         final dynamic = settings.palette == AppPalette.dynamic;
         return MaterialApp.router(
           title: 'Budgetti',
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: localeSettings.resolve(),
           theme: AppTheme.buildTheme(
             palette: settings.palette,
             brightness: Brightness.light,

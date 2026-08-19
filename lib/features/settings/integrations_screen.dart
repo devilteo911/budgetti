@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/widgets/pb_server_dialog.dart';
@@ -72,13 +73,15 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
           _googleUser = ref.read(googleAuthServiceProvider).currentUser;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Successfully connected to Google')),
+          SnackBar(content: Text(context.l10n.setGoogleConnected)),
         );
       }
     } catch (e) {
       if (!mounted) return;
-      String msg = 'Sign in failed: $e';
-      if (e.toString().contains('cancelled')) msg = 'Sign-in was cancelled';
+      String msg = context.l10n.setSignInFailed(e.toString());
+      if (e.toString().contains('cancelled')) {
+        msg = context.l10n.setSignInCancelled;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );
@@ -96,13 +99,13 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       await ref.read(backupServiceProvider).backupToDrive();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Backup successful')),
+          SnackBar(content: Text(context.l10n.setBackupDone)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Backup failed: $e')),
+          SnackBar(content: Text(context.l10n.setBackupFailed(e.toString()))),
         );
       }
     } finally {
@@ -118,14 +121,14 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (!mounted) return;
       if (backups.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No backups found')),
+          SnackBar(content: Text(context.l10n.setNoBackups)),
         );
         return;
       }
       final selected = await showDialog<drive.File>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Select Backup'),
+          title: Text(ctx.l10n.setSelectBackup),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -134,7 +137,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
               itemBuilder: (_, i) {
                 final f = backups[i];
                 return ListTile(
-                  title: Text(f.name ?? 'Unknown'),
+                  title: Text(f.name ?? ctx.l10n.setUnknown),
                   subtitle: Text(f.createdTime?.toString() ?? ''),
                   onTap: () => Navigator.pop(ctx, f),
                 );
@@ -152,14 +155,14 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
         await ref.read(authServiceProvider).adoptLocalData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Restore successful')),
+            SnackBar(content: Text(context.l10n.setRestoreDone)),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restore failed: $e')),
+          SnackBar(content: Text(context.l10n.setRestoreFailed(e.toString()))),
         );
       }
     } finally {
@@ -186,7 +189,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sync failed: $e'),
+            content: Text(context.l10n.setSyncFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -205,23 +208,23 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Google Sheets Config'),
+        title: Text(ctx.l10n.setSheetsConfig),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: idCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Spreadsheet ID',
-                hintText: 'From the Google Sheets URL',
+              decoration: InputDecoration(
+                labelText: ctx.l10n.setSpreadsheetId,
+                hintText: ctx.l10n.setSpreadsheetIdHint,
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Sheet Name',
-                hintText: 'e.g., Spese',
+              decoration: InputDecoration(
+                labelText: ctx.l10n.setSheetName,
+                hintText: ctx.l10n.setSheetNameHint,
               ),
             ),
           ],
@@ -229,7 +232,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -240,7 +243,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
               if (ctx.mounted) Navigator.pop(ctx);
               setState(() {});
             },
-            child: const Text('Save'),
+            child: Text(ctx.l10n.commonSave),
           ),
         ],
       ),
@@ -260,13 +263,13 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       final skipped = rows.where((r) => r.status == 'skipped').length;
       if (mounted) {
         final parts = [
-          if (drafts > 0) '$drafts nuove transazioni da rivedere',
-          if (skipped > 0) '$skipped email non riconosciute',
+          if (drafts > 0) context.l10n.setNewDrafts(drafts),
+          if (skipped > 0) context.l10n.setUnreadEmails(skipped),
         ];
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(parts.isEmpty
-                ? 'Nessuna nuova transazione'
+                ? context.l10n.setNoNewTransactions
                 : parts.join(' · ')),
           ),
         );
@@ -275,7 +278,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sync email fallita: $e'),
+            content: Text(context.l10n.setEmailSyncFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -292,16 +295,16 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     final selected = await showDialog<int>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Finestra di ricerca'),
+        title: Text(ctx.l10n.setSearchWindow),
         children: [
           for (final d in [7, 30, 90, 180, 365])
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, d),
-              child: Text('$d giorni'),
+              child: Text(ctx.l10n.setDaysCount(d)),
             ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(ctx, -1),
-            child: const Text('Personalizzato…'),
+            child: Text(ctx.l10n.setCustom),
           ),
         ],
       ),
@@ -325,23 +328,23 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     return showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Giorni da scansionare'),
+        title: Text(ctx.l10n.setDaysToScan),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(suffixText: 'giorni'),
+          decoration: InputDecoration(suffixText: ctx.l10n.setDaysUnit),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annulla'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () {
               final v = int.tryParse(ctrl.text.trim());
               Navigator.pop(ctx, (v != null && v > 0) ? v : null);
             },
-            child: const Text('OK'),
+            child: Text(ctx.l10n.commonOk),
           ),
         ],
       ),
@@ -373,19 +376,18 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     final go = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Accesso alle notifiche'),
-        content: const Text(
-          'Per leggere le notifiche di Revolut, Budgetti ha bisogno '
-          'dell\'accesso alle notifiche di sistema. Aprire le impostazioni?',
+        title: Text(ctx.l10n.setNotificationAccess),
+        content: Text(
+          ctx.l10n.setNotificationAccessBody,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Più tardi'),
+            child: Text(ctx.l10n.setLater),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Apri impostazioni'),
+            child: Text(ctx.l10n.setOpenSettings),
           ),
         ],
       ),
@@ -405,15 +407,15 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       final skipped = rows.where((r) => r.status == 'skipped').length;
       if (mounted) {
         final parts = [
-          if (drafts > 0) '$drafts nuove transazioni da rivedere',
-          if (skipped > 0) '$skipped notifiche non riconosciute',
+          if (drafts > 0) context.l10n.setNewDrafts(drafts),
+          if (skipped > 0) context.l10n.setUnreadNotifications(skipped),
         ];
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(parts.isEmpty
                 ? _notificationAccess
-                    ? 'Nessuna nuova notifica Revolut'
-                    : 'Accesso alle notifiche non concesso'
+                    ? context.l10n.setNoNewRevolutNotifications
+                    : context.l10n.setNotificationAccessMissing
                 : parts.join(' · ')),
           ),
         );
@@ -422,7 +424,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lettura notifiche fallita: $e'),
+            content: Text(context.l10n.setNotificationReadFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -450,19 +452,19 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       final r = await ref.read(bankSyncServiceProvider).importStatement(csv);
       if (!mounted) return;
       final parts = [
-        if (r.drafts.isNotEmpty) '${r.drafts.length} da rivedere',
-        if (r.duplicates > 0) '${r.duplicates} già presenti',
-        if (r.unreadable > 0) '${r.unreadable} righe illeggibili',
+        if (r.drafts.isNotEmpty) context.l10n.setCountToReview(r.drafts.length),
+        if (r.duplicates > 0) context.l10n.setCountAlreadyPresent(r.duplicates),
+        if (r.unreadable > 0) context.l10n.setCountUnreadableRows(r.unreadable),
       ];
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(parts.isEmpty
-              ? 'Nessuna transazione trovata nel file'
+              ? context.l10n.setNoTransactionsInFile
               : parts.join(' · ')),
           action: r.drafts.isEmpty
               ? null
               : SnackBarAction(
-                  label: 'Rivedi',
+                  label: context.l10n.setReview,
                   onPressed: () => context.push('/review-inbox'),
                 ),
         ),
@@ -471,7 +473,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Import estratto conto fallito: $e'),
+            content: Text(context.l10n.setStatementImportFailed(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -534,19 +536,19 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Import Backup'),
-        content: const Text(
-          'This will REPLACE all your current data. This action cannot be undone.',
+        title: Text(ctx.l10n.setImportBackupTitle),
+        content: Text(
+          ctx.l10n.setImportBackupBody,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: scheme.error),
-            child: const Text('Import'),
+            child: Text(ctx.l10n.setImport),
           ),
         ],
       ),
@@ -599,14 +601,14 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            summary == null ? 'Configure the server URL first' : summary.toString(),
+            summary == null ? context.l10n.setConfigureServerFirst : summary.toString(),
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.setSyncFailed(e.toString()))));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -618,39 +620,38 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     final persistence = ref.watch(persistenceServiceProvider);
 
     return SettingsScaffold(
-      title: 'Integrations',
+      title: context.l10n.setIntegrations,
       children: [
         SettingsSection(
-          title: 'Cloud sync',
+          title: context.l10n.setCloudSync,
           children: [
             SettingsTile(
               icon: Icons.dns_outlined,
-              title: 'Server',
+              title: context.l10n.setServer,
               subtitle: persistence.getServerUrl().isEmpty
-                  ? 'Not configured'
+                  ? context.l10n.setNotConfigured
                   : persistence.getServerUrl(),
               onTap: _showPbServerDialog,
             ),
             SettingsTile(
               icon: Icons.sync,
               iconColor: scheme.primary,
-              title: 'Sync now',
+              title: context.l10n.setSyncNow,
               subtitle: persistence.getLastSyncSummary(),
               onTap: _isLoading ? null : () => _syncPocketBase(),
             ),
             SettingsTile(
               icon: Icons.cloud_upload_outlined,
-              title: 'Push everything',
-              subtitle: 'Upload all local data (categories, tags, wallets, '
-                  'transactions, budgets) to the server',
+              title: context.l10n.setPushEverything,
+              subtitle: context.l10n.setPushEverythingSubtitle,
               onTap: _isLoading
                   ? null
                   : () => _syncPocketBase(full: true, pull: false),
             ),
             SettingsTile(
               icon: Icons.cloud_download_outlined,
-              title: 'Pull everything',
-              subtitle: 'Download all server data to this device',
+              title: context.l10n.setPullEverything,
+              subtitle: context.l10n.setPullEverythingSubtitle,
               onTap: _isLoading
                   ? null
                   : () => _syncPocketBase(full: true, push: false),
@@ -658,20 +659,20 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
           ],
         ),
         SettingsSection(
-          title: 'Google Drive',
+          title: context.l10n.setGoogleDrive,
           children: [
             if (_googleUser == null)
               SettingsTile(
                 icon: Icons.cloud_off_outlined,
-                title: 'Connect Google Drive',
-                subtitle: 'Cloud backup & restore',
+                title: context.l10n.setConnectDrive,
+                subtitle: context.l10n.setConnectDriveSubtitle,
                 onTap: _handleGoogleSignIn,
               )
             else ...[
               SettingsTile(
                 icon: Icons.cloud_done_outlined,
                 iconColor: scheme.primary,
-                title: 'Drive Connected',
+                title: context.l10n.setDriveConnected,
                 subtitle: _googleUser!.email,
                 trailing: IconButton(
                   icon: Icon(Icons.logout, color: scheme.error),
@@ -680,12 +681,12 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
               ),
               SettingsTile(
                 icon: Icons.upload_outlined,
-                title: 'Backup now',
+                title: context.l10n.setBackupNow,
                 onTap: _isLoading ? null : _backupToDrive,
               ),
               SettingsTile(
                 icon: Icons.download_outlined,
-                title: 'Restore from backup',
+                title: context.l10n.setRestoreFromBackup,
                 onTap: _isLoading ? null : _restoreFromDrive,
               ),
             ],
@@ -693,19 +694,19 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
         ),
         if (_googleUser != null)
           SettingsSection(
-            title: 'Google Sheets',
+            title: context.l10n.setGoogleSheets,
             children: [
               SettingsTile(
                 icon: Icons.table_chart_outlined,
                 iconColor: Colors.green,
-                title: 'Spreadsheet',
+                title: context.l10n.setSpreadsheet,
                 subtitle: persistence.getSheetsSheetName(),
                 onTap: _showSheetsConfigDialog,
               ),
               SettingsTile(
                 icon: Icons.sync,
                 iconColor: scheme.primary,
-                title: 'Sync now',
+                title: context.l10n.setSyncNow,
                 subtitle: _lastSyncLabel(
                     persistence.getSheetsLastSyncTimestamp()),
                 onTap: _isLoading ? null : _syncSheets,
@@ -714,13 +715,13 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
           ),
         if (_googleUser != null)
           SettingsSection(
-            title: 'Sincronizzazione email banca',
+            title: context.l10n.setBankEmailSync,
             children: [
               SettingsTile(
                 icon: Icons.email_outlined,
                 iconColor: scheme.primary,
-                title: 'Sincronizza email Widiba',
-                subtitle: 'Crea bozze dalle email di widiba@widiba.it',
+                title: context.l10n.setSyncWidibaEmail,
+                subtitle: context.l10n.setSyncWidibaEmailSubtitle,
                 trailing: Switch(
                   value: persistence.getEmailSyncEnabled(),
                   onChanged: (v) async {
@@ -735,14 +736,15 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
               if (persistence.getEmailSyncEnabled()) ...[
                 SettingsTile(
                   icon: Icons.date_range_outlined,
-                  title: 'Finestra di ricerca',
-                  subtitle: '${persistence.getEmailSyncWindowDays()} giorni',
+                  title: context.l10n.setSearchWindow,
+                  subtitle: context.l10n
+                      .setDaysCount(persistence.getEmailSyncWindowDays()),
                   onTap: _pickEmailWindow,
                 ),
                 SettingsTile(
                   icon: Icons.sync,
                   iconColor: scheme.primary,
-                  title: 'Sincronizza ora',
+                  title: context.l10n.setSyncNow,
                   onTap: _isLoading ? null : _syncEmailsNow,
                 ),
               ],
@@ -751,13 +753,13 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
         // Outside the Google gate on purpose: reading Revolut's notifications
         // needs Android notification access, not a Google account.
         SettingsSection(
-          title: 'Sincronizzazione notifiche banca',
+          title: context.l10n.setBankNotificationSync,
           children: [
             SettingsTile(
               icon: Icons.notifications_active_outlined,
               iconColor: scheme.primary,
-              title: 'Sincronizza notifiche Revolut',
-              subtitle: 'Crea bozze dalle notifiche push di Revolut',
+              title: context.l10n.setSyncRevolutNotifications,
+              subtitle: context.l10n.setSyncRevolutNotificationsSubtitle,
               trailing: Switch(
                 value: persistence.getRevolutSyncEnabled(),
                 onChanged: _toggleRevolutSync,
@@ -769,17 +771,17 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
                     ? Icons.verified_user_outlined
                     : Icons.error_outline,
                 iconColor: _notificationAccess ? scheme.primary : scheme.error,
-                title: 'Accesso alle notifiche',
+                title: context.l10n.setNotificationAccess,
                 subtitle: _notificationAccess
-                    ? 'Concesso'
-                    : 'Non concesso — tocca per aprire le impostazioni',
+                    ? context.l10n.setGranted
+                    : context.l10n.setNotGranted,
                 onTap: () =>
                     ref.read(notificationListenerProvider).openSettings(),
               ),
               SettingsTile(
                 icon: Icons.sync,
                 iconColor: scheme.primary,
-                title: 'Leggi notifiche ora',
+                title: context.l10n.setReadNotificationsNow,
                 onTap: _isLoading ? null : _syncRevolutNow,
               ),
             ],
@@ -788,19 +790,19 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
             SettingsTile(
               icon: Icons.upload_file_outlined,
               iconColor: scheme.primary,
-              title: 'Importa estratto conto Revolut',
-              subtitle: 'Da CSV — crea bozze da rivedere, salta i doppioni',
+              title: context.l10n.setImportRevolutStatement,
+              subtitle: context.l10n.setImportRevolutStatementSubtitle,
               onTap: _isLoading ? null : _importRevolutStatement,
             ),
           ],
         ),
         SettingsSection(
-          title: 'Auto Backup',
+          title: context.l10n.setAutoBackup,
           children: [
             SettingsTile(
               icon: Icons.schedule,
-              title: 'Automatic backup',
-              subtitle: 'Daily local backup (cloud if connected)',
+              title: context.l10n.setAutoBackupToggle,
+              subtitle: context.l10n.setAutoBackupToggleSubtitle,
               trailing: Switch(
                 value: persistence.getAutoBackupEnabled(),
                 onChanged: (v) async {
@@ -815,33 +817,33 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
             if (persistence.getAutoBackupEnabled()) ...[
               SettingsTile(
                 icon: Icons.access_time,
-                title: 'Backup time',
+                title: context.l10n.setBackupTime,
                 subtitle: persistence.getAutoBackupTime(),
                 onTap: _pickAutoBackupTime,
               ),
               SettingsTile(
                 icon: Icons.folder_open_outlined,
-                title: 'Backup folder',
-                subtitle:
-                    persistence.getCustomBackupPath() ?? 'Default (Internal)',
+                title: context.l10n.setBackupFolder,
+                subtitle: persistence.getCustomBackupPath() ??
+                    context.l10n.setDefaultBackupFolder,
                 onTap: _pickBackupFolder,
               ),
             ],
           ],
         ),
         SettingsSection(
-          title: 'Data Management',
+          title: context.l10n.setDataManagement,
           children: [
             SettingsTile(
               icon: Icons.ios_share,
-              title: 'Export backup (JSON)',
-              subtitle: 'Local backup file',
+              title: context.l10n.setExportBackup,
+              subtitle: context.l10n.setExportBackupSubtitle,
               onTap: _isLoading ? null : _exportJson,
             ),
             SettingsTile(
               icon: Icons.settings_backup_restore,
-              title: 'Import backup (JSON)',
-              subtitle: 'Restore from local file',
+              title: context.l10n.setImportBackup,
+              subtitle: context.l10n.setImportBackupSubtitle,
               onTap: _isLoading ? null : _importJson,
             ),
           ],
@@ -851,9 +853,10 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
   }
 
   String _lastSyncLabel(int timestamp) {
-    if (timestamp == 0) return 'Never synced';
+    if (timestamp == 0) return context.l10n.setNeverSynced;
     final d = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    return 'Last sync: ${d.day}/${d.month}/${d.year} '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return context.l10n.setLastSync(
+        '${d.day}/${d.month}/${d.year} '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}');
   }
 }

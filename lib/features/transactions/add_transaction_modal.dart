@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/widgets/category_picker_sheet.dart';
@@ -131,13 +132,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       if (result.date != null) _selectedDate = result.date!;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Receipt scanned')),
+          SnackBar(content: Text(context.l10n.txReceiptScanned)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('OCR Error: $e')),
+          SnackBar(
+              content: Text(context.l10n.txOcrError(e.toString()))),
         );
       }
     } finally {
@@ -148,13 +150,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
-      _toast('Please select a wallet');
+      _toast(context.l10n.txPleaseSelectWallet);
       return;
     }
     if (_type == 'transfer' &&
         (_selectedToAccountId == null ||
             _selectedToAccountId == _selectedAccountId)) {
-      _toast('Please select a different destination wallet');
+      _toast(context.l10n.txPleaseSelectOtherWallet);
       return;
     }
 
@@ -199,7 +201,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          widget.transaction != null ? 'Transaction updated' : 'Transaction added',
+          widget.transaction != null
+              ? context.l10n.txTransactionUpdated
+              : context.l10n.txTransactionAdded,
         ),
       ),
     );
@@ -234,7 +238,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => WalletPickerSheet(
-        title: isFrom ? 'Select From Wallet' : 'Select To Wallet',
+        title: isFrom
+            ? context.l10n.txSelectFromWallet
+            : context.l10n.txSelectToWallet,
         selectedWalletId: isFrom ? _selectedAccountId : _selectedToAccountId,
         onWalletSelected: (account) {
           if (account == null) return;
@@ -261,7 +267,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => CategoryPickerSheet(
-        title: 'Select Category',
+        title: context.l10n.txSelectCategory,
         selectedCategoryName: _selectedCategory,
         type: _type == 'expense' ? 'expense' : 'income',
         onCategorySelected: (category) {
@@ -358,7 +364,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                   children: [
                     Expanded(
                       child: _SaveButton(
-                        label: isEdit ? 'UPDATE' : 'SAVE',
+                        label: isEdit
+                            ? context.l10n.txUpdate.toUpperCase()
+                            : context.l10n.commonSave.toUpperCase(),
                         color: scheme.primary,
                         onColor: scheme.onPrimary,
                         onTap: _submit,
@@ -382,25 +390,28 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   }
 
   String _topBarTitle(bool isEdit) {
-    final verb = isEdit ? 'EDIT' : 'NEW';
-    final noun = switch (_type) {
-      'expense' => 'EXPENSE',
-      'income' => 'INCOME',
-      _ => 'TRANSFER',
-    };
-    return '$verb $noun';
+    return switch (_type) {
+      'expense' =>
+        isEdit ? context.l10n.txEditExpense : context.l10n.txNewExpense,
+      'income' => isEdit ? context.l10n.txEditIncome : context.l10n.txNewIncome,
+      _ => isEdit ? context.l10n.txEditTransfer : context.l10n.txNewTransfer,
+    }.toUpperCase();
   }
 
   Widget _buildWalletSection() {
     final accountsAsync = ref.watch(accountsProvider);
     return accountsAsync.when(
       loading: () => LedgerFieldRow(
-        kicker: _type == 'transfer' ? 'FROM' : 'WALLET',
+        kicker: _type == 'transfer'
+            ? context.l10n.txFrom.toUpperCase()
+            : context.l10n.commonWallet.toUpperCase(),
         valueOverride: _LoadingLine(),
       ),
       error: (_, __) => LedgerFieldRow(
-        kicker: _type == 'transfer' ? 'FROM' : 'WALLET',
-        value: 'Error',
+        kicker: _type == 'transfer'
+            ? context.l10n.txFrom.toUpperCase()
+            : context.l10n.commonWallet.toUpperCase(),
+        value: context.l10n.commonError,
         isError: true,
       ),
       data: (accounts) {
@@ -414,25 +425,25 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
 
         if (!isTransfer) {
           return LedgerFieldRow(
-            kicker: 'WALLET',
+            kicker: context.l10n.commonWallet.toUpperCase(),
             value: from?.name,
-            placeholder: 'Select wallet',
+            placeholder: context.l10n.txSelectWallet,
             onTap: () => _showWalletPicker(true),
           );
         }
 
         return _TransferPair(
           from: LedgerFieldRow(
-            kicker: 'FROM',
+            kicker: context.l10n.txFrom.toUpperCase(),
             value: from?.name,
-            placeholder: 'Select source',
+            placeholder: context.l10n.txSelectSource,
             isError: _selectedAccountId == null,
             onTap: () => _showWalletPicker(true),
           ),
           to: LedgerFieldRow(
-            kicker: 'TO',
+            kicker: context.l10n.txTo.toUpperCase(),
             value: to?.name,
-            placeholder: 'Select destination',
+            placeholder: context.l10n.txSelectDestination,
             isError: _selectedToAccountId == null,
             onTap: () => _showWalletPicker(false),
           ),
@@ -447,12 +458,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     final icons = ref.watch(categoryIconCacheProvider);
     return categoriesAsync.when(
       loading: () => LedgerFieldRow(
-        kicker: 'CATEGORY',
+        kicker: context.l10n.commonCategory.toUpperCase(),
         valueOverride: _LoadingLine(),
       ),
-      error: (_, __) => const LedgerFieldRow(
-        kicker: 'CATEGORY',
-        value: 'Error',
+      error: (_, __) => LedgerFieldRow(
+        kicker: context.l10n.commonCategory.toUpperCase(),
+        value: context.l10n.commonError,
         isError: true,
       ),
       data: (categories) {
@@ -469,9 +480,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
             : Theme.of(context).colorScheme.onSurfaceVariant;
 
         return LedgerFieldRow(
-          kicker: 'CATEGORY',
+          kicker: context.l10n.commonCategory.toUpperCase(),
           value: selected?.name ?? _selectedCategory,
-          placeholder: 'Select category',
+          placeholder: context.l10n.txSelectCategory,
           leadingIcon: icon,
           leadingColor: color,
           showStripe: true,
@@ -484,7 +495,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   Widget _buildDateRow() {
     final scheme = Theme.of(context).colorScheme;
     return LedgerFieldRow(
-      kicker: 'DATE',
+      kicker: context.l10n.commonDate.toUpperCase(),
       onTap: _pickDate,
       valueOverride: Align(
         alignment: Alignment.centerRight,
@@ -518,9 +529,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     final selected =
         plans.where((p) => p.id == _selectedInstallmentId).firstOrNull;
     return LedgerFieldRow(
-      kicker: 'INSTALLMENT',
+      kicker: context.l10n.txInstallment.toUpperCase(),
       value: selected?.description,
-      placeholder: 'Not a rate',
+      placeholder: context.l10n.txNotARate,
       leadingIcon: Icons.receipt_long_outlined,
       onTap: () => _showInstallmentPicker(plans),
     );
@@ -543,7 +554,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
           children: [
             ListTile(
               leading: const Icon(Icons.block_outlined),
-              title: const Text('Not a rate'),
+              title: Text(context.l10n.txNotARate),
               selected: _selectedInstallmentId == null,
               onTap: () {
                 setState(() => _selectedInstallmentId = null);
@@ -555,8 +566,11 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                 leading: const Icon(Icons.receipt_long_outlined),
                 title: Text(p.description),
                 subtitle: Text(
-                  '${currency.format(p.amountPerInstallment)} × '
-                  '${p.installmentCount} · ${p.paidCount()} due so far',
+                  context.l10n.txInstallmentOption(
+                    currency.format(p.amountPerInstallment),
+                    p.installmentCount,
+                    p.paidCount(),
+                  ),
                 ),
                 selected: _selectedInstallmentId == p.id,
                 onTap: () {
@@ -592,7 +606,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'TAGS',
+                context.l10n.commonTags.toUpperCase(),
                 style: GoogleFonts.jetBrainsMono(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 10,
@@ -698,7 +712,7 @@ class _ScanButton extends StatelessWidget {
                       ),
                       const SizedBox(width: 7),
                       Text(
-                        'SCAN',
+                        context.l10n.txScan.toUpperCase(),
                         style: GoogleFonts.jetBrainsMono(
                           color: fg,
                           fontSize: 11,
@@ -731,7 +745,7 @@ class _DescriptionField extends StatelessWidget {
           SizedBox(
             width: 92,
             child: Text(
-              'NOTE',
+              context.l10n.txNote.toUpperCase(),
               style: GoogleFonts.jetBrainsMono(
                 color: scheme.onSurfaceVariant,
                 fontSize: 10,
@@ -750,7 +764,7 @@ class _DescriptionField extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
-                hintText: 'What was this for?',
+                hintText: context.l10n.txNoteHint,
                 hintStyle: TextStyle(
                   color: scheme.onSurfaceVariant,
                   fontSize: 15,
@@ -770,7 +784,9 @@ class _DescriptionField extends StatelessWidget {
                 ),
               ),
               validator: (value) {
-                if (value == null || value.isEmpty) return 'Enter description';
+                if (value == null || value.isEmpty) {
+                  return context.l10n.txEnterDescription;
+                }
                 return null;
               },
             ),

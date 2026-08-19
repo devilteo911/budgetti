@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
@@ -63,16 +64,17 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Transactions?'),
-        content: Text('Are you sure you want to delete $count items?'),
+        title: Text(context.l10n.txDeleteTransactionsTitle),
+        content: Text(context.l10n.txDeleteConfirm(count)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: TextStyle(color: scheme.error)),
+            child: Text(context.l10n.commonDelete,
+                style: TextStyle(color: scheme.error)),
           ),
         ],
       ),
@@ -89,7 +91,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         ref.invalidate(transactionsProvider(null));
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.txError(e.toString()))));
         }
       }
     }
@@ -141,7 +144,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => WalletPickerSheet(
-        title: 'Filter by Wallet',
+        title: context.l10n.txFilterByWallet,
         selectedWalletId: ref.watch(selectedWalletIdProvider),
         showAllWalletsOption: true,
         onWalletSelected: (account) {
@@ -195,7 +198,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         ),
         body: Center(
           child: Text(
-            'Error: ${paginatedState.error}',
+            context.l10n.txError(paginatedState.error!),
             style: TextStyle(color: scheme.error),
           ),
         ),
@@ -276,14 +279,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
     final scheme = Theme.of(context).colorScheme;
     final parts = [
-      if (count > 0)
-        count == 1
-            ? '1 transazione da rivedere'
-            : '$count transazioni da rivedere',
-      if (skipped > 0)
-        skipped == 1
-            ? '1 email non riconosciuta'
-            : '$skipped email non riconosciute',
+      if (count > 0) context.l10n.txReviewBannerCount(count),
+      if (skipped > 0) context.l10n.txUnrecognizedCount(skipped),
     ];
     final label = parts.join(' · ');
 
@@ -340,7 +337,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           : '${DateFormat('dd MMM').format(start)} → ${DateFormat('dd MMM').format(end)}';
       chips.add(
         ActiveFilterChip(
-          prefix: 'DATE',
+          prefix: context.l10n.commonDate.toUpperCase(),
           label: label,
           onDeleted: () =>
               ref.read(transactionFiltersProvider.notifier).setDateRange(null),

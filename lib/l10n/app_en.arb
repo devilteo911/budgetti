@@ -1,0 +1,1065 @@
+{
+  "@@locale": "en",
+  "appName": "Budgetti",
+  "commonCancel": "Cancel",
+  "commonSave": "Save",
+  "commonDelete": "Delete",
+  "commonEdit": "Edit",
+  "commonAdd": "Add",
+  "commonClose": "Close",
+  "commonConfirm": "Confirm",
+  "commonOk": "OK",
+  "commonRetry": "Retry",
+  "commonError": "Error",
+  "commonLoading": "Loading…",
+  "commonDone": "Done",
+  "commonBack": "Back",
+  "commonToday": "Today",
+  "commonNone": "None",
+  "commonAll": "All",
+  "commonYes": "Yes",
+  "commonNo": "No",
+  "commonIncome": "Income",
+  "commonExpense": "Expense",
+  "commonTransfer": "Transfer",
+  "commonAmount": "Amount",
+  "commonDate": "Date",
+  "commonCategory": "Category",
+  "commonWallet": "Wallet",
+  "commonDescription": "Description",
+  "commonTags": "Tags",
+  "commonSearch": "Search",
+  "commonNoData": "No data",
+  "commonSystem": "System",
+  "commonUndo": "Undo",
+  "authConnectionError": "Connection Error",
+  "authProfileMissing": "Profile missing (Error)",
+  "authDetailedError": "Detailed error: {error}",
+  "authLoginFailed": "Login failed",
+  "authCannotReachServer": "Cannot reach server. Check the URL in Settings > Integrations.",
+  "authLoginTagline": "Manage your finances like a pro",
+  "authEmail": "Email",
+  "authPassword": "Password",
+  "authLogIn": "Log In",
+  "authSetServer": "Set server",
+  "authWhoAreYou": "Who are you?",
+  "authChooseUsername": "Choose a Username",
+  "authUsernameHint": "Tell us what to call you in the app.",
+  "authUsername": "Username",
+  "authUsernameMinLength": "Username must be at least {min} characters",
+  "authGetStarted": "Get Started",
+  "authSyncSetupTitle": "Set up sync",
+  "authSyncSetupSubtitle": "How should this device and the server line up?",
+  "authCheckingServer": "Checking the server…",
+  "authServerUnreachable": "Could not reach the server.",
+  "authServerHasData": "The server already has data for this account ({count} transactions).",
+  "authServerNoData": "The server has no data for this account yet.",
+  "authRetrySubtitle": "Check the server connection again",
+  "authUseServerData": "Use the server's data",
+  "authUseServerDataSubtitle": "Download everything to this device ({count} transactions)",
+  "authUploadDeviceData": "Upload this device's data",
+  "authUploadDeviceDataSubtitle": "Push all local data to the server ({count} transactions)",
+  "authRestoreBackup": "Restore a backup file",
+  "authRestoreBackupSubtitle": "Import a Budgetti JSON backup, then upload it",
+  "authContinueWithoutSync": "Continue without syncing",
+  "authContinueWithoutSyncSubtitle": "Keep local and server data as they are for now",
+  "authActionDownload": "Download",
+  "authActionUpload": "Upload",
+  "authActionRestore": "Restore",
+  "authActionFailed": "{action} failed: {error}",
+  "authProfileTitle": "Profile",
+  "authUser": "User",
+  "authAvatarUpdated": "Profile picture updated",
+  "authAvatarSaveError": "Error saving image: {error}",
+  "authSignOut": "Sign Out",
+  "authNavDashboard": "Dashboard",
+  "authNavHistory": "History",
+  "authNavStats": "Stats",
+  "authNavSettings": "Settings",
+  "dashConnectivityIssue": "Connectivity Issue",
+  "dashConnectivityMessage": "Unable to reach the server. Please check your connection.",
+  "dashSyncFailed": "Sync Failed",
+  "dashNoAccounts": "No accounts found",
+  "dashErrorCalculatingStats": "Error calculating stats",
+  "dashSetUpBudgets": "Set up budgets",
+  "dashSetUpBudgetsSubtitle": "Track category spending each month",
+  "dashMonthlyBudgetLabel": "Monthly budget",
+  "dashCategoriesLabel": "Categories",
+  "dashBudgetSaturation": "Budget Saturation",
+  "dashError": "Error: {error}",
+  "dashNoBudgets": "No budgets set yet. Go to the Budgets tab to set your limits!",
+  "dashTotalBalance": "Total Balance",
+  "dashTrend30d": "30d",
+  "dashWalletsLabel": "Wallets",
+  "dashWalletsLoadError": "Couldn't load wallets",
+  "dashNoWallets": "No wallets yet",
+  "dashWalletsMore": "{count} more",
+  "dashStatIn": "In",
+  "dashStatOut": "Out",
+  "dashStatNet": "Net",
+  "dashStatSave": "Save",
+  "dashTrackInstallments": "Track installments",
+  "dashTrackInstallmentsSubtitle": "See what you still owe on monthly rates",
+  "dashStillOwedLabel": "Still owed",
+  "dashPerMonth": "{amount} / month",
+  "dashPlansLabel": "Plans",
+  "dashMorePlans": "+{count} more",
+  "dashNextDue": "Next {date}",
+  "dashThisMonthLabel": "This month",
+  "dashExpenses": "Expenses",
+  "dashRecentLabel": "Recent",
+  "dashLastCount": "Last {count}",
+  "dashAllLabel": "All",
+  "dashNoTransactions": "No transactions yet",
+  "dashYesterdayShort": "YDA",
+  "dashDaysAgoShort": "{days}D",
+  "budgetScreenTitle": "Budgets",
+  "budgetSortUtilization": "Utilization",
+  "budgetSortAlphabetical": "Alphabetical",
+  "budgetSortLimitHighLow": "Limit: High to Low",
+  "budgetSortLimitLowHigh": "Limit: Low to High",
+  "budgetTracked": "TRACKED",
+  "budgetSectionUnset": "UNSET",
+  "budgetNoCategories": "NO CATEGORIES",
+  "budgetEmptyHint": "Add expense categories first to start tracking budgets.",
+  "budgetErrorLabel": "ERROR",
+  "budgetUpdated": "Budget updated",
+  "budgetSaveError": "Error saving budget: {error}",
+  "budgetMonthlyLimit": "MONTHLY LIMIT",
+  "budgetAmountHint": "0.00",
+  "budgetEnterLimit": "Enter limit",
+  "budgetInvalid": "Invalid",
+  "budgetMustBePositive": "Must be positive",
+  "budgetClear": "Clear",
+  "budgetUpdate": "Update",
+  "budgetCleared": "Budget cleared",
+  "budgetUtilizationOf": "UTILIZATION  ·  {month}",
+  "budgetNoBudgetsSet": "NO BUDGETS SET  ·  {month}",
+  "budgetTapToSet": "Tap a category below to set a limit.",
+  "budgetSpent": "SPENT",
+  "budgetBudgeted": "BUDGETED",
+  "budgetRemaining": "REMAINING",
+  "budgetOver": "OVER",
+  "budgetNoLimit": "NO LIMIT · TAP TO SET",
+  "budgetSet": "SET",
+  "instScreenTitle": "Installments",
+  "instActive": "ACTIVE",
+  "instSettled": "SETTLED",
+  "instStillOwed": "STILL OWED",
+  "instMonthlyActive": "{amount} / month · {count} active",
+  "instDeletePlanTitle": "Delete plan?",
+  "instDeletePlanBody": "\"{name}\" will be removed.",
+  "instPerMo": "{amount}/mo",
+  "instPaidOf": "{paid}/{total} paid",
+  "instLinkedCount": "· {count} linked",
+  "instSettledLabel": "Settled",
+  "instRemainingNext": "{amount} left · next {date}",
+  "instNoPlans": "NO PLANS",
+  "instEmptyHint": "Add a purchase you are paying in monthly rates and this tracks what you still owe.",
+  "instAddPlan": "Add a plan",
+  "instSaveError": "Error saving plan: {error}",
+  "instNewPlan": "NEW PLAN",
+  "instEditPlan": "EDIT PLAN",
+  "instWhatFor": "What is it for",
+  "instWhatForHint": "Sofa, laptop, holiday…",
+  "instRequired": "Required",
+  "instTotal": "Total",
+  "instInvalid": "Invalid",
+  "instMustBePositive": "Must be positive",
+  "instAtLeast1": "At least 1",
+  "instRatesLabel": "Rates",
+  "instPerRateHint": "Monthly rate appears here",
+  "instPerMonth": "{amount} / month",
+  "instFirstRateOn": "First rate on",
+  "instCategoryOptional": "Category (optional)",
+  "instWalletOptional": "Wallet (optional)",
+  "instUpdatePlan": "Update plan",
+  "instLinkedPaymentsOf": "LINKED PAYMENTS · {linked}/{due}",
+  "instAllAccounted": "Every rate due so far is accounted for.",
+  "instMissingRates": "{missing} of the {due} rates due so far have no transaction attached.",
+  "instUnlink": "Unlink",
+  "instNoCandidates": "No unlinked expenses to attach.",
+  "instAttachPayment": "Attach a payment",
+  "importSelectWalletError": "Please select a wallet",
+  "importSuccess": "Successfully imported {count} transactions",
+  "importError": "Error importing: {error}",
+  "importSelectWalletTitle": "Select Wallet",
+  "importPreviewTitle": "Import Preview",
+  "importToWallet": "Import to Wallet",
+  "importFound": "Transactions found: {count}",
+  "importTotal": "Total: {amount}",
+  "importConfirm": "Confirm Import",
+  "chartNoDataYear": "No data available for this year",
+  "chartWeekOf": "Week of {date}",
+  "chartExpenses": "Expenses",
+  "chartIncome": "Income",
+  "chartWeekShort": "W{week}",
+  "uiSelectCategory": "Select Category",
+  "uiNoCategories": "No categories found",
+  "uiSelectWallet": "Select Wallet",
+  "uiAllWallets": "All Wallets",
+  "notifBackupDone": "Auto-backup completed successfully.",
+  "notifBackupFailed": "Auto-backup failed. Check settings.",
+  "notifBudgetAlertTitle": "Budget Alert",
+  "notifBudgetReached": "You've reached your budget for {category}!",
+  "notifBudgetUsedPct": "You've used {percent}% of your {category} budget.",
+  "notifDailyTitle": "Track your expenses",
+  "notifDailyBody": "Don't forget to log your spending for today!",
+  "notifBackupProgressTitle": "Backup in progress...",
+  "notifBackupSuccessTitle": "Backup Successful",
+  "notifBackupFailedTitle": "Backup Failed",
+  "notifBackupProgressBody": "Saving your data safely.",
+  "notifBackupSuccessBody": "Your data has been backed up.",
+  "notifBackupErrorBody": "There was an error during backup.",
+  "notifEmailIncome": "Credit received",
+  "notifEmailReview": "Transfer to review",
+  "notifEmailExpense": "Payment recorded",
+  "setSettings": "Settings",
+  "setAccount": "Account",
+  "setProfile": "Profile",
+  "setAppearance": "Appearance",
+  "setAppearanceSubtitle": "Palette, theme, effects",
+  "setPreferences": "Preferences",
+  "setPreferencesSubtitle": "Currency, scanner, notifications",
+  "setIntegrationsBackup": "Integrations & Backup",
+  "setIntegrationsBackupSubtitle": "Drive, Sheets, auto backup",
+  "setData": "Data",
+  "setAbout": "About",
+  "setSourceCode": "Source code",
+  "setSignOut": "Sign out",
+  "setImportQuicken": "Import Quicken (QIF)",
+  "setImportQuickenSubtitle": "Load transactions from a .qif file",
+  "setSelectQifFile": "Please select a .qif file",
+  "setLanguage": "Language",
+  "setPalette": "Palette",
+  "setBrightness": "Brightness",
+  "setThemeLight": "Light",
+  "setThemeDark": "Dark",
+  "setEffects": "Effects",
+  "setAmoledBlack": "AMOLED black",
+  "setAmoledBlackSubtitle": "Pure black background in dark mode",
+  "setLiquidGlass": "Liquid glass",
+  "setLiquidGlassSubtitle": "Frosted blur on nav bar and sheets",
+  "setCategories": "Categories",
+  "setTags": "Tags",
+  "setWallets": "Wallets",
+  "setNoCategories": "No categories yet",
+  "setCreateFirstCategory": "Create your first category",
+  "setNoTags": "No tags yet",
+  "setNoWallets": "No wallets yet",
+  "setExpenses": "Expenses",
+  "setIncome": "Income",
+  "setRestoreDefaults": "Restore Defaults",
+  "setRestoreDefaultsTitle": "Restore Defaults?",
+  "setRestoreCategoriesBody": "This will restore default categories if they were deleted or modified. Your custom categories will not be affected.",
+  "setRestoreTagsBody": "This will restore default tags if they were deleted or modified. Your custom tags will not be affected.",
+  "setRestore": "Restore",
+  "setCategoriesRestored": "Default categories restored",
+  "setTagsRestored": "Default tags restored",
+  "setDeleteCategoryTitle": "Delete Category?",
+  "setDeleteTagTitle": "Delete Tag",
+  "setDeleteWalletTitle": "Delete Account",
+  "setDeleteConfirmBody": "Are you sure you want to delete '{name}'?",
+  "setDeleteWalletBody": "Delete '{name}'? This won't delete transactions but they might become unassigned.",
+  "setErrorWithDetails": "Error: {error}",
+  "setNewCategory": "New Category",
+  "setEditCategory": "Edit Category",
+  "setFieldName": "Name",
+  "setFieldType": "Type",
+  "setFieldDescription": "Description (optional)",
+  "setFieldSelectIcon": "Select icon",
+  "setCategoryNameHint": "e.g. Shopping, Rent...",
+  "setCategoryDescriptionHint": "Add a short note about this category...",
+  "setSaveCategory": "Save Category",
+  "setSelectColor": "Select Color",
+  "setNewTag": "New Tag",
+  "setEditTag": "Edit Tag",
+  "setTagName": "Tag Name",
+  "setColor": "Color",
+  "setCreateTag": "Create Tag",
+  "setUpdateTag": "Update Tag",
+  "setNewWallet": "New Account",
+  "setEditWallet": "Edit Account",
+  "setWalletNameHint": "Account Name (e.g. PayPal, Bank)",
+  "setInitialAmount": "Initial Amount",
+  "setStartingDate": "Starting Date",
+  "setAllTransactions": "All transactions",
+  "setSetAsDefault": "Set as default",
+  "setCreateWallet": "Create Account",
+  "setUpdateWallet": "Update Account",
+  "setWalletSince": "From {date}",
+  "setGeneral": "General",
+  "setCurrency": "Currency",
+  "setSelectCurrency": "Select Currency",
+  "setCurrencyEur": "Euro",
+  "setCurrencyUsd": "US Dollar",
+  "setCurrencyGbp": "British Pound",
+  "setCurrencyJpy": "Japanese Yen",
+  "setNotifications": "Notifications",
+  "setFixPermissions": "Fix Permissions",
+  "setFixPermissionsSubtitle": "Tap to enable notifications",
+  "setPushNotifications": "Push Notifications",
+  "setPushNotificationsSubtitle": "Main system alerts",
+  "setBudgetAlerts": "Budget Alerts",
+  "setBudgetAlertsSubtitle": "Limit thresholds",
+  "setDailyReminder": "Daily Reminder",
+  "setDailyReminderSubtitle": "Manual logging",
+  "setReminderTime": "Reminder Time",
+  "setIntegrations": "Integrations",
+  "setCloudSync": "Cloud sync",
+  "setServer": "Server",
+  "setNotConfigured": "Not configured",
+  "setSyncNow": "Sync now",
+  "setPushEverything": "Push everything",
+  "setPushEverythingSubtitle": "Upload all local data (categories, tags, wallets, transactions, budgets) to the server",
+  "setPullEverything": "Pull everything",
+  "setPullEverythingSubtitle": "Download all server data to this device",
+  "setConfigureServerFirst": "Configure the server URL first",
+  "setSyncFailed": "Sync failed: {error}",
+  "setPbServerTitle": "PocketBase server",
+  "setPbHost": "Host or IP",
+  "setPbPort": "Port",
+  "setGoogleDrive": "Google Drive",
+  "setConnectDrive": "Connect Google Drive",
+  "setConnectDriveSubtitle": "Cloud backup & restore",
+  "setDriveConnected": "Drive Connected",
+  "setBackupNow": "Backup now",
+  "setRestoreFromBackup": "Restore from backup",
+  "setGoogleConnected": "Successfully connected to Google",
+  "setSignInFailed": "Sign in failed: {error}",
+  "setSignInCancelled": "Sign-in was cancelled",
+  "setBackupDone": "Backup successful",
+  "setBackupFailed": "Backup failed: {error}",
+  "setNoBackups": "No backups found",
+  "setSelectBackup": "Select Backup",
+  "setUnknown": "Unknown",
+  "setRestoreDone": "Restore successful",
+  "setRestoreFailed": "Restore failed: {error}",
+  "setGoogleSheets": "Google Sheets",
+  "setSpreadsheet": "Spreadsheet",
+  "setSheetsConfig": "Google Sheets Config",
+  "setSpreadsheetId": "Spreadsheet ID",
+  "setSpreadsheetIdHint": "From the Google Sheets URL",
+  "setSheetName": "Sheet Name",
+  "setSheetNameHint": "e.g., Spese",
+  "setNeverSynced": "Never synced",
+  "setLastSync": "Last sync: {date}",
+  "setBankEmailSync": "Bank email sync",
+  "setSyncWidibaEmail": "Sync Widiba emails",
+  "setSyncWidibaEmailSubtitle": "Create drafts from widiba@widiba.it emails",
+  "setSearchWindow": "Search window",
+  "setDaysCount": "{count} days",
+  "setCustom": "Custom…",
+  "setDaysToScan": "Days to scan",
+  "setDaysUnit": "days",
+  "setNewDrafts": "{count} new transactions to review",
+  "setUnreadEmails": "{count} unrecognized emails",
+  "setNoNewTransactions": "No new transactions",
+  "setEmailSyncFailed": "Email sync failed: {error}",
+  "setBankNotificationSync": "Bank notification sync",
+  "setSyncRevolutNotifications": "Sync Revolut notifications",
+  "setSyncRevolutNotificationsSubtitle": "Create drafts from Revolut push notifications",
+  "setNotificationAccess": "Notification access",
+  "setNotificationAccessBody": "To read Revolut notifications, Budgetti needs access to system notifications. Open settings?",
+  "setLater": "Later",
+  "setOpenSettings": "Open settings",
+  "setGranted": "Granted",
+  "setNotGranted": "Not granted — tap to open settings",
+  "setReadNotificationsNow": "Read notifications now",
+  "setUnreadNotifications": "{count} unrecognized notifications",
+  "setNoNewRevolutNotifications": "No new Revolut notifications",
+  "setNotificationAccessMissing": "Notification access not granted",
+  "setNotificationReadFailed": "Reading notifications failed: {error}",
+  "setImportRevolutStatement": "Import Revolut statement",
+  "setImportRevolutStatementSubtitle": "From CSV — creates drafts to review, skips duplicates",
+  "setCountToReview": "{count} to review",
+  "setCountAlreadyPresent": "{count} already present",
+  "setCountUnreadableRows": "{count} unreadable rows",
+  "setNoTransactionsInFile": "No transactions found in the file",
+  "setReview": "Review",
+  "setStatementImportFailed": "Statement import failed: {error}",
+  "setAutoBackup": "Auto Backup",
+  "setAutoBackupToggle": "Automatic backup",
+  "setAutoBackupToggleSubtitle": "Daily local backup (cloud if connected)",
+  "setBackupTime": "Backup time",
+  "setBackupFolder": "Backup folder",
+  "setDefaultBackupFolder": "Default (Internal)",
+  "setDataManagement": "Data Management",
+  "setExportBackup": "Export backup (JSON)",
+  "setExportBackupSubtitle": "Local backup file",
+  "setImportBackup": "Import backup (JSON)",
+  "setImportBackupSubtitle": "Restore from local file",
+  "setImportBackupTitle": "Import Backup",
+  "setImportBackupBody": "This will REPLACE all your current data. This action cannot be undone.",
+  "setImport": "Import",
+  "statsTitle": "Stats",
+  "statsError": "Error: {err}",
+  "statsDistribution": "Distribution",
+  "statsTrends": "Trends",
+  "statsBreakdown": "Breakdown",
+  "statsLedgerMonthly": "Ledger · Monthly",
+  "statsCategories": "Categories",
+  "statsNoTagsHint": "No tagged expenses in this period.",
+  "statsNoActivity": "No activity",
+  "statsNothingRecorded": "Nothing recorded for {label}.",
+  "statsTryAnotherPeriod": "Try another period from the filters above.",
+  "statsTrend12Months": "12-month trend",
+  "statsTransactions": "Transactions",
+  "statsNoTransactionsIn": "No transactions in {label}.",
+  "statsNothingRecordedCategory": "Nothing recorded for this category in {label}.",
+  "statsScopeExpenses": "Expenses",
+  "statsScopeIncome": "Income",
+  "statsMonth": "Month",
+  "statsYear": "Year",
+  "statsTotalSpent": "Total spent",
+  "statsTotalEarned": "Total earned",
+  "statsNetActivity": "Net activity",
+  "statsDailyAvg": "Daily avg",
+  "statsNetFlow": "Net flow",
+  "statsPredicted": "Predicted",
+  "statsSavings": "Savings",
+  "statsMonthlyBudget": "Monthly budget",
+  "statsOver": "+{amount} over",
+  "statsLeft": "{amount} left",
+  "statsMore": "+{count} more",
+  "statsMonthlyAvg": "Monthly avg",
+  "statsLargest": "Largest",
+  "statsNoTrendData": "No trend data",
+  "statsEarned": "Earned",
+  "statsSpent": "Spent",
+  "statsPctOf": "{pct}% of total",
+  "txActivity": "Activity",
+  "txAllTime": "All Time",
+  "txAllWallets": "All Wallets",
+  "txAlreadyInAccount": "Already in the account",
+  "txApplyFilters": "Apply Filters",
+  "txApprove": "Approve",
+  "txBetweenYourWallets": "Between your wallets",
+  "txCategories": "Categories",
+  "txCredit": "Credit",
+  "txCustom": "Custom",
+  "txDateRange": "Date range",
+  "txDeleteConfirm": "{count, plural, =1 {Are you sure you want to delete 1 item?} other {Are you sure you want to delete {count} items?}}",
+  "txDeleteTransactionsTitle": "Delete Transactions?",
+  "txDetails": "Details",
+  "txDestinationWallet": "Destination wallet",
+  "txEditExpense": "Edit expense",
+  "txEditIncome": "Edit income",
+  "txEditTransfer": "Edit transfer",
+  "txEmail": "Email",
+  "txEnterAmount": "Enter amount",
+  "txEnterDescription": "Enter description",
+  "txError": "Error: {error}",
+  "txErrorLoadingAccounts": "Error loading accounts: {error}",
+  "txErrorLoadingCategories": "Error loading categories: {error}",
+  "txErrorLoadingTags": "Error loading tags: {error}",
+  "txExternalOutflow": "Money going out",
+  "txFastCategorization": "Fast Categorization",
+  "txFilterByWallet": "Filter by Wallet",
+  "txFilters": "Filters",
+  "txFrom": "From",
+  "txFromEmail": "From email",
+  "txIgnore": "Ignore",
+  "txInstallment": "Installment",
+  "txInstallmentOption": "{amount} × {count} · {paid} due so far",
+  "txInvalidAmount": "Invalid",
+  "txIsSameExpense": "Is this the same expense?",
+  "txLast30Days": "Last 30 Days",
+  "txLast7Days": "Last 7 Days",
+  "txLedger": "Ledger",
+  "txMovements": "Movements",
+  "txMovementUndecided": "Movement — to decide",
+  "txNewExpense": "New expense",
+  "txNewIncome": "New income",
+  "txNewTransfer": "New transfer",
+  "txNoActivity": "No activity",
+  "txNoContent": "(no content)",
+  "txNoDifferent": "No, it's different",
+  "txNoTransactionsPeriod": "No transactions in this period",
+  "txNoTransactionsToReview": "No transactions to review",
+  "txNoWalletSelected": "No wallet selected",
+  "txNotARate": "Not a rate",
+  "txNote": "Note",
+  "txNoteHint": "What was this for?",
+  "txNotification": "Notification",
+  "txOcrError": "OCR Error: {error}",
+  "txPayment": "Payment",
+  "txPossiblyAlreadyRecorded": "Possibly already recorded",
+  "txPleaseSelectOtherWallet": "Please select a different destination wallet",
+  "txPleaseSelectWallet": "Please select a wallet",
+  "txReceiptScanned": "Receipt scanned",
+  "txResetAll": "Reset all",
+  "txReviewBannerCount": "{count, plural, =1 {1 transaction to review} other {{count} transactions to review}}",
+  "txReviewInbox": "To review",
+  "txScan": "Scan",
+  "txSelect": "Select",
+  "txSelectCategory": "Select Category",
+  "txSelectDestination": "Select destination",
+  "txSelectFromAccount": "Select From Account",
+  "txSelectFromWallet": "Select From Wallet",
+  "txSelectSource": "Select source",
+  "txSelectToAccount": "Select To Account",
+  "txSelectToWallet": "Select To Wallet",
+  "txSelectWallet": "Select wallet",
+  "txSelected": "{count, plural, =1 {1 selected} other {{count} selected}}",
+  "txSepaUndecided": "SEPA transfer — to decide",
+  "txSourceWallet": "Source wallet",
+  "txSwipeNext": "Swipe for next transaction",
+  "txTo": "To",
+  "txTransferDetails": "Transfer Details",
+  "txTransactionAdded": "Transaction added",
+  "txTransactionUpdated": "Transaction updated",
+  "txUnrecognizedCount": "{count, plural, =1 {1 unrecognized message} other {{count} unrecognized messages}}",
+  "txUnrecognizedMessages": "Unrecognized messages",
+  "txUnreadableMessage": "{kind} from {source} on {date} — couldn't read it",
+  "txUpdate": "Update",
+  "txWhatKindOfTransfer": "What kind of transfer is this?",
+  "txYesSame": "Yes, it's the same",
+  "txYouReceived": "You received",
+  "txYouSpent": "You spent",
+  "txYouTransferred": "You transferred",
+  "@authDetailedError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@authUsernameMinLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "@authServerHasData": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@authUseServerDataSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@authUploadDeviceDataSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@authActionFailed": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@authAvatarSaveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@dashError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@dashWalletsMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@dashPerMonth": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@dashMorePlans": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@dashNextDue": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@dashLastCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@dashDaysAgoShort": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@budgetSaveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@budgetUtilizationOf": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "@budgetNoBudgetsSet": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "@instMonthlyActive": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@instDeletePlanBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@instPerMo": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@instPaidOf": {
+    "placeholders": {
+      "paid": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "@instLinkedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@instRemainingNext": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@instSaveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@instPerMonth": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@instLinkedPaymentsOf": {
+    "placeholders": {
+      "linked": {
+        "type": "int"
+      },
+      "due": {
+        "type": "int"
+      }
+    }
+  },
+  "@instMissingRates": {
+    "placeholders": {
+      "missing": {
+        "type": "int"
+      },
+      "due": {
+        "type": "int"
+      }
+    }
+  },
+  "@importSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@importError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@importFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@importTotal": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@chartWeekOf": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@chartWeekShort": {
+    "placeholders": {
+      "week": {
+        "type": "int"
+      }
+    }
+  },
+  "@notifBudgetReached": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "@notifBudgetUsedPct": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "@setDeleteConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@setDeleteWalletBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@setErrorWithDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@setWalletSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@setSyncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@setSignInFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@setBackupFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@setRestoreFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@setLastSync": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@setDaysCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@setNewDrafts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@setUnreadEmails": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@setEmailSyncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@setUnreadNotifications": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@setNotificationReadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@setCountToReview": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@setCountAlreadyPresent": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@setCountUnreadableRows": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@setStatementImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@statsError": {
+    "placeholders": {
+      "err": {
+        "type": "String"
+      }
+    }
+  },
+  "@statsNothingRecorded": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "@statsNoTransactionsIn": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "@statsNothingRecordedCategory": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "@statsOver": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@statsLeft": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@statsMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@statsPctOf": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "@txDeleteConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@txError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@txErrorLoadingAccounts": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@txErrorLoadingCategories": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@txErrorLoadingTags": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@txInstallmentOption": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      },
+      "paid": {
+        "type": "int"
+      }
+    }
+  },
+  "@txOcrError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@txReviewBannerCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@txSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@txUnrecognizedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@txUnreadableMessage": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  }
+}

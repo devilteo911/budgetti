@@ -1,17 +1,18 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/account.dart';
 
 class WalletPickerSheet extends ConsumerWidget {
-  final String title;
+  final String? title;
   final String? selectedWalletId;
   final Function(Account?) onWalletSelected;
   final bool showAllWalletsOption;
 
   const WalletPickerSheet({
     super.key,
-    this.title = "Select Wallet",
+    this.title,
     this.selectedWalletId,
     required this.onWalletSelected,
     this.showAllWalletsOption = false,
@@ -42,7 +43,7 @@ class WalletPickerSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              title,
+              title ?? context.l10n.uiSelectWallet,
               style: TextStyle(
                 color: scheme.onSurface,
                 fontSize: 18,
@@ -59,7 +60,7 @@ class WalletPickerSheet extends ConsumerWidget {
                     if (showAllWalletsOption)
                       _WalletTile(
                         icon: Icons.all_inclusive,
-                        name: 'All Wallets',
+                        name: context.l10n.uiAllWallets,
                         isSelected: selectedWalletId == null,
                         onTap: () {
                           onWalletSelected(null);

@@ -303,7 +303,11 @@ final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
 
 final currencyProvider = Provider<NumberFormat>((ref) {
   final profileAsync = ref.watch(userProfileProvider);
-  return NumberFormat.simpleCurrency(name: profileAsync.value?['currency'] ?? 'EUR');
+  // Watch the UI language so decimal separators follow it (1.234,56 vs 1,234.56).
+  final language = ref.watch(localeSettingsProvider).language;
+  return NumberFormat.simpleCurrency(
+      name: profileAsync.value?['currency'] ?? 'EUR',
+      locale: language == 'system' ? null : language);
 });
 
 class BalanceVisibility extends Notifier<bool> {
@@ -398,6 +402,32 @@ class ThemeSettingsNotifier extends Notifier<ThemeSettings> {
 final themeSettingsProvider =
     NotifierProvider<ThemeSettingsNotifier, ThemeSettings>(
   ThemeSettingsNotifier.new,
+);
+
+/// UI language: 'system' follows the OS, otherwise a supported locale.
+/// [resolve] maps to the `Locale` handed to MaterialApp (null = system).
+class LocaleSettings {
+  final String language; // 'system' | 'en' | 'it'
+  const LocaleSettings(this.language);
+
+  Locale? resolve() =>
+      language == 'system' ? null : Locale(language);
+}
+
+class LocaleSettingsNotifier extends Notifier<LocaleSettings> {
+  @override
+  LocaleSettings build() =>
+      LocaleSettings(ref.read(persistenceServiceProvider).getUiLanguage());
+
+  Future<void> setLanguage(String v) async {
+    state = LocaleSettings(v);
+    await ref.read(persistenceServiceProvider).setUiLanguage(v);
+  }
+}
+
+final localeSettingsProvider =
+    NotifierProvider<LocaleSettingsNotifier, LocaleSettings>(
+  LocaleSettingsNotifier.new,
 );
 
 class TransactionFilterState {

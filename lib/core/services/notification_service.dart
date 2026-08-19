@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -105,6 +106,7 @@ class NotificationService {
     required String category,
     required double percentage,
   }) async {
+    final l10n = await backgroundL10n();
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'budget_alerts',
       'Budget Alerts',
@@ -124,13 +126,13 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    String message = percentage >= 1.0 
-      ? "You've reached your budget for $category!" 
-      : "You've used ${ (percentage * 100).toStringAsFixed(0) }% of your $category budget.";
+    String message = percentage >= 1.0
+      ? l10n.notifBudgetReached(category)
+      : l10n.notifBudgetUsedPct((percentage * 100).toStringAsFixed(0), category);
 
     await _notificationsPlugin.show(
       id,
-      "Budget Alert",
+      l10n.notifBudgetAlertTitle,
       message,
       details,
     );
@@ -164,11 +166,12 @@ class NotificationService {
     debugPrint(
       '🔔 Scheduling daily reminder for $scheduledTime (hour: $hour, minute: $minute)',
     );
-    
+
+    final l10n = await backgroundL10n();
     await _notificationsPlugin.zonedSchedule(
       id,
-      "Track your expenses",
-      "Don't forget to log your spending for today!",
+      l10n.notifDailyTitle,
+      l10n.notifDailyBody,
       scheduledTime,
       details,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -197,13 +200,14 @@ class NotificationService {
       android: androidDetails,
     );
 
-    final String title = isProgress 
-        ? "Backup in progress..." 
-        : (success ? "Backup Successful" : "Backup Failed");
-    
-    final String body = message ?? (isProgress 
-        ? "Saving your data safely." 
-        : (success ? "Your data has been backed up." : "There was an error during backup."));
+    final l10n = await backgroundL10n();
+    final String title = isProgress
+        ? l10n.notifBackupProgressTitle
+        : (success ? l10n.notifBackupSuccessTitle : l10n.notifBackupFailedTitle);
+
+    final String body = message ?? (isProgress
+        ? l10n.notifBackupProgressBody
+        : (success ? l10n.notifBackupSuccessBody : l10n.notifBackupErrorBody));
 
     await _notificationsPlugin.show(
       888, // Unique ID for backup notifications
@@ -241,10 +245,11 @@ class NotificationService {
       iOS: iosDetails,
     );
 
+    final l10n = await backgroundL10n();
     final String title = switch (type) {
-      'income' => 'Accredito ricevuto',
-      'undecided' => 'Bonifico da rivedere',
-      _ => 'Pagamento registrato',
+      'income' => l10n.notifEmailIncome,
+      'undecided' => l10n.notifEmailReview,
+      _ => l10n.notifEmailExpense,
     };
 
     final String formattedAmount =

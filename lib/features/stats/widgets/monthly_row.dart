@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -61,7 +62,7 @@ class MonthlyRow extends StatelessWidget {
             children: [
               Expanded(
                 child: _InlineStat(
-                  label: 'EARNED',
+                  label: context.l10n.statsEarned.toUpperCase(),
                   value: currencyFormatter.format(earned),
                   color: scheme.primary,
                 ),
@@ -69,7 +70,7 @@ class MonthlyRow extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: _InlineStat(
-                  label: 'SPENT',
+                  label: context.l10n.statsSpent.toUpperCase(),
                   value: currencyFormatter.format(spent),
                   color: spent > earned
                       ? scheme.error

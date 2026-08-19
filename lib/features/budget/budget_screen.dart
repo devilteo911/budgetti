@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/features/budget/widgets/budget_hero.dart';
@@ -69,7 +70,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Budgets',
+          context.l10n.budgetScreenTitle,
           style: GoogleFonts.jetBrainsMono(
             color: scheme.onSurface,
             fontSize: 22,
@@ -87,10 +88,14 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen>
             ),
             onSelected: (sort) => setState(() => _sortBy = sort),
             itemBuilder: (context) => [
-              _sortItem(BudgetSort.utilization, 'Utilization'),
-              _sortItem(BudgetSort.alphabetical, 'Alphabetical'),
-              _sortItem(BudgetSort.amountDesc, 'Limit: High to Low'),
-              _sortItem(BudgetSort.amountAsc, 'Limit: Low to High'),
+              _sortItem(
+                  BudgetSort.utilization, context.l10n.budgetSortUtilization),
+              _sortItem(BudgetSort.alphabetical,
+                  context.l10n.budgetSortAlphabetical),
+              _sortItem(
+                  BudgetSort.amountDesc, context.l10n.budgetSortLimitHighLow),
+              _sortItem(
+                  BudgetSort.amountAsc, context.l10n.budgetSortLimitLowHigh),
             ],
           ),
         ],
@@ -189,7 +194,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen>
                             end: 0.65,
                             child: SliverToBoxAdapter(
                               child: SectionLabel(
-                                text: 'TRACKED',
+                                text: context.l10n.budgetTracked,
                                 count: active.length,
                               ),
                             ),
@@ -214,7 +219,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen>
                             end: 0.90,
                             child: SliverToBoxAdapter(
                               child: SectionLabel(
-                                text: 'UNSET',
+                                text: context.l10n.budgetSectionUnset,
                                 count: unset.length,
                               ),
                             ),
@@ -344,7 +349,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'NO CATEGORIES',
+            context.l10n.budgetNoCategories,
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,
@@ -354,7 +359,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add expense categories first to start tracking budgets.',
+            context.l10n.budgetEmptyHint,
             style: TextStyle(
               color: scheme.onSurface,
               fontSize: 17,
@@ -383,7 +388,7 @@ class _ErrorView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'ERROR',
+              context.l10n.budgetErrorLabel,
               style: GoogleFonts.jetBrainsMono(
                 color: scheme.error,
                 fontSize: 10,

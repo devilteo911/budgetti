@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 
 class DashboardStatGrid extends ConsumerWidget {
@@ -25,10 +26,10 @@ class DashboardStatGrid extends ConsumerWidget {
       child: IntrinsicHeight(
         child: Row(
           children: [
-            _Cell(label: 'IN', value: _compact(income), color: scheme.primary, border: border),
-            _Cell(label: 'OUT', value: _compact(-expense), color: const Color(0xFFFF5C6C), border: border),
-            _Cell(label: 'NET', value: _compact(net), color: scheme.onSurface, border: border),
-            _Cell(label: 'SAVE', value: '${savePct.toStringAsFixed(0)}%', color: scheme.onSurface, border: BorderSide.none),
+            _Cell(label: context.l10n.dashStatIn.toUpperCase(), value: _compact(income), color: scheme.primary, border: border),
+            _Cell(label: context.l10n.dashStatOut.toUpperCase(), value: _compact(-expense), color: const Color(0xFFFF5C6C), border: border),
+            _Cell(label: context.l10n.dashStatNet.toUpperCase(), value: _compact(net), color: scheme.onSurface, border: border),
+            _Cell(label: context.l10n.dashStatSave.toUpperCase(), value: '${savePct.toStringAsFixed(0)}%', color: scheme.onSurface, border: BorderSide.none),
           ],
         ),
       ),

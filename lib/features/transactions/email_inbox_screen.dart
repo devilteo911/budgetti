@@ -1,5 +1,6 @@
 import 'package:budgetti/core/database/database.dart'
     show PendingTransaction, Transaction;
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
@@ -20,10 +21,10 @@ class EmailInboxScreen extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Da rivedere')),
+      appBar: AppBar(title: Text(context.l10n.txReviewInbox)),
       body: pendingAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Errore: $e')),
+        error: (e, _) => Center(child: Text(context.l10n.txError(e.toString()))),
         data: (drafts) {
           final skipped = ref.watch(skippedEmailsProvider).maybeWhen(
                 data: (s) => s,
@@ -43,7 +44,7 @@ class EmailInboxScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
                   child: Text(
-                    'Messaggi non riconosciuti',
+                    context.l10n.txUnrecognizedMessages,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -85,7 +86,7 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.mark_email_read_outlined,
               size: 56, color: scheme.onSurfaceVariant),
           const SizedBox(height: 12),
-          Text('Nessuna transazione da rivedere',
+          Text(context.l10n.txNoTransactionsToReview,
               style: TextStyle(color: scheme.onSurfaceVariant)),
         ],
       ),
@@ -104,15 +105,15 @@ class _DraftCard extends ConsumerWidget {
     final isExpense = draft.parsedAmount < 0;
 
     final (icon, typeLabel) = switch (draft.suggestedType) {
-      'income' => (Icons.south_west, 'Accredito'),
+      'income' => (Icons.south_west, context.l10n.txCredit),
       // Only Widiba's SEPA transfers land undecided, hence the specific wording.
       'undecided' => (
           Icons.help_outline,
           draft.source == 'widiba'
-              ? 'Bonifico SEPA — da decidere'
-              : 'Movimento — da decidere'
+              ? context.l10n.txSepaUndecided
+              : context.l10n.txMovementUndecided
         ),
-      _ => (Icons.north_east, 'Pagamento'),
+      _ => (Icons.north_east, context.l10n.txPayment),
     };
 
     return Container(
@@ -185,14 +186,14 @@ class _DraftCard extends ConsumerWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _reject(ref),
-                  child: const Text('Ignora'),
+                  child: Text(context.l10n.txIgnore),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
                   onPressed: () => _approve(context, ref),
-                  child: const Text('Approva'),
+                  child: Text(context.l10n.txApprove),
                 ),
               ),
             ],
@@ -229,8 +230,8 @@ class _DraftCard extends ConsumerWidget {
     }
     if (sourceId == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Nessun portafoglio selezionato')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.txNoWalletSelected)));
       }
       return;
     }
@@ -260,21 +261,21 @@ class _DraftCard extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Che tipo di bonifico è?',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(context.l10n.txWhatKindOfTransfer,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
             ListTile(
               leading: const Icon(Icons.north_east),
-              title: const Text('Spesa'),
-              subtitle: const Text('Uscita verso esterno'),
+              title: Text(context.l10n.commonExpense),
+              subtitle: Text(context.l10n.txExternalOutflow),
               onTap: () => Navigator.pop(context, 'expense'),
             ),
             ListTile(
               leading: const Icon(Icons.swap_horiz),
-              title: const Text('Trasferimento'),
-              subtitle: const Text('Giro tra i tuoi portafogli'),
+              title: Text(context.l10n.commonTransfer),
+              subtitle: Text(context.l10n.txBetweenYourWallets),
               onTap: () => Navigator.pop(context, 'transfer'),
             ),
             const SizedBox(height: 8),
@@ -285,11 +286,11 @@ class _DraftCard extends ConsumerWidget {
   }
 
   Future<String?> _pickDestinationAccount(BuildContext context, WidgetRef ref) {
-    return _pickAccount(context, ref, 'Portafoglio di destinazione');
+    return _pickAccount(context, ref, context.l10n.txDestinationWallet);
   }
 
   Future<String?> _pickSourceAccount(BuildContext context, WidgetRef ref) {
-    return _pickAccount(context, ref, 'Portafoglio di origine');
+    return _pickAccount(context, ref, context.l10n.txSourceWallet);
   }
 
   Future<String?> _pickAccount(
@@ -348,10 +349,13 @@ class _SkippedCard extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${item.source == 'revolut' ? 'Notifica' : 'Email'} '
-            '${sourceLabel(item.source)} del '
-            '${DateFormat('dd MMM yyyy').format(item.emailReceivedAt)} '
-            '— non sono riuscito a leggerla',
+            context.l10n.txUnreadableMessage(
+              item.source == 'revolut'
+                  ? context.l10n.txNotification
+                  : context.l10n.txEmail,
+              sourceLabel(item.source),
+              DateFormat('dd MMM yyyy').format(item.emailReceivedAt),
+            ),
             style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
@@ -361,14 +365,14 @@ class _SkippedCard extends ConsumerWidget {
                 child: OutlinedButton(
                   onPressed: () =>
                       ref.read(pendingTransactionServiceProvider).reject(item.id),
-                  child: const Text('Ignora'),
+                  child: Text(context.l10n.txIgnore),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.tonal(
                   onPressed: () => _showSnippet(context),
-                  child: const Text('Dettagli'),
+                  child: Text(context.l10n.txDetails),
                 ),
               ),
             ],
@@ -385,14 +389,16 @@ class _SkippedCard extends ConsumerWidget {
         title: Text(item.emailSubject),
         content: SingleChildScrollView(
           child: Text(
-            item.rawSnippet.isEmpty ? '(nessun contenuto)' : item.rawSnippet,
+            item.rawSnippet.isEmpty
+                ? context.l10n.txNoContent
+                : item.rawSnippet,
             style: const TextStyle(fontSize: 13),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Chiudi'),
+            child: Text(context.l10n.commonClose),
           ),
         ],
       ),
@@ -437,9 +443,9 @@ class _DuplicateNotice extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Forse già registrata',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.txPossiblyAlreadyRecorded,
+                      style: const TextStyle(
                         color: Colors.amber,
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -492,21 +498,22 @@ class _DuplicateNotice extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'È la stessa spesa?',
+              Text(
+                context.l10n.txIsSameExpense,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 16),
               _CompareBlock(
-                label: 'Dall\'email',
+                label: context.l10n.txFromEmail,
                 description: draft.parsedDescription,
                 date: draft.parsedDate,
                 amountLabel: currency.format(draft.parsedAmount),
               ),
               const SizedBox(height: 8),
               _CompareBlock(
-                label: 'Già nel conto',
+                label: context.l10n.txAlreadyInAccount,
                 description: tx.description,
                 date: tx.date,
                 amountLabel: currency.format(tx.amount),
@@ -521,7 +528,7 @@ class _DuplicateNotice extends ConsumerWidget {
                         service.clearDuplicateFlag(draft.id);
                         Navigator.pop(sheetContext);
                       },
-                      child: const Text('No, è diversa'),
+                      child: Text(context.l10n.txNoDifferent),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -531,7 +538,7 @@ class _DuplicateNotice extends ConsumerWidget {
                         service.reject(draft.id);
                         Navigator.pop(sheetContext);
                       },
-                      child: const Text('Sì, è la stessa'),
+                      child: Text(context.l10n.txYesSame),
                     ),
                   ),
                 ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/features/stats/widgets/section_label.dart';
@@ -192,7 +193,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'NO ACTIVITY',
+            context.l10n.txNoActivity.toUpperCase(),
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,
@@ -202,7 +203,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Nessuna transazione in questo periodo',
+            context.l10n.txNoTransactionsPeriod,
             style: TextStyle(
               color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
               fontSize: 13,

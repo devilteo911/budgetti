@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/models/category.dart';
@@ -80,7 +81,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Stats',
+          context.l10n.statsTitle,
           style: GoogleFonts.jetBrainsMono(
             color: scheme.onSurface,
             fontSize: 22,
@@ -93,7 +94,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
         loading: () => Center(
           child: CircularProgressIndicator(color: scheme.primary),
         ),
-        error: (err, _) => Center(child: Text('Error: $err')),
+        error: (err, _) =>
+            Center(child: Text(context.l10n.statsError(err.toString()))),
         data: (stats) {
           final isEmpty =
               stats.categoryTotals.isEmpty && stats.monthlyBreakdown.isEmpty;
@@ -148,7 +150,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     end: 0.65,
                     child: SliverToBoxAdapter(
                       child: SectionLabel(
-                        text: 'DISTRIBUTION',
+                        text: context.l10n.statsDistribution.toUpperCase(),
                         count: sortedEntries.length,
                       ),
                     ),
@@ -175,8 +177,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                   controller: _entrance,
                   begin: 0.25,
                   end: 0.80,
-                  child: const SliverToBoxAdapter(
-                    child: SectionLabel(text: 'TRENDS'),
+                  child: SliverToBoxAdapter(
+                    child: SectionLabel(
+                        text: context.l10n.statsTrends.toUpperCase()),
                   ),
                 ),
                 Stagger(
@@ -195,8 +198,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     controller: _entrance,
                     begin: 0.35,
                     end: 0.90,
-                    child: const SliverToBoxAdapter(
-                      child: SectionLabel(text: 'BREAKDOWN'),
+                    child: SliverToBoxAdapter(
+                      child: SectionLabel(
+                          text: context.l10n.statsBreakdown.toUpperCase()),
                     ),
                   ),
                   Stagger(
@@ -221,8 +225,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
                     controller: _entrance,
                     begin: 0.45,
                     end: 1.0,
-                    child: const SliverToBoxAdapter(
-                      child: SectionLabel(text: 'LEDGER · MONTHLY'),
+                    child: SliverToBoxAdapter(
+                      child: SectionLabel(
+                          text: context.l10n.statsLedgerMonthly.toUpperCase()),
                     ),
                   ),
                   Stagger(
@@ -317,8 +322,9 @@ class _DimensionToggle extends StatelessWidget {
             if (i > 0) const SizedBox(width: 8),
             _ToggleSegment(
               label: switch (_StatsDimension.values[i]) {
-                _StatsDimension.categories => 'Categories',
-                _StatsDimension.tags => 'Tags',
+                _StatsDimension.categories =>
+                  context.l10n.statsCategories,
+                _StatsDimension.tags => context.l10n.commonTags,
               },
               selected: _StatsDimension.values[i] == value,
               onTap: () => onChanged(_StatsDimension.values[i]),
@@ -381,7 +387,7 @@ class _NoTagsHint extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Text(
-        'No tagged expenses in this period.',
+        context.l10n.statsNoTagsHint,
         style: TextStyle(
           color: scheme.onSurfaceVariant,
           fontSize: 13,
@@ -467,7 +473,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'NO ACTIVITY',
+            context.l10n.statsNoActivity.toUpperCase(),
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,
@@ -477,7 +483,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Nothing recorded for $label.',
+            context.l10n.statsNothingRecorded(label),
             style: TextStyle(
               color: scheme.onSurface,
               fontSize: 17,
@@ -487,7 +493,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Try another period from the filters above.',
+            context.l10n.statsTryAnotherPeriod,
             style: TextStyle(
               color: scheme.onSurfaceVariant,
               fontSize: 13,

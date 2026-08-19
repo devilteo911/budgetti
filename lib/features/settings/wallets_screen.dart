@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/features/settings/widgets/wallet_skeleton.dart';
@@ -19,7 +20,7 @@ class WalletsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Wallets',
+          context.l10n.setWallets,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: scheme.onSurface,
@@ -55,7 +56,7 @@ class WalletsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'No wallets yet',
+                      context.l10n.setNoWallets,
                       style: TextStyle(
                         color: scheme.onSurface.withValues(alpha: 0.6),
                       ),
@@ -90,7 +91,8 @@ class WalletsScreen extends ConsumerWidget {
               itemBuilder: (_, __) => const WalletItemSkeleton(),
             ),
           ),
-          error: (e, _) => Center(child: Text('Error: $e')),
+          error: (e, _) =>
+              Center(child: Text(context.l10n.setErrorWithDetails(e.toString()))),
         ),
       ),
     );
@@ -119,19 +121,19 @@ class WalletsScreen extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Account'),
+        title: Text(ctx.l10n.setDeleteWalletTitle),
         content: Text(
-          "Delete '${wallet.name}'? This won't delete transactions but they might become unassigned.",
+          ctx.l10n.setDeleteWalletBody(wallet.name),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: scheme.error),
-            child: const Text('Delete'),
+            child: Text(ctx.l10n.commonDelete),
           ),
         ],
       ),
@@ -216,7 +218,9 @@ class _WalletTile extends StatelessWidget {
                     ),
                     if (wallet.initialBalanceDate != null)
                       Text(
-                        'From ${DateFormat('MMM d, yyyy').format(wallet.initialBalanceDate!)}',
+                        context.l10n.setWalletSince(
+                            DateFormat('MMM d, yyyy')
+                                .format(wallet.initialBalanceDate!)),
                         style: TextStyle(
                           color: scheme.onSurface.withValues(alpha: 0.4),
                           fontSize: 11,
@@ -233,7 +237,7 @@ class _WalletTile extends StatelessWidget {
                     size: 20,
                   ),
                   onPressed: onSetDefault,
-                  tooltip: 'Set as default',
+                  tooltip: context.l10n.setSetAsDefault,
                 ),
               IconButton(
                 icon: Icon(
@@ -294,16 +298,18 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.wallet != null ? 'Edit Account' : 'New Account',
+              widget.wallet != null
+                  ? context.l10n.setEditWallet
+                  : context.l10n.setNewWallet,
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Account Name (e.g. PayPal, Bank)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.setWalletNameHint,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -311,18 +317,18 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
               controller: _amountController,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Initial Amount',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.setInitialAmount,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Starting Date'),
+              title: Text(context.l10n.setStartingDate),
               subtitle: Text(
                 _initialBalanceDate == null
-                    ? 'All transactions'
+                    ? context.l10n.setAllTransactions
                     : DateFormat('MMM d, yyyy').format(_initialBalanceDate!),
               ),
               trailing: Icon(Icons.calendar_today, color: scheme.primary),
@@ -341,7 +347,7 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
             const SizedBox(height: 16),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Set as Default'),
+              title: Text(context.l10n.setSetAsDefault),
               value: _isDefault,
               onChanged: (v) => setState(() => _isDefault = v),
             ),
@@ -381,7 +387,9 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: Text(
-                widget.wallet != null ? 'Update Account' : 'Create Account',
+                widget.wallet != null
+                    ? context.l10n.setUpdateWallet
+                    : context.l10n.setCreateWallet,
               ),
             ),
             const SizedBox(height: 32),

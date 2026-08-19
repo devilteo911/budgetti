@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 
@@ -57,7 +58,7 @@ class WalletSelectorChip extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  accountName ?? "Select Wallet",
+                  accountName ?? context.l10n.txSelectWallet,
                   style: TextStyle(
                     color: isSelected ? Colors.white : AppTheme.textGrey,
                     fontSize: 14,

@@ -158,6 +158,11 @@ class PersistenceService {
   bool getThemeGlass() => _prefs.getBool(_themeGlassKey) ?? false;
   Future<void> setThemeGlass(bool v) => _prefs.setBool(_themeGlassKey, v);
 
+  // UI language: 'system' | 'en' | 'it'
+  static const _uiLanguageKey = 'ui_language';
+  String getUiLanguage() => _prefs.getString(_uiLanguageKey) ?? 'system';
+  Future<void> setUiLanguage(String l) => _prefs.setString(_uiLanguageKey, l);
+
   // PocketBase sync
   static const _pbServerUrlKey = 'pb_server_url';
   static const _pbLastSyncAtKey = 'pb_last_sync_at'; // millis since epoch

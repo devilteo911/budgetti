@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/models/account.dart';
@@ -42,7 +43,7 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
           onPressed: onClearSelection,
         ),
         title: Text(
-          '${selectedIds.length} SELECTED',
+          context.l10n.txSelected(selectedIds.length).toUpperCase(),
           style: GoogleFonts.jetBrainsMono(
             color: scheme.onSurface,
             fontSize: 13,
@@ -78,7 +79,7 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final selectedAccount =
         accounts.where((a) => a.id == selectedWalletId).firstOrNull;
     final filtersActive = !ref.watch(transactionFiltersProvider).isEmpty;
-    final walletName = selectedAccount?.name ?? 'All Wallets';
+    final walletName = selectedAccount?.name ?? context.l10n.txAllWallets;
 
     return AppBar(
       titleSpacing: 16,
@@ -92,7 +93,7 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'LEDGER',
+                context.l10n.txLedger.toUpperCase(),
                 style: GoogleFonts.jetBrainsMono(
                   color: scheme.onSurfaceVariant,
                   fontSize: 9,

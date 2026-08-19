@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,10 +50,10 @@ class StatsHero extends ConsumerWidget {
         predictedTotal > 0;
 
     final kicker = switch (scope) {
-      StatsScope.expenses => 'TOTAL SPENT',
-      StatsScope.income => 'TOTAL EARNED',
-      StatsScope.all => 'NET ACTIVITY',
-    };
+      StatsScope.expenses => context.l10n.statsTotalSpent,
+      StatsScope.income => context.l10n.statsTotalEarned,
+      StatsScope.all => context.l10n.statsNetActivity,
+    }.toUpperCase();
     final heroValue = switch (scope) {
       StatsScope.expenses => totalExpenses,
       StatsScope.income => totalEarned,
@@ -74,25 +75,25 @@ class StatsHero extends ConsumerWidget {
           _SecondaryRow(
             items: [
               _SecondaryStat(
-                label: 'DAILY AVG',
+                label: context.l10n.statsDailyAvg.toUpperCase(),
                 value: currency.format(dailyAvg),
                 valueColor: scheme.onSurface,
               ),
               _SecondaryStat(
-                label: 'NET FLOW',
+                label: context.l10n.statsNetFlow.toUpperCase(),
                 value: (netFlow >= 0 ? '+' : '') + currency.format(netFlow),
                 valueColor:
                     netFlow >= 0 ? scheme.primary : scheme.error,
               ),
               if (showPrediction)
                 _SecondaryStat(
-                  label: 'PREDICTED',
+                  label: context.l10n.statsPredicted.toUpperCase(),
                   value: currency.format(predictedTotal),
                   valueColor: scheme.tertiary,
                 )
               else if (totalEarned > 0)
                 _SecondaryStat(
-                  label: 'SAVINGS',
+                  label: context.l10n.statsSavings.toUpperCase(),
                   value:
                       '${(netFlow / totalEarned * 100).toStringAsFixed(0)}%',
                   valueColor: netFlow >= 0
@@ -101,7 +102,7 @@ class StatsHero extends ConsumerWidget {
                 )
               else
                 _SecondaryStat(
-                  label: 'SAVINGS',
+                  label: context.l10n.statsSavings.toUpperCase(),
                   value: '—',
                   valueColor: scheme.onSurfaceVariant,
                 ),

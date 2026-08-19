@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/import/import_transactions_screen.dart';
 import 'package:budgetti/features/settings/widgets/settings_scaffold.dart';
@@ -20,76 +21,76 @@ class SettingsScreen extends ConsumerWidget {
     final email = ref.watch(authServiceProvider).email;
 
     return SettingsScaffold(
-      title: 'Settings',
+      title: context.l10n.setSettings,
       showBackButton: false,
       children: [
         SettingsSection(
-          title: 'Account',
+          title: context.l10n.setAccount,
           children: [
             SettingsTile(
               icon: Icons.person_outline,
-              title: 'Profile',
+              title: context.l10n.setProfile,
               subtitle: email,
               onTap: () => context.push('/settings/profile'),
             ),
             SettingsTile(
               icon: Icons.palette_outlined,
               iconColor: scheme.tertiary,
-              title: 'Appearance',
-              subtitle: 'Palette, theme, effects',
+              title: context.l10n.setAppearance,
+              subtitle: context.l10n.setAppearanceSubtitle,
               onTap: () => context.push('/settings/appearance'),
             ),
             SettingsTile(
               icon: Icons.tune,
-              title: 'Preferences',
-              subtitle: 'Currency, scanner, notifications',
+              title: context.l10n.setPreferences,
+              subtitle: context.l10n.setPreferencesSubtitle,
               onTap: () => context.push('/settings/preferences'),
             ),
             SettingsTile(
               icon: Icons.sync_alt,
               iconColor: Colors.blueAccent,
-              title: 'Integrations & Backup',
-              subtitle: 'Drive, Sheets, auto backup',
+              title: context.l10n.setIntegrationsBackup,
+              subtitle: context.l10n.setIntegrationsBackupSubtitle,
               onTap: () => context.push('/settings/integrations'),
             ),
           ],
         ),
         SettingsSection(
-          title: 'Data',
+          title: context.l10n.setData,
           children: [
             SettingsTile(
               icon: Icons.category_outlined,
-              title: 'Categories',
+              title: context.l10n.setCategories,
               onTap: () => context.push('/settings/categories'),
             ),
             SettingsTile(
               icon: Icons.label_outline,
               iconColor: scheme.secondary,
-              title: 'Tags',
+              title: context.l10n.setTags,
               onTap: () => context.push('/settings/tags'),
             ),
             SettingsTile(
               icon: Icons.account_balance_wallet_outlined,
               iconColor: scheme.tertiary,
-              title: 'Wallets',
+              title: context.l10n.setWallets,
               onTap: () => context.push('/settings/wallets'),
             ),
             SettingsTile(
               icon: Icons.file_upload_outlined,
               iconColor: Colors.orangeAccent,
-              title: 'Import Quicken (QIF)',
-              subtitle: 'Load transactions from a .qif file',
+              title: context.l10n.setImportQuicken,
+              subtitle: context.l10n.setImportQuickenSubtitle,
               onTap: () => _importQif(context, ref),
             ),
           ],
         ),
         SettingsSection(
-          title: 'About',
+          title: context.l10n.setAbout,
           children: [
             SettingsTile(
               icon: Icons.code,
               iconColor: Colors.blueAccent,
-              title: 'Source code',
+              title: context.l10n.setSourceCode,
               subtitle: 'github.com/devilteo911/budgetti',
               onTap: () => launchUrl(
                 Uri.parse('https://github.com/devilteo911/budgetti'),
@@ -99,7 +100,7 @@ class SettingsScreen extends ConsumerWidget {
             SettingsTile(
               icon: Icons.logout,
               iconColor: Colors.redAccent,
-              title: 'Sign out',
+              title: context.l10n.setSignOut,
               onTap: () => ref.read(authServiceProvider).logout(),
             ),
           ],
@@ -115,7 +116,7 @@ class SettingsScreen extends ConsumerWidget {
     final file = File(result.files.single.path!);
     if (!file.path.toLowerCase().endsWith('.qif')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a .qif file')),
+        SnackBar(content: Text(context.l10n.setSelectQifFile)),
       );
       return;
     }

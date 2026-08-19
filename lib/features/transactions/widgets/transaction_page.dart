@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
@@ -73,7 +74,9 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
       ),
       builder: (context) {
         return WalletPickerSheet(
-          title: isFrom ? "Select From Account" : "Select To Account",
+          title: isFrom
+              ? context.l10n.txSelectFromAccount
+              : context.l10n.txSelectToAccount,
           selectedWalletId: isFrom ? widget.transaction.accountId : widget.transaction.toAccountId,
           onWalletSelected: (account) async {
             if (account == null) return;
@@ -168,9 +171,9 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
 
                 // Transfer Section
                 if (isTransfer) ...[
-                  const Text(
-                    "Transfer Details",
-                    style: TextStyle(
+                  Text(
+                    context.l10n.txTransferDetails,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -189,7 +192,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                         children: [
                           Expanded(
                             child: WalletSelectorChip(
-                              label: "FROM",
+                              label: context.l10n.txFrom.toUpperCase(),
                               accountName: fromAccount?.name,
                               isSelected: true,
                               onTap: () => _showAccountPicker(context, accounts, true),
@@ -201,7 +204,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                           ),
                           Expanded(
                             child: WalletSelectorChip(
-                              label: "TO",
+                              label: context.l10n.txTo.toUpperCase(),
                               accountName: toAccount?.name,
                               isSelected: true,
                               color: Colors.blue,
@@ -212,15 +215,16 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                       );
                     },
                     loading: () => const CircularProgressIndicator(),
-                    error: (e, s) => Text("Error loading accounts: $e"),
+                    error: (e, s) => Text(
+                        context.l10n.txErrorLoadingAccounts(e.toString())),
                   ),
                   const SizedBox(height: 32),
                 ],
 
                 // Categories
-                const Text(
-                  "Category",
-                  style: TextStyle(
+                Text(
+                  context.l10n.commonCategory,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -284,14 +288,15 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                     );
                   },
                   loading: () => const CircularProgressIndicator(),
-                  error: (e, s) => Text("Error loading categories: $e"),
+                  error: (e, s) => Text(
+                      context.l10n.txErrorLoadingCategories(e.toString())),
                 ),
                 const SizedBox(height: 32),
 
                 // Tags
-                const Text(
-                  "Tags",
-                  style: TextStyle(
+                Text(
+                  context.l10n.commonTags,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -343,7 +348,8 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                     );
                   },
                   loading: () => const CircularProgressIndicator(),
-                  error: (e, s) => Text("Error loading tags: $e"),
+                  error: (e, s) =>
+                      Text(context.l10n.txErrorLoadingTags(e.toString())),
                 ),
                 const SizedBox(height: 100), // Extra space for swipe indicator
               ],
@@ -361,14 +367,15 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                   color: AppTheme.surfaceGrey.withOpacity(0.8),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.swipe, color: AppTheme.textGrey, size: 16),
-                    SizedBox(width: 8),
+                    const Icon(Icons.swipe, color: AppTheme.textGrey, size: 16),
+                    const SizedBox(width: 8),
                     Text(
-                      "Swipe for next transaction",
-                      style: TextStyle(color: AppTheme.textGrey, fontSize: 12),
+                      context.l10n.txSwipeNext,
+                      style: const TextStyle(
+                          color: AppTheme.textGrey, fontSize: 12),
                     ),
                   ],
                 ),

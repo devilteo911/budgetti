@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/dashboard/widgets/carousel_card.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
@@ -43,11 +44,11 @@ class _DashboardCarouselState extends ConsumerState<DashboardCarousel> {
               const _PageSlot(child: NetFlowCard()),
               _PageSlot(
                 child: SummaryCard(
-                  title: "Total Balance",
+                  title: context.l10n.dashTotalBalance,
                   amount:
                       stats != null ? formatter.format(stats.totalBalance) : "—",
                   trend: stats != null
-                      ? "${stats.netFlow >= 0 ? "+" : ""}${formatter.format(stats.netFlow)} · 30d"
+                      ? "${stats.netFlow >= 0 ? "+" : ""}${formatter.format(stats.netFlow)} · ${context.l10n.dashTrend30d}"
                       : "",
                   isPositive: (stats?.netFlow ?? 0) >= 0,
                   isVisible: isVisible,
@@ -103,7 +104,7 @@ class _WalletsRecapCard extends ConsumerWidget {
     return accountsAsync.when(
       loading: () => CarouselCard(
         icon: Icons.layers_rounded,
-        label: 'WALLETS',
+        label: context.l10n.dashWalletsLabel.toUpperCase(),
         child: Center(
           child: CircularProgressIndicator(
             strokeWidth: 2,
@@ -113,10 +114,10 @@ class _WalletsRecapCard extends ConsumerWidget {
       ),
       error: (_, __) => CarouselCard(
         icon: Icons.layers_rounded,
-        label: 'WALLETS',
+        label: context.l10n.dashWalletsLabel.toUpperCase(),
         child: Center(
           child: Text(
-            "Couldn't load wallets",
+            context.l10n.dashWalletsLoadError,
             style: TextStyle(color: scheme.onSurfaceVariant),
           ),
         ),
@@ -125,10 +126,10 @@ class _WalletsRecapCard extends ConsumerWidget {
         if (accounts.isEmpty) {
           return CarouselCard(
             icon: Icons.layers_rounded,
-            label: 'WALLETS',
+            label: context.l10n.dashWalletsLabel.toUpperCase(),
             child: Center(
               child: Text(
-                "No wallets yet",
+                context.l10n.dashNoWallets,
                 style: TextStyle(
                   color: scheme.onSurfaceVariant,
                   fontSize: 13,
@@ -144,7 +145,7 @@ class _WalletsRecapCard extends ConsumerWidget {
 
         return CarouselCard(
           icon: Icons.layers_rounded,
-          label: 'WALLETS',
+          label: context.l10n.dashWalletsLabel.toUpperCase(),
           trailing: Text(
             '×${accounts.length}',
             style: GoogleFonts.jetBrainsMono(
@@ -195,7 +196,7 @@ class _WalletsRecapCard extends ConsumerWidget {
                         Icon(Icons.add, size: 11, color: scheme.primary),
                         const SizedBox(width: 4),
                         Text(
-                          '$overflow MORE',
+                          context.l10n.dashWalletsMore(overflow).toUpperCase(),
                           style: GoogleFonts.jetBrainsMono(
                             color: scheme.primary,
                             fontWeight: FontWeight.w500,

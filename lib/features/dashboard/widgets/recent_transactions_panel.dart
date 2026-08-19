@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
 
@@ -47,9 +49,13 @@ class RecentTransactionsPanel extends ConsumerWidget {
                         fontWeight: FontWeight.w500,
                       ),
                       children: [
-                        const TextSpan(text: 'RECENT · '),
                         TextSpan(
-                          text: 'LAST ${items.length}',
+                            text:
+                                '${context.l10n.dashRecentLabel.toUpperCase()} · '),
+                        TextSpan(
+                          text: context.l10n
+                              .dashLastCount(items.length)
+                              .toUpperCase(),
                           style: TextStyle(color: scheme.onSurface),
                         ),
                       ],
@@ -58,7 +64,8 @@ class RecentTransactionsPanel extends ConsumerWidget {
                 ),
                 GestureDetector(
                   onTap: () => context.go('/transactions'),
-                  child: Text('ALL →',
+                  child: Text(
+                      '${context.l10n.dashAllLabel.toUpperCase()} →',
                       style: GoogleFonts.jetBrainsMono(
                         color: scheme.primary,
                         fontSize: 10,
@@ -73,7 +80,7 @@ class RecentTransactionsPanel extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
-                'No transactions yet',
+                context.l10n.dashNoTransactions,
                 style: GoogleFonts.jetBrainsMono(
                   color: scheme.onSurfaceVariant,
                   fontSize: 11,
@@ -170,7 +177,7 @@ class _Row extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                _relDate(t.date),
+                _relDate(context, t.date),
                 style: GoogleFonts.jetBrainsMono(
                   color: scheme.onSurfaceVariant,
                   fontSize: 9,
@@ -184,7 +191,7 @@ class _Row extends StatelessWidget {
     );
   }
 
-  static String _relDate(DateTime d) {
+  String _relDate(BuildContext context, DateTime d) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(d.year, d.month, d.day);
@@ -194,9 +201,8 @@ class _Row extends StatelessWidget {
       final m = d.minute.toString().padLeft(2, '0');
       return '$h:$m';
     }
-    if (diff == 1) return 'YDA';
-    if (diff < 7) return '${diff}D';
-    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-    return '${months[d.month - 1]} ${d.day}';
+    if (diff == 1) return context.l10n.dashYesterdayShort;
+    if (diff < 7) return context.l10n.dashDaysAgoShort(diff);
+    return '${DateFormat.MMM().format(d).toUpperCase()} ${d.day}';
   }
 }

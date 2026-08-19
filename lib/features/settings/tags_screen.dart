@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +17,7 @@ class TagsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Tags',
+          context.l10n.setTags,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: scheme.onSurface,
@@ -36,18 +37,18 @@ class TagsScreen extends ConsumerWidget {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Restore Defaults?'),
-                  content: const Text(
-                    'This will restore default tags if they were deleted or modified. Your custom tags will not be affected.',
+                  title: Text(ctx.l10n.setRestoreDefaultsTitle),
+                  content: Text(
+                    ctx.l10n.setRestoreTagsBody,
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
+                      child: Text(ctx.l10n.commonCancel),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Restore'),
+                      child: Text(ctx.l10n.setRestore),
                     ),
                   ],
                 ),
@@ -57,15 +58,15 @@ class TagsScreen extends ConsumerWidget {
                 ref.invalidate(tagsProvider);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Default tags restored')),
+                    SnackBar(content: Text(context.l10n.setTagsRestored)),
                   );
                 }
               }
             },
-            itemBuilder: (_) => const [
+            itemBuilder: (_) => [
               PopupMenuItem<String>(
                 value: 'restore',
-                child: Text('Restore Defaults'),
+                child: Text(context.l10n.setRestoreDefaults),
               ),
             ],
           ),
@@ -83,7 +84,7 @@ class TagsScreen extends ConsumerWidget {
                       color: scheme.onSurface.withValues(alpha: 0.3)),
                   const SizedBox(height: 16),
                   Text(
-                    'No tags yet',
+                    context.l10n.setNoTags,
                     style: TextStyle(
                       color: scheme.onSurface.withValues(alpha: 0.6),
                     ),
@@ -107,7 +108,8 @@ class TagsScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) =>
+            Center(child: Text(context.l10n.setErrorWithDetails(e.toString()))),
       ),
     );
   }
@@ -127,17 +129,17 @@ class TagsScreen extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Tag'),
-        content: Text("Are you sure you want to delete '${tag.name}'?"),
+        title: Text(ctx.l10n.setDeleteTagTitle),
+        content: Text(ctx.l10n.setDeleteConfirmBody(tag.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: scheme.error),
-            child: const Text('Delete'),
+            child: Text(ctx.l10n.commonDelete),
           ),
         ],
       ),
@@ -252,21 +254,23 @@ class _TagEditorModalState extends State<_TagEditorModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.tag != null ? 'Edit Tag' : 'New Tag',
+              widget.tag != null
+                  ? context.l10n.setEditTag
+                  : context.l10n.setNewTag,
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Tag Name',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.l10n.setTagName,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              'Color',
+              context.l10n.setColor,
               style: TextStyle(
                 color: scheme.onSurfaceVariant,
                 fontSize: 13,
@@ -331,7 +335,9 @@ class _TagEditorModalState extends State<_TagEditorModal> {
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: Text(widget.tag != null ? 'Update Tag' : 'Create Tag'),
+              child: Text(widget.tag != null
+                  ? context.l10n.setUpdateTag
+                  : context.l10n.setCreateTag),
             ),
             const SizedBox(height: 32),
           ],

@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
@@ -35,10 +36,10 @@ class _ExpenseDistributionChartState extends ConsumerState<ExpenseDistributionCh
       error: (err, _) => Center(child: Text("Error: $err")),
       data: (stats) {
         if (stats.categoryTotals.isEmpty) {
-          return const Center(
+          return Center(
             child: Text(
-              "No data available for this year",
-              style: TextStyle(color: AppTheme.textGrey),
+              context.l10n.chartNoDataYear,
+              style: const TextStyle(color: AppTheme.textGrey),
             ),
           );
         }

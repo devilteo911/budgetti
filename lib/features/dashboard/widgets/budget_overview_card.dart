@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 
 /// Brutalist monthly budget panel: left = giant % with mono subline,
@@ -36,14 +37,14 @@ class BudgetOverviewCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Set up budgets',
+                    Text(context.l10n.dashSetUpBudgets,
                         style: GoogleFonts.bricolageGrotesque(
                           color: scheme.onSurface,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         )),
                     const SizedBox(height: 2),
-                    Text('Track category spending each month',
+                    Text(context.l10n.dashSetUpBudgetsSubtitle,
                         style: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant,
                           fontSize: 10,
@@ -93,7 +94,7 @@ class BudgetOverviewCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _KLabel('MONTHLY BUDGET'),
+                _KLabel(context.l10n.dashMonthlyBudgetLabel.toUpperCase()),
                 const SizedBox(height: 10),
                 RichText(
                   text: TextSpan(
@@ -148,7 +149,7 @@ class BudgetOverviewCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _KLabel('CATEGORIES'),
+                _KLabel(context.l10n.dashCategoriesLabel.toUpperCase()),
                 const SizedBox(height: 10),
                 _SegmentedBar(
                   segments: top.map((b) {

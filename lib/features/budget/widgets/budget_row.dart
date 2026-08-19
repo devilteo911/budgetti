@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -99,7 +100,7 @@ class BudgetRow extends ConsumerWidget {
                       Text(
                         hasLimit
                             ? '${currencyFormatter.format(spent)}  /  ${currencyFormatter.format(limit)}'
-                            : 'NO LIMIT · TAP TO SET',
+                            : context.l10n.budgetNoLimit,
                         style: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant,
                           fontSize: 10,
@@ -133,7 +134,7 @@ class BudgetRow extends ConsumerWidget {
                       )
                     else
                       Text(
-                        'SET',
+                        context.l10n.budgetSet,
                         style: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant,
                           fontSize: 10,

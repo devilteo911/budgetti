@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,7 @@ class TransactionFilterSheet extends ConsumerWidget {
     final range = filters.dateRange;
     final customLabel = range != null && !_isPredefined(range)
         ? '${DateFormat('dd MMM').format(range.start)} → ${DateFormat('dd MMM').format(range.end)}'
-        : 'Custom';
+        : context.l10n.txCustom;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -35,7 +36,7 @@ class TransactionFilterSheet extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Filters',
+                  context.l10n.txFilters,
                   style: TextStyle(
                     color: scheme.onSurface,
                     fontSize: 20,
@@ -51,7 +52,7 @@ class TransactionFilterSheet extends ConsumerWidget {
                     Navigator.pop(context);
                   },
                   child: Text(
-                    'RESET ALL',
+                    context.l10n.txResetAll.toUpperCase(),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.error,
                       fontSize: 10,
@@ -68,20 +69,21 @@ class TransactionFilterSheet extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 16),
-                  const _SectionLabel('DATE RANGE'),
+                  _SectionLabel(
+                      context.l10n.txDateRange.toUpperCase()),
                   _ChipWrap(children: [
                     _Chip(
-                      label: 'All Time',
+                      label: context.l10n.txAllTime,
                       selected: range == null,
                       onTap: () => notifier.setDateRange(null),
                     ),
                     _Chip(
-                      label: 'Last 7 Days',
+                      label: context.l10n.txLast7Days,
                       selected: _isSameRange(range, _getRange(7)),
                       onTap: () => notifier.setDateRange(_getRange(7)),
                     ),
                     _Chip(
-                      label: 'Last 30 Days',
+                      label: context.l10n.txLast30Days,
                       selected: _isSameRange(range, _getRange(30)),
                       onTap: () => notifier.setDateRange(_getRange(30)),
                     ),
@@ -102,7 +104,8 @@ class TransactionFilterSheet extends ConsumerWidget {
                     ),
                   ]),
                   const SizedBox(height: 20),
-                  const _SectionLabel('CATEGORIES'),
+                  _SectionLabel(
+                      context.l10n.txCategories.toUpperCase()),
                   _ChipWrap(children: [
                     for (final c in categories)
                       _Chip(
@@ -113,7 +116,8 @@ class TransactionFilterSheet extends ConsumerWidget {
                       ),
                   ]),
                   const SizedBox(height: 20),
-                  const _SectionLabel('TAGS'),
+                  _SectionLabel(
+                      context.l10n.commonTags.toUpperCase()),
                   _ChipWrap(children: [
                     for (final t in tags)
                       _Chip(
@@ -132,7 +136,7 @@ class TransactionFilterSheet extends ConsumerWidget {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Apply Filters'),
+              child: Text(context.l10n.txApplyFilters),
             ),
           ),
         ],

@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -173,7 +174,7 @@ class _Legend extends StatelessWidget {
         if (overflow > 0) ...[
           const SizedBox(height: 12),
           Text(
-            '+ $overflow more',
+            context.l10n.statsMore(overflow),
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,

@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/features/settings/widgets/settings_scaffold.dart';
@@ -7,11 +8,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const _currencies = [
-  {'code': 'EUR', 'symbol': '€', 'name': 'Euro'},
-  {'code': 'USD', 'symbol': r'$', 'name': 'US Dollar'},
-  {'code': 'GBP', 'symbol': '£', 'name': 'British Pound'},
-  {'code': 'JPY', 'symbol': '¥', 'name': 'Japanese Yen'},
+  {'code': 'EUR', 'symbol': '€'},
+  {'code': 'USD', 'symbol': r'$'},
+  {'code': 'GBP', 'symbol': '£'},
+  {'code': 'JPY', 'symbol': '¥'},
 ];
+
+String _currencyName(BuildContext context, String code) => switch (code) {
+      'EUR' => context.l10n.setCurrencyEur,
+      'USD' => context.l10n.setCurrencyUsd,
+      'GBP' => context.l10n.setCurrencyGbp,
+      'JPY' => context.l10n.setCurrencyJpy,
+      _ => code,
+    };
 
 class PreferencesScreen extends ConsumerStatefulWidget {
   const PreferencesScreen({super.key});
@@ -58,7 +67,7 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Select Currency',
+                ctx.l10n.setSelectCurrency,
                 style: Theme.of(ctx).textTheme.titleLarge,
               ),
             ),
@@ -78,7 +87,7 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
                     ),
                   ),
                 ),
-                title: Text(c['name']!),
+                title: Text(_currencyName(ctx, c['code']!)),
                 subtitle: Text(c['code']!),
                 trailing: c['code'] == current
                     ? Icon(Icons.check_circle, color: scheme.primary)
@@ -123,14 +132,14 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
         ref.watch(userProfileProvider).value?['currency'] as String? ?? 'EUR';
 
     return SettingsScaffold(
-      title: 'Preferences',
+      title: context.l10n.setPreferences,
       children: [
         SettingsSection(
-          title: 'General',
+          title: context.l10n.setGeneral,
           children: [
             SettingsTile(
               icon: Icons.monetization_on_outlined,
-              title: 'Currency',
+              title: context.l10n.setCurrency,
               subtitle: currency,
               trailing: Icon(Icons.keyboard_arrow_down,
                   color: scheme.onSurface.withValues(alpha: 0.4)),
@@ -139,14 +148,14 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
           ],
         ),
         SettingsSection(
-          title: 'Notifications',
+          title: context.l10n.setNotifications,
           children: [
             if (_permissionMissing)
               SettingsTile(
                 icon: Icons.warning_amber_rounded,
                 iconColor: Colors.orange,
-                title: 'Fix Permissions',
-                subtitle: 'Tap to enable notifications',
+                title: context.l10n.setFixPermissions,
+                subtitle: context.l10n.setFixPermissionsSubtitle,
                 onTap: () async {
                   final granted = await ref
                       .read(notificationServiceProvider)
@@ -158,8 +167,8 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
               ),
             _toggleTile(
               icon: Icons.notifications_active_outlined,
-              title: 'Push Notifications',
-              subtitle: 'Main system alerts',
+              title: context.l10n.setPushNotifications,
+              subtitle: context.l10n.setPushNotificationsSubtitle,
               value: persistence.getNotificationsEnabled(),
               onChanged: (v) async {
                 if (v) {
@@ -181,8 +190,8 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
             ),
             _toggleTile(
               icon: Icons.notification_important_outlined,
-              title: 'Budget Alerts',
-              subtitle: 'Limit thresholds',
+              title: context.l10n.setBudgetAlerts,
+              subtitle: context.l10n.setBudgetAlertsSubtitle,
               value: persistence.getBudgetAlertsEnabled(),
               onChanged: (v) async {
                 await persistence.setBudgetAlertsEnabled(v);
@@ -191,8 +200,8 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
             ),
             _toggleTile(
               icon: Icons.event_note_outlined,
-              title: 'Daily Reminder',
-              subtitle: 'Manual logging',
+              title: context.l10n.setDailyReminder,
+              subtitle: context.l10n.setDailyReminderSubtitle,
               value: persistence.getDailyReminderEnabled(),
               onChanged: (v) async {
                 await persistence.setDailyReminderEnabled(v);
@@ -205,7 +214,7 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
             if (persistence.getDailyReminderEnabled())
               SettingsTile(
                 icon: Icons.access_time_filled,
-                title: 'Reminder Time',
+                title: context.l10n.setReminderTime,
                 subtitle: persistence.getDailyReminderTime(),
                 trailing: Text(
                   persistence.getDailyReminderTime(),

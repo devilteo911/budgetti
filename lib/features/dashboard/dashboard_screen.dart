@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
@@ -55,19 +56,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               children: [
                 const Icon(Icons.cloud_off, size: 64, color: AppTheme.textGrey),
                 const SizedBox(height: 16),
-                const Text(
-                  "Connectivity Issue",
-                  style: TextStyle(
+                Text(
+                  context.l10n.dashConnectivityIssue,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  "Unable to reach the server. Please check your connection.",
+                Text(
+                  context.l10n.dashConnectivityMessage,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.textGrey),
+                  style: const TextStyle(color: AppTheme.textGrey),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -75,9 +76,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryGreen,
                   ),
-                  child: const Text(
-                    "Retry",
-                    style: TextStyle(color: AppTheme.backgroundBlack),
+                  child: Text(
+                    context.l10n.commonRetry,
+                    style: const TextStyle(color: AppTheme.backgroundBlack),
                   ),
                 ),
               ],
@@ -105,9 +106,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       color: AppTheme.textGrey,
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      "Sync Failed",
-                      style: TextStyle(
+                    Text(
+                      context.l10n.dashSyncFailed,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -119,9 +120,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryGreen,
                       ),
-                      child: const Text(
-                        "Retry",
-                        style: TextStyle(color: AppTheme.backgroundBlack),
+                      child: Text(
+                        context.l10n.commonRetry,
+                        style: const TextStyle(color: AppTheme.backgroundBlack),
                       ),
                     ),
                   ],
@@ -129,10 +130,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               data: (accounts) {
                 if (accounts.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
-                      "No accounts found",
-                      style: TextStyle(color: Colors.white),
+                      context.l10n.dashNoAccounts,
+                      style: const TextStyle(color: Colors.white),
                     ),
                   );
                 }
@@ -142,8 +143,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 return dashboardStatsAsync.when(
                   loading: () =>
                       const ShimmerLoading(child: DashboardSkeleton()),
-                  error: (err, stack) =>
-                      Center(child: Text("Error calculating stats")),
+                  error: (err, stack) => Center(
+                      child: Text(context.l10n.dashErrorCalculatingStats)),
                   data: (stats) {
                     return SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(

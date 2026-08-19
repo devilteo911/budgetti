@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/budget.dart';
 import 'package:flutter/material.dart';
@@ -63,13 +64,13 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Budget updated')),
+          SnackBar(content: Text(context.l10n.budgetUpdated)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving budget: $e')),
+          SnackBar(content: Text(context.l10n.budgetSaveError('$e'))),
         );
       }
     } finally {
@@ -91,7 +92,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Budget cleared')),
+          SnackBar(content: Text(context.l10n.budgetCleared)),
         );
       }
     } catch (e) {
@@ -137,7 +138,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
               ),
             ),
             Text(
-              'MONTHLY LIMIT',
+              context.l10n.budgetMonthlyLimit,
               style: GoogleFonts.jetBrainsMono(
                 color: scheme.onSurfaceVariant,
                 fontSize: 10,
@@ -194,7 +195,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                       ),
                       textAlign: TextAlign.right,
                       decoration: InputDecoration(
-                        hintText: '0.00',
+                        hintText: context.l10n.budgetAmountHint,
                         hintStyle: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                           fontSize: 40,
@@ -210,12 +211,14 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Enter limit';
+                          return context.l10n.budgetEnterLimit;
                         }
                         final sanitized = value.replaceAll(',', '.');
                         final parsed = double.tryParse(sanitized);
-                        if (parsed == null) return 'Invalid';
-                        if (parsed < 0) return 'Must be positive';
+                        if (parsed == null) return context.l10n.budgetInvalid;
+                        if (parsed < 0) {
+                          return context.l10n.budgetMustBePositive;
+                        }
                         return null;
                       },
                     ),
@@ -245,7 +248,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: Text(
-                        'Clear',
+                        context.l10n.budgetClear,
                         style: TextStyle(
                           color: scheme.onSurface,
                           fontSize: 15,
@@ -285,7 +288,9 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                             ),
                           )
                         : Text(
-                            hasExisting ? 'Update' : 'Save',
+                            hasExisting
+                                ? context.l10n.budgetUpdate
+                                : context.l10n.commonSave,
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,

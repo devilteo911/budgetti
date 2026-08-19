@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -22,11 +23,11 @@ class AmountHeroField extends StatelessWidget {
     };
   }
 
-  String get _kicker => switch (type) {
-        'expense' => 'YOU SPENT',
-        'income' => 'YOU RECEIVED',
-        _ => 'YOU TRANSFERRED',
-      };
+  String _kicker(BuildContext context) => switch (type) {
+        'expense' => context.l10n.txYouSpent,
+        'income' => context.l10n.txYouReceived,
+        _ => context.l10n.txYouTransferred,
+      }.toUpperCase();
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +40,7 @@ class AmountHeroField extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _kicker,
+            _kicker(context),
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,
@@ -100,9 +101,13 @@ class AmountHeroField extends StatelessWidget {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Enter amount';
+                    if (value == null || value.isEmpty) {
+                      return context.l10n.txEnterAmount;
+                    }
                     final sanitized = value.replaceAll(',', '.');
-                    if (double.tryParse(sanitized) == null) return 'Invalid';
+                    if (double.tryParse(sanitized) == null) {
+                      return context.l10n.txInvalidAmount;
+                    }
                     return null;
                   },
                 ),

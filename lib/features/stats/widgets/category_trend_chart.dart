@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:budgetti/core/l10n.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -28,7 +29,7 @@ class CategoryTrendChart extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Text(
-          'NO TREND DATA',
+          context.l10n.statsNoTrendData.toUpperCase(),
           style: GoogleFonts.jetBrainsMono(
             color: scheme.onSurfaceVariant,
             fontSize: 10,

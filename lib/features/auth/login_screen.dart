@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/widgets/pb_server_dialog.dart';
 import 'package:flutter/material.dart';
@@ -27,8 +28,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // over navigation to onboarding/dashboard on success.
       await ref.read(authServiceProvider).login(email, password);
     } on pb.ClientException catch (e) {
-      final msg = (e.response['message'] as String?) ?? 'Login failed';
       if (mounted) {
+        final msg =
+            (e.response['message'] as String?) ?? context.l10n.authLoginFailed;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
@@ -41,7 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Cannot reach server. Check the URL in Settings > Integrations.'),
+            content: Text(context.l10n.authCannotReachServer),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -75,7 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Manage your finances like a pro",
+                  context.l10n.authLoginTagline,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -88,9 +90,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
-                  decoration: const InputDecoration(
-                    labelText: "Email",
-                    prefixIcon: Icon(Icons.email_outlined),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.authEmail,
+                    prefixIcon: const Icon(Icons.email_outlined),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -99,9 +101,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: "Password",
-                    prefixIcon: Icon(Icons.lock_outline),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.authPassword,
+                    prefixIcon: const Icon(Icons.lock_outline),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -117,7 +119,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               strokeWidth: 2,
                               color: Theme.of(context).colorScheme.onPrimary),
                         )
-                      : const Text("Log In"),
+                      : Text(context.l10n.authLogIn),
                 ),
 
                 // Reachable before login on purpose: with no server stored,
@@ -133,7 +135,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           }
                         },
                   child: Text(
-                    serverUrl.isEmpty ? 'Set server' : serverUrl,
+                    serverUrl.isEmpty ? context.l10n.authSetServer : serverUrl,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),

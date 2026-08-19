@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 
 /// Dashboard entry point for installment plans: what's still owed and the next
@@ -37,14 +38,14 @@ class InstallmentsCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Track installments',
+                    Text(context.l10n.dashTrackInstallments,
                         style: GoogleFonts.bricolageGrotesque(
                           color: scheme.onSurface,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         )),
                     const SizedBox(height: 2),
-                    Text('See what you still owe on monthly rates',
+                    Text(context.l10n.dashTrackInstallmentsSubtitle,
                         style: GoogleFonts.jetBrainsMono(
                           color: scheme.onSurfaceVariant,
                           fontSize: 10,
@@ -82,7 +83,7 @@ class InstallmentsCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _KLabel('STILL OWED'),
+                  _KLabel(context.l10n.dashStillOwedLabel.toUpperCase()),
                   const SizedBox(height: 10),
                   Text(
                     currency.format(owed),
@@ -96,7 +97,7 @@ class InstallmentsCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${currency.format(monthly)} / month',
+                    context.l10n.dashPerMonth(currency.format(monthly)),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
                       fontSize: 11,
@@ -111,7 +112,7 @@ class InstallmentsCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _KLabel('PLANS'),
+                  _KLabel(context.l10n.dashPlansLabel.toUpperCase()),
                   const SizedBox(height: 10),
                   ...active.take(3).map((p) => Padding(
                         padding: const EdgeInsets.only(bottom: 6),
@@ -142,7 +143,7 @@ class InstallmentsCard extends ConsumerWidget {
                       )),
                   if (active.length > 3)
                     Text(
-                      '+${active.length - 3} more',
+                      context.l10n.dashMorePlans(active.length - 3),
                       style: GoogleFonts.jetBrainsMono(
                         color: scheme.onSurfaceVariant,
                         fontSize: 10,
@@ -151,7 +152,9 @@ class InstallmentsCard extends ConsumerWidget {
                     ),
                   const SizedBox(height: 4),
                   Text(
-                    'NEXT ${DateFormat.MMMd().format(next).toUpperCase()}',
+                    context.l10n
+                        .dashNextDue(DateFormat.MMMd().format(next))
+                        .toUpperCase(),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.primary,
                       fontSize: 10,

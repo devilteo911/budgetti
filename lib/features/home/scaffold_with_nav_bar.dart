@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/glass.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
@@ -84,17 +85,17 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with Wi
   // StatefulShellRoute branches in app_router.dart.
   List<_NavSlot> _buildSlots() => [
         _NavSlot.branch(
-            0, Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
+            0, Icons.dashboard_outlined, Icons.dashboard, context.l10n.authNavDashboard),
         _NavSlot.branch(
-            1, Icons.receipt_long_outlined, Icons.receipt_long, 'History'),
-        _NavSlot.action(Icons.add, 'Add', () {
+            1, Icons.receipt_long_outlined, Icons.receipt_long, context.l10n.authNavHistory),
+        _NavSlot.action(Icons.add, context.l10n.commonAdd, () {
           HapticFeedback.mediumImpact();
           _onAddTransaction();
         }),
         _NavSlot.branch(
-            2, Icons.pie_chart_outline, Icons.pie_chart, 'Stats'),
+            2, Icons.pie_chart_outline, Icons.pie_chart, context.l10n.authNavStats),
         _NavSlot.branch(
-            3, Icons.settings_outlined, Icons.settings, 'Settings'),
+            3, Icons.settings_outlined, Icons.settings, context.l10n.authNavSettings),
       ];
 
   @override

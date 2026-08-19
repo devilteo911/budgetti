@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/installments/add_installment_modal.dart';
 import 'package:budgetti/features/stats/widgets/section_label.dart';
@@ -43,7 +44,7 @@ class InstallmentsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Installments',
+          context.l10n.instScreenTitle,
           style: GoogleFonts.jetBrainsMono(
             color: scheme.onSurface,
             fontSize: 22,
@@ -85,7 +86,7 @@ class InstallmentsScreen extends ConsumerWidget {
                 currency: currency,
               ),
               if (active.isNotEmpty) ...[
-                SectionLabel(text: 'ACTIVE', count: active.length),
+                SectionLabel(text: context.l10n.instActive, count: active.length),
                 ...active.map((p) => _PlanRow(
                       plan: p,
                       currency: currency,
@@ -97,7 +98,7 @@ class InstallmentsScreen extends ConsumerWidget {
                     )),
               ],
               if (settled.isNotEmpty) ...[
-                SectionLabel(text: 'SETTLED', count: settled.length),
+                SectionLabel(text: context.l10n.instSettled, count: settled.length),
                 ...settled.map((p) => _PlanRow(
                       plan: p,
                       currency: currency,
@@ -140,7 +141,7 @@ class _Hero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'STILL OWED',
+            context.l10n.instStillOwed,
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,
@@ -161,7 +162,8 @@ class _Hero extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '${currency.format(monthly)} / month · $activeCount active',
+            context.l10n.instMonthlyActive(
+                currency.format(monthly), activeCount),
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 11,
@@ -209,16 +211,16 @@ class _PlanRow extends StatelessWidget {
         final ok = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Delete plan?'),
-            content: Text('"${plan.description}" will be removed.'),
+            title: Text(context.l10n.instDeletePlanTitle),
+            content: Text(context.l10n.instDeletePlanBody(plan.description)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.commonCancel),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Delete'),
+                child: Text(context.l10n.commonDelete),
               ),
             ],
           ),
@@ -251,7 +253,8 @@ class _PlanRow extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    '${currency.format(plan.amountPerInstallment)}/mo',
+                    context.l10n
+                        .instPerMo(currency.format(plan.amountPerInstallment)),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurface,
                       fontSize: 12,
@@ -276,7 +279,7 @@ class _PlanRow extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    '$paid/${plan.installmentCount} paid',
+                    context.l10n.instPaidOf(paid, plan.installmentCount),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
                       fontSize: 10,
@@ -288,7 +291,7 @@ class _PlanRow extends StatelessWidget {
                   if (paid > 0) ...[
                     const SizedBox(width: 8),
                     Text(
-                      '· $linkedCount linked',
+                      context.l10n.instLinkedCount(linkedCount),
                       style: GoogleFonts.jetBrainsMono(
                         color: linkedCount >= paid
                             ? scheme.primary
@@ -301,8 +304,10 @@ class _PlanRow extends StatelessWidget {
                   const Spacer(),
                   Text(
                     settled
-                        ? 'Settled'
-                        : '${currency.format(plan.remainingAmount())} left · next ${DateFormat.MMMd().format(next)}',
+                        ? context.l10n.instSettledLabel
+                        : context.l10n.instRemainingNext(
+                            currency.format(plan.remainingAmount()),
+                            DateFormat.MMMd().format(next)),
                     style: GoogleFonts.jetBrainsMono(
                       color: scheme.onSurfaceVariant,
                       fontSize: 10,
@@ -342,7 +347,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'NO PLANS',
+            context.l10n.instNoPlans,
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,
@@ -352,8 +357,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add a purchase you are paying in monthly rates and this tracks '
-            'what you still owe.',
+            context.l10n.instEmptyHint,
             style: TextStyle(
               color: scheme.onSurface,
               fontSize: 17,
@@ -362,7 +366,8 @@ class _EmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          OutlinedButton(onPressed: onAdd, child: const Text('Add a plan')),
+          OutlinedButton(
+              onPressed: onAdd, child: Text(context.l10n.instAddPlan)),
         ],
       ),
     );

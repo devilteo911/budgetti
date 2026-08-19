@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/installment.dart';
 import 'package:flutter/material.dart';
@@ -86,8 +87,8 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error saving plan: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.instSaveError('$e'))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -129,18 +130,20 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
                   ),
                 ),
               ),
-              _Label(widget.existing == null ? 'NEW PLAN' : 'EDIT PLAN'),
+              _Label(widget.existing == null
+                  ? context.l10n.instNewPlan
+                  : context.l10n.instEditPlan),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _description,
                 autofocus: widget.existing == null,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'What is it for',
-                  hintText: 'Sofa, laptop, holiday…',
+                decoration: InputDecoration(
+                  labelText: context.l10n.instWhatFor,
+                  hintText: context.l10n.instWhatForHint,
                 ),
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    (v == null || v.trim().isEmpty) ? context.l10n.instRequired : null,
               ),
               const SizedBox(height: 16),
               Row(
@@ -152,14 +155,16 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
                           const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        labelText: 'Total',
+                        labelText: context.l10n.instTotal,
                         prefixText: '${currency.currencySymbol} ',
                       ),
                       validator: (v) {
                         final parsed =
                             double.tryParse((v ?? '').replaceAll(',', '.'));
-                        if (parsed == null) return 'Invalid';
-                        if (parsed <= 0) return 'Must be positive';
+                        if (parsed == null) return context.l10n.instInvalid;
+                        if (parsed <= 0) {
+                          return context.l10n.instMustBePositive;
+                        }
                         return null;
                       },
                     ),
@@ -170,11 +175,12 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
                       controller: _count,
                       keyboardType: TextInputType.number,
                       onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(labelText: 'Rates'),
+                      decoration: InputDecoration(
+                          labelText: context.l10n.instRatesLabel),
                       validator: (v) {
                         final parsed = int.tryParse(v ?? '');
-                        if (parsed == null) return 'Invalid';
-                        if (parsed < 1) return 'At least 1';
+                        if (parsed == null) return context.l10n.instInvalid;
+                        if (parsed < 1) return context.l10n.instAtLeast1;
                         return null;
                       },
                     ),
@@ -184,8 +190,8 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
               const SizedBox(height: 12),
               Text(
                 perRate == null
-                    ? 'Monthly rate appears here'
-                    : '${currency.format(perRate)} / month',
+                    ? context.l10n.instPerRateHint
+                    : context.l10n.instPerMonth(currency.format(perRate)),
                 style: GoogleFonts.jetBrainsMono(
                   color: perRate == null
                       ? scheme.onSurfaceVariant
@@ -198,8 +204,8 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
               InkWell(
                 onTap: _pickDate,
                 child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'First rate on',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.instFirstRateOn,
                   ),
                   child: Row(
                     children: [
@@ -220,11 +226,11 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
                     ? _category
                     : null,
                 isExpanded: true,
-                decoration:
-                    const InputDecoration(labelText: 'Category (optional)'),
+                decoration: InputDecoration(
+                    labelText: context.l10n.instCategoryOptional),
                 items: [
-                  const DropdownMenuItem<String?>(
-                      value: null, child: Text('None')),
+                  DropdownMenuItem<String?>(
+                      value: null, child: Text(context.l10n.commonNone)),
                   ...categories.map((c) => DropdownMenuItem<String?>(
                         value: c.name,
                         child: Text(c.name),
@@ -237,11 +243,11 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
                 initialValue:
                     accounts.any((a) => a.id == _accountId) ? _accountId : null,
                 isExpanded: true,
-                decoration:
-                    const InputDecoration(labelText: 'Wallet (optional)'),
+                decoration: InputDecoration(
+                    labelText: context.l10n.instWalletOptional),
                 items: [
-                  const DropdownMenuItem<String?>(
-                      value: null, child: Text('None')),
+                  DropdownMenuItem<String?>(
+                      value: null, child: Text(context.l10n.commonNone)),
                   ...accounts.map((a) => DropdownMenuItem<String?>(
                         value: a.id,
                         child: Text(a.name),
@@ -281,7 +287,9 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
                         ),
                       )
                     : Text(
-                        widget.existing == null ? 'Add plan' : 'Update plan',
+                        widget.existing == null
+                            ? context.l10n.instAddPlan
+                            : context.l10n.instUpdatePlan,
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w700),
                       ),
@@ -327,13 +335,12 @@ class _LinkedPayments extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Label('LINKED PAYMENTS · ${linked.length}/$due'),
+        _Label(context.l10n.instLinkedPaymentsOf(linked.length, due)),
         const SizedBox(height: 4),
         Text(
           linked.length >= due
-              ? 'Every rate due so far is accounted for.'
-              : '${due - linked.length} of the $due rates due so far '
-                  'have no transaction attached.',
+              ? context.l10n.instAllAccounted
+              : context.l10n.instMissingRates(due - linked.length, due),
           style: TextStyle(
             color: linked.length >= due ? scheme.primary : scheme.onSurfaceVariant,
             fontSize: 12,
@@ -354,20 +361,21 @@ class _LinkedPayments extends ConsumerWidget {
             ),
             trailing: IconButton(
               icon: const Icon(Icons.link_off, size: 18),
-              tooltip: 'Unlink',
+              tooltip: context.l10n.instUnlink,
               onPressed: () =>
                   service.linkTransactionToInstallment(t.id, null),
             ),
           ),
         if (candidates.isEmpty)
           Text(
-            'No unlinked expenses to attach.',
+            context.l10n.instNoCandidates,
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
           )
         else
           DropdownButtonFormField<String>(
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Attach a payment'),
+            decoration: InputDecoration(
+                labelText: context.l10n.instAttachPayment),
             items: candidates
                 .take(60)
                 .map((t) => DropdownMenuItem(

@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
@@ -26,7 +27,7 @@ class BudgetSaturationRecap extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              "Budget Saturation",
+              context.l10n.dashBudgetSaturation,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppTheme.textWhite,
                     fontWeight: FontWeight.bold,
@@ -37,7 +38,8 @@ class BudgetSaturationRecap extends ConsumerWidget {
         const SizedBox(height: 16),
         budgetsAsync.when(
           loading: () => const ShimmerLoading(child: BudgetSaturationRecapSkeleton()),
-          error: (err, _) => Text("Error: $err", style: const TextStyle(color: Colors.red)),
+          error: (err, _) => Text(context.l10n.dashError(err.toString()),
+              style: const TextStyle(color: Colors.red)),
           data: (budgets) {
             if (budgets.isEmpty || budgets.every((b) => b.limit == 0)) {
               return Container(
@@ -46,11 +48,11 @@ class BudgetSaturationRecap extends ConsumerWidget {
                   color: AppTheme.surfaceGrey,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    "No budgets set yet. Go to the Budgets tab to set your limits!",
+                    context.l10n.dashNoBudgets,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppTheme.textGrey),
+                    style: const TextStyle(color: AppTheme.textGrey),
                   ),
                 ),
               );
@@ -58,11 +60,11 @@ class BudgetSaturationRecap extends ConsumerWidget {
 
             return transactionsAsync.when(
               loading: () => const ShimmerLoading(child: BudgetSaturationRecapSkeleton()),
-              error: (err, _) => Text("Error: $err"),
+              error: (err, _) => Text(context.l10n.dashError(err.toString())),
               data: (transactions) {
                 return categoriesAsync.when(
                   loading: () => const ShimmerLoading(child: BudgetSaturationRecapSkeleton()),
-                  error: (err, _) => Text("Error: $err"),
+                  error: (err, _) => Text(context.l10n.dashError(err.toString())),
                   data: (categories) {
                     // Calculate current month spending
                     final now = DateTime.now();

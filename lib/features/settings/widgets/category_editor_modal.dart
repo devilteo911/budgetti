@@ -1,4 +1,5 @@
 import 'package:budgetti/core/constants/category_icons.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
@@ -123,7 +124,9 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
               ),
 
               Text(
-                widget.category == null ? "New Category" : "Edit Category",
+                widget.category == null
+                    ? context.l10n.setNewCategory
+                    : context.l10n.setEditCategory,
                 style: theme.textTheme.titleLarge?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -145,7 +148,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Name Input
-                      _buildLabel("NAME"),
+                      _buildLabel(context.l10n.setFieldName.toUpperCase()),
                       TextFormField(
                         controller: _nameController,
                         onChanged: (val) => setState(() {}),
@@ -154,7 +157,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                           fontWeight: FontWeight.bold,
                         ),
                         decoration: InputDecoration(
-                          hintText: "e.g. Shopping, Rent...",
+                          hintText: context.l10n.setCategoryNameHint,
                           hintStyle: TextStyle(
                             color: Colors.white.withOpacity(0.2),
                           ),
@@ -195,7 +198,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel("TYPE"),
+                                _buildLabel(
+                                    context.l10n.setFieldType.toUpperCase()),
                                 Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
@@ -209,12 +213,12 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                     children: [
                                       _buildTypeOption(
                                         'expense',
-                                        'Expense',
+                                        context.l10n.commonExpense,
                                         theme.colorScheme.error,
                                       ),
                                       _buildTypeOption(
                                         'income',
-                                        'Income',
+                                        context.l10n.commonIncome,
                                         AppTheme.primaryGreen,
                                       ),
                                     ],
@@ -229,7 +233,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel("COLOR"),
+                                _buildLabel(
+                                    context.l10n.setColor.toUpperCase()),
                                 GestureDetector(
                                   onTap: () => _showColorPicker(),
                                   child: Container(
@@ -255,7 +260,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                       const SizedBox(height: 24),
 
                       // Description Input
-                      _buildLabel("DESCRIPTION (OPTIONAL)"),
+                      _buildLabel(context.l10n.setFieldDescription
+                          .toUpperCase()),
                       TextFormField(
                         controller: _descriptionController,
                         style: TextStyle(
@@ -264,7 +270,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                         ),
                         maxLines: 2,
                         decoration: InputDecoration(
-                          hintText: "Add a short note about this category...",
+                          hintText:
+                              context.l10n.setCategoryDescriptionHint,
                           hintStyle: TextStyle(
                             color: Colors.white.withOpacity(0.2),
                           ),
@@ -296,7 +303,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                       const SizedBox(height: 24),
 
                       // Icon Grid
-                      _buildLabel("SELECT ICON"),
+                      _buildLabel(
+                          context.l10n.setFieldSelectIcon.toUpperCase()),
                       SizedBox(
                         height: 380, // Fixed height for the grid within scroll
                         child: Container(
@@ -420,7 +428,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                           ),
                         ),
                         child: Text(
-                          "Cancel",
+                          context.l10n.commonCancel,
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.5),
                             fontWeight: FontWeight.bold,
@@ -448,9 +456,9 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                               ),
                               elevation: WidgetStateProperty.all(8),
                             ),
-                        child: const Text(
-                          "Save Category",
-                          style: TextStyle(
+                        child: Text(
+                          context.l10n.setSaveCategory,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                           ),
@@ -486,7 +494,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
 
   Widget _buildPreview(Color color) {
     final displayName = _nameController.text.isEmpty
-        ? "New Category"
+        ? context.l10n.setNewCategory
         : _nameController.text;
 
     return Container(
@@ -526,7 +534,10 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                   ),
                 ),
                 Text(
-                  _type.toUpperCase(),
+                  (_type == 'expense'
+                          ? context.l10n.commonExpense
+                          : context.l10n.commonIncome)
+                      .toUpperCase(),
                   style: TextStyle(
                     color: _type == 'expense'
                         ? Colors.redAccent.withOpacity(0.8)
@@ -587,9 +598,9 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Select Color",
-              style: TextStyle(
+            Text(
+              ctx.l10n.setSelectColor,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

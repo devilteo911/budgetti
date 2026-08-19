@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -16,12 +17,14 @@ class TypeSelector extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        _chip(context, 'expense', 'EXPENSE', scheme.error, scheme.onError),
+        _chip(context, 'expense', context.l10n.commonExpense.toUpperCase(),
+            scheme.error, scheme.onError),
         const SizedBox(width: 8),
-        _chip(context, 'income', 'INCOME', scheme.primary, scheme.onPrimary),
+        _chip(context, 'income', context.l10n.commonIncome.toUpperCase(),
+            scheme.primary, scheme.onPrimary),
         const SizedBox(width: 8),
-        _chip(context, 'transfer', 'TRANSFER', scheme.tertiary,
-            scheme.onTertiary),
+        _chip(context, 'transfer', context.l10n.commonTransfer.toUpperCase(),
+            scheme.tertiary, scheme.onTertiary),
       ],
     );
   }

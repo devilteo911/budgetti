@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -40,7 +41,7 @@ class SpendingLineChart extends ConsumerWidget {
             height: 200,
             child: Center(
               child: Text(
-                "No data available",
+                context.l10n.commonNoData,
                 style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             ),
@@ -62,7 +63,7 @@ class SpendingLineChart extends ConsumerWidget {
             height: 200,
             child: Center(
               child: Text(
-                "No data available",
+                context.l10n.commonNoData,
                 style: TextStyle(color: scheme.onSurfaceVariant),
               ),
             ),
@@ -129,7 +130,7 @@ class SpendingLineChart extends ConsumerWidget {
         String dateLabelOf(DateTime date) => switch (granularity) {
               ChartGranularity.daily => DateFormat('MMM d').format(date),
               ChartGranularity.weekly =>
-                "Week of ${DateFormat('MMM d').format(date)}",
+                context.l10n.chartWeekOf(DateFormat('MMM d').format(date)),
               ChartGranularity.monthly => DateFormat('MMM yyyy').format(date),
             };
 
@@ -141,9 +142,11 @@ class SpendingLineChart extends ConsumerWidget {
                 padding: const EdgeInsets.only(left: 8, bottom: 6),
                 child: Row(
                   children: [
-                    _ChartLegendDot(color: expenseAccent, label: 'Expenses'),
+                    _ChartLegendDot(
+                        color: expenseAccent, label: context.l10n.chartExpenses),
                     const SizedBox(width: 14),
-                    _ChartLegendDot(color: incomeAccent, label: 'Income'),
+                    _ChartLegendDot(
+                        color: incomeAccent, label: context.l10n.chartIncome),
                   ],
                 ),
               ),
@@ -215,7 +218,8 @@ class SpendingLineChart extends ConsumerWidget {
                                 text = DateFormat('dd').format(date);
                                 break;
                               case ChartGranularity.weekly:
-                                text = 'W${(date.day / 7).ceil()}';
+                                text = context.l10n
+                                    .chartWeekShort((date.day / 7).ceil());
                                 break;
                               case ChartGranularity.monthly:
                                 text = DateFormat('MMM').format(date);

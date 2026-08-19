@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
@@ -5,14 +6,14 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/category.dart';
 
 class CategoryPickerSheet extends ConsumerWidget {
-  final String title;
+  final String? title;
   final String? selectedCategoryName;
   final String? type; // 'expense', 'income', or null for all
   final Function(Category) onCategorySelected;
 
   const CategoryPickerSheet({
     super.key,
-    this.title = "Select Category",
+    this.title,
     this.selectedCategoryName,
     this.type,
     required this.onCategorySelected,
@@ -43,7 +44,7 @@ class CategoryPickerSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              title,
+              title ?? context.l10n.uiSelectCategory,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -57,12 +58,12 @@ class CategoryPickerSheet extends ConsumerWidget {
                     : categories;
 
                 if (filtered.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
                     child: Center(
                       child: Text(
-                        "No categories found",
-                        style: TextStyle(color: AppTheme.textGrey),
+                        context.l10n.uiNoCategories,
+                        style: const TextStyle(color: AppTheme.textGrey),
                       ),
                     ),
                   );

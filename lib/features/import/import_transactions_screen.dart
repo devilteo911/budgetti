@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
@@ -47,7 +48,7 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
   void _import() async {
     if (_selectedWalletId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a wallet')),
+        SnackBar(content: Text(context.l10n.importSelectWalletError)),
       );
       return;
     }
@@ -70,14 +71,14 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Successfully imported ${_transactions.length} transactions')),
+          SnackBar(content: Text(context.l10n.importSuccess(_transactions.length))),
         );
         context.pop(); // Close screen
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error importing: $e')),
+          SnackBar(content: Text(context.l10n.importError('$e'))),
         );
       }
     } finally {
@@ -99,7 +100,7 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
           child: Column(
              mainAxisSize: MainAxisSize.min,
              children: [
-               const Text("Select Wallet", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+               Text(context.l10n.importSelectWalletTitle, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                const SizedBox(height: 16),
                Flexible(
                  child: ListView.builder(
@@ -134,7 +135,7 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
     return Scaffold(
       backgroundColor: AppTheme.backgroundBlack,
       appBar: AppBar(
-        title: const Text("Import Preview"),
+        title: Text(context.l10n.importPreviewTitle),
         backgroundColor: AppTheme.backgroundBlack,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -164,9 +165,9 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text("Import to Wallet", style: TextStyle(color: AppTheme.textGrey, fontSize: 12)),
+                                Text(context.l10n.importToWallet, style: const TextStyle(color: AppTheme.textGrey, fontSize: 12)),
                                 Text(
-                                  selectedWallet?.name ?? "Select Wallet",
+                                  selectedWallet?.name ?? context.l10n.importSelectWalletTitle,
                                   style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                               ],
@@ -189,9 +190,9 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Transactions found: ${_transactions.length}", style: const TextStyle(color: AppTheme.textGrey)),
+                  Text(context.l10n.importFound(_transactions.length), style: const TextStyle(color: AppTheme.textGrey)),
                   Text(
-                    "Total: ${currencyFormatter.format(_transactions.fold(0.0, (sum, t) => sum + t.amount))}",
+                    context.l10n.importTotal(currencyFormatter.format(_transactions.fold(0.0, (sum, t) => sum + t.amount))),
                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -252,7 +253,7 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
                   ),
                   child: _isLoading 
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black))
-                    : const Text("Confirm Import", style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                    : Text(context.l10n.importConfirm, style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),

@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/transaction.dart';
@@ -48,11 +49,11 @@ class CategoryHero extends ConsumerWidget {
           ? now.day
           : DateTime(period.year, period.month! + 1, 0).day;
       avg = days > 0 ? total / days : 0;
-      avgLabel = 'DAILY AVG';
+      avgLabel = context.l10n.statsDailyAvg;
     } else {
       final monthsElapsed = period.year == now.year ? now.month : 12;
       avg = monthsElapsed > 0 ? total / monthsElapsed : 0;
-      avgLabel = 'MONTHLY AVG';
+      avgLabel = context.l10n.statsMonthlyAvg;
     }
 
     final periodLabel = isMonthly
@@ -110,17 +111,17 @@ class CategoryHero extends ConsumerWidget {
           _StatRow(
             items: [
               _Stat(
-                label: avgLabel,
+                label: avgLabel.toUpperCase(),
                 value: currencyFormatter.format(avg),
                 color: scheme.onSurface,
               ),
               _Stat(
-                label: 'LARGEST',
+                label: context.l10n.statsLargest.toUpperCase(),
                 value: currencyFormatter.format(largest),
                 color: scheme.onSurface,
               ),
               _Stat(
-                label: 'TXN COUNT',
+                label: context.l10n.statsTransactions.toUpperCase(),
                 value: count.toString(),
                 color: catColor,
               ),

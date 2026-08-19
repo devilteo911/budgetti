@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/features/transactions/widgets/transaction_ledger_item.dart'
@@ -17,7 +18,7 @@ class TransactionsHero extends ConsumerWidget {
     final filters = ref.watch(transactionFiltersProvider);
     final currency = ref.watch(currencyProvider);
 
-    final periodLabel = _periodLabel(filters.dateRange);
+    final periodLabel = _periodLabel(context, filters.dateRange);
     // Same two inks the rows use. Side-by-side totals are the one place colour
     // earns its keep, because here the directions are being compared.
     final netColor = totals.net >= 0
@@ -32,7 +33,7 @@ class TransactionsHero extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'ACTIVITY  ·  $periodLabel',
+            '${context.l10n.txActivity.toUpperCase()}  ·  $periodLabel',
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,
@@ -61,7 +62,7 @@ class TransactionsHero extends ConsumerWidget {
             children: [
               Expanded(
                 child: _Stat(
-                  label: 'INCOME',
+                  label: context.l10n.commonIncome.toUpperCase(),
                   value: currency.format(totals.income),
                   color: incomeInk(scheme.brightness),
                 ),
@@ -69,7 +70,7 @@ class TransactionsHero extends ConsumerWidget {
               _Divider(color: scheme.outlineVariant.withValues(alpha: 0.35)),
               Expanded(
                 child: _Stat(
-                  label: 'EXPENSE',
+                  label: context.l10n.commonExpense.toUpperCase(),
                   value: currency.format(totals.expense),
                   color: expenseInk(scheme.brightness),
                 ),
@@ -77,7 +78,7 @@ class TransactionsHero extends ConsumerWidget {
               _Divider(color: scheme.outlineVariant.withValues(alpha: 0.35)),
               Expanded(
                 child: _Stat(
-                  label: 'MOVEMENTS',
+                  label: context.l10n.txMovements.toUpperCase(),
                   value: totals.count.toString(),
                   color: scheme.onSurface,
                 ),
@@ -89,8 +90,8 @@ class TransactionsHero extends ConsumerWidget {
     );
   }
 
-  String _periodLabel(DateTimeRange? range) {
-    if (range == null) return 'ALL TIME';
+  String _periodLabel(BuildContext context, DateTimeRange? range) {
+    if (range == null) return context.l10n.txAllTime.toUpperCase();
     final start = range.start;
     final end = range.end;
     final spansYear = start.year == DateTime(start.year).year &&

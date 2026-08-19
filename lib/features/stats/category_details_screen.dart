@@ -1,3 +1,4 @@
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/features/stats/widgets/budget_progress.dart';
@@ -68,7 +69,8 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
         loading: () => Center(
           child: CircularProgressIndicator(color: scheme.primary),
         ),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) =>
+            Center(child: Text(context.l10n.statsError(e.toString()))),
         data: (all) {
           final catColor = ref.watch(categoryColorCacheProvider(
                   scheme.brightness))[widget.category.name] ??
@@ -128,8 +130,9 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
                 controller: _entrance,
                 begin: 0.20,
                 end: 0.75,
-                child: const SliverToBoxAdapter(
-                  child: SectionLabel(text: '12-MONTH TREND'),
+                child: SliverToBoxAdapter(
+                  child: SectionLabel(
+                      text: context.l10n.statsTrend12Months.toUpperCase()),
                 ),
               ),
               Stagger(
@@ -151,7 +154,7 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
                 end: 0.90,
                 child: SliverToBoxAdapter(
                   child: SectionLabel(
-                    text: 'TRANSACTIONS',
+                    text: context.l10n.statsTransactions.toUpperCase(),
                     count: forPeriod.length,
                   ),
                 ),
@@ -250,7 +253,7 @@ class _NoTxnHint extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Text(
-        'No transactions in $label.',
+        context.l10n.statsNoTransactionsIn(label),
         style: TextStyle(
           color: scheme.onSurfaceVariant,
           fontSize: 13,
@@ -287,7 +290,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'NO ACTIVITY',
+            context.l10n.statsNoActivity.toUpperCase(),
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 10,
@@ -297,7 +300,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Nothing recorded for this category in $label.',
+            context.l10n.statsNothingRecordedCategory(label),
             style: TextStyle(
               color: scheme.onSurface,
               fontSize: 17,
