@@ -2,6 +2,7 @@ import 'dart:ffi';
 
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/finance_service.dart';
+import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +33,64 @@ void main() {
     expect(await db.select(db.categories).get(), isNotEmpty);
     expect(await db.select(db.tags).get(), isNotEmpty);
     expect(await db.select(db.accounts).get(), hasLength(1));
+  });
+
+  // The tag-pagination bug: the filter ran in memory *after* SQL LIMIT/OFFSET,
+  // so a tag-filtered page came back short, hasMore flipped false, and rows
+  // past the first page went missing. The filter must run in SQL.
+  test('tag filter pages through every matching row', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts(); // seeds the default account
+
+    final base = DateTime(2026, 1, 1);
+    for (var i = 0; i < 250; i++) {
+      await service.addTransaction(model.Transaction(
+        id: 't$i',
+        accountId: 'user-a_main',
+        amount: -10,
+        date: base.add(Duration(days: i)),
+        description: 'tx $i',
+        category: 'Bills',
+        tags: i.isEven ? ['Gift'] : ['Other'],
+      ));
+    }
+
+    final page1 =
+        await service.getTransactions(tags: const ['Gift'], limit: 100);
+    final page2 = await service.getTransactions(
+        tags: const ['Gift'], limit: 100, offset: page1.length);
+
+    expect(page1, hasLength(100)); // a short first page used to end paging
+    expect(page2, hasLength(25)); // 125 tagged rows in total
+    expect(page1.every((t) => t.tags.contains('Gift')), isTrue);
+  });
+
+  test('tag filter matches whole elements, not substrings', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    Future<void> add(String id, List<String> tags, int day) =>
+        service.addTransaction(model.Transaction(
+          id: id,
+          accountId: 'user-a_main',
+          amount: -10,
+          date: DateTime(2026, 1, day),
+          description: id,
+          category: 'Bills',
+          tags: tags,
+        ));
+
+    await add('t0', ['Gift'], 1);
+    await add('t1', ['Gifts'], 2);
+
+    final matches =
+        await service.getTransactions(tags: const ['Gift'], limit: 10);
+    expect(matches, hasLength(1));
+    expect(matches.single.id, 't0');
   });
 
   // The duplicate-defaults bug: rows existed, but under a different (or absent)

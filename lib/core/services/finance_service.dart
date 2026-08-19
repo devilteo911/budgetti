@@ -312,21 +312,11 @@ class FinanceService {
       query.where((tbl) => tbl.category.isIn(categories));
     }
 
-    // Tag filtering: Since tags are stored as a JSON list in a text column,
-    // we use a simple LIKE approach for simplicity if drift doesn't support json_each easily here.
-    // However, for better accuracy with JSON, we'd need custom expressions.
-    // For now, let's use a basic isIn if we can, but since it's a mapped list,
-    // filtering by 'any tag in list' is a bit complex in pure Drift without custom SQL.
-    // Let's implement a basic version that filters in memory for tags if needed,
-    // or use a more efficient SQL if possible.
-    // Actually, SQLite has json_each. Let's see if we can do it.
-    // For now, let's keep it simple: if tags are provided, filter the result set.
-    // WAIT, better to stay consistent: I'll filter date and category in DB, and tags in memory for now if needed,
-    // OR try to use a LIKE based approach which works 99% of the time for simple JSON.
+    // Filtering in SQL (not in memory after LIMIT): an in-memory filter
+    // shrinks each page, so pagination's hasMore flips false early and
+    // matching rows beyond the first short page go missing.
     if (tags != null && tags.isNotEmpty) {
-      // Very basic approach: if any of the tags is in the JSON string
-      // This is not perfect but works for simple cases.
-      // Better approach: filter in-memory after fetching or use custom expression.
+      query.where((tbl) => _hasAnyTag(tags));
     }
 
     query.orderBy([
@@ -340,7 +330,7 @@ class FinanceService {
 
     final result = await query.get();
 
-    var txns = result
+    return result
         .map(
           (t) => model_txn.Transaction(
       id: t.id,
@@ -354,15 +344,6 @@ class FinanceService {
       tags: t.tags ?? [],
       installmentId: t.installmentId,
     )).toList();
-
-    // Secondary filtering for tags if provided
-    if (tags != null && tags.isNotEmpty) {
-      txns = txns
-          .where((t) => t.tags.any((tag) => tags.contains(tag)))
-          .toList();
-    }
-
-    return txns;
   }
 
   Stream<List<model_txn.Transaction>> watchTransactions({
@@ -392,13 +373,17 @@ class FinanceService {
       query.where((tbl) => tbl.category.isIn(categories));
     }
 
+    if (tags != null && tags.isNotEmpty) {
+      query.where((tbl) => _hasAnyTag(tags));
+    }
+
     query.orderBy([
       (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
       (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),
     ]);
 
     return query.watch().map((result) {
-      var txns = result
+      return result
           .map(
             (t) => model_txn.Transaction(
               id: t.id,
@@ -414,13 +399,21 @@ class FinanceService {
             ),
           )
           .toList();
-
-      if (tags != null && tags.isNotEmpty) {
-        txns = txns.where((t) => t.tags.any((tag) => tags.contains(tag))).toList();
-      }
-
-      return txns;
     });
+  }
+
+  /// SQL-level tag membership: the tags column is a JSON array, so match via
+  /// json_each — an exact element compare, where a LIKE on the raw text would
+  /// also hit substrings ("Gift" matching "Gifts"). json_valid guards legacy
+  /// rows that might not hold JSON at all. CustomExpression is raw SQL only,
+  /// so tags are embedded as escaped string literals ('' is the only SQLite
+  /// string escape — nothing else can break out of the quotes).
+  Expression<bool> _hasAnyTag(List<String> tags) {
+    final literals = [for (final t in tags) "'${t.replaceAll("'", "''")}'"];
+    return CustomExpression<bool>(
+      'json_valid(tags) AND EXISTS (SELECT 1 FROM json_each(transactions.tags) '
+      'WHERE value IN (${literals.join(', ')}))',
+    );
   }
 
   Future<void> addTransaction(model_txn.Transaction transaction) async {
