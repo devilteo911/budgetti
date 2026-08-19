@@ -75,13 +75,15 @@ class AppearanceScreen extends ConsumerWidget {
                           decoration: BoxDecoration(
                             color: color,
                             shape: BoxShape.circle,
+                            // Hairline outline keeps pale swatches
+                            // (Monet on light wallpapers) visible; the
+                            // check + glow mark selection, the ring stays
+                            // the same width on every swatch.
                             border: Border.all(
-                              // Hairline outline keeps pale swatches
-                              // (Monet on light wallpapers) visible.
                               color: selected
                                   ? scheme.onSurface
                                   : scheme.outlineVariant,
-                              width: selected ? 3 : 1,
+                              width: 1,
                             ),
                             boxShadow: selected
                                 ? [
