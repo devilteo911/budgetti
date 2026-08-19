@@ -211,26 +211,35 @@ class BankSyncService {
   /// external id, a movement already sitting in the inbox is skipped by day +
   /// amount, and one already approved into [Transactions] comes through flagged
   /// as a duplicate for the user to reject.
+  ///
+  /// Both layers count occurrences instead of just testing membership: the same
+  /// movement can legitimately repeat inside one day — two top-ups of the same
+  /// amount ten minutes apart, the same coffee twice — and a set would keep the
+  /// first and silently swallow every repeat.
   Future<RevolutImportResult> importStatement(String csv) async {
     final statement = const RevolutStatementParser().parse(csv);
     final existingIds = await _existingGmailIds();
     final pending = await _pendingKeys();
+    final occurrence = <String, int>{};
     final insertedIds = <String>[];
     var duplicates = 0;
 
     for (final draft in statement.rows) {
-      final externalId = _statementId(draft);
+      final base = _statementId(draft);
+      final nth = occurrence.update(base, (n) => n + 1, ifAbsent: () => 0);
+      final externalId = nth == 0 ? base : '$base#$nth';
       if (existingIds.contains(externalId)) {
         duplicates++;
         continue;
       }
       final key = _dayAmountKey(draft.date, draft.amount);
-      if (pending.contains(key)) {
+      final alreadyDrafted = pending[key] ?? 0;
+      if (alreadyDrafted > 0) {
+        pending[key] = alreadyDrafted - 1;
         duplicates++;
         continue;
       }
       existingIds.add(externalId);
-      pending.add(key);
 
       final duplicate = await _findDuplicate(draft);
 
@@ -266,7 +275,9 @@ class BankSyncService {
   }
 
   /// Stable across re-imports of an overlapping statement: the same movement
-  /// hashes the same however many times the CSV is exported.
+  /// hashes the same however many times the CSV is exported. Rows that hash
+  /// identically (a repeated top-up) get a `#n` suffix from the caller — the
+  /// statement lists a whole day at a time, so the n-th repeat stays the n-th.
   String _statementId(ParsedBankDraft draft) {
     final day = DateTime(draft.date.year, draft.date.month, draft.date.day);
     final digest = sha1.convert(utf8.encode(
@@ -280,13 +291,18 @@ class BankSyncService {
   String _dayAmountKey(DateTime date, double amount) =>
       '${date.year}-${date.month}-${date.day}|${amount.toStringAsFixed(2)}';
 
-  Future<Set<String>> _pendingKeys() async {
+  /// How many drafts already sit in the inbox per day+amount, so an import can
+  /// skip exactly that many and let the extra repeats through.
+  Future<Map<String, int>> _pendingKeys() async {
     final rows = await (_db.select(_db.pendingTransactions)
           ..where((t) => t.status.equals('pending')))
         .get();
-    return rows
-        .map((r) => _dayAmountKey(r.parsedDate, r.parsedAmount))
-        .toSet();
+    final counts = <String, int>{};
+    for (final r in rows) {
+      final key = _dayAmountKey(r.parsedDate, r.parsedAmount);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
   }
 
   /// Content hash, not the Android notification key: apps reuse notification

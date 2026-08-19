@@ -125,6 +125,9 @@ class FinanceService {
     await _repairDefaultCategoryIcons();
   }
 
+  static DateTime? _startOfDay(DateTime? d) =>
+      d == null ? null : DateTime(d.year, d.month, d.day);
+
   Future<List<model_account.Account>> getAccounts() async {
     // Ensure user has default data on first access
     await _ensureUserDefaults();
@@ -140,7 +143,11 @@ class FinanceService {
 
     for (final acc in accountsDb) {
       final accId = acc.id;
-      final startDate = acc.initialBalanceDate;
+      // Truncated to midnight: the wallet sheet shows a *date* ("From Jun 23,
+      // 2026") but stores a timestamp — a wallet created at 21:47 would drop
+      // that same day's movements, and a transfer stamped 00:00 is exactly
+      // what lands there.
+      final startDate = _startOfDay(acc.initialBalanceDate);
 
       // Calculate source sums (Income/Expense/Transfer Source)
       final sourceSumExpr = _db.transactions.type

@@ -99,6 +99,60 @@ void main() {
         ['Vega Carburanti', 'Pagamento da ROSSI MARIO']);
   });
 
+  // Two top-ups of the same amount minutes apart are two real movements, not
+  // the statement repeating itself. Same day, same amount, same description —
+  // everything the dedup keys on.
+  const repeatedCsv = '''
+"Conto personale (EUR)",,,,,,,
+Data,Descrizione,Categoria,"Denaro in entrata/uscita",Saldo,"Imposte ritenute","Altre imposte",Costi
+"23 giu 2026","Pagamento da ROSSI MARIO",Ricarica,"50,00€","50,00€","0,00€","0,00€","0,00€"
+"23 giu 2026","Pagamento da ROSSI MARIO",Ricarica,"50,00€","100,00€","0,00€","0,00€","0,00€"
+"23 giu 2026","Pagamento da ROSSI MARIO",Ricarica,"50,00€","150,00€","0,00€","0,00€","0,00€"
+Totale,,,"150,00€",,"0,00€","0,00€","0,00€"
+''';
+
+  test('repeated identical top-ups all become drafts, and stay stable on '
+      're-import', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = _service(db);
+
+    final r = await service.importStatement(repeatedCsv);
+    expect(r.drafts, hasLength(3));
+    expect(r.duplicates, 0);
+
+    final again = await service.importStatement(repeatedCsv);
+    expect(again.drafts, isEmpty);
+    expect(again.duplicates, 3);
+    expect(await db.select(db.pendingTransactions).get(), hasLength(3));
+  });
+
+  test('a top-up the listener already drafted only masks one of the repeats',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await db.into(db.pendingTransactions).insert(
+          PendingTransactionsCompanion.insert(
+            id: 'pending_rev_top',
+            userId: const Value('user-a'),
+            gmailMessageId: 'rev_top',
+            source: const Value('revolut'),
+            emailSubject: 'Revolut',
+            emailReceivedAt: DateTime(2026, 6, 23, 10, 0),
+            parsedAmount: 50,
+            parsedDescription: 'Ricarica',
+            parsedDate: DateTime(2026, 6, 23, 10, 0),
+            createdAt: DateTime(2026, 6, 23, 10, 0),
+          ),
+        );
+
+    final r = await _service(db).importStatement(repeatedCsv);
+
+    expect(r.duplicates, 1);
+    expect(r.drafts, hasLength(2));
+  });
+
   test('a movement already approved comes through flagged as a duplicate',
       () async {
     final db = AppDatabase.forExecutor(NativeDatabase.memory());
