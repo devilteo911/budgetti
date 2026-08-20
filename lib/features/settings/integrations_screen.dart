@@ -153,6 +153,10 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
         // Restored rows carry the backup's userId/lastUpdated — claim them
         // for this user and re-arm the sync cursor or they never sync.
         await ref.read(authServiceProvider).adoptLocalData();
+        // Then upload, the same chaser sync-setup's restore path runs:
+        // without it the restore leaves the server holding whatever it had
+        // while this device believes the backup's state — silent divergence.
+        await performPocketBaseSync(ref, full: true, pull: false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(context.l10n.setRestoreDone)),

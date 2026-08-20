@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'package:budgetti/core/database/database.dart';
 
 import 'package:budgetti/core/services/google_auth_service.dart';
@@ -132,26 +133,31 @@ class BackupService {
   }
 
   Future<File> _createBackupFile({bool isAutoBackup = false, PersistenceService? persistence}) async {
-    // 1. Fetch all data
-    final accounts = await _db.select(_db.accounts).get();
-    final transactions = await _db.select(_db.transactions).get();
-    final categories = await _db.select(_db.categories).get();
-    final tags = await _db.select(_db.tags).get();
-    final budgets = await _db.select(_db.budgets).get();
-    final installments = await _db.select(_db.installments).get();
+    // 1. Fetch all data inside one transaction — six loose reads could span
+    // an auto-sync write and ship a torn snapshot (categories from before an
+    // edit, transactions from after).
+    final data = await _db.transaction(() async {
+      final accounts = await _db.select(_db.accounts).get();
+      final transactions = await _db.select(_db.transactions).get();
+      final categories = await _db.select(_db.categories).get();
+      final tags = await _db.select(_db.tags).get();
+      final budgets = await _db.select(_db.budgets).get();
+      final installments = await _db.select(_db.installments).get();
 
-    // 2. Convert to JSON
-    final data = {
-      'generated_at': DateTime.now().toIso8601String(),
-      'accounts': accounts.map((e) => e.toJson()).toList(),
-      'transactions': transactions.map((e) => e.toJson()).toList(),
-      'categories': categories.map((e) => e.toJson()).toList(),
-      'tags': tags.map((e) => e.toJson()).toList(),
-      'budgets': budgets.map((e) => e.toJson()).toList(),
-      'installments': installments.map((e) => e.toJson()).toList(),
-    };
+      // 2. Convert to JSON
+      return {
+        'generated_at': DateTime.now().toIso8601String(),
+        'accounts': accounts.map((e) => e.toJson()).toList(),
+        'transactions': transactions.map((e) => e.toJson()).toList(),
+        'categories': categories.map((e) => e.toJson()).toList(),
+        'tags': tags.map((e) => e.toJson()).toList(),
+        'budgets': budgets.map((e) => e.toJson()).toList(),
+        'installments': installments.map((e) => e.toJson()).toList(),
+      };
+    });
 
-    final jsonString = jsonEncode(data);
+    // A full ledger is megabytes of JSON — encode off the UI isolate.
+    final jsonString = await Isolate.run(() => jsonEncode(data));
 
     // 3. Write to file
     final String path;
@@ -183,7 +189,8 @@ class BackupService {
 
   Future<void> importDatabase(File file) async {
     final jsonString = await file.readAsString();
-    final data = jsonDecode(jsonString) as Map<String, dynamic>;
+    final data = await Isolate.run(
+        () => jsonDecode(jsonString) as Map<String, dynamic>);
 
     // 1. Validate keys
     final requiredKeys = [
