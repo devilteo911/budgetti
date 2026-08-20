@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,7 +46,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.authAvatarSaveError(e.toString()))),
+          SnackBar(content: Text(context.l10n.authAvatarSaveError(errorText(context, e)))),
         );
       }
     } finally {

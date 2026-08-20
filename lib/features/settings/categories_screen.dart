@@ -1,4 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/settings/widgets/category_editor_modal.dart';
 import 'package:budgetti/models/category.dart';
@@ -168,7 +169,7 @@ class CategoriesScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) =>
-            Center(child: Text(context.l10n.setErrorWithDetails(e.toString()))),
+            Center(child: Text(context.l10n.setErrorWithDetails(errorText(context, e)))),
       ),
     );
   }

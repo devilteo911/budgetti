@@ -1,4 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/widgets/category_picker_sheet.dart';
@@ -140,7 +141,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(context.l10n.txOcrError(e.toString()))),
+              content: Text(context.l10n.txOcrError(errorText(context, e)))),
         );
       }
     } finally {

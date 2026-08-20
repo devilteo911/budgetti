@@ -1697,4 +1697,16 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get txYouTransferred => 'Hai trasferito';
+
+  @override
+  String get errNetwork =>
+      'Server irraggiungibile. Controlla la connessione e riprova.';
+
+  @override
+  String errServer(int code) {
+    return 'Il server ha rifiutato la richiesta (codice $code).';
+  }
+
+  @override
+  String get errUnexpected => 'Qualcosa è andato storto. Riprova.';
 }

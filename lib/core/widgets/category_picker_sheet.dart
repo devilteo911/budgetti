@@ -1,4 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
@@ -122,7 +123,8 @@ class CategoryPickerSheet extends ConsumerWidget {
               error: (e, s) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text("Error: $e", style: TextStyle(color: cs.error)),
+                  child: Text(context.l10n.setErrorWithDetails(errorText(context, e)),
+                      style: TextStyle(color: cs.error)),
                 ),
               ),
             ),

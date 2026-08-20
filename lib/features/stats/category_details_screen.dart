@@ -1,4 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/features/stats/widgets/budget_progress.dart';
@@ -70,7 +71,7 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
           child: CircularProgressIndicator(color: scheme.primary),
         ),
         error: (e, _) =>
-            Center(child: Text(context.l10n.statsError(e.toString()))),
+            Center(child: Text(context.l10n.statsError(errorText(context, e)))),
         data: (all) {
           final catColor = ref.watch(categoryColorCacheProvider(
                   scheme.brightness))[widget.category.name] ??

@@ -1686,4 +1686,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get txYouTransferred => 'You transferred';
+
+  @override
+  String get errNetwork =>
+      'Couldn\'t reach the server. Check the connection and try again.';
+
+  @override
+  String errServer(int code) {
+    return 'The server rejected the request (code $code).';
+  }
+
+  @override
+  String get errUnexpected => 'Something went wrong. Try again.';
 }

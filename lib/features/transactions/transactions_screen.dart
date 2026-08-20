@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
@@ -92,7 +93,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(context.l10n.txError(e.toString()))));
+              SnackBar(content: Text(context.l10n.txError(errorText(context, e)))));
         }
       }
     }

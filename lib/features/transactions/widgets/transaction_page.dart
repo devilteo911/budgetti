@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
@@ -204,7 +205,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                     },
                     loading: () => const CircularProgressIndicator(),
                     error: (e, s) => Text(
-                        context.l10n.txErrorLoadingAccounts(e.toString())),
+                        context.l10n.txErrorLoadingAccounts(errorText(context, e))),
                   ),
                   const SizedBox(height: 32),
                 ],
@@ -281,7 +282,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                   },
                   loading: () => const CircularProgressIndicator(),
                   error: (e, s) => Text(
-                      context.l10n.txErrorLoadingCategories(e.toString())),
+                      context.l10n.txErrorLoadingCategories(errorText(context, e))),
                 ),
                 const SizedBox(height: 32),
 
@@ -345,7 +346,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                   },
                   loading: () => const CircularProgressIndicator(),
                   error: (e, s) =>
-                      Text(context.l10n.txErrorLoadingTags(e.toString())),
+                      Text(context.l10n.txErrorLoadingTags(errorText(context, e))),
                 ),
                 const SizedBox(height: 100), // Extra space for swipe indicator
               ],

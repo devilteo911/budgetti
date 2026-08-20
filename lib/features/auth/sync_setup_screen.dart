@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -50,7 +51,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
       if (!mounted) return;
       setState(() {
         _localTxCount = local.read<int>('c');
-        _serverError = e.toString();
+        _serverError = errorText(context, e);
       });
     }
   }
@@ -83,7 +84,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
           _ => context.l10n.authActionRestore,
         };
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.authActionFailed(label, e.toString()))));
+            SnackBar(content: Text(context.l10n.authActionFailed(label, errorText(context, e)))));
       }
     } finally {
       if (mounted) setState(() => _busy = null);

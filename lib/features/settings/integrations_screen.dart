@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/widgets/pb_server_dialog.dart';
@@ -78,7 +79,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      String msg = context.l10n.setSignInFailed(e.toString());
+      String msg = context.l10n.setSignInFailed(errorText(context, e));
       if (e.toString().contains('cancelled')) {
         msg = context.l10n.setSignInCancelled;
       }
@@ -105,7 +106,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.setBackupFailed(e.toString()))),
+          SnackBar(content: Text(context.l10n.setBackupFailed(errorText(context, e)))),
         );
       }
     } finally {
@@ -166,7 +167,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.setRestoreFailed(e.toString()))),
+          SnackBar(content: Text(context.l10n.setRestoreFailed(errorText(context, e)))),
         );
       }
     } finally {
@@ -193,7 +194,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.l10n.setSyncFailed(e.toString())),
+            content: Text(context.l10n.setSyncFailed(errorText(context, e))),
             backgroundColor: Colors.red,
           ),
         );
@@ -282,7 +283,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.l10n.setEmailSyncFailed(e.toString())),
+            content: Text(context.l10n.setEmailSyncFailed(errorText(context, e))),
             backgroundColor: Colors.red,
           ),
         );
@@ -428,7 +429,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.l10n.setNotificationReadFailed(e.toString())),
+            content: Text(context.l10n.setNotificationReadFailed(errorText(context, e))),
             backgroundColor: Colors.red,
           ),
         );
@@ -477,7 +478,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(context.l10n.setStatementImportFailed(e.toString())),
+            content: Text(context.l10n.setStatementImportFailed(errorText(context, e))),
             backgroundColor: Colors.red,
           ),
         );
@@ -612,7 +613,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.setSyncFailed(e.toString()))));
+          SnackBar(content: Text(context.l10n.setSyncFailed(errorText(context, e)))));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

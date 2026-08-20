@@ -1,4 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/features/settings/widgets/wallet_skeleton.dart';
@@ -93,7 +94,7 @@ class WalletsScreen extends ConsumerWidget {
             ),
           ),
           error: (e, _) =>
-              Center(child: Text(context.l10n.setErrorWithDetails(e.toString()))),
+              Center(child: Text(context.l10n.setErrorWithDetails(errorText(context, e)))),
         ),
       ),
     );

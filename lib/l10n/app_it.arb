@@ -1033,5 +1033,8 @@
         "type": "String"
       }
     }
-  }
+  },
+  "errNetwork": "Server irraggiungibile. Controlla la connessione e riprova.",
+  "errServer": "Il server ha rifiutato la richiesta (codice {code}).",
+  "errUnexpected": "Qualcosa è andato storto. Riprova."
 }

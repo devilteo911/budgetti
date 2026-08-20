@@ -1033,5 +1033,15 @@
         "type": "String"
       }
     }
+  },
+  "errNetwork": "Couldn't reach the server. Check the connection and try again.",
+  "errServer": "The server rejected the request (code {code}).",
+  "errUnexpected": "Something went wrong. Try again.",
+  "@errServer": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -3079,6 +3079,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You transferred'**
   String get txYouTransferred;
+
+  /// No description provided for @errNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach the server. Check the connection and try again.'**
+  String get errNetwork;
+
+  /// No description provided for @errServer.
+  ///
+  /// In en, this message translates to:
+  /// **'The server rejected the request (code {code}).'**
+  String errServer(int code);
+
+  /// No description provided for @errUnexpected.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Try again.'**
+  String get errUnexpected;
 }
 
 class _AppLocalizationsDelegate

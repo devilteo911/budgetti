@@ -1,5 +1,6 @@
 import 'package:budgetti/core/database/database.dart'
     show PendingTransaction, Transaction;
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
@@ -24,7 +25,7 @@ class EmailInboxScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(context.l10n.txReviewInbox)),
       body: pendingAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(context.l10n.txError(e.toString()))),
+        error: (e, _) => Center(child: Text(context.l10n.txError(errorText(context, e)))),
         data: (drafts) {
           final skipped = ref.watch(skippedEmailsProvider).maybeWhen(
                 data: (s) => s,
