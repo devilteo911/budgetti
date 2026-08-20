@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi';
 
 import 'package:budgetti/core/database/database.dart';
@@ -35,9 +36,21 @@ class _FakeClient implements SyncClient {
   /// their migration has run, or a permissions/outage failure.
   final Set<String> failCollections = {};
 
+  /// Simulates the server-side LWW guard (pb_hooks/lww_guard.pb.js): a pushed
+  /// body whose lastUpdated is older than the stored row's is rejected.
+  bool enforceLww = false;
+
+  /// Simulates an expired/revoked token: every call throws [SyncAuthExpired].
+  bool authExpired = false;
+
+  /// Held by tests that need a sync to pause mid-flight (lock testing).
+  Future<void>? gate;
+
   @override
   Future<List<Map<String, dynamic>>> listChanges(
       String c, DateTime since) async {
+    if (gate != null) await gate;
+    if (authExpired) throw const SyncAuthExpired();
     if (failCollections.contains(c)) throw Exception('404: no collection $c');
     final entries = _store[c]?.entries.toList() ?? const [];
     return entries.where((e) {
@@ -50,10 +63,36 @@ class _FakeClient implements SyncClient {
   /// Test seam: ids the server refuses (bad id pattern, validation, outage).
   final Set<String> reject = {};
 
+  /// Fires before each upsert — lets a test play "another device wrote during
+  /// our push", the exact window the server guard exists for.
+  void Function(String c, String id)? onBeforeUpsert;
+
   @override
-  Future<void> upsert(String c, String id, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> upsert(
+      String c, String id, Map<String, dynamic> body) async {
+    if (authExpired) throw const SyncAuthExpired();
     if (reject.contains(id)) throw Exception('rejected: $id');
+    if (onBeforeUpsert != null) onBeforeUpsert!(c, id);
+    final stored = _store[c]?[id];
+    if (enforceLww && stored != null) {
+      final current = stored['lastUpdated'] as String?;
+      final incoming = body['lastUpdated'] as String?;
+      if (current != null &&
+          incoming != null &&
+          incoming.compareTo(current) < 0) {
+        throw LwwStaleWrite(c, id);
+      }
+    }
     _store.putIfAbsent(c, () => {})[id] = Map<String, dynamic>.from(body);
+    return {..._store[c]![id]!, 'id': id};
+  }
+
+  @override
+  Future<Map<String, dynamic>> getRecord(String c, String id) async {
+    if (authExpired) throw const SyncAuthExpired();
+    final row = _store[c]?[id];
+    if (row == null) throw Exception('404: $c/$id');
+    return {...row, 'id': id};
   }
 
   /// Test seam: mutate a stored row the way another device would.
@@ -503,6 +542,133 @@ void main() {
     expect(second.skipped, 0);
     expect(client._store['installments']!.containsKey('ins1'), isTrue);
     expect(persistence.getLastSyncAt(), t1);
+  });
+
+  test('server LWW rejection adopts the remote row (remote wins)', () async {
+    final (db, persistence, client, service) = await _harness();
+    client.enforceLww = true;
+    final t1 = DateTime(2026, 7, 1, 10);
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c1',
+          name: 'Base',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t1),
+        ));
+    await service.sync(); // push, cursor = 10:00
+
+    // The pull has already passed; another device writes a *newer* row while
+    // our (stale) local edit is being pushed — the exact window the server
+    // guard exists for.
+    await (db.update(db.categories)..where((t) => t.id.equals('c1'))).write(
+        CategoriesCompanion(
+            name: const Value('StaleLocal'),
+            lastUpdated: Value(DateTime(2026, 7, 1, 11))));
+    client.onBeforeUpsert = (c, id) {
+      client.onBeforeUpsert = null; // fire once, on the stale push itself
+      client.edit('categories', 'c1', {
+        'name': 'FreshRemote',
+        'lastUpdated': DateTime(2026, 7, 1, 12).toUtc().toIso8601String(),
+      });
+    };
+
+    final summary = await service.sync();
+
+    expect(summary.pulled, 0, reason: 'the remote edit lands after the pull');
+    expect(summary.remoteWins, 1);
+    expect(summary.skipped, 0, reason: 'remote-wins is not a skip');
+    final row = await _category(db, 'c1');
+    expect(row?.name, 'FreshRemote', reason: 'local adopted the remote body');
+    expect(row?.lastUpdated, DateTime(2026, 7, 1, 12));
+    // The cursor advanced past the row — no rewind, no re-pick of the fight.
+    expect(persistence.getLastSyncAt(), DateTime(2026, 7, 1, 12));
+  });
+
+  test('an expired token aborts the sync and freezes the cursor', () async {
+    final (db, persistence, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c1',
+          name: 'Food',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t1),
+        ));
+    await service.sync();
+    expect(persistence.getLastSyncAt(), t1);
+
+    client.authExpired = true;
+    final summary = await service.sync();
+
+    expect(summary.authExpired, isTrue);
+    expect(summary.pushed, 0);
+    expect(service.sessionExpired.value, isTrue);
+    // Cursor frozen: the aborted run must not pretend both sides agreed.
+    expect(persistence.getLastSyncAt(), t1);
+  });
+
+  test('a second service instance bows out while a sync holds the lock',
+      () async {
+    final (db, persistence, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c1',
+          name: 'Food',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t1),
+        ));
+
+    final gate = Completer<void>();
+    client.gate = gate.future;
+    final first = service.sync(); // claims the lock, parks in listChanges
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    // A fresh instance over the same DB — the workmanager task's shape.
+    final service2 = PocketBaseSyncService(client, db, persistence, 'u1');
+    final second = await service2.sync();
+    expect(second.hasChanges, isFalse,
+        reason: 'the second run must bow out, not interleave');
+    expect(service2.isSyncing, isFalse);
+
+    gate.complete();
+    final s1 = await first;
+    expect(s1.pushed, 1);
+
+    // Lock released in finally: a follow-up run syncs normally.
+    client.gate = null;
+    final third = await service2.sync();
+    expect(third.error, isNull);
+  });
+
+  test('a stale lock holder is taken over after the timeout', () async {
+    final (db, _, client, service) = await _harness();
+    // A crashed bg task's claim, 20 minutes old.
+    await db.into(db.syncLocks).insert(SyncLocksCompanion.insert(
+          id: 'pb_sync',
+          running: const Value(true),
+          acquiredAt: Value(DateTime.now().subtract(
+            const Duration(minutes: 20),
+          )),
+        ));
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c1',
+          name: 'Food',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(DateTime(2026, 7, 1, 10)),
+        ));
+
+    final summary = await service.sync();
+    expect(summary.pushed, 1, reason: 'stale claim must not deadlock sync');
   });
 
   test('pull-only does not push, push-only does not pull', () async {

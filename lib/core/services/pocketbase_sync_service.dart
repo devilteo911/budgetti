@@ -12,8 +12,21 @@ class SyncSummary {
   final int pulled;
   final int conflicts;
   final int skipped;
+
+  /// Rows where the server's LWW guard rejected our push and the remote body
+  /// was applied locally — the mirror of [conflicts] ("local won").
+  final int remoteWins;
   final DateTime? lastSyncAt;
   final String? error;
+
+  /// A 401 aborted the sync: the PB token is expired/revoked. The listener on
+  /// [PocketBaseSyncService.authExpired] clears the dead session so the
+  /// router's redirect offers login again.
+  final bool authExpired;
+
+  /// Rows dead-lettered this run (crossed [PocketBaseSyncService._maxPushAttempts]
+  /// failed attempts) — surfaced once here, not retried afterwards.
+  final int deadLettered;
 
   /// First per-row rejection message, so "N skipped" is diagnosable from the
   /// Settings subtitle instead of only from debug logs.
@@ -24,28 +37,53 @@ class SyncSummary {
     this.pulled = 0,
     this.conflicts = 0,
     this.skipped = 0,
+    this.remoteWins = 0,
     this.lastSyncAt,
     this.error,
+    this.authExpired = false,
+    this.deadLettered = 0,
     this.firstSkipReason,
   });
 
-  bool get hasChanges => pushed + pulled + conflicts > 0;
+  bool get hasChanges => pushed + pulled + conflicts + remoteWins > 0;
 
   @override
   String toString() {
+    if (authExpired) return 'Session expired — log in again';
     if (error != null) return 'Sync failed';
-    if (!hasChanges && skipped == 0) return 'Already in sync';
+    if (!hasChanges && skipped == 0 && deadLettered == 0) {
+      return 'Already in sync';
+    }
     final parts = <String>[];
     if (pushed > 0) parts.add('↑$pushed pushed');
     if (pulled > 0) parts.add('↓$pulled pulled');
     if (conflicts > 0) parts.add('$conflicts conflicts (local won)');
+    if (remoteWins > 0) parts.add('$remoteWins remote-wins');
     if (skipped > 0) {
       parts.add(firstSkipReason == null
           ? '$skipped skipped'
           : '$skipped skipped ($firstSkipReason)');
     }
+    if (deadLettered > 0) parts.add('$deadLettered dead-lettered');
     return parts.isEmpty ? 'Already in sync' : parts.join(' · ');
   }
+}
+
+/// The server's LWW guard rejected a push: the stored row's `lastUpdated` is
+/// newer than the body's (see server/pb_hooks/lww_guard.pb.js). The sync
+/// treats this as *remote wins* — fetch + apply + advance — never a skip.
+class LwwStaleWrite implements Exception {
+  final String collection;
+  final String id;
+  const LwwStaleWrite(this.collection, this.id);
+  @override
+  String toString() => 'LwwStaleWrite($collection/$id)';
+}
+
+/// A PB request came back 401: the token is expired or revoked. Aborts the
+/// whole sync (all six collections would fail identically).
+class SyncAuthExpired implements Exception {
+  const SyncAuthExpired();
 }
 
 /// The only IO seam in sync: reads remote changes and upserts rows by id.
@@ -57,9 +95,14 @@ abstract class SyncClient {
   Future<List<Map<String, dynamic>>> listChanges(
       String collection, DateTime since);
 
-  /// Update [id], or create it (with `id` + `owner`) when missing.
-  Future<void> upsert(
+  /// Update [id], or create it (with `id` + `owner`) when missing. Returns
+  /// the stored row (server fields included); throws [LwwStaleWrite] when the
+  /// server's guard says remote wins, [SyncAuthExpired] on 401.
+  Future<Map<String, dynamic>> upsert(
       String collection, String id, Map<String, dynamic> body);
+
+  /// One stored row, for the remote-wins apply after an [LwwStaleWrite].
+  Future<Map<String, dynamic>> getRecord(String collection, String id);
 }
 
 /// [SyncClient] over a live PocketBase instance. `owner` on create is the
@@ -74,29 +117,80 @@ class PocketBaseSyncClient implements SyncClient {
   @override
   Future<List<Map<String, dynamic>>> listChanges(
       String collection, DateTime since) async {
-    final rows = await client.collection(collection).getFullList(
-          batch: 500,
-          filter: 'lastUpdated > "${since.toUtc().toIso8601String()}"',
-        );
-    return rows.map((r) => {...r.data, 'id': r.id}).toList();
+    try {
+      final rows = await client.collection(collection).getFullList(
+            batch: 500,
+            filter: 'lastUpdated > "${since.toUtc().toIso8601String()}"',
+          );
+      return rows.map((r) => {...r.data, 'id': r.id}).toList();
+    } on pb.ClientException catch (e) {
+      throw _mapClientException(e);
+    }
   }
 
   @override
-  Future<void> upsert(
+  Future<Map<String, dynamic>> upsert(
       String collection, String id, Map<String, dynamic> body) async {
     try {
-      await client.collection(collection).update(id, body: body);
+      final r = await client.collection(collection).update(id, body: body);
+      return {...r.data, 'id': r.id};
     } on pb.ClientException catch (e) {
       // 404 = record doesn't exist yet → create with our id + owner.
       if (e.statusCode == 404) {
-        await client
-            .collection(collection)
-            .create(body: {...body, 'id': id, 'owner': userId});
-      } else {
-        rethrow;
+        try {
+          final r = await client
+              .collection(collection)
+              .create(body: {...body, 'id': id, 'owner': userId});
+          return {...r.data, 'id': r.id};
+        } on pb.ClientException catch (e2) {
+          // Another device created it between our 404 and this create. Fall
+          // through to update — the server's LWW guard arbitrates which body
+          // deserves to win.
+          if (_isPkConflict(e2)) return await _retryUpdate(collection, id, body);
+          throw _mapClientException(e2, collection: collection, id: id);
+        }
       }
+      throw _mapClientException(e, collection: collection, id: id);
     }
   }
+
+  Future<Map<String, dynamic>> _retryUpdate(
+      String collection, String id, Map<String, dynamic> body) async {
+    try {
+      final r = await client.collection(collection).update(id, body: body);
+      return {...r.data, 'id': r.id};
+    } on pb.ClientException catch (e) {
+      throw _mapClientException(e, collection: collection, id: id);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> getRecord(String collection, String id) async {
+    try {
+      final r = await client.collection(collection).getOne(id);
+      return {...r.data, 'id': r.id};
+    } on pb.ClientException catch (e) {
+      throw _mapClientException(e, collection: collection, id: id);
+    }
+  }
+
+  /// Translates raw SDK errors into the exceptions the sync loop reasons
+  /// about: 401 → [SyncAuthExpired], the guard's rejection → [LwwStaleWrite].
+  Never _mapClientException(pb.ClientException e,
+      {String collection = '', String id = ''}) {
+    if (e.statusCode == 401) throw const SyncAuthExpired();
+    final msg = (e.response['message'] as String?) ?? '';
+    if (msg.toLowerCase().contains('lww_stale_write')) {
+      throw LwwStaleWrite(collection, id);
+    }
+    throw e;
+  }
+
+  /// PB's duplicate-id create failure: 400 with data.id populated
+  /// (`validation_pk_invalid`). Confirms the row exists rather than the body
+  /// being invalid.
+  bool _isPkConflict(pb.ClientException e) =>
+      e.statusCode == 400 && e.response['data']?['id'] != null;
 
   /// Live (non-deleted) row counts per collection for the current user.
   /// Drives the post-login sync-setup choice ("the server already has N…").
@@ -164,8 +258,15 @@ String? _toIso(DateTime? d) => d?.toUtc().toIso8601String();
 DateTime? _fromIso(dynamic v) {
   if (v == null) return null;
   final s = v.toString();
-  return s.isEmpty ? null : DateTime.parse(s);
+  if (s.isEmpty) return null;
+  // PB sends `YYYY-MM-DD HH:MM:SS.sssZ` (space separator) — DateTime.parse
+  // accepts it, but normalize defensively for any strict future caller.
+  return DateTime.parse(s.replaceFirst(' ', 'T'));
 }
+
+/// Whole-second floor, UTC — see the pull conflict compare for why.
+DateTime _toWholeSeconds(DateTime d) => DateTime.fromMillisecondsSinceEpoch(
+    (d.toUtc().millisecondsSinceEpoch ~/ 1000) * 1000, isUtc: true);
 
 int _toInt(dynamic v) => (v as num?)?.toInt() ?? 0;
 double _toDouble(dynamic v) => (v as num?)?.toDouble() ?? 0.0;
@@ -201,6 +302,16 @@ class PocketBaseSyncService {
   /// True while a sync is in flight — drives the top-right spinner in the UI.
   final ValueNotifier<bool> syncing = ValueNotifier<bool>(false);
 
+  /// Flips true when a 401 aborted a sync (expired/revoked token). main()
+  /// listens and clears the dead session so the router offers login.
+  final ValueNotifier<bool> sessionExpired = ValueNotifier<bool>(false);
+
+  static const _lockId = 'pb_sync';
+
+  /// A crashed lock holder (OOM-killed bg task, force-stop) is taken over
+  /// after this long instead of deadlocking every future sync.
+  static const _lockStaleAfter = Duration(minutes: 15);
+
   late final List<_Spec> _specs = [
     _categories,
     _tags,
@@ -214,6 +325,38 @@ class PocketBaseSyncService {
 
   bool get isSyncing => _isSyncing;
 
+  /// Claims the one-row DB mutex. `_isSyncing` only guards this instance,
+  /// but the workmanager PB task builds its own service in another isolate —
+  /// without the DB lock a background and a foreground sync interleave: the
+  /// stale body clobbers newer server rows and the slower run overwrites the
+  /// fresh cursor. INSERT OR IGNORE seeds the row; the guarded UPDATE is the
+  /// atomic claim (SQLite serializes writers, so exactly one claimer sees
+  /// running=0 / a stale timestamp).
+  Future<bool> _claimSyncLock() async {
+    await _db.into(_db.syncLocks).insert(
+          SyncLocksCompanion.insert(id: _lockId),
+          mode: InsertMode.insertOrIgnore,
+        );
+    final now = DateTime.now();
+    final claimed = await (_db.update(_db.syncLocks)
+          ..where((t) =>
+              t.id.equals(_lockId) &
+              (t.running.equals(false) |
+                  t.acquiredAt.isSmallerThanValue(
+                      now.subtract(_lockStaleAfter))))
+        )
+        .write(SyncLocksCompanion(
+      running: const Value(true),
+      acquiredAt: Value(now),
+    ));
+    return claimed > 0;
+  }
+
+  Future<void> _releaseSyncLock() async {
+    await (_db.update(_db.syncLocks)..where((t) => t.id.equals(_lockId)))
+        .write(const SyncLocksCompanion(running: Value(false)));
+  }
+
   /// [full] ignores the stored cursor and considers every row on both sides —
   /// the recovery lever for a poisoned cursor (rows stranded behind it) and
   /// the engine of the git-style "push/pull everything" actions. [pull] /
@@ -225,10 +368,15 @@ class PocketBaseSyncService {
     bool push = true,
   }) async {
     if (_isSyncing) return const SyncSummary();
+    // Another isolate is mid-sync (or a stale holder hasn't timed out yet):
+    // bow out rather than interleave — the next scheduled run covers us.
+    if (!await _claimSyncLock()) return const SyncSummary();
     _isSyncing = true;
     syncing.value = true;
+    sessionExpired.value = false;
     final now = DateTime.now();
-    var pushed = 0, pulled = 0, conflicts = 0;
+    var pushed = 0, pulled = 0, conflicts = 0, remoteWins = 0;
+    var authExpired = false;
     try {
       final cursor =
           full ? DateTime.fromMillisecondsSinceEpoch(0) : _persistence.getLastSyncAt();
@@ -258,9 +406,12 @@ class PocketBaseSyncService {
                 final id = r['id'] as String;
                 final remoteTs = _fromIso(r['lastUpdated']);
                 final localTs = localMap[id];
+                // Compare at whole-second granularity: a restored backup
+                // truncates local timestamps to seconds, so a sub-second-newer
+                // remote would otherwise win forever on a tie-ish compare.
                 if (localTs != null &&
                     remoteTs != null &&
-                    localTs.isAfter(remoteTs)) {
+                    localTs.isAfter(_toWholeSeconds(remoteTs))) {
                   conflicts++; // local wins; its edit is pushed below
                   continue;
                 }
@@ -294,6 +445,18 @@ class PocketBaseSyncService {
                 if (row.needsStamp) toStamp.add(row.id);
                 final ts = row.lastUpdated ?? now;
                 if (ts.isAfter(maxTs)) maxTs = ts;
+              } on LwwStaleWrite {
+                // The server's guard says the stored row is newer — remote
+                // wins. Fetch it and adopt it instead of skipping: a skip
+                // rewinds the cursor and re-picks the fight every sync.
+                final remote =
+                    await _client.getRecord(spec.collection, row.id);
+                await spec.applyRemote(_db, _userId, remote);
+                remoteWins++;
+                final rts = _fromIso(remote['lastUpdated']);
+                if (rts != null && rts.isAfter(maxTs)) maxTs = rts;
+              } on SyncAuthExpired {
+                rethrow;
               } catch (e) {
                 debugPrint('PB sync: skip ${spec.collection}/${row.id}: $e');
                 skipped++;
@@ -307,6 +470,12 @@ class PocketBaseSyncService {
             }
             if (toStamp.isNotEmpty) await spec.stamp(_db, toStamp, now);
           }
+        } on SyncAuthExpired {
+          // Expired token: every remaining collection would fail the same
+          // way. Abort, freeze the cursor, and surface re-login.
+          debugPrint('PB sync: auth expired, aborting');
+          authExpired = true;
+          break;
         } catch (e) {
           // The collection itself is unreachable (404 before its migration
           // has run, permissions, outage). Every other collection still
@@ -320,8 +489,8 @@ class PocketBaseSyncService {
 
       // Cursor semantics: "both sides agree up to T" — so only a
       // bidirectional run may move it, never past a rejected row, and never
-      // while a whole collection was skipped.
-      if (pull && push && !collectionFailed) {
+      // while a whole collection was skipped or the session died.
+      if (pull && push && !collectionFailed && !authExpired) {
         var newCursor = maxTs;
         if (minFailedTs != null && minFailedTs.isBefore(newCursor)) {
           newCursor = minFailedTs.subtract(const Duration(milliseconds: 1));
@@ -333,9 +502,12 @@ class PocketBaseSyncService {
         pulled: pulled,
         conflicts: conflicts,
         skipped: skipped,
+        remoteWins: remoteWins,
         lastSyncAt: maxTs,
+        authExpired: authExpired,
         firstSkipReason: firstSkipReason,
       );
+      if (authExpired) sessionExpired.value = true;
       await _persistence.setLastSyncSummary(summary.toString());
       return summary;
     } catch (e) {
@@ -345,6 +517,7 @@ class PocketBaseSyncService {
     } finally {
       _isSyncing = false;
       syncing.value = false;
+      await _releaseSyncLock();
     }
   }
 

@@ -132,6 +132,9 @@ void callbackDispatcher() {
             PocketBaseSyncService(client, db, persistence, client.userId);
         final summary = await service.sync();
         debugPrint('PocketBase sync (bg): $summary');
+        // Dead token: drop the persisted session so the next foreground
+        // launch lands on login instead of silently failing every sync.
+        if (summary.authExpired) await persistence.setPbAuth(null);
       } catch (e) {
         debugPrint('Error in background pb sync: $e');
       } finally {
@@ -229,6 +232,17 @@ Future<void> main() async {
     await container.read(notificationLogicProvider).updatePocketBaseSyncSchedule();
     // Start the live push: sync to PocketBase on every local data change.
     container.read(pocketBaseAutoSyncProvider);
+
+    // A 401-aborted sync means the PB token is expired/revoked — it's dead
+    // weight, so clear the session; the router's redirect then offers login.
+    container.read(pocketBaseSyncServiceProvider).sessionExpired.addListener(
+      () {
+        if (!container.read(pocketBaseSyncServiceProvider).sessionExpired.value) {
+          return;
+        }
+        container.read(authServiceProvider).logout();
+      },
+    );
 
     // Deep-link notification taps to the review inbox.
     final router = container.read(routerProvider);
