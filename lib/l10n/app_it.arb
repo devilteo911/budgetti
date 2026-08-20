@@ -1,37 +1,24 @@
 {
   "@@locale": "it",
-  "appName": "Budgetti",
   "commonCancel": "Annulla",
   "commonSave": "Salva",
   "commonDelete": "Elimina",
-  "commonEdit": "Modifica",
   "commonAdd": "Aggiungi",
   "commonClose": "Chiudi",
-  "commonConfirm": "Conferma",
   "commonOk": "OK",
   "commonRetry": "Riprova",
   "commonError": "Errore",
-  "commonLoading": "Caricamento…",
-  "commonDone": "Fatto",
-  "commonBack": "Indietro",
-  "commonToday": "Oggi",
   "commonNone": "Nessuno",
   "commonAll": "Tutti",
-  "commonYes": "Sì",
-  "commonNo": "No",
   "commonIncome": "Entrata",
   "commonExpense": "Spesa",
   "commonTransfer": "Trasferimento",
-  "commonAmount": "Importo",
   "commonDate": "Data",
   "commonCategory": "Categoria",
   "commonWallet": "Portafoglio",
-  "commonDescription": "Descrizione",
   "commonTags": "Tag",
-  "commonSearch": "Cerca",
   "commonNoData": "Nessun dato",
   "commonSystem": "Sistema",
-  "commonUndo": "Annulla",
   "authConnectionError": "Errore di connessione",
   "authProfileMissing": "Profilo mancante (errore)",
   "authDetailedError": "Errore dettagliato: {error}",
@@ -85,9 +72,6 @@
   "dashSetUpBudgetsSubtitle": "Traccia le spese per categoria ogni mese",
   "dashMonthlyBudgetLabel": "Budget mensile",
   "dashCategoriesLabel": "Categorie",
-  "dashBudgetSaturation": "Saturazione budget",
-  "dashError": "Errore: {error}",
-  "dashNoBudgets": "Nessun budget impostato. Vai alla scheda Budget per impostare i tuoi limiti!",
   "dashTotalBalance": "Saldo totale",
   "dashTrend30d": "30g",
   "dashWalletsLabel": "Portafogli",
@@ -102,8 +86,6 @@
   "dashPlansLabel": "Piani",
   "dashMorePlans": "+{count} altri",
   "dashNextDue": "Prossima {date}",
-  "dashThisMonthLabel": "Questo mese",
-  "dashExpenses": "Spese",
   "dashRecentLabel": "Recenti",
   "dashLastCount": "Ultimi {count}",
   "dashAllLabel": "Tutte",
@@ -561,13 +543,6 @@
     }
   },
   "@authAvatarSaveError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "@dashError": {
     "placeholders": {
       "error": {
         "type": "String"

@@ -9,9 +9,6 @@ class AppLocalizationsIt extends AppLocalizations {
   AppLocalizationsIt([String locale = 'it']) : super(locale);
 
   @override
-  String get appName => 'Budgetti';
-
-  @override
   String get commonCancel => 'Annulla';
 
   @override
@@ -21,16 +18,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get commonDelete => 'Elimina';
 
   @override
-  String get commonEdit => 'Modifica';
-
-  @override
   String get commonAdd => 'Aggiungi';
 
   @override
   String get commonClose => 'Chiudi';
-
-  @override
-  String get commonConfirm => 'Conferma';
 
   @override
   String get commonOk => 'OK';
@@ -42,28 +33,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get commonError => 'Errore';
 
   @override
-  String get commonLoading => 'Caricamento…';
-
-  @override
-  String get commonDone => 'Fatto';
-
-  @override
-  String get commonBack => 'Indietro';
-
-  @override
-  String get commonToday => 'Oggi';
-
-  @override
   String get commonNone => 'Nessuno';
 
   @override
   String get commonAll => 'Tutti';
-
-  @override
-  String get commonYes => 'Sì';
-
-  @override
-  String get commonNo => 'No';
 
   @override
   String get commonIncome => 'Entrata';
@@ -75,9 +48,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get commonTransfer => 'Trasferimento';
 
   @override
-  String get commonAmount => 'Importo';
-
-  @override
   String get commonDate => 'Data';
 
   @override
@@ -87,22 +57,13 @@ class AppLocalizationsIt extends AppLocalizations {
   String get commonWallet => 'Portafoglio';
 
   @override
-  String get commonDescription => 'Descrizione';
-
-  @override
   String get commonTags => 'Tag';
-
-  @override
-  String get commonSearch => 'Cerca';
 
   @override
   String get commonNoData => 'Nessun dato';
 
   @override
   String get commonSystem => 'Sistema';
-
-  @override
-  String get commonUndo => 'Annulla';
 
   @override
   String get authConnectionError => 'Errore di connessione';
@@ -286,18 +247,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get dashCategoriesLabel => 'Categorie';
 
   @override
-  String get dashBudgetSaturation => 'Saturazione budget';
-
-  @override
-  String dashError(String error) {
-    return 'Errore: $error';
-  }
-
-  @override
-  String get dashNoBudgets =>
-      'Nessun budget impostato. Vai alla scheda Budget per impostare i tuoi limiti!';
-
-  @override
   String get dashTotalBalance => 'Saldo totale';
 
   @override
@@ -346,12 +295,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String dashNextDue(String date) {
     return 'Prossima $date';
   }
-
-  @override
-  String get dashThisMonthLabel => 'Questo mese';
-
-  @override
-  String get dashExpenses => 'Spese';
 
   @override
   String get dashRecentLabel => 'Recenti';

@@ -98,12 +98,6 @@ abstract class AppLocalizations {
     Locale('it'),
   ];
 
-  /// No description provided for @appName.
-  ///
-  /// In en, this message translates to:
-  /// **'Budgetti'**
-  String get appName;
-
   /// No description provided for @commonCancel.
   ///
   /// In en, this message translates to:
@@ -122,12 +116,6 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get commonDelete;
 
-  /// No description provided for @commonEdit.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit'**
-  String get commonEdit;
-
   /// No description provided for @commonAdd.
   ///
   /// In en, this message translates to:
@@ -139,12 +127,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close'**
   String get commonClose;
-
-  /// No description provided for @commonConfirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm'**
-  String get commonConfirm;
 
   /// No description provided for @commonOk.
   ///
@@ -164,30 +146,6 @@ abstract class AppLocalizations {
   /// **'Error'**
   String get commonError;
 
-  /// No description provided for @commonLoading.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading…'**
-  String get commonLoading;
-
-  /// No description provided for @commonDone.
-  ///
-  /// In en, this message translates to:
-  /// **'Done'**
-  String get commonDone;
-
-  /// No description provided for @commonBack.
-  ///
-  /// In en, this message translates to:
-  /// **'Back'**
-  String get commonBack;
-
-  /// No description provided for @commonToday.
-  ///
-  /// In en, this message translates to:
-  /// **'Today'**
-  String get commonToday;
-
   /// No description provided for @commonNone.
   ///
   /// In en, this message translates to:
@@ -199,18 +157,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All'**
   String get commonAll;
-
-  /// No description provided for @commonYes.
-  ///
-  /// In en, this message translates to:
-  /// **'Yes'**
-  String get commonYes;
-
-  /// No description provided for @commonNo.
-  ///
-  /// In en, this message translates to:
-  /// **'No'**
-  String get commonNo;
 
   /// No description provided for @commonIncome.
   ///
@@ -230,12 +176,6 @@ abstract class AppLocalizations {
   /// **'Transfer'**
   String get commonTransfer;
 
-  /// No description provided for @commonAmount.
-  ///
-  /// In en, this message translates to:
-  /// **'Amount'**
-  String get commonAmount;
-
   /// No description provided for @commonDate.
   ///
   /// In en, this message translates to:
@@ -254,23 +194,11 @@ abstract class AppLocalizations {
   /// **'Wallet'**
   String get commonWallet;
 
-  /// No description provided for @commonDescription.
-  ///
-  /// In en, this message translates to:
-  /// **'Description'**
-  String get commonDescription;
-
   /// No description provided for @commonTags.
   ///
   /// In en, this message translates to:
   /// **'Tags'**
   String get commonTags;
-
-  /// No description provided for @commonSearch.
-  ///
-  /// In en, this message translates to:
-  /// **'Search'**
-  String get commonSearch;
 
   /// No description provided for @commonNoData.
   ///
@@ -283,12 +211,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'System'**
   String get commonSystem;
-
-  /// No description provided for @commonUndo.
-  ///
-  /// In en, this message translates to:
-  /// **'Undo'**
-  String get commonUndo;
 
   /// No description provided for @authConnectionError.
   ///
@@ -608,24 +530,6 @@ abstract class AppLocalizations {
   /// **'Categories'**
   String get dashCategoriesLabel;
 
-  /// No description provided for @dashBudgetSaturation.
-  ///
-  /// In en, this message translates to:
-  /// **'Budget Saturation'**
-  String get dashBudgetSaturation;
-
-  /// No description provided for @dashError.
-  ///
-  /// In en, this message translates to:
-  /// **'Error: {error}'**
-  String dashError(String error);
-
-  /// No description provided for @dashNoBudgets.
-  ///
-  /// In en, this message translates to:
-  /// **'No budgets set yet. Go to the Budgets tab to set your limits!'**
-  String get dashNoBudgets;
-
   /// No description provided for @dashTotalBalance.
   ///
   /// In en, this message translates to:
@@ -709,18 +613,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Next {date}'**
   String dashNextDue(String date);
-
-  /// No description provided for @dashThisMonthLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'This month'**
-  String get dashThisMonthLabel;
-
-  /// No description provided for @dashExpenses.
-  ///
-  /// In en, this message translates to:
-  /// **'Expenses'**
-  String get dashExpenses;
 
   /// No description provided for @dashRecentLabel.
   ///

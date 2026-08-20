@@ -60,13 +60,6 @@ class AppTheme {
   @Deprecated('Use Theme.of(context).colorScheme.onSurfaceVariant')
   static const Color textGrey = Color(0xFF8E8E93);
 
-  /// Legacy dark theme — preserved for any non-consumer entrypoints.
-  static final ThemeData darkTheme = buildTheme(
-    palette: AppPalette.mint,
-    brightness: Brightness.dark,
-    amoled: true,
-  );
-
   static ColorScheme _buildScheme(
     AppPalette palette,
     Brightness brightness,

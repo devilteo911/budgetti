@@ -1,37 +1,24 @@
 {
   "@@locale": "en",
-  "appName": "Budgetti",
   "commonCancel": "Cancel",
   "commonSave": "Save",
   "commonDelete": "Delete",
-  "commonEdit": "Edit",
   "commonAdd": "Add",
   "commonClose": "Close",
-  "commonConfirm": "Confirm",
   "commonOk": "OK",
   "commonRetry": "Retry",
   "commonError": "Error",
-  "commonLoading": "Loading…",
-  "commonDone": "Done",
-  "commonBack": "Back",
-  "commonToday": "Today",
   "commonNone": "None",
   "commonAll": "All",
-  "commonYes": "Yes",
-  "commonNo": "No",
   "commonIncome": "Income",
   "commonExpense": "Expense",
   "commonTransfer": "Transfer",
-  "commonAmount": "Amount",
   "commonDate": "Date",
   "commonCategory": "Category",
   "commonWallet": "Wallet",
-  "commonDescription": "Description",
   "commonTags": "Tags",
-  "commonSearch": "Search",
   "commonNoData": "No data",
   "commonSystem": "System",
-  "commonUndo": "Undo",
   "authConnectionError": "Connection Error",
   "authProfileMissing": "Profile missing (Error)",
   "authDetailedError": "Detailed error: {error}",
@@ -85,9 +72,6 @@
   "dashSetUpBudgetsSubtitle": "Track category spending each month",
   "dashMonthlyBudgetLabel": "Monthly budget",
   "dashCategoriesLabel": "Categories",
-  "dashBudgetSaturation": "Budget Saturation",
-  "dashError": "Error: {error}",
-  "dashNoBudgets": "No budgets set yet. Go to the Budgets tab to set your limits!",
   "dashTotalBalance": "Total Balance",
   "dashTrend30d": "30d",
   "dashWalletsLabel": "Wallets",
@@ -102,8 +86,6 @@
   "dashPlansLabel": "Plans",
   "dashMorePlans": "+{count} more",
   "dashNextDue": "Next {date}",
-  "dashThisMonthLabel": "This month",
-  "dashExpenses": "Expenses",
   "dashRecentLabel": "Recent",
   "dashLastCount": "Last {count}",
   "dashAllLabel": "All",
@@ -561,13 +543,6 @@
     }
   },
   "@authAvatarSaveError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "@dashError": {
     "placeholders": {
       "error": {
         "type": "String"

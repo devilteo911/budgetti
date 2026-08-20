@@ -9,9 +9,6 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'Budgetti';
-
-  @override
   String get commonCancel => 'Cancel';
 
   @override
@@ -21,16 +18,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonDelete => 'Delete';
 
   @override
-  String get commonEdit => 'Edit';
-
-  @override
   String get commonAdd => 'Add';
 
   @override
   String get commonClose => 'Close';
-
-  @override
-  String get commonConfirm => 'Confirm';
 
   @override
   String get commonOk => 'OK';
@@ -42,28 +33,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonError => 'Error';
 
   @override
-  String get commonLoading => 'Loading…';
-
-  @override
-  String get commonDone => 'Done';
-
-  @override
-  String get commonBack => 'Back';
-
-  @override
-  String get commonToday => 'Today';
-
-  @override
   String get commonNone => 'None';
 
   @override
   String get commonAll => 'All';
-
-  @override
-  String get commonYes => 'Yes';
-
-  @override
-  String get commonNo => 'No';
 
   @override
   String get commonIncome => 'Income';
@@ -75,9 +48,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonTransfer => 'Transfer';
 
   @override
-  String get commonAmount => 'Amount';
-
-  @override
   String get commonDate => 'Date';
 
   @override
@@ -87,22 +57,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonWallet => 'Wallet';
 
   @override
-  String get commonDescription => 'Description';
-
-  @override
   String get commonTags => 'Tags';
-
-  @override
-  String get commonSearch => 'Search';
 
   @override
   String get commonNoData => 'No data';
 
   @override
   String get commonSystem => 'System';
-
-  @override
-  String get commonUndo => 'Undo';
 
   @override
   String get authConnectionError => 'Connection Error';
@@ -283,18 +244,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashCategoriesLabel => 'Categories';
 
   @override
-  String get dashBudgetSaturation => 'Budget Saturation';
-
-  @override
-  String dashError(String error) {
-    return 'Error: $error';
-  }
-
-  @override
-  String get dashNoBudgets =>
-      'No budgets set yet. Go to the Budgets tab to set your limits!';
-
-  @override
   String get dashTotalBalance => 'Total Balance';
 
   @override
@@ -343,12 +292,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String dashNextDue(String date) {
     return 'Next $date';
   }
-
-  @override
-  String get dashThisMonthLabel => 'This month';
-
-  @override
-  String get dashExpenses => 'Expenses';
 
   @override
   String get dashRecentLabel => 'Recent';
