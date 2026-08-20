@@ -4,11 +4,11 @@ Status of the remediation effort that came out of the 2026-08-20 deep-dive
 analysis (five subsystem passes, every finding code-verified). The batch
 numbering here supersedes any earlier ad-hoc numbering.
 
-**Snapshot at last update** (2026-08-20): schema v16 · 126/126 tests ·
-`flutter analyze` 0 errors, 143 pre-existing info-level deprecations ·
-branch `fix/app-deep-dive-batch-3`, 13 commits, not yet merged/pushed to
-`main` via `feat/pocketbase-sync`. Server side on `budgetti-server`
-branch `feat/lww-guard-batch`, 1 commit.
+**Snapshot at last update** (2026-08-20): schema v16 · 142/142 tests ·
+`flutter analyze` 0 errors, 34 info-level lints (avoid_print + naming) ·
+branch `fix/app-deep-dive-batch-5`, 7 commits on top of batch 3, not yet
+merged/pushed to `main` via `feat/pocketbase-sync`. Server side on
+`budgetti-server` branch `feat/lww-guard-batch`, 1 commit.
 
 **Deploy order for batch 3.** The server changes must be live *before* the
 matching app build: the new pull filter queries `updated`, a field migration
@@ -100,7 +100,63 @@ aren't loaded at migration time, so batch is enabled from `onBootstrap`.
 
 ---
 
-## Batch 4 — capture pipeline hardening (next)
+### Batch 5 — UI / hygiene
+All eight items landed.
+
+- `878efdf` — dead code: `auth_check_screen.dart`,
+  `expense_distribution_chart.dart`, `AppTheme.darkTheme`, 18 l10n keys with
+  no call site, and the `webview_flutter` / `cached_network_image` deps.
+- `295f251` — the six `@Deprecated` `AppTheme` colour constants are gone.
+  They were `const`, so every widget holding one was pinned to the old
+  pure-black palette whatever theme the user picked — the category picker
+  and the editor modal were near-unreadable in light mode and the date
+  picker forced `ColorScheme.dark` outright. 62 call sites across 10 files
+  moved to `Theme.of(context).colorScheme`; hardcoded `Colors.white/black/red`
+  ink went with them; text on a user-chosen category swatch uses a
+  luminance-picked `_inkOn()`. All 40 `withOpacity` → `withValues(alpha:)`.
+  Analyzer: 143 issues → 32.
+- `faea112` — `errorText()`: fifteen snackbars interpolated `'$e'` into a
+  localized string, and PocketBase's `ClientException` prints the request URL
+  and the whole response body. Classifies into network / server / bug, logs
+  the real object. `classifyError` is pure and tested (PB reports an
+  unreachable host as `ClientException(statusCode: 0)`).
+- `21caf55` — one `showAppSheet()` for all 22 bottom sheets. Each re-set the
+  background and a top radius at three different radii, none of them the 32
+  `bottomSheetTheme` declares; six omitted `useRootNavigator`, letting the
+  shell's nav bar paint over the sheet.
+- `a1a6bf8` — the three god-builds: `category_editor_modal` 392→78,
+  `transaction_page` 299→37 (one `_pickChip(dense:)` for the category and tag
+  chips, one `_save()` for the four update/notify/invalidate repeats),
+  `stats_screen` 180→28.
+- `0d0ba61` — `DiscardGuard` on the six form sheets: a swipe, a barrier tap
+  or the back gesture dropped a half-typed form silently. Dirtiness is a
+  string snapshot taken at open, so a clean form still closes first try; the
+  transaction sheet snapshots only typed fields, since wallet and category
+  are auto-filled after the first frame. Plus `ListView.builder` in the
+  review inbox, a text-scale-safe filter-chip bar (the fixed 40px box clipped
+  the chips), and the app's first `Semantics` — the icon-only nav pill had no
+  accessible name though `_NavSlot` already carried the label.
+- `d51bb2b` — `finance_math.dart`: `dashboardStats`, `monthlyNetFlow`,
+  `categorySpendForMonth`, `statsForPeriod`, `chartSeries` and the month-key
+  helpers lifted out of provider bodies, each taking `now` as a parameter —
+  the reason none of them were testable before. `providers.dart` re-exports
+  the module so no screen import changed (1129 → ~900 lines).
+  `category_details_screen`'s private `_last12Months`/`_aggregateByMonth`
+  were the same functions again, deleted. 13 new tests.
+  `filteredTotals` needed no extraction — batch 3 had already moved it into
+  SQL.
+
+**Mirror divergence found, not fixed** (`web/src/finance.ts`). The app
+classifies income/expense by *sign* with transfers excluded
+(`Transaction.isIncome`/`isExpense`, batch 1); the web's `monthlyFlow` and
+`spendByCategory` still branch on `t.type` alone. A row whose stored `type`
+disagrees with its amount sign — the case the app's rule exists for — is
+counted differently by the two clients. Fixing it is a web change with its
+own test expectations, so it is left for a web-side pass.
+
+---
+
+## Batch 4 — capture pipeline hardening (skipped for now, next up)
 
 1. Kotlin key-dedup keeps the *first* version of a notification: if Revolut
    updates hold→settled under the same key, only the hold is buffered.
@@ -119,31 +175,6 @@ aren't loaded at migration time, so batch is enabled from `onBootstrap`.
    sync (3-way, hash ledger, deletions both ways) wired into dashboard-open
    and every add/approve — with zero tests. Either test the deletion matrix
    or gate sheet-side deletions behind a confirmation.
-
-## Batch 5 — UI / hygiene
-
-1. Dead code: `auth_check_screen.dart`, `expense_distribution_chart.dart`,
-   `AppTheme.darkTheme`, 18 unused l10n keys, 2 unused pubspec deps
-   (`cached_network_image`, `webview_flutter`).
-2. Deprecated `AppColors` accessor migration (~70 uses) and
-   `withOpacity`→`withValues` (40) — clears 78% of analyzer noise; then
-   delete the legacy accessors.
-3. Light mode is user-selectable but 6 reachable surfaces still hardcode the
-   legacy dark palette (category picker sheet is near-unreadable in light).
-4. Raw `e.toString()` shown to users in ~10 places → localized generic
-   message + logged detail.
-5. One `showAppSheet` helper for 22 modal sites (three different radii,
-   none via the theme's `bottomSheetTheme`).
-6. Decompose god-builds: `category_editor_modal` ~395-line `build()`,
-   `transaction_page` ~289, `stats_screen` ~180.
-7. `PopScope` edit-loss guards on the modals; `ListView.builder` in the
-   review inbox; text-scale handling on the filter-chip bar; `Semantics` on
-   the icon-only nav pill (the app has zero `Semantics(` uses).
-8. `finance_math.dart` extraction: lift the ~300 lines of derivation out of
-   providers into pure functions (`classifyTx` exists already as the model
-   getters; next: `dashboardStats`, `monthlyNetFlow`, `categorySpendForMonth`,
-   `statsForPeriod`, `filteredTotals`, `groupByMonth`) — unit-tested like
-   `installment.dart`, mirror-checked against `web/src/finance.ts`.
 
 ## Batch 6 — data at rest (app side of the stack review)
 
