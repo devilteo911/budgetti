@@ -184,6 +184,41 @@ class PendingTransactions extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Cross-isolate mutex for PocketBase sync (one row, id `pb_sync`).
+/// `PocketBaseSyncService._isSyncing` is instance-local, but the workmanager
+/// task builds its own service instance — a background and a foreground sync
+/// can then interleave, with the stale body clobbering newer server rows and
+/// the slower run overwriting the fresh cursor. The claim is a guarded
+/// `UPDATE … WHERE running = 0 OR acquired_at < now − 15 min`, so a crashed
+/// holder is taken over rather than deadlocking syncs until reinstall.
+class SyncLocks extends Table {
+  TextColumn get id => text()();
+  BoolColumn get running => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get acquiredAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Per-row push failure ledger feeding dead-lettering (roadmap batch 3,
+/// item 5): after [PocketBaseSyncService._maxPushAttempts] attempts a row the
+/// server will never accept is set aside so the cursor can pass it, instead of
+/// re-pushing everything newer than it on every sync, forever. Keyed by
+/// (collection, record id); the lastUpdated it failed at rides along, so an
+/// edit that restamps the row clears its slate (the counter resets on
+/// mismatch) — a dead-letter is about the row *version*, not the row.
+class SyncFailures extends Table {
+  TextColumn get collection => text()();
+  TextColumn get recordId => text()();
+  IntColumn get lastUpdatedMs => integer().withDefault(const Constant(0))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().withDefault(const Constant(''))();
+  DateTimeColumn get lastAttemptAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {collection, recordId};
+}
+
 @DriftDatabase(
   tables: [
     Categories,
@@ -193,6 +228,8 @@ class PendingTransactions extends Table {
     Budgets,
     Installments,
     PendingTransactions,
+    SyncLocks,
+    SyncFailures,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -203,7 +240,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 15; // v15: indexes actually get created (see below)
+  int get schemaVersion => 16; // v16: sync lock + push-failure ledger
 
   /// Every index the schema declares, as full CREATE statements. Drift's
   /// codegen only picks up `@TableIndex` annotations — the plain
@@ -350,6 +387,10 @@ class AppDatabase extends _$AppDatabase {
         for (final (name, stmt) in _indexes) {
           await m.createIndex(Index(name, stmt));
         }
+      }
+      if (from < 16) {
+        await m.createTable(syncLocks);
+        await m.createTable(syncFailures);
       }
     },
   );

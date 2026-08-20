@@ -4491,6 +4491,701 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
   }
 }
 
+class $SyncLocksTable extends SyncLocks
+    with TableInfo<$SyncLocksTable, SyncLock> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncLocksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _runningMeta = const VerificationMeta(
+    'running',
+  );
+  @override
+  late final GeneratedColumn<bool> running = GeneratedColumn<bool>(
+    'running',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("running" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _acquiredAtMeta = const VerificationMeta(
+    'acquiredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> acquiredAt = GeneratedColumn<DateTime>(
+    'acquired_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, running, acquiredAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_locks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncLock> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('running')) {
+      context.handle(
+        _runningMeta,
+        running.isAcceptableOrUnknown(data['running']!, _runningMeta),
+      );
+    }
+    if (data.containsKey('acquired_at')) {
+      context.handle(
+        _acquiredAtMeta,
+        acquiredAt.isAcceptableOrUnknown(data['acquired_at']!, _acquiredAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncLock map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncLock(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      running: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}running'],
+      )!,
+      acquiredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}acquired_at'],
+      ),
+    );
+  }
+
+  @override
+  $SyncLocksTable createAlias(String alias) {
+    return $SyncLocksTable(attachedDatabase, alias);
+  }
+}
+
+class SyncLock extends DataClass implements Insertable<SyncLock> {
+  final String id;
+  final bool running;
+  final DateTime? acquiredAt;
+  const SyncLock({required this.id, required this.running, this.acquiredAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['running'] = Variable<bool>(running);
+    if (!nullToAbsent || acquiredAt != null) {
+      map['acquired_at'] = Variable<DateTime>(acquiredAt);
+    }
+    return map;
+  }
+
+  SyncLocksCompanion toCompanion(bool nullToAbsent) {
+    return SyncLocksCompanion(
+      id: Value(id),
+      running: Value(running),
+      acquiredAt: acquiredAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(acquiredAt),
+    );
+  }
+
+  factory SyncLock.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncLock(
+      id: serializer.fromJson<String>(json['id']),
+      running: serializer.fromJson<bool>(json['running']),
+      acquiredAt: serializer.fromJson<DateTime?>(json['acquiredAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'running': serializer.toJson<bool>(running),
+      'acquiredAt': serializer.toJson<DateTime?>(acquiredAt),
+    };
+  }
+
+  SyncLock copyWith({
+    String? id,
+    bool? running,
+    Value<DateTime?> acquiredAt = const Value.absent(),
+  }) => SyncLock(
+    id: id ?? this.id,
+    running: running ?? this.running,
+    acquiredAt: acquiredAt.present ? acquiredAt.value : this.acquiredAt,
+  );
+  SyncLock copyWithCompanion(SyncLocksCompanion data) {
+    return SyncLock(
+      id: data.id.present ? data.id.value : this.id,
+      running: data.running.present ? data.running.value : this.running,
+      acquiredAt: data.acquiredAt.present
+          ? data.acquiredAt.value
+          : this.acquiredAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncLock(')
+          ..write('id: $id, ')
+          ..write('running: $running, ')
+          ..write('acquiredAt: $acquiredAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, running, acquiredAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncLock &&
+          other.id == this.id &&
+          other.running == this.running &&
+          other.acquiredAt == this.acquiredAt);
+}
+
+class SyncLocksCompanion extends UpdateCompanion<SyncLock> {
+  final Value<String> id;
+  final Value<bool> running;
+  final Value<DateTime?> acquiredAt;
+  final Value<int> rowid;
+  const SyncLocksCompanion({
+    this.id = const Value.absent(),
+    this.running = const Value.absent(),
+    this.acquiredAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncLocksCompanion.insert({
+    required String id,
+    this.running = const Value.absent(),
+    this.acquiredAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<SyncLock> custom({
+    Expression<String>? id,
+    Expression<bool>? running,
+    Expression<DateTime>? acquiredAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (running != null) 'running': running,
+      if (acquiredAt != null) 'acquired_at': acquiredAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncLocksCompanion copyWith({
+    Value<String>? id,
+    Value<bool>? running,
+    Value<DateTime?>? acquiredAt,
+    Value<int>? rowid,
+  }) {
+    return SyncLocksCompanion(
+      id: id ?? this.id,
+      running: running ?? this.running,
+      acquiredAt: acquiredAt ?? this.acquiredAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (running.present) {
+      map['running'] = Variable<bool>(running.value);
+    }
+    if (acquiredAt.present) {
+      map['acquired_at'] = Variable<DateTime>(acquiredAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncLocksCompanion(')
+          ..write('id: $id, ')
+          ..write('running: $running, ')
+          ..write('acquiredAt: $acquiredAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncFailuresTable extends SyncFailures
+    with TableInfo<$SyncFailuresTable, SyncFailure> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncFailuresTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _collectionMeta = const VerificationMeta(
+    'collection',
+  );
+  @override
+  late final GeneratedColumn<String> collection = GeneratedColumn<String>(
+    'collection',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recordIdMeta = const VerificationMeta(
+    'recordId',
+  );
+  @override
+  late final GeneratedColumn<String> recordId = GeneratedColumn<String>(
+    'record_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastUpdatedMsMeta = const VerificationMeta(
+    'lastUpdatedMs',
+  );
+  @override
+  late final GeneratedColumn<int> lastUpdatedMs = GeneratedColumn<int>(
+    'last_updated_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _lastAttemptAtMeta = const VerificationMeta(
+    'lastAttemptAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastAttemptAt =
+      GeneratedColumn<DateTime>(
+        'last_attempt_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    collection,
+    recordId,
+    lastUpdatedMs,
+    attempts,
+    lastError,
+    lastAttemptAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_failures';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncFailure> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('collection')) {
+      context.handle(
+        _collectionMeta,
+        collection.isAcceptableOrUnknown(data['collection']!, _collectionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_collectionMeta);
+    }
+    if (data.containsKey('record_id')) {
+      context.handle(
+        _recordIdMeta,
+        recordId.isAcceptableOrUnknown(data['record_id']!, _recordIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordIdMeta);
+    }
+    if (data.containsKey('last_updated_ms')) {
+      context.handle(
+        _lastUpdatedMsMeta,
+        lastUpdatedMs.isAcceptableOrUnknown(
+          data['last_updated_ms']!,
+          _lastUpdatedMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('last_attempt_at')) {
+      context.handle(
+        _lastAttemptAtMeta,
+        lastAttemptAt.isAcceptableOrUnknown(
+          data['last_attempt_at']!,
+          _lastAttemptAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {collection, recordId};
+  @override
+  SyncFailure map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncFailure(
+      collection: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}collection'],
+      )!,
+      recordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}record_id'],
+      )!,
+      lastUpdatedMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_updated_ms'],
+      )!,
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      )!,
+      lastAttemptAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_attempt_at'],
+      ),
+    );
+  }
+
+  @override
+  $SyncFailuresTable createAlias(String alias) {
+    return $SyncFailuresTable(attachedDatabase, alias);
+  }
+}
+
+class SyncFailure extends DataClass implements Insertable<SyncFailure> {
+  final String collection;
+  final String recordId;
+  final int lastUpdatedMs;
+  final int attempts;
+  final String lastError;
+  final DateTime? lastAttemptAt;
+  const SyncFailure({
+    required this.collection,
+    required this.recordId,
+    required this.lastUpdatedMs,
+    required this.attempts,
+    required this.lastError,
+    this.lastAttemptAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['collection'] = Variable<String>(collection);
+    map['record_id'] = Variable<String>(recordId);
+    map['last_updated_ms'] = Variable<int>(lastUpdatedMs);
+    map['attempts'] = Variable<int>(attempts);
+    map['last_error'] = Variable<String>(lastError);
+    if (!nullToAbsent || lastAttemptAt != null) {
+      map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt);
+    }
+    return map;
+  }
+
+  SyncFailuresCompanion toCompanion(bool nullToAbsent) {
+    return SyncFailuresCompanion(
+      collection: Value(collection),
+      recordId: Value(recordId),
+      lastUpdatedMs: Value(lastUpdatedMs),
+      attempts: Value(attempts),
+      lastError: Value(lastError),
+      lastAttemptAt: lastAttemptAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastAttemptAt),
+    );
+  }
+
+  factory SyncFailure.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncFailure(
+      collection: serializer.fromJson<String>(json['collection']),
+      recordId: serializer.fromJson<String>(json['recordId']),
+      lastUpdatedMs: serializer.fromJson<int>(json['lastUpdatedMs']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastError: serializer.fromJson<String>(json['lastError']),
+      lastAttemptAt: serializer.fromJson<DateTime?>(json['lastAttemptAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'collection': serializer.toJson<String>(collection),
+      'recordId': serializer.toJson<String>(recordId),
+      'lastUpdatedMs': serializer.toJson<int>(lastUpdatedMs),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastError': serializer.toJson<String>(lastError),
+      'lastAttemptAt': serializer.toJson<DateTime?>(lastAttemptAt),
+    };
+  }
+
+  SyncFailure copyWith({
+    String? collection,
+    String? recordId,
+    int? lastUpdatedMs,
+    int? attempts,
+    String? lastError,
+    Value<DateTime?> lastAttemptAt = const Value.absent(),
+  }) => SyncFailure(
+    collection: collection ?? this.collection,
+    recordId: recordId ?? this.recordId,
+    lastUpdatedMs: lastUpdatedMs ?? this.lastUpdatedMs,
+    attempts: attempts ?? this.attempts,
+    lastError: lastError ?? this.lastError,
+    lastAttemptAt: lastAttemptAt.present
+        ? lastAttemptAt.value
+        : this.lastAttemptAt,
+  );
+  SyncFailure copyWithCompanion(SyncFailuresCompanion data) {
+    return SyncFailure(
+      collection: data.collection.present
+          ? data.collection.value
+          : this.collection,
+      recordId: data.recordId.present ? data.recordId.value : this.recordId,
+      lastUpdatedMs: data.lastUpdatedMs.present
+          ? data.lastUpdatedMs.value
+          : this.lastUpdatedMs,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      lastAttemptAt: data.lastAttemptAt.present
+          ? data.lastAttemptAt.value
+          : this.lastAttemptAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncFailure(')
+          ..write('collection: $collection, ')
+          ..write('recordId: $recordId, ')
+          ..write('lastUpdatedMs: $lastUpdatedMs, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('lastAttemptAt: $lastAttemptAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    collection,
+    recordId,
+    lastUpdatedMs,
+    attempts,
+    lastError,
+    lastAttemptAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncFailure &&
+          other.collection == this.collection &&
+          other.recordId == this.recordId &&
+          other.lastUpdatedMs == this.lastUpdatedMs &&
+          other.attempts == this.attempts &&
+          other.lastError == this.lastError &&
+          other.lastAttemptAt == this.lastAttemptAt);
+}
+
+class SyncFailuresCompanion extends UpdateCompanion<SyncFailure> {
+  final Value<String> collection;
+  final Value<String> recordId;
+  final Value<int> lastUpdatedMs;
+  final Value<int> attempts;
+  final Value<String> lastError;
+  final Value<DateTime?> lastAttemptAt;
+  final Value<int> rowid;
+  const SyncFailuresCompanion({
+    this.collection = const Value.absent(),
+    this.recordId = const Value.absent(),
+    this.lastUpdatedMs = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncFailuresCompanion.insert({
+    required String collection,
+    required String recordId,
+    this.lastUpdatedMs = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.lastAttemptAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : collection = Value(collection),
+       recordId = Value(recordId);
+  static Insertable<SyncFailure> custom({
+    Expression<String>? collection,
+    Expression<String>? recordId,
+    Expression<int>? lastUpdatedMs,
+    Expression<int>? attempts,
+    Expression<String>? lastError,
+    Expression<DateTime>? lastAttemptAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (collection != null) 'collection': collection,
+      if (recordId != null) 'record_id': recordId,
+      if (lastUpdatedMs != null) 'last_updated_ms': lastUpdatedMs,
+      if (attempts != null) 'attempts': attempts,
+      if (lastError != null) 'last_error': lastError,
+      if (lastAttemptAt != null) 'last_attempt_at': lastAttemptAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncFailuresCompanion copyWith({
+    Value<String>? collection,
+    Value<String>? recordId,
+    Value<int>? lastUpdatedMs,
+    Value<int>? attempts,
+    Value<String>? lastError,
+    Value<DateTime?>? lastAttemptAt,
+    Value<int>? rowid,
+  }) {
+    return SyncFailuresCompanion(
+      collection: collection ?? this.collection,
+      recordId: recordId ?? this.recordId,
+      lastUpdatedMs: lastUpdatedMs ?? this.lastUpdatedMs,
+      attempts: attempts ?? this.attempts,
+      lastError: lastError ?? this.lastError,
+      lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (collection.present) {
+      map['collection'] = Variable<String>(collection.value);
+    }
+    if (recordId.present) {
+      map['record_id'] = Variable<String>(recordId.value);
+    }
+    if (lastUpdatedMs.present) {
+      map['last_updated_ms'] = Variable<int>(lastUpdatedMs.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (lastAttemptAt.present) {
+      map['last_attempt_at'] = Variable<DateTime>(lastAttemptAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncFailuresCompanion(')
+          ..write('collection: $collection, ')
+          ..write('recordId: $recordId, ')
+          ..write('lastUpdatedMs: $lastUpdatedMs, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4502,6 +5197,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $InstallmentsTable installments = $InstallmentsTable(this);
   late final $PendingTransactionsTable pendingTransactions =
       $PendingTransactionsTable(this);
+  late final $SyncLocksTable syncLocks = $SyncLocksTable(this);
+  late final $SyncFailuresTable syncFailures = $SyncFailuresTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4514,6 +5211,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     budgets,
     installments,
     pendingTransactions,
+    syncLocks,
+    syncFailures,
   ];
 }
 
@@ -6667,6 +7366,389 @@ typedef $$PendingTransactionsTableProcessedTableManager =
       PendingTransaction,
       PrefetchHooks Function()
     >;
+typedef $$SyncLocksTableCreateCompanionBuilder =
+    SyncLocksCompanion Function({
+      required String id,
+      Value<bool> running,
+      Value<DateTime?> acquiredAt,
+      Value<int> rowid,
+    });
+typedef $$SyncLocksTableUpdateCompanionBuilder =
+    SyncLocksCompanion Function({
+      Value<String> id,
+      Value<bool> running,
+      Value<DateTime?> acquiredAt,
+      Value<int> rowid,
+    });
+
+class $$SyncLocksTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncLocksTable> {
+  $$SyncLocksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get running => $composableBuilder(
+    column: $table.running,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get acquiredAt => $composableBuilder(
+    column: $table.acquiredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncLocksTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncLocksTable> {
+  $$SyncLocksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get running => $composableBuilder(
+    column: $table.running,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get acquiredAt => $composableBuilder(
+    column: $table.acquiredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncLocksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncLocksTable> {
+  $$SyncLocksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get running =>
+      $composableBuilder(column: $table.running, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get acquiredAt => $composableBuilder(
+    column: $table.acquiredAt,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncLocksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncLocksTable,
+          SyncLock,
+          $$SyncLocksTableFilterComposer,
+          $$SyncLocksTableOrderingComposer,
+          $$SyncLocksTableAnnotationComposer,
+          $$SyncLocksTableCreateCompanionBuilder,
+          $$SyncLocksTableUpdateCompanionBuilder,
+          (SyncLock, BaseReferences<_$AppDatabase, $SyncLocksTable, SyncLock>),
+          SyncLock,
+          PrefetchHooks Function()
+        > {
+  $$SyncLocksTableTableManager(_$AppDatabase db, $SyncLocksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncLocksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncLocksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncLocksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<bool> running = const Value.absent(),
+                Value<DateTime?> acquiredAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncLocksCompanion(
+                id: id,
+                running: running,
+                acquiredAt: acquiredAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<bool> running = const Value.absent(),
+                Value<DateTime?> acquiredAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncLocksCompanion.insert(
+                id: id,
+                running: running,
+                acquiredAt: acquiredAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncLocksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncLocksTable,
+      SyncLock,
+      $$SyncLocksTableFilterComposer,
+      $$SyncLocksTableOrderingComposer,
+      $$SyncLocksTableAnnotationComposer,
+      $$SyncLocksTableCreateCompanionBuilder,
+      $$SyncLocksTableUpdateCompanionBuilder,
+      (SyncLock, BaseReferences<_$AppDatabase, $SyncLocksTable, SyncLock>),
+      SyncLock,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncFailuresTableCreateCompanionBuilder =
+    SyncFailuresCompanion Function({
+      required String collection,
+      required String recordId,
+      Value<int> lastUpdatedMs,
+      Value<int> attempts,
+      Value<String> lastError,
+      Value<DateTime?> lastAttemptAt,
+      Value<int> rowid,
+    });
+typedef $$SyncFailuresTableUpdateCompanionBuilder =
+    SyncFailuresCompanion Function({
+      Value<String> collection,
+      Value<String> recordId,
+      Value<int> lastUpdatedMs,
+      Value<int> attempts,
+      Value<String> lastError,
+      Value<DateTime?> lastAttemptAt,
+      Value<int> rowid,
+    });
+
+class $$SyncFailuresTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncFailuresTable> {
+  $$SyncFailuresTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get collection => $composableBuilder(
+    column: $table.collection,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recordId => $composableBuilder(
+    column: $table.recordId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastUpdatedMs => $composableBuilder(
+    column: $table.lastUpdatedMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncFailuresTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncFailuresTable> {
+  $$SyncFailuresTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get collection => $composableBuilder(
+    column: $table.collection,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recordId => $composableBuilder(
+    column: $table.recordId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastUpdatedMs => $composableBuilder(
+    column: $table.lastUpdatedMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncFailuresTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncFailuresTable> {
+  $$SyncFailuresTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get collection => $composableBuilder(
+    column: $table.collection,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recordId =>
+      $composableBuilder(column: $table.recordId, builder: (column) => column);
+
+  GeneratedColumn<int> get lastUpdatedMs => $composableBuilder(
+    column: $table.lastUpdatedMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastAttemptAt => $composableBuilder(
+    column: $table.lastAttemptAt,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncFailuresTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncFailuresTable,
+          SyncFailure,
+          $$SyncFailuresTableFilterComposer,
+          $$SyncFailuresTableOrderingComposer,
+          $$SyncFailuresTableAnnotationComposer,
+          $$SyncFailuresTableCreateCompanionBuilder,
+          $$SyncFailuresTableUpdateCompanionBuilder,
+          (
+            SyncFailure,
+            BaseReferences<_$AppDatabase, $SyncFailuresTable, SyncFailure>,
+          ),
+          SyncFailure,
+          PrefetchHooks Function()
+        > {
+  $$SyncFailuresTableTableManager(_$AppDatabase db, $SyncFailuresTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncFailuresTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncFailuresTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncFailuresTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> collection = const Value.absent(),
+                Value<String> recordId = const Value.absent(),
+                Value<int> lastUpdatedMs = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String> lastError = const Value.absent(),
+                Value<DateTime?> lastAttemptAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncFailuresCompanion(
+                collection: collection,
+                recordId: recordId,
+                lastUpdatedMs: lastUpdatedMs,
+                attempts: attempts,
+                lastError: lastError,
+                lastAttemptAt: lastAttemptAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String collection,
+                required String recordId,
+                Value<int> lastUpdatedMs = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String> lastError = const Value.absent(),
+                Value<DateTime?> lastAttemptAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncFailuresCompanion.insert(
+                collection: collection,
+                recordId: recordId,
+                lastUpdatedMs: lastUpdatedMs,
+                attempts: attempts,
+                lastError: lastError,
+                lastAttemptAt: lastAttemptAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncFailuresTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncFailuresTable,
+      SyncFailure,
+      $$SyncFailuresTableFilterComposer,
+      $$SyncFailuresTableOrderingComposer,
+      $$SyncFailuresTableAnnotationComposer,
+      $$SyncFailuresTableCreateCompanionBuilder,
+      $$SyncFailuresTableUpdateCompanionBuilder,
+      (
+        SyncFailure,
+        BaseReferences<_$AppDatabase, $SyncFailuresTable, SyncFailure>,
+      ),
+      SyncFailure,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6684,4 +7766,8 @@ class $AppDatabaseManager {
       $$InstallmentsTableTableManager(_db, _db.installments);
   $$PendingTransactionsTableTableManager get pendingTransactions =>
       $$PendingTransactionsTableTableManager(_db, _db.pendingTransactions);
+  $$SyncLocksTableTableManager get syncLocks =>
+      $$SyncLocksTableTableManager(_db, _db.syncLocks);
+  $$SyncFailuresTableTableManager get syncFailures =>
+      $$SyncFailuresTableTableManager(_db, _db.syncFailures);
 }
