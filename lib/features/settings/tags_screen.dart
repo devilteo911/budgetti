@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
+import 'package:budgetti/core/widgets/discard_guard.dart';
 
 class TagsScreen extends ConsumerWidget {
   const TagsScreen({super.key});
@@ -222,6 +223,9 @@ class _TagEditorModalState extends State<_TagEditorModal> {
   final _nameController = TextEditingController();
   int _selectedColor = 0xFF4CAF50;
 
+  String get _snapshot => '${_nameController.text}|$_selectedColor';
+  late final String _openedWith;
+
   static const _colors = [
     0xFFF44336, 0xFFE91E63, 0xFF9C27B0, 0xFF673AB7, 0xFF3F51B5,
     0xFF2196F3, 0xFF03A9F4, 0xFF00BCD4, 0xFF009688, 0xFF4CAF50,
@@ -236,12 +240,15 @@ class _TagEditorModalState extends State<_TagEditorModal> {
       _nameController.text = widget.tag!.name;
       _selectedColor = widget.tag!.colorHex;
     }
+    _openedWith = _snapshot;
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Consumer(
+    return DiscardGuard(
+      isDirty: () => _snapshot != _openedWith,
+      child: Consumer(
       builder: (context, ref, _) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -342,6 +349,7 @@ class _TagEditorModalState extends State<_TagEditorModal> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
       ),
     );
   }

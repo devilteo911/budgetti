@@ -1709,4 +1709,17 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get errUnexpected => 'Qualcosa è andato storto. Riprova.';
+
+  @override
+  String get commonDiscardTitle => 'Scartare le modifiche?';
+
+  @override
+  String get commonDiscardBody =>
+      'Quello che hai scritto qui non è stato salvato.';
+
+  @override
+  String get commonDiscard => 'Scarta';
+
+  @override
+  String get commonKeepEditing => 'Continua a modificare';
 }

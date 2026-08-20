@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:budgetti/core/widgets/discard_guard.dart';
 
 class SetBudgetModal extends ConsumerStatefulWidget {
   final String categoryName;
@@ -26,6 +27,9 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
   late TextEditingController _amountController;
   bool _isLoading = false;
 
+  /// The form is one field, so the snapshot is that field.
+  late final String _openedWith;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +38,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
           ? widget.currentLimit.toStringAsFixed(2)
           : '',
     );
+    _openedWith = _amountController.text;
   }
 
   @override
@@ -113,14 +118,16 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
     final currencySymbol = currencyFormatter.currencySymbol;
     final hasExisting = widget.currentLimit > 0;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 20,
-        right: 20,
-        top: 8,
-      ),
-      child: Form(
+    return DiscardGuard(
+      isDirty: () => _amountController.text != _openedWith,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 8,
+        ),
+        child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -303,6 +310,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
       ),
     );
   }

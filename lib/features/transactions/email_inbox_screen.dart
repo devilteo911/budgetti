@@ -26,25 +26,30 @@ class EmailInboxScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(context.l10n.txReviewInbox)),
       body: pendingAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(context.l10n.txError(errorText(context, e)))),
+        error: (e, _) =>
+            Center(child: Text(context.l10n.txError(errorText(context, e)))),
         data: (drafts) {
-          final skipped = ref.watch(skippedEmailsProvider).maybeWhen(
+          final skipped = ref
+              .watch(skippedEmailsProvider)
+              .maybeWhen(
                 data: (s) => s,
                 orElse: () => const <PendingTransaction>[],
               );
           if (drafts.isEmpty && skipped.isEmpty) {
             return _EmptyState(scheme: scheme);
           }
-          return ListView(
+          // A month of unreviewed capture is hundreds of cards; the eager
+          // ListView built every one of them on every rebuild.
+          final skippedHeader = skipped.isEmpty ? 0 : 1;
+          return ListView.separated(
             padding: const EdgeInsets.all(16),
-            children: [
-              for (final d in drafts) ...[
-                _DraftCard(draft: d),
-                const SizedBox(height: 12),
-              ],
-              if (skipped.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+            itemCount: drafts.length + skippedHeader + skipped.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, i) {
+              if (i < drafts.length) return _DraftCard(draft: drafts[i]);
+              if (i == drafts.length && skippedHeader == 1) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
                   child: Text(
                     context.l10n.txUnrecognizedMessages,
                     style: TextStyle(
@@ -53,13 +58,12 @@ class EmailInboxScreen extends ConsumerWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                ),
-                for (final s in skipped) ...[
-                  _SkippedCard(item: s),
-                  const SizedBox(height: 12),
-                ],
-              ],
-            ],
+                );
+              }
+              return _SkippedCard(
+                item: skipped[i - drafts.length - skippedHeader],
+              );
+            },
           );
         },
       ),
@@ -70,10 +74,10 @@ class EmailInboxScreen extends ConsumerWidget {
 /// Human name of a draft's capture source, shown so the user can tell which
 /// wallet a draft will land in before approving it.
 String sourceLabel(String source) => switch (source) {
-      'revolut' => 'Revolut',
-      'widiba' => 'Widiba',
-      _ => source,
-    };
+  'revolut' => 'Revolut',
+  'widiba' => 'Widiba',
+  _ => source,
+};
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.scheme});
@@ -85,11 +89,16 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.mark_email_read_outlined,
-              size: 56, color: scheme.onSurfaceVariant),
+          Icon(
+            Icons.mark_email_read_outlined,
+            size: 56,
+            color: scheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 12),
-          Text(context.l10n.txNoTransactionsToReview,
-              style: TextStyle(color: scheme.onSurfaceVariant)),
+          Text(
+            context.l10n.txNoTransactionsToReview,
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
         ],
       ),
     );
@@ -110,11 +119,11 @@ class _DraftCard extends ConsumerWidget {
       'income' => (Icons.south_west, context.l10n.txCredit),
       // Only Widiba's SEPA transfers land undecided, hence the specific wording.
       'undecided' => (
-          Icons.help_outline,
-          draft.source == 'widiba'
-              ? context.l10n.txSepaUndecided
-              : context.l10n.txMovementUndecided
-        ),
+        Icons.help_outline,
+        draft.source == 'widiba'
+            ? context.l10n.txSepaUndecided
+            : context.l10n.txMovementUndecided,
+      ),
       _ => (Icons.north_east, context.l10n.txPayment),
     };
 
@@ -138,8 +147,10 @@ class _DraftCard extends ConsumerWidget {
                   '$typeLabel · ${sourceLabel(draft.source)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -154,26 +165,32 @@ class _DraftCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(draft.parsedDescription,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            draft.parsedDescription,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 4),
           Row(
             children: [
-              Text(DateFormat('dd MMM yyyy').format(draft.parsedDate),
-                  style: TextStyle(
-                      fontSize: 12, color: scheme.onSurfaceVariant)),
+              Text(
+                DateFormat('dd MMM yyyy').format(draft.parsedDate),
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
               if (draft.suggestedCategory != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(draft.suggestedCategory!,
-                      style:
-                          TextStyle(fontSize: 11, color: scheme.primary)),
+                  child: Text(
+                    draft.suggestedCategory!,
+                    style: TextStyle(fontSize: 11, color: scheme.primary),
+                  ),
                 ),
               ],
             ],
@@ -232,8 +249,9 @@ class _DraftCard extends ConsumerWidget {
     }
     if (sourceId == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(context.l10n.txNoWalletSelected)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.txNoWalletSelected)),
+        );
       }
       return;
     }
@@ -265,8 +283,10 @@ class _DraftCard extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(context.l10n.txWhatKindOfTransfer,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                context.l10n.txWhatKindOfTransfer,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.north_east),
@@ -296,7 +316,10 @@ class _DraftCard extends ConsumerWidget {
   }
 
   Future<String?> _pickAccount(
-      BuildContext context, WidgetRef ref, String title) async {
+    BuildContext context,
+    WidgetRef ref,
+    String title,
+  ) async {
     // WalletPickerSheet pops itself, so capture the choice instead of popping
     // again here (which would dismiss the inbox screen too).
     String? selectedId;
@@ -335,7 +358,11 @@ class _SkippedCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.help_outline, size: 18, color: scheme.onSurfaceVariant),
+              Icon(
+                Icons.help_outline,
+                size: 18,
+                color: scheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -361,8 +388,9 @@ class _SkippedCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () =>
-                      ref.read(pendingTransactionServiceProvider).reject(item.id),
+                  onPressed: () => ref
+                      .read(pendingTransactionServiceProvider)
+                      .reject(item.id),
                   child: Text(context.l10n.txIgnore),
                 ),
               ),
@@ -420,7 +448,8 @@ class _DuplicateNotice extends ConsumerWidget {
 
     final scheme = Theme.of(context).colorScheme;
     final currency = ref.watch(currencyProvider);
-    final summary = '"${tx.description}" · '
+    final summary =
+        '"${tx.description}" · '
         '${DateFormat('dd MMM').format(tx.date)} · '
         '${currency.format(tx.amount)}';
 
@@ -434,8 +463,11 @@ class _DuplicateNotice extends ConsumerWidget {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              const Icon(Icons.warning_amber_rounded,
-                  size: 20, color: Colors.amber),
+              const Icon(
+                Icons.warning_amber_rounded,
+                size: 20,
+                color: Colors.amber,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -455,12 +487,18 @@ class _DuplicateNotice extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 12, color: scheme.onSurfaceVariant),
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, size: 20, color: scheme.onSurfaceVariant),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
@@ -469,7 +507,10 @@ class _DuplicateNotice extends ConsumerWidget {
   }
 
   Future<void> _showCompareSheet(
-      BuildContext context, WidgetRef ref, Transaction tx) async {
+    BuildContext context,
+    WidgetRef ref,
+    Transaction tx,
+  ) async {
     final currency = ref.read(currencyProvider);
     final service = ref.read(pendingTransactionServiceProvider);
 
@@ -496,7 +537,9 @@ class _DuplicateNotice extends ConsumerWidget {
                 context.l10n.txIsSameExpense,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 16),
               _CompareBlock(
@@ -577,29 +620,37 @@ class _CompareBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11,
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
-                child: Text(description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(
+                  description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
               const SizedBox(width: 8),
-              Text(amountLabel,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                amountLabel,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(details,
-              style:
-                  TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+          Text(
+            details,
+            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          ),
         ],
       ),
     );

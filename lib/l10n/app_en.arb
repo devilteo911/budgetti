@@ -1043,5 +1043,9 @@
         "type": "int"
       }
     }
-  }
+  },
+  "commonDiscardTitle": "Discard changes?",
+  "commonDiscardBody": "What you typed here has not been saved.",
+  "commonDiscard": "Discard",
+  "commonKeepEditing": "Keep editing"
 }

@@ -1698,4 +1698,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errUnexpected => 'Something went wrong. Try again.';
+
+  @override
+  String get commonDiscardTitle => 'Discard changes?';
+
+  @override
+  String get commonDiscardBody => 'What you typed here has not been saved.';
+
+  @override
+  String get commonDiscard => 'Discard';
+
+  @override
+  String get commonKeepEditing => 'Keep editing';
 }

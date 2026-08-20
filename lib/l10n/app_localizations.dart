@@ -3097,6 +3097,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Try again.'**
   String get errUnexpected;
+
+  /// No description provided for @commonDiscardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get commonDiscardTitle;
+
+  /// No description provided for @commonDiscardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'What you typed here has not been saved.'**
+  String get commonDiscardBody;
+
+  /// No description provided for @commonDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get commonDiscard;
+
+  /// No description provided for @commonKeepEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep editing'**
+  String get commonKeepEditing;
 }
 
 class _AppLocalizationsDelegate

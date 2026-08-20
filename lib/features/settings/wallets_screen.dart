@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
+import 'package:budgetti/core/widgets/discard_guard.dart';
 
 class WalletsScreen extends ConsumerWidget {
   const WalletsScreen({super.key});
@@ -270,6 +271,10 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
   bool _isDefault = false;
   DateTime? _initialBalanceDate;
 
+  String get _snapshot => '${_nameController.text}|${_amountController.text}'
+      '|$_isDefault|${_initialBalanceDate?.toIso8601String()}';
+  late final String _openedWith;
+
   @override
   void initState() {
     super.initState();
@@ -281,12 +286,15 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
     } else {
       _initialBalanceDate = DateTime.now();
     }
+    _openedWith = _snapshot;
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Consumer(
+    return DiscardGuard(
+      isDirty: () => _snapshot != _openedWith,
+      child: Consumer(
       builder: (context, ref, _) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -396,6 +404,7 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
       ),
     );
   }

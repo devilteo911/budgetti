@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
+import 'package:budgetti/core/widgets/discard_guard.dart';
 
 // Predefined colors
 const List<int> _colors = [
@@ -48,6 +49,14 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
   late String _type;
   final _formKey = GlobalKey<FormState>();
 
+  /// Everything the form holds, as one string, compared against the snapshot
+  /// taken when the sheet opened — an untouched form still closes on the
+  /// first back gesture.
+  String get _snapshot =>
+      '${_nameController.text}|${_descriptionController.text}'
+      '|$_selectedColor|$_selectedIcon|$_type';
+  late final String _openedWith;
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +71,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
       _selectedIcon = categoryIconGroups.first.icons.first.codePoint;
       _type = 'expense';
     }
+    _openedWith = _snapshot;
   }
 
   @override
@@ -95,7 +105,9 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
     final cs = theme.colorScheme;
     final categoryColor = Color(_selectedColor);
 
-    return SafeArea(
+    return DiscardGuard(
+      isDirty: () => _snapshot != _openedWith,
+      child: SafeArea(
       // The sheet already handles the top inset; belt and braces for notches.
       top: false,
       child: Container(
@@ -165,6 +177,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

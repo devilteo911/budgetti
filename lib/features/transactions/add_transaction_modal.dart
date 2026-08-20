@@ -17,6 +17,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
+import 'package:budgetti/core/widgets/discard_guard.dart';
 
 class AddTransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
@@ -54,6 +55,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   String? _selectedToAccountId;
   String? _selectedInstallmentId;
 
+  /// Only what the user typed. Wallet and category are auto-filled after the
+  /// first frame, so including them would make an untouched sheet look dirty.
+  String get _typed =>
+      '${_amountController.text}|${_descriptionController.text}|$_selectedTags';
+  late final String _openedWith;
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +89,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       _selectedToAccountId = t.toAccountId;
       _selectedInstallmentId = t.installmentId;
     }
+    _openedWith = _typed;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -299,7 +307,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     final currency = ref.watch(currencyProvider);
     final isEdit = widget.transaction != null;
 
-    return RepaintBoundary(
+    return DiscardGuard(
+      isDirty: () => _typed != _openedWith,
+      child: RepaintBoundary(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Form(
@@ -384,6 +394,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
             ),
           ),
         ),
+      ),
       ),
     );
   }

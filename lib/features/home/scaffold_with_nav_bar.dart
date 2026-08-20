@@ -10,10 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
 
 class ScaffoldWithNavBar extends ConsumerStatefulWidget {
-  const ScaffoldWithNavBar({
-    required this.navigationShell,
-    super.key,
-  });
+  const ScaffoldWithNavBar({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
@@ -21,7 +18,8 @@ class ScaffoldWithNavBar extends ConsumerStatefulWidget {
   ConsumerState<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
 }
 
-class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with WidgetsBindingObserver {
+class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
+    with WidgetsBindingObserver {
   late MotionService _motionService;
 
   @override
@@ -44,7 +42,8 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with Wi
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       _motionService.stopListening();
     } else if (state == AppLifecycleState.resumed) {
       _motionService.startListening();
@@ -54,9 +53,9 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with Wi
   void _onTwistDetected() {
     // Only trigger if a modal is not already showing (optional but safer)
     if (!mounted) return;
-    
+
     HapticFeedback.heavyImpact();
-    
+
     _onAddTransaction(triggerScan: true);
   }
 
@@ -79,19 +78,35 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with Wi
   // Nav slots: 4 branches + center action. Branch indices map 1:1 to
   // StatefulShellRoute branches in app_router.dart.
   List<_NavSlot> _buildSlots() => [
-        _NavSlot.branch(
-            0, Icons.dashboard_outlined, Icons.dashboard, context.l10n.authNavDashboard),
-        _NavSlot.branch(
-            1, Icons.receipt_long_outlined, Icons.receipt_long, context.l10n.authNavHistory),
-        _NavSlot.action(Icons.add, context.l10n.commonAdd, () {
-          HapticFeedback.mediumImpact();
-          _onAddTransaction();
-        }),
-        _NavSlot.branch(
-            2, Icons.pie_chart_outline, Icons.pie_chart, context.l10n.authNavStats),
-        _NavSlot.branch(
-            3, Icons.settings_outlined, Icons.settings, context.l10n.authNavSettings),
-      ];
+    _NavSlot.branch(
+      0,
+      Icons.dashboard_outlined,
+      Icons.dashboard,
+      context.l10n.authNavDashboard,
+    ),
+    _NavSlot.branch(
+      1,
+      Icons.receipt_long_outlined,
+      Icons.receipt_long,
+      context.l10n.authNavHistory,
+    ),
+    _NavSlot.action(Icons.add, context.l10n.commonAdd, () {
+      HapticFeedback.mediumImpact();
+      _onAddTransaction();
+    }),
+    _NavSlot.branch(
+      2,
+      Icons.pie_chart_outline,
+      Icons.pie_chart,
+      context.l10n.authNavStats,
+    ),
+    _NavSlot.branch(
+      3,
+      Icons.settings_outlined,
+      Icons.settings,
+      context.l10n.authNavSettings,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +148,6 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with Wi
       ),
     );
   }
-
 }
 
 /// A spinning sync arrow shown while data is being pushed/pulled from the
@@ -191,21 +205,19 @@ class _NavSlot {
   });
 
   factory _NavSlot.branch(
-          int index, IconData icon, IconData activeIcon, String label) =>
-      _NavSlot._(
-        branchIndex: index,
-        icon: icon,
-        activeIcon: activeIcon,
-        label: label,
-      );
+    int index,
+    IconData icon,
+    IconData activeIcon,
+    String label,
+  ) => _NavSlot._(
+    branchIndex: index,
+    icon: icon,
+    activeIcon: activeIcon,
+    label: label,
+  );
 
   factory _NavSlot.action(IconData icon, String label, VoidCallback onTap) =>
-      _NavSlot._(
-        icon: icon,
-        activeIcon: icon,
-        label: label,
-        onAction: onTap,
-      );
+      _NavSlot._(icon: icon, activeIcon: icon, label: label, onAction: onTap);
 
   bool get isAction => onAction != null;
 }
@@ -267,8 +279,7 @@ class _FloatingPillNav extends StatelessWidget {
                       scheme.primary.withValues(alpha: 0.12),
                     ],
                   ),
-                  borderRadius:
-                      BorderRadius.circular((_itemHeight - 4) / 2),
+                  borderRadius: BorderRadius.circular((_itemHeight - 4) / 2),
                   border: Border.all(
                     color: scheme.primary.withValues(alpha: 0.35),
                     width: 1,
@@ -286,26 +297,32 @@ class _FloatingPillNav extends StatelessWidget {
                   height: _itemHeight,
                   child: Material(
                     color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        if (s.isAction) {
-                          s.onAction!();
-                        } else {
-                          onBranchSelected(s.branchIndex!);
-                        }
-                      },
-                      borderRadius:
-                          BorderRadius.circular(_itemHeight / 2),
-                      child: AnimatedScale(
-                        scale: selected ? 1.15 : 1.0,
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        child: Icon(
-                          selected ? s.activeIcon : s.icon,
-                          color: selected
-                              ? scheme.primary
-                              : scheme.onSurfaceVariant,
-                          size: 24,
+                    // The pill is icon-only, so the label a screen reader
+                    // announces has to come from here.
+                    child: Semantics(
+                      label: s.label,
+                      button: true,
+                      selected: selected,
+                      child: InkWell(
+                        onTap: () {
+                          if (s.isAction) {
+                            s.onAction!();
+                          } else {
+                            onBranchSelected(s.branchIndex!);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(_itemHeight / 2),
+                        child: AnimatedScale(
+                          scale: selected ? 1.15 : 1.0,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          child: Icon(
+                            selected ? s.activeIcon : s.icon,
+                            color: selected
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),

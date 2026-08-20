@@ -17,7 +17,6 @@ import 'package:budgetti/features/transactions/widgets/transactions_hero.dart';
 import 'package:budgetti/features/transactions/widgets/active_filter_chip.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
 
-
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
 
@@ -75,8 +74,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(context.l10n.commonDelete,
-                style: TextStyle(color: scheme.error)),
+            child: Text(
+              context.l10n.commonDelete,
+              style: TextStyle(color: scheme.error),
+            ),
           ),
         ],
       ),
@@ -84,7 +85,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
     if (confirm == true) {
       try {
-        await ref.read(financeServiceProvider).deleteTransactions(_selectedIds.toList());
+        await ref
+            .read(financeServiceProvider)
+            .deleteTransactions(_selectedIds.toList());
         setState(() {
           _selectedIds.clear();
         });
@@ -94,7 +97,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(context.l10n.txError(errorText(context, e)))));
+            SnackBar(
+              content: Text(context.l10n.txError(errorText(context, e))),
+            ),
+          );
         }
       }
     }
@@ -218,15 +224,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           onRefresh: () async {
             final notifier = ref.read(paginatedTransactionsProvider.notifier);
             ref.invalidate(accountsProvider);
-            final tasks = <Future>[
-              notifier.refresh(),
-              performSheetsSync(ref),
-            ];
+            final tasks = <Future>[notifier.refresh(), performSheetsSync(ref)];
             final persistence = ref.read(persistenceServiceProvider);
             if (persistence.getEmailSyncEnabled()) {
-              tasks.add(ref
-                  .read(bankSyncServiceProvider)
-                  .sync(days: persistence.getEmailSyncWindowDays()));
+              tasks.add(
+                ref
+                    .read(bankSyncServiceProvider)
+                    .sync(days: persistence.getEmailSyncWindowDays()),
+              );
             }
             if (persistence.getRevolutSyncEnabled()) {
               tasks.add(ref.read(bankSyncServiceProvider).syncNotifications());
@@ -254,10 +259,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   Widget _buildReviewBannerSliver() {
     final count = ref.watch(pendingTransactionsCountProvider);
-    final skipped = ref.watch(skippedEmailsProvider).maybeWhen(
-          data: (s) => s.length,
-          orElse: () => 0,
-        );
+    final skipped = ref
+        .watch(skippedEmailsProvider)
+        .maybeWhen(data: (s) => s.length, orElse: () => 0);
     if (count == 0 && skipped == 0) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
@@ -282,8 +286,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  Icon(Icons.mark_email_unread_outlined,
-                      color: scheme.onPrimaryContainer),
+                  Icon(
+                    Icons.mark_email_unread_outlined,
+                    color: scheme.onPrimaryContainer,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -314,7 +320,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     if (filters.dateRange != null) {
       final start = filters.dateRange!.start;
       final end = filters.dateRange!.end;
-      final sameDay = start.year == end.year &&
+      final sameDay =
+          start.year == end.year &&
           start.month == end.month &&
           start.day == end.day;
       final label = sameDay
@@ -349,14 +356,15 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       );
     }
 
+    // No fixed height: the chips carry text, so at a large text scale a
+    // 40px box clipped them. The row sizes to whatever the chips need.
     return SliverToBoxAdapter(
-      child: Container(
-        height: 40,
-        margin: const EdgeInsets.only(top: 4, bottom: 12),
-        child: ListView(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          children: chips,
+          child: Row(children: chips),
         ),
       ),
     );

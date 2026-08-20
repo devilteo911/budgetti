@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/widgets/discard_guard.dart';
 
 /// Create or edit an installment plan. Four inputs (what, how much in total,
 /// how many rates, when the first one is charged) — everything else about the
@@ -31,6 +32,12 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
   String? _accountId;
   bool _saving = false;
 
+  /// Everything the form holds, compared against the snapshot taken when the
+  /// sheet opened.
+  String get _snapshot => '${_description.text}|${_total.text}|${_count.text}'
+      '|${_startDate.toIso8601String()}|$_category|$_accountId';
+  late final String _openedWith;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +50,7 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
     _startDate = e?.startDate ?? DateTime.now();
     _category = e?.category;
     _accountId = e?.accountId;
+    _openedWith = _snapshot;
   }
 
   @override
@@ -105,14 +113,16 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
     final accounts = ref.watch(accountsProvider).value ?? const [];
     final perRate = _perRate;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 20,
-        right: 20,
-        top: 8,
-      ),
-      child: SingleChildScrollView(
+    return DiscardGuard(
+      isDirty: () => _snapshot != _openedWith,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 8,
+        ),
+        child: SingleChildScrollView(
         child: Form(
           key: _formKey,
           child: Column(
@@ -298,6 +308,7 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

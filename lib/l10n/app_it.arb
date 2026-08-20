@@ -1036,5 +1036,9 @@
   },
   "errNetwork": "Server irraggiungibile. Controlla la connessione e riprova.",
   "errServer": "Il server ha rifiutato la richiesta (codice {code}).",
-  "errUnexpected": "Qualcosa è andato storto. Riprova."
+  "errUnexpected": "Qualcosa è andato storto. Riprova.",
+  "commonDiscardTitle": "Scartare le modifiche?",
+  "commonDiscardBody": "Quello che hai scritto qui non è stato salvato.",
+  "commonDiscard": "Scarta",
+  "commonKeepEditing": "Continua a modificare"
 }
