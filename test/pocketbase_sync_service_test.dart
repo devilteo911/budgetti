@@ -52,6 +52,11 @@ class _FakeClient extends SyncClient {
   /// Simulates an expired/revoked token: every call throws [SyncAuthExpired].
   bool authExpired = false;
 
+  @override
+  Future<void> ensureAuthenticated() async {
+    if (authExpired) throw const SyncAuthExpired();
+  }
+
   /// Held by tests that need a sync to pause mid-flight (lock testing).
   Future<void>? gate;
 

@@ -120,6 +120,13 @@ abstract class SyncClient {
   /// One stored row, for the remote-wins apply after an [LwwStaleWrite].
   Future<Map<String, dynamic>> getRecord(String collection, String id);
 
+  /// Fails with [SyncAuthExpired] when the stored token no longer
+  /// authenticates. PB never 401s rule-guarded CRUD: an invalid token just
+  /// reads as anonymous, so pulls silently come back empty and pushes fail as
+  /// 404/rule-denied — the sync would report success over a dead session.
+  /// The auth endpoint is the only place a dead token says 401.
+  Future<void> ensureAuthenticated() async {}
+
   /// Pushes [rows] (id + body) in bulk. The real client uses PB's
   /// transactional `/api/batch` (PUT upserts, ≤200 per call); this default
   /// loops [upsert] so simple clients and tests get identical per-row
@@ -156,6 +163,18 @@ class PocketBaseSyncClient implements SyncClient {
 
   @override
   String get userId => client.authStore.record?.id ?? '';
+
+  @override
+  Future<void> ensureAuthenticated() async {
+    try {
+      // Rotates the token (a fresh expiry, persisted by the AsyncAuthStore) —
+      // a session stays alive as long as the app syncs within the token
+      // duration, and surfaces re-login when it doesn't.
+      await client.collection('users').authRefresh();
+    } on pb.ClientException catch (e) {
+      throw _mapClientException(e);
+    }
+  }
 
   @override
   Future<List<Map<String, dynamic>>> listChanges(
@@ -488,6 +507,9 @@ class PocketBaseSyncService {
     var deadLettered = 0;
     var authExpired = false;
     try {
+      // Dead-session probe before any data traffic: an expired token reads
+      // as anonymous everywhere else (empty pulls look like "no changes").
+      await _client.ensureAuthenticated();
       final pushCursor =
           full ? DateTime.fromMillisecondsSinceEpoch(0) : _persistence.getLastSyncAt();
       final pullCursor =
@@ -666,6 +688,15 @@ class PocketBaseSyncService {
         firstSkipReason: firstSkipReason,
       );
       if (authExpired) sessionExpired.value = true;
+      await _persistence.setLastSyncSummary(summary.toString());
+      return summary;
+    } on SyncAuthExpired {
+      // The pre-flight probe found a dead session: nothing ran, both cursors
+      // are untouched. Report it as an auth expiry, not a generic failure —
+      // main() listens on [sessionExpired] to clear the session.
+      debugPrint('PB sync: auth expired before any traffic');
+      sessionExpired.value = true;
+      const summary = SyncSummary(authExpired: true);
       await _persistence.setLastSyncSummary(summary.toString());
       return summary;
     } catch (e) {
