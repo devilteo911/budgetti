@@ -7,16 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
 
   void _showEditor(BuildContext context, WidgetRef ref, {Category? category}) {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       builder: (_) => CategoryEditorModal(
         category: category,
         onSave: (cat) async {

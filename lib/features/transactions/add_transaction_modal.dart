@@ -16,6 +16,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 class AddTransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
@@ -238,15 +239,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   }
 
   void _showWalletPicker(bool isFrom) {
-    final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      backgroundColor: scheme.surfaceContainer,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) => WalletPickerSheet(
         title: isFrom
             ? context.l10n.txSelectFromWallet
@@ -267,15 +262,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   }
 
   void _showCategoryPicker() {
-    final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      backgroundColor: scheme.surfaceContainer,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) => CategoryPickerSheet(
         title: context.l10n.txSelectCategory,
         selectedCategoryName: _selectedCategory,
@@ -548,15 +537,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   }
 
   void _showInstallmentPicker(List<Installment> plans) {
-    final scheme = Theme.of(context).colorScheme;
     final currency = ref.read(currencyProvider);
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      backgroundColor: scheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    showAppSheet(
+      context,
       builder: (sheetContext) => SafeArea(
         child: ListView(
           shrinkWrap: true,

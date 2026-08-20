@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 // Predefined colors
 const List<int> _colors = [
@@ -593,12 +594,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
   }
 
   void _showColorPicker() {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
+    showAppSheet(
+      context,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
         child: Column(

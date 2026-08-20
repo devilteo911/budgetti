@@ -3,6 +3,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 /// GitHub-Store search-style filter bar for the stats screen.
 ///
@@ -185,9 +186,8 @@ void _openScopeSheet(
   WidgetRef ref,
   StatsScope current,
 ) {
-  showModalBottomSheet(
-    useRootNavigator: true,
-    context: context,
+  showAppSheet(
+    context,
     showDragHandle: true,
     builder: (sheetCtx) => SafeArea(
       child: Column(
@@ -214,9 +214,8 @@ void _openViewSheet(
   WidgetRef ref,
   bool isMonthlyMode,
 ) {
-  showModalBottomSheet(
-    useRootNavigator: true,
-    context: context,
+  showAppSheet(
+    context,
     showDragHandle: true,
     builder: (sheetCtx) => SafeArea(
       child: Column(
@@ -264,9 +263,8 @@ void _openPeriodSheet(
   final isMonthlyMode = current.month != null;
   final years = List.generate(6, (i) => now.year - i);
 
-  showModalBottomSheet(
-    useRootNavigator: true,
-    context: context,
+  showAppSheet(
+    context,
     showDragHandle: true,
     isScrollControlled: true,
     useSafeArea: true,

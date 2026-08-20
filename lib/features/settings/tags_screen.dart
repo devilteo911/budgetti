@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 class TagsScreen extends ConsumerWidget {
   const TagsScreen({super.key});
@@ -116,11 +117,9 @@ class TagsScreen extends ConsumerWidget {
   }
 
   void _showTagEditor(BuildContext context, WidgetRef ref, Tag? tag) {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       builder: (_) => _TagEditorModal(tag: tag),
     );
   }

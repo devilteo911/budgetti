@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 class ScaffoldWithNavBar extends ConsumerStatefulWidget {
   const ScaffoldWithNavBar({
@@ -60,16 +61,10 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> with Wi
   }
 
   void _onAddTransaction({bool triggerScan = false}) {
-    showModalBottomSheet(
-      context: context,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      useRootNavigator: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      barrierColor: Colors.black54,
       showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
       builder: (context) => AddTransactionModal(triggerScan: triggerScan),
     );
   }

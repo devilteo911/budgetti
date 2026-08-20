@@ -6,6 +6,7 @@ import 'package:budgetti/features/settings/widgets/settings_section.dart';
 import 'package:budgetti/features/settings/widgets/settings_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 const _currencies = [
   {'code': 'EUR', 'symbol': '€'},
@@ -56,9 +57,8 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
 
   void _showCurrencyPicker(String current) {
     final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
+    showAppSheet(
+      context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: Column(

@@ -8,6 +8,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:budgetti/features/transactions/widgets/wallet_selector_chip.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 String _titleCase(String s) {
   if (s.isEmpty) return s;
@@ -53,12 +54,8 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
 
   void _showAccountPicker(
       BuildContext context, List<dynamic> accounts, bool isFrom) {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    showAppSheet(
+      context,
       builder: (context) {
         return WalletPickerSheet(
           title: isFrom

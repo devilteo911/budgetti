@@ -15,6 +15,7 @@ import 'package:budgetti/features/transactions/widgets/transaction_list.dart';
 import 'package:budgetti/features/transactions/widgets/transaction_app_bar.dart';
 import 'package:budgetti/features/transactions/widgets/transactions_hero.dart';
 import 'package:budgetti/features/transactions/widgets/active_filter_chip.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 
 class TransactionsScreen extends ConsumerStatefulWidget {
@@ -106,16 +107,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       (t) => _selectedIds.contains(t.id),
     );
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      useRootNavigator: true,
-      barrierColor: Colors.black54,
       showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) => AddTransactionModal(transaction: transactionToEdit),
     ).then((_) {
       setState(() => _selectedIds.clear());
@@ -123,27 +118,17 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   }
 
   void _showFilterSheet() {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+    showAppSheet(
+      context,
       isScrollControlled: true,
       showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) => const TransactionFilterSheet(),
     );
   }
 
   void _showWalletFilterSheet() {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    showAppSheet(
+      context,
       builder: (context) => WalletPickerSheet(
         title: context.l10n.txFilterByWallet,
         selectedWalletId: ref.watch(selectedWalletIdProvider),

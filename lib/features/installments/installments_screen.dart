@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 /// Installment plans: what's still running at the top, what's settled below.
 /// "Active" is derived from today's date, so a plan retires itself the month
@@ -15,14 +16,9 @@ class InstallmentsScreen extends ConsumerWidget {
   const InstallmentsScreen({super.key});
 
   void _edit(BuildContext context, {Installment? existing}) {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (_) => AddInstallmentModal(existing: existing),
     );
   }

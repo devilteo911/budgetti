@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 enum BudgetSort { alphabetical, amountAsc, amountDesc, utilization }
 
@@ -44,14 +45,9 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen>
   }
 
   void _showSetBudgetDialog(String categoryName, double currentLimit) {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) => SetBudgetModal(
         categoryName: categoryName,
         currentLimit: currentLimit,

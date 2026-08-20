@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 String _titleCase(String s) {
   if (s.isEmpty) return s;
@@ -86,12 +87,8 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
   }
 
   void _showWalletPicker(List<Account> accounts) {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    showAppSheet(
+      context,
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 24),

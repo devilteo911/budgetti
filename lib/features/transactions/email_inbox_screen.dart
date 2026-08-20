@@ -4,6 +4,7 @@ import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -256,8 +257,8 @@ class _DraftCard extends ConsumerWidget {
   }
 
   Future<String?> _askExpenseOrTransfer(BuildContext context) {
-    return showModalBottomSheet<String>(
-      context: context,
+    return showAppSheet<String>(
+      context,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -299,12 +300,8 @@ class _DraftCard extends ConsumerWidget {
     // WalletPickerSheet pops itself, so capture the choice instead of popping
     // again here (which would dismiss the inbox screen too).
     String? selectedId;
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    await showAppSheet<void>(
+      context,
       builder: (context) => WalletPickerSheet(
         title: title,
         selectedWalletId: null,
@@ -486,12 +483,8 @@ class _DuplicateNotice extends ConsumerWidget {
       }
     }
 
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    await showAppSheet<void>(
+      context,
       builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),

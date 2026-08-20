@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 
 class WalletsScreen extends ConsumerWidget {
   const WalletsScreen({super.key});
@@ -102,11 +103,9 @@ class WalletsScreen extends ConsumerWidget {
 
   void _showWalletEditor(
       BuildContext context, WidgetRef ref, Account? wallet) {
-    showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
+    showAppSheet(
+      context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
       builder: (_) => _WalletEditorModal(wallet: wallet),
     );
   }
