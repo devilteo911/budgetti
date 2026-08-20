@@ -67,18 +67,18 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
         ),
       ),
       body: transactionsAsync.when(
-        loading: () => Center(
-          child: CircularProgressIndicator(color: scheme.primary),
-        ),
+        loading: () =>
+            Center(child: CircularProgressIndicator(color: scheme.primary)),
         error: (e, _) =>
             Center(child: Text(context.l10n.statsError(errorText(context, e)))),
         data: (all) {
-          final catColor = ref.watch(categoryColorCacheProvider(
-                  scheme.brightness))[widget.category.name] ??
+          final catColor =
+              ref.watch(
+                categoryColorCacheProvider(scheme.brightness),
+              )[widget.category.name] ??
               unknownCategoryInk(scheme);
           final categoryAll = all
-              .where((t) =>
-                  t.category == widget.category.name && t.amount < 0)
+              .where((t) => t.category == widget.category.name && t.amount < 0)
               .toList();
 
           final forPeriod = categoryAll.where((t) {
@@ -87,15 +87,14 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
               return false;
             }
             return true;
-          }).toList()
-            ..sort((a, b) => b.date.compareTo(a.date));
+          }).toList()..sort((a, b) => b.date.compareTo(a.date));
 
           if (forPeriod.isEmpty && categoryAll.isEmpty) {
             return _EmptyState(period: period, catColor: catColor);
           }
 
-          final trendMonths = _last12Months();
-          final monthlyData = _aggregateByMonth(categoryAll, trendMonths);
+          final trendMonths = lastMonthKeys(12);
+          final monthlyData = spendByMonth(categoryAll, trendMonths);
           final monthlySpentThisMonth = _currentMonthSpent(categoryAll);
 
           return CustomScrollView(
@@ -133,7 +132,8 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
                 end: 0.75,
                 child: SliverToBoxAdapter(
                   child: SectionLabel(
-                      text: context.l10n.statsTrend12Months.toUpperCase()),
+                    text: context.l10n.statsTrend12Months.toUpperCase(),
+                  ),
                 ),
               ),
               Stagger(
@@ -165,9 +165,7 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
                   controller: _entrance,
                   begin: 0.40,
                   end: 0.95,
-                  child: SliverToBoxAdapter(
-                    child: _NoTxnHint(period: period),
-                  ),
+                  child: SliverToBoxAdapter(child: _NoTxnHint(period: period)),
                 )
               else
                 Stagger(
@@ -175,32 +173,31 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
                   begin: 0.40,
                   end: 1.0,
                   child: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final txn = forPeriod[index];
-                        final isLast = index == forPeriod.length - 1;
-                        return Column(
-                          children: [
-                            TransactionLedgerRow(
-                              txn: txn,
-                              currencyFormatter: currencyFormatter,
-                              tagMap: tagMap,
-                            ),
-                            if (!isLast)
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 20),
-                                child: Container(
-                                  height: 1,
-                                  color: scheme.outlineVariant
-                                      .withValues(alpha: 0.18),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final txn = forPeriod[index];
+                      final isLast = index == forPeriod.length - 1;
+                      return Column(
+                        children: [
+                          TransactionLedgerRow(
+                            txn: txn,
+                            currencyFormatter: currencyFormatter,
+                            tagMap: tagMap,
+                          ),
+                          if (!isLast)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Container(
+                                height: 1,
+                                color: scheme.outlineVariant.withValues(
+                                  alpha: 0.18,
                                 ),
                               ),
-                          ],
-                        );
-                      },
-                      childCount: forPeriod.length,
-                    ),
+                            ),
+                        ],
+                      );
+                    }, childCount: forPeriod.length),
                   ),
                 ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -209,28 +206,6 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
         },
       ),
     );
-  }
-
-  static List<String> _last12Months() {
-    final now = DateTime.now();
-    return List.generate(12, (i) {
-      final d = DateTime(now.year, now.month - 11 + i, 1);
-      return DateFormat('yyyy-MM').format(d);
-    });
-  }
-
-  static Map<String, double> _aggregateByMonth(
-    List<Transaction> transactions,
-    List<String> months,
-  ) {
-    final map = {for (final m in months) m: 0.0};
-    for (final t in transactions) {
-      final key = DateFormat('yyyy-MM').format(t.date);
-      if (map.containsKey(key)) {
-        map[key] = map[key]! + t.amount.abs();
-      }
-    }
-    return map;
   }
 
   static double _currentMonthSpent(List<Transaction> transactions) {
@@ -255,10 +230,7 @@ class _NoTxnHint extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Text(
         context.l10n.statsNoTransactionsIn(label),
-        style: TextStyle(
-          color: scheme.onSurfaceVariant,
-          fontSize: 13,
-        ),
+        style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
       ),
     );
   }

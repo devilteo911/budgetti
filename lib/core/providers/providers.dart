@@ -6,6 +6,11 @@ import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/transaction.dart';
+
+// The pure derivations and their result types live here; re-exported so the
+// screens keep importing one file.
+import 'package:budgetti/core/finance_math.dart';
+export 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/models/budget.dart';
 import 'package:budgetti/models/installment.dart';
@@ -42,8 +47,6 @@ final persistenceServiceProvider = Provider<PersistenceService>((ref) {
 });
 
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
-
-
 
 final googleAuthServiceProvider = Provider<GoogleAuthService>((ref) {
   return GoogleAuthService();
@@ -199,8 +202,9 @@ final gmailServiceProvider = Provider<GmailService>((ref) {
 
 /// Bridge to the Android notification listener: permission check and the
 /// deep-link to the system screen that grants it.
-final notificationListenerProvider =
-    Provider<NotificationListenerService>((ref) {
+final notificationListenerProvider = Provider<NotificationListenerService>((
+  ref,
+) {
   return const NotificationListenerService();
 });
 
@@ -211,25 +215,26 @@ final bankSyncServiceProvider = Provider<BankSyncService>((ref) {
   return BankSyncService(db, gmail, userId);
 });
 
-final pendingTransactionServiceProvider =
-    Provider<PendingTransactionService>((ref) {
+final pendingTransactionServiceProvider = Provider<PendingTransactionService>((
+  ref,
+) {
   final db = ref.watch(databaseProvider);
   final finance = ref.watch(financeServiceProvider);
   return PendingTransactionService(db, finance);
 });
 
 /// Live list of email-derived drafts awaiting review.
-final pendingTransactionsProvider =
-    StreamProvider<List<PendingTransaction>>((ref) {
+final pendingTransactionsProvider = StreamProvider<List<PendingTransaction>>((
+  ref,
+) {
   return ref.watch(pendingTransactionServiceProvider).watchPending();
 });
 
 /// Count of pending drafts, for the review shortcut banner.
 final pendingTransactionsCountProvider = Provider<int>((ref) {
-  return ref.watch(pendingTransactionsProvider).maybeWhen(
-        data: (list) => list.length,
-        orElse: () => 0,
-      );
+  return ref
+      .watch(pendingTransactionsProvider)
+      .maybeWhen(data: (list) => list.length, orElse: () => 0);
 });
 
 /// Transaction-looking emails the parser couldn't read, for the inbox notice.
@@ -240,8 +245,10 @@ final skippedEmailsProvider = StreamProvider<List<PendingTransaction>>((ref) {
 /// The existing transaction a flagged draft may duplicate, for the compare UI.
 final duplicateSourceTxProvider =
     FutureProvider.family<db.Transaction?, String>((ref, txId) {
-  return ref.watch(pendingTransactionServiceProvider).getTransactionById(txId);
-});
+      return ref
+          .watch(pendingTransactionServiceProvider)
+          .getTransactionById(txId);
+    });
 
 // Watched, not Future-cached: rows also arrive from PocketBase sync (launch,
 // pull-to-refresh, background task + resume), and a FutureProvider only
@@ -273,17 +280,18 @@ final transactionsProvider = StreamProvider.family<List<Transaction>, String?>((
 /// happens client-side, as before).
 final periodTransactionsProvider =
     StreamProvider.family<List<Transaction>, StatsPeriod>((ref, period) {
-  final service = ref.watch(financeServiceProvider);
-  return service.watchTransactions(
-    startDate: DateTime(period.year, 1, 1),
-    endDate: DateTime(period.year, 12, 31, 23, 59, 59, 999),
-  );
-});
+      final service = ref.watch(financeServiceProvider);
+      return service.watchTransactions(
+        startDate: DateTime(period.year, 1, 1),
+        endDate: DateTime(period.year, 12, 31, 23, 59, 59, 999),
+      );
+    });
 
 /// Linked payments + attach-a-payment candidates for the installment screens,
 /// without watching (and re-mapping) the whole ledger.
-final installmentTransactionsProvider =
-    StreamProvider<List<Transaction>>((ref) {
+final installmentTransactionsProvider = StreamProvider<List<Transaction>>((
+  ref,
+) {
   return ref.watch(financeServiceProvider).watchInstallmentRelevant();
 });
 
@@ -330,8 +338,9 @@ final currencyProvider = Provider<NumberFormat>((ref) {
   // Watch the UI language so decimal separators follow it (1.234,56 vs 1,234.56).
   final language = ref.watch(localeSettingsProvider).language;
   return NumberFormat.simpleCurrency(
-      name: profileAsync.value?['currency'] ?? 'EUR',
-      locale: language == 'system' ? null : language);
+    name: profileAsync.value?['currency'] ?? 'EUR',
+    locale: language == 'system' ? null : language,
+  );
 });
 
 class BalanceVisibility extends Notifier<bool> {
@@ -349,7 +358,9 @@ class BalanceVisibility extends Notifier<bool> {
   }
 }
 
-final balanceVisibilityProvider = NotifierProvider<BalanceVisibility, bool>(BalanceVisibility.new);
+final balanceVisibilityProvider = NotifierProvider<BalanceVisibility, bool>(
+  BalanceVisibility.new,
+);
 
 class ThemeSettings {
   final AppPalette palette;
@@ -369,13 +380,12 @@ class ThemeSettings {
     ThemeMode? mode,
     bool? amoled,
     bool? glass,
-  }) =>
-      ThemeSettings(
-        palette: palette ?? this.palette,
-        mode: mode ?? this.mode,
-        amoled: amoled ?? this.amoled,
-        glass: glass ?? this.glass,
-      );
+  }) => ThemeSettings(
+    palette: palette ?? this.palette,
+    mode: mode ?? this.mode,
+    amoled: amoled ?? this.amoled,
+    glass: glass ?? this.glass,
+  );
 }
 
 class ThemeSettingsNotifier extends Notifier<ThemeSettings> {
@@ -425,8 +435,8 @@ class ThemeSettingsNotifier extends Notifier<ThemeSettings> {
 
 final themeSettingsProvider =
     NotifierProvider<ThemeSettingsNotifier, ThemeSettings>(
-  ThemeSettingsNotifier.new,
-);
+      ThemeSettingsNotifier.new,
+    );
 
 /// UI language: 'system' follows the OS, otherwise a supported locale.
 /// [resolve] maps to the `Locale` handed to MaterialApp (null = system).
@@ -434,8 +444,7 @@ class LocaleSettings {
   final String language; // 'system' | 'en' | 'it'
   const LocaleSettings(this.language);
 
-  Locale? resolve() =>
-      language == 'system' ? null : Locale(language);
+  Locale? resolve() => language == 'system' ? null : Locale(language);
 }
 
 class LocaleSettingsNotifier extends Notifier<LocaleSettings> {
@@ -451,8 +460,8 @@ class LocaleSettingsNotifier extends Notifier<LocaleSettings> {
 
 final localeSettingsProvider =
     NotifierProvider<LocaleSettingsNotifier, LocaleSettings>(
-  LocaleSettingsNotifier.new,
-);
+      LocaleSettingsNotifier.new,
+    );
 
 class TransactionFilterState {
   final DateTimeRange? dateRange;
@@ -465,8 +474,7 @@ class TransactionFilterState {
     this.tags = const [],
   });
 
-  bool get isEmpty =>
-      dateRange == null && categories.isEmpty && tags.isEmpty;
+  bool get isEmpty => dateRange == null && categories.isEmpty && tags.isEmpty;
 
   TransactionFilterState copyWith({
     DateTimeRange? Function()? dateRange,
@@ -501,9 +509,19 @@ class TransactionFiltersNotifier extends Notifier<TransactionFilterState> {
         ? null
         : DateTimeRange(
             start: DateTime(
-                range.start.year, range.start.month, range.start.day),
-            end: DateTime(range.end.year, range.end.month, range.end.day, 23,
-                59, 59, 999),
+              range.start.year,
+              range.start.month,
+              range.start.day,
+            ),
+            end: DateTime(
+              range.end.year,
+              range.end.month,
+              range.end.day,
+              23,
+              59,
+              59,
+              999,
+            ),
           );
     state = state.copyWith(dateRange: () => normalized);
   }
@@ -535,7 +553,8 @@ class TransactionFiltersNotifier extends Notifier<TransactionFilterState> {
 
 final transactionFiltersProvider =
     NotifierProvider<TransactionFiltersNotifier, TransactionFilterState>(
-        TransactionFiltersNotifier.new);
+      TransactionFiltersNotifier.new,
+    );
 
 final paginatedTransactionsProvider =
     NotifierProvider<PaginatedTransactionsNotifier, PaginatedTransactionsState>(
@@ -615,13 +634,16 @@ class FilteredTotals {
 final filteredTotalsProvider = StreamProvider<FilteredTotals>((ref) {
   final filters = ref.watch(transactionFiltersProvider);
   final walletId = ref.watch(selectedWalletIdProvider);
-  return ref.watch(financeServiceProvider).watchTotals(
+  return ref
+      .watch(financeServiceProvider)
+      .watchTotals(
         accountId: walletId,
         startDate: filters.dateRange?.start,
         endDate: filters.dateRange?.end,
         categories: filters.categories,
         tags: filters.tags,
-      ).map((t) => FilteredTotals(income: t.$1, expense: t.$2, count: t.$3));
+      )
+      .map((t) => FilteredTotals(income: t.$1, expense: t.$2, count: t.$3));
 });
 
 final categoryMapProvider = Provider<Map<String, Category>>((ref) {
@@ -644,12 +666,11 @@ final accountMapProvider = Provider<Map<String, Account>>((ref) {
 // colorHex/iconCode — see that file for why.
 final categoryColorCacheProvider =
     Provider.family<Map<String, Color>, Brightness>((ref, brightness) {
-  final categories = ref.watch(categoriesProvider).value ?? [];
-  return buildCategoryColors(
-    [for (final c in categories) (name: c.name, type: c.type)],
-    brightness,
-  );
-});
+      final categories = ref.watch(categoriesProvider).value ?? [];
+      return buildCategoryColors([
+        for (final c in categories) (name: c.name, type: c.type),
+      ], brightness);
+    });
 
 final categoryIconCacheProvider = Provider<Map<String, IconData>>((ref) {
   final categories = ref.watch(categoriesProvider).value ?? [];
@@ -659,7 +680,7 @@ final categoryIconCacheProvider = Provider<Map<String, IconData>>((ref) {
         c.name,
         iconCode: c.iconCode,
         isIncome: c.type == 'income',
-      )
+      ),
   };
 });
 
@@ -668,100 +689,24 @@ final tagColorCacheProvider = Provider<Map<String, Color>>((ref) {
   return {for (var t in tags) t.name: Color(t.colorHex)};
 });
 
-class DashboardStats {
-  final double totalBalance;
-  final double monthlyIncome;
-  final double monthlyExpenses;
-  final double netFlow;
-  final List<Transaction> recentTransactions;
-
-  DashboardStats({
-    required this.totalBalance,
-    required this.monthlyIncome,
-    required this.monthlyExpenses,
-    required this.recentTransactions,
-    required this.netFlow,
-  });
-
-  double get monthlyNetFlow => monthlyIncome - monthlyExpenses;
-}
-
 final dashboardStatsProvider = Provider<AsyncValue<DashboardStats>>((ref) {
   final accountsAsync = ref.watch(accountsProvider);
   final transactionsAsync = ref.watch(transactionsProvider(null));
 
   return transactionsAsync.when(
     loading: () => const AsyncLoading(),
-    error: (err, stack) => AsyncError(err, stack),
-    data: (transactions) {
-      return accountsAsync.when(
-        loading: () => const AsyncLoading(),
-        error: (err, stack) => AsyncError(err, stack),
-        data: (accounts) {
-          final now = DateTime.now();
-          final currentMonth = now.month;
-          final currentYear = now.year;
-          final last30Days = now.subtract(const Duration(days: 30));
-
-          final totalBalance = accounts.fold(
-            0.0,
-            (sum, acc) => sum + acc.balance,
-          );
-
-          double monthlyExpenses = 0.0;
-          double monthlyIncome = 0.0;
-          for (final t in transactions) {
-            if (t.date.month != currentMonth || t.date.year != currentYear) {
-              continue;
-            }
-            if (t.isIncome) {
-              monthlyIncome += t.amount;
-            } else if (t.isExpense) {
-              monthlyExpenses += t.amount.abs();
-            }
-          }
-
-          // Transfers excluded: a wallet-to-wallet move isn't income/expense,
-          // and transfers are stored positive — summing them raw would show
-          // self-transfers as a positive trend.
-          final netFlow = transactions
-              .where((t) => t.date.isAfter(last30Days) && t.type != 'transfer')
-              .fold(0.0, (sum, t) => sum + t.amount);
-
-          return AsyncData(
-            DashboardStats(
-              totalBalance: totalBalance,
-              monthlyIncome: monthlyIncome,
-              monthlyExpenses: monthlyExpenses,
-              netFlow: netFlow,
-              recentTransactions: transactions.take(10).toList(),
-            ),
-          );
-        },
-      );
-    },
+    error: AsyncError.new,
+    data: (transactions) => accountsAsync.when(
+      loading: () => const AsyncLoading(),
+      error: AsyncError.new,
+      data: (accounts) => AsyncData(dashboardStats(transactions, accounts)),
+    ),
   );
 });
 
 final monthlyNetFlowHistoryProvider = Provider<List<double>>((ref) {
   final transactions = ref.watch(transactionsProvider(null)).value ?? [];
-  final now = DateTime.now();
-  final keys = <String>[];
-  final buckets = <String, double>{};
-  for (int i = 5; i >= 0; i--) {
-    final d = DateTime(now.year, now.month - i);
-    final k = '${d.year}-${d.month}';
-    keys.add(k);
-    buckets[k] = 0.0;
-  }
-  for (final t in transactions) {
-    if (t.type == 'transfer') continue;
-    final k = '${t.date.year}-${t.date.month}';
-    if (buckets.containsKey(k)) {
-      buckets[k] = buckets[k]! + t.amount;
-    }
-  }
-  return keys.map((k) => buckets[k]!).toList();
+  return monthlyNetFlow(transactions);
 });
 
 final budgetMapProvider = Provider<Map<String, Budget>>((ref) {
@@ -770,111 +715,17 @@ final budgetMapProvider = Provider<Map<String, Budget>>((ref) {
 });
 
 final budgetStatsProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
-  final transactionsAsync = ref.watch(transactionsProvider(null));
-  final now = DateTime.now();
-
-  return transactionsAsync.whenData((transactions) {
-    final categorySpending = <String, double>{};
-    for (var t in transactions) {
-      if (t.date.year == now.year &&
-          t.date.month == now.month &&
-          t.isExpense) {
-        categorySpending[t.category] =
-            (categorySpending[t.category] ?? 0) + t.amount.abs();
-      }
-    }
-    return categorySpending;
-  });
+  return ref.watch(transactionsProvider(null)).whenData(categorySpendForMonth);
 });
-
-class StatsData {
-  final Map<String, double> categoryTotals;
-  // Tag totals can sum above totalExpenses: a transaction may carry several
-  // tags and counts once per tag.
-  final Map<String, double> tagTotals;
-  final Map<String, Map<String, double>> monthlyBreakdown;
-  final double totalExpenses;
-
-  StatsData({
-    required this.categoryTotals,
-    required this.tagTotals,
-    required this.monthlyBreakdown,
-    required this.totalExpenses,
-  });
-}
-
-class StatsPeriod {
-  final int year;
-  final int? month;
-
-  StatsPeriod({required this.year, this.month});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is StatsPeriod &&
-          runtimeType == other.runtimeType &&
-          year == other.year &&
-          month == other.month;
-
-  @override
-  int get hashCode => year.hashCode ^ month.hashCode;
-}
 
 final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
   ref,
   period,
 ) {
-  final transactionsAsync = ref.watch(periodTransactionsProvider(period));
-
-  return transactionsAsync.whenData((allTransactions) {
-    final transactions = allTransactions.where((t) {
-      if (t.date.year != period.year) return false;
-      if (period.month != null && t.date.month != period.month) return false;
-      return true;
-    }).toList();
-    final categoryTotals = <String, double>{};
-    final tagTotals = <String, double>{};
-    final monthlyBreakdown = <String, Map<String, double>>{};
-    double totalExpenses = 0.0;
-
-    final monthFmt = DateFormat('yyyy-MM');
-    for (var t in transactions) {
-      // Distribution & Total — transfers are neither income nor expense.
-      if (t.isExpense) {
-        categoryTotals[t.category] =
-            (categoryTotals[t.category] ?? 0) + t.amount.abs();
-        for (final tag in t.tags) {
-          tagTotals[tag] = (tagTotals[tag] ?? 0) + t.amount.abs();
-        }
-        totalExpenses += t.amount.abs();
-      }
-
-      // Breakdown
-      final monthKey = monthFmt.format(t.date);
-      if (!monthlyBreakdown.containsKey(monthKey)) {
-        monthlyBreakdown[monthKey] = {'earned': 0.0, 'spent': 0.0};
-      }
-
-      if (t.isIncome) {
-        monthlyBreakdown[monthKey]!['earned'] =
-            monthlyBreakdown[monthKey]!['earned']! + t.amount;
-      } else if (t.isExpense) {
-        monthlyBreakdown[monthKey]!['spent'] =
-            monthlyBreakdown[monthKey]!['spent']! + t.amount.abs();
-      }
-    }
-
-    return StatsData(
-      categoryTotals: categoryTotals,
-      tagTotals: tagTotals,
-      monthlyBreakdown: monthlyBreakdown,
-      totalExpenses: totalExpenses,
-    );
-  });
+  return ref
+      .watch(periodTransactionsProvider(period))
+      .whenData((txs) => statsForPeriod(txs, period));
 });
-
-enum ChartGranularity { daily, weekly, monthly }
 
 class ChartGranularityNotifier extends Notifier<ChartGranularity> {
   @override
@@ -888,75 +739,12 @@ final chartGranularityProvider =
       ChartGranularityNotifier.new,
     );
 
-class ChartDataPoint {
-  final DateTime label;
-  final double amount;
-
-  ChartDataPoint(this.label, this.amount);
-}
-
-/// Per-bucket trend series, split by sign. Scoped stats modes plot one of
-/// the two; "all" overlays both — a single abs() series would mash income
-/// and expenses into "money moved", which says nothing.
-class ChartSeries {
-  final List<ChartDataPoint> expenses;
-  final List<ChartDataPoint> income;
-
-  ChartSeries({required this.expenses, required this.income});
-
-  bool get isEmpty => expenses.isEmpty && income.isEmpty;
-}
-
 final chartsDataProvider = Provider<AsyncValue<ChartSeries>>((ref) {
   final granularity = ref.watch(chartGranularityProvider);
   final period = ref.watch(selectedStatsPeriodProvider);
-  final transactionsAsync = ref.watch(periodTransactionsProvider(period));
-
-  return transactionsAsync.whenData((allTransactions) {
-    if (allTransactions.isEmpty) return ChartSeries(expenses: [], income: []);
-
-    final transactions = allTransactions.where((t) {
-      if (t.date.year != period.year) return false;
-      if (period.month != null && t.date.month != period.month) return false;
-      return true;
-    }).toList();
-
-    if (transactions.isEmpty) return ChartSeries(expenses: [], income: []);
-
-    final expenseBuckets = <DateTime, double>{};
-    final incomeBuckets = <DateTime, double>{};
-
-    for (var t in transactions) {
-      // Transfers are stored positive and would land in the income series.
-      if (t.amount == 0 || t.type == 'transfer') continue;
-      DateTime key;
-      switch (granularity) {
-        case ChartGranularity.daily:
-          key = DateTime(t.date.year, t.date.month, t.date.day);
-          break;
-        case ChartGranularity.weekly:
-          // Find the beginning of the week (Monday)
-          key = DateTime(
-            t.date.year,
-            t.date.month,
-            t.date.day - (t.date.weekday - 1),
-          );
-          break;
-        case ChartGranularity.monthly:
-          key = DateTime(t.date.year, t.date.month, 1);
-          break;
-      }
-      final buckets = t.amount < 0 ? expenseBuckets : incomeBuckets;
-      buckets[key] = (buckets[key] ?? 0) + t.amount.abs();
-    }
-
-    List<ChartDataPoint> sorted(Map<DateTime, double> buckets) {
-      final keys = buckets.keys.toList()..sort();
-      return keys.map((k) => ChartDataPoint(k, buckets[k]!)).toList();
-    }
-
-    return ChartSeries(expenses: sorted(expenseBuckets), income: sorted(incomeBuckets));
-  });
+  return ref
+      .watch(periodTransactionsProvider(period))
+      .whenData((txs) => chartSeries(txs, period, granularity));
 });
 
 class PaginatedTransactionsState {
@@ -1007,7 +795,7 @@ class PaginatedTransactionsNotifier
 
     // Use microtask to avoid side-effects during build
     Future.microtask(() => refresh());
-    
+
     return PaginatedTransactionsState(
       transactions: [],
       isLoading: true,
@@ -1123,7 +911,10 @@ class StatsScopeNotifier extends Notifier<StatsScope> {
   void set(StatsScope value) => state = value;
 }
 
-final statsScopeProvider =
-    NotifierProvider<StatsScopeNotifier, StatsScope>(StatsScopeNotifier.new);
+final statsScopeProvider = NotifierProvider<StatsScopeNotifier, StatsScope>(
+  StatsScopeNotifier.new,
+);
 
-final selectedWalletIdProvider = NotifierProvider<SelectedWalletId, String?>(SelectedWalletId.new);
+final selectedWalletIdProvider = NotifierProvider<SelectedWalletId, String?>(
+  SelectedWalletId.new,
+);
