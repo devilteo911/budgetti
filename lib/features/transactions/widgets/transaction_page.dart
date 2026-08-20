@@ -287,7 +287,9 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                   label: c.name,
                   color: colors[c.name] ?? Colors.grey,
                   isSelected: isSelected,
-                  icon: isSelected ? Icons.check_circle : Icons.circle,
+                  // Outlined, not filled: onSurfaceVariant is near-black in
+                  // light mode, where a solid dot shouts louder than the label.
+                  icon: isSelected ? Icons.check_circle : Icons.circle_outlined,
                   onTap: () =>
                       _save(_tx.copyWith(category: c.name, type: wanted)),
                 );
