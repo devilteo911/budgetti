@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/l10n.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/features/transactions/widgets/transaction_page.dart';
 
@@ -42,7 +41,6 @@ class _TransactionDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundBlack,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

@@ -1,6 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/features/dashboard/widgets/budget_overview_card.dart';
 import 'package:budgetti/features/dashboard/widgets/installments_card.dart';
@@ -43,6 +42,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final accountsAsync = ref.watch(accountsProvider);
     final userProfileAsync = ref.watch(userProfileProvider);
 
@@ -54,12 +54,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.cloud_off, size: 64, color: AppTheme.textGrey),
+                Icon(Icons.cloud_off, size: 64, color: cs.onSurfaceVariant),
                 const SizedBox(height: 16),
                 Text(
                   context.l10n.dashConnectivityIssue,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -68,18 +68,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 Text(
                   context.l10n.dashConnectivityMessage,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppTheme.textGrey),
+                  style: TextStyle(color: cs.onSurfaceVariant),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () => ref.invalidate(userProfileProvider),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryGreen,
-                  ),
-                  child: Text(
-                    context.l10n.commonRetry,
-                    style: const TextStyle(color: AppTheme.backgroundBlack),
-                  ),
+                  child: Text(context.l10n.commonRetry),
                 ),
               ],
             ),
@@ -100,16 +94,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.sync_problem,
                       size: 64,
-                      color: AppTheme.textGrey,
+                      color: cs.onSurfaceVariant,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       context.l10n.dashSyncFailed,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: cs.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -117,13 +111,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: () => ref.invalidate(accountsProvider),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryGreen,
-                      ),
-                      child: Text(
-                        context.l10n.commonRetry,
-                        style: const TextStyle(color: AppTheme.backgroundBlack),
-                      ),
+                      child: Text(context.l10n.commonRetry),
                     ),
                   ],
                 ),
@@ -133,7 +121,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   return Center(
                     child: Text(
                       context.l10n.dashNoAccounts,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: cs.onSurface),
                     ),
                   );
                 }

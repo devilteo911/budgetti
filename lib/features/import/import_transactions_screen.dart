@@ -1,6 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:flutter/material.dart';
@@ -90,7 +89,6 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
     showModalBottomSheet(
       useRootNavigator: true,
       context: context,
-      backgroundColor: AppTheme.surfaceGrey,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -100,7 +98,10 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
           child: Column(
              mainAxisSize: MainAxisSize.min,
              children: [
-               Text(context.l10n.importSelectWalletTitle, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+               Text(context.l10n.importSelectWalletTitle,
+                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                         fontWeight: FontWeight.bold,
+                       )),
                const SizedBox(height: 16),
                Flexible(
                  child: ListView.builder(
@@ -110,8 +111,11 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
                      final acc = accounts[index];
                      final isSelected = acc.id == _selectedWalletId;
                      return ListTile(
-                       title: Text(acc.name, style: const TextStyle(color: Colors.white)),
-                       trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryGreen) : null,
+                       title: Text(acc.name),
+                       trailing: isSelected
+                           ? Icon(Icons.check_circle,
+                               color: Theme.of(context).colorScheme.primary)
+                           : null,
                        onTap: () {
                          setState(() => _selectedWalletId = acc.id);
                          Navigator.pop(context);
@@ -129,16 +133,12 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final currencyFormatter = ref.watch(currencyProvider);
     final accountsAsync = ref.watch(accountsProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundBlack,
-      appBar: AppBar(
-        title: Text(context.l10n.importPreviewTitle),
-        backgroundColor: AppTheme.backgroundBlack,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: AppBar(title: Text(context.l10n.importPreviewTitle)),
       body: SafeArea(
         child: Column(
           children: [
@@ -154,26 +154,31 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppTheme.surfaceGrey,
+                        color: cs.surfaceContainer,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.account_balance_wallet, color: AppTheme.primaryGreen),
+                          Icon(Icons.account_balance_wallet, color: cs.primary),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(context.l10n.importToWallet, style: const TextStyle(color: AppTheme.textGrey, fontSize: 12)),
+                                Text(context.l10n.importToWallet,
+                                    style: TextStyle(
+                                        color: cs.onSurfaceVariant, fontSize: 12)),
                                 Text(
                                   selectedWallet?.name ?? context.l10n.importSelectWalletTitle,
-                                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                      color: cs.onSurface,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_drop_down, color: AppTheme.textGrey),
+                          Icon(Icons.arrow_drop_down, color: cs.onSurfaceVariant),
                         ],
                       ),
                     ),
@@ -190,10 +195,12 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(context.l10n.importFound(_transactions.length), style: const TextStyle(color: AppTheme.textGrey)),
+                  Text(context.l10n.importFound(_transactions.length),
+                      style: TextStyle(color: cs.onSurfaceVariant)),
                   Text(
                     context.l10n.importTotal(currencyFormatter.format(_transactions.fold(0.0, (sum, t) => sum + t.amount))),
-                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                     style: TextStyle(
+                         color: cs.onSurface, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -209,7 +216,11 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
                   final isExpense = t.amount < 0;
                   return Dismissible(
                     key: ValueKey(t.id),
-                    background: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 16), child: const Icon(Icons.delete, color: Colors.white)),
+                    background: Container(
+                        color: cs.errorContainer,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        child: Icon(Icons.delete, color: cs.onErrorContainer)),
                     onDismissed: (_) {
                       setState(() {
                         _transactions.removeAt(index);
@@ -217,19 +228,21 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
                     },
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: (isExpense ? Colors.red : AppTheme.primaryGreen).withOpacity(0.1),
+                        backgroundColor: (isExpense ? cs.error : cs.primary)
+                            .withValues(alpha: 0.1),
                         child: Icon(
                           isExpense ? Icons.arrow_downward : Icons.arrow_upward,
-                          color: isExpense ? Colors.red : AppTheme.primaryGreen,
+                          color: isExpense ? cs.error : cs.primary,
                           size: 16,
                         ),
                       ),
-                      title: Text(_titleCase(t.description), style: const TextStyle(color: Colors.white)),
-                      subtitle: Text(DateFormat.yMMMd().format(t.date), style: const TextStyle(color: AppTheme.textGrey)),
+                      title: Text(_titleCase(t.description)),
+                      subtitle: Text(DateFormat.yMMMd().format(t.date),
+                          style: TextStyle(color: cs.onSurfaceVariant)),
                       trailing: Text(
                         currencyFormatter.format(t.amount),
                         style: TextStyle(
-                          color: isExpense ? Colors.white : AppTheme.primaryGreen,
+                          color: isExpense ? cs.onSurface : cs.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -247,13 +260,15 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
                 child: ElevatedButton(
                   onPressed: _isLoading || _transactions.isEmpty ? null : _import,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryGreen,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: _isLoading 
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.black))
-                    : Text(context.l10n.importConfirm, style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: _isLoading
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(color: cs.onPrimary))
+                    : Text(context.l10n.importConfirm, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),

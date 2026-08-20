@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:budgetti/features/transactions/widgets/wallet_selector_chip.dart';
@@ -40,19 +40,6 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
       initialDate: initialDate,
       firstDate: DateTime(2020),
       lastDate: now,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppTheme.primaryGreen,
-              onPrimary: AppTheme.backgroundBlack,
-              surface: AppTheme.surfaceGrey,
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null && picked != widget.transaction.date) {
@@ -68,7 +55,6 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
     showModalBottomSheet(
       useRootNavigator: true,
       context: context,
-      backgroundColor: AppTheme.surfaceGrey,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -98,6 +84,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final t = widget.transaction;
     final formatter = ref.watch(currencyProvider);
     final isTransfer = t.type == 'transfer';
@@ -105,7 +92,8 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
     final tagsAsync = ref.watch(tagsProvider);
     final accountsAsync = ref.watch(accountsProvider);
     
-    final categoryColors = ref.watch(categoryColorCacheProvider(Theme.of(context).colorScheme.brightness));
+    final categoryColors =
+        ref.watch(categoryColorCacheProvider(cs.brightness));
     final tagColors = ref.watch(tagColorCacheProvider);
 
     return SafeArea(
@@ -126,10 +114,10 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                         children: [
                           Text(
                             _titleCase(t.description),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: cs.onSurface,
                             ),
                           ),
                           InkWell(
@@ -139,11 +127,11 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                               padding: const EdgeInsets.symmetric(vertical: 2),
                               child: Text(
                                 DateFormat('EEEE, MMM d, yyyy').format(t.date),
-                                style: const TextStyle(
-                                  color: AppTheme.textGrey,
+                                style: TextStyle(
+                                  color: cs.onSurfaceVariant,
                                   fontSize: 14,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: AppTheme.textGrey,
+                                  decorationColor: cs.onSurfaceVariant,
                                 ),
                               ),
                             ),
@@ -160,9 +148,8 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: isTransfer
-                            ? Colors.blue
-                            : (t.amount > 0 ? AppTheme.primaryGreen : Colors.white),
+                        color: amountInk(cs,
+                            isTransfer: isTransfer, isIncome: t.isIncome),
                       ),
                     ),
                   ],
@@ -173,8 +160,8 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                 if (isTransfer) ...[
                   Text(
                     context.l10n.txTransferDetails,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: cs.onSurface,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -198,16 +185,17 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                               onTap: () => _showAccountPicker(context, accounts, true),
                             ),
                           ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Icon(Icons.arrow_forward, color: AppTheme.textGrey),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Icon(Icons.arrow_forward,
+                                color: cs.onSurfaceVariant),
                           ),
                           Expanded(
                             child: WalletSelectorChip(
                               label: context.l10n.txTo.toUpperCase(),
                               accountName: toAccount?.name,
                               isSelected: true,
-                              color: Colors.blue,
+                              color: cs.tertiary,
                               onTap: () => _showAccountPicker(context, accounts, false),
                             ),
                           ),
@@ -224,8 +212,8 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                 // Categories
                 Text(
                   context.l10n.commonCategory,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -257,7 +245,9 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isSelected ? color.withOpacity(0.2) : AppTheme.surfaceGrey,
+                              color: isSelected
+                                  ? color.withValues(alpha: 0.2)
+                                  : cs.surfaceContainer,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isSelected ? color : Colors.transparent,
@@ -270,13 +260,15 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                                 Icon(
                                   isSelected ? Icons.check_circle : Icons.circle,
                                   size: 16,
-                                  color: isSelected ? color : AppTheme.textGrey,
+                                  color: isSelected ? color : cs.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   category.name,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : AppTheme.textGrey,
+                                    color: isSelected
+                                        ? cs.onSurface
+                                        : cs.onSurfaceVariant,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                   ),
                                 ),
@@ -296,8 +288,8 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                 // Tags
                 Text(
                   context.l10n.commonTags,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -328,7 +320,9 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: isSelected ? color.withOpacity(0.2) : AppTheme.surfaceGrey,
+                              color: isSelected
+                                  ? color.withValues(alpha: 0.2)
+                                  : cs.surfaceContainer,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: isSelected ? color : Colors.transparent,
@@ -338,7 +332,9 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                             child: Text(
                               tag.name,
                               style: TextStyle(
-                                color: isSelected ? Colors.white : AppTheme.textGrey,
+                                color: isSelected
+                                    ? cs.onSurface
+                                    : cs.onSurfaceVariant,
                                 fontSize: 13,
                               ),
                             ),
@@ -364,18 +360,18 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceGrey.withOpacity(0.8),
+                  color: cs.surfaceContainer.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.swipe, color: AppTheme.textGrey, size: 16),
+                    Icon(Icons.swipe, color: cs.onSurfaceVariant, size: 16),
                     const SizedBox(width: 8),
                     Text(
                       context.l10n.txSwipeNext,
-                      style: const TextStyle(
-                          color: AppTheme.textGrey, fontSize: 12),
+                      style: TextStyle(
+                          color: cs.onSurfaceVariant, fontSize: 12),
                     ),
                   ],
                 ),

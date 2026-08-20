@@ -1,6 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 
 class WalletSelectorChip extends StatelessWidget {
   final String label;
@@ -20,13 +19,15 @@ class WalletSelectorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final accent = color ?? cs.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: AppTheme.textGrey,
+          style: TextStyle(
+            color: cs.onSurfaceVariant,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
@@ -39,13 +40,13 @@ class WalletSelectorChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
-                  ? (color ?? AppTheme.primaryGreen).withOpacity(0.1)
-                  : AppTheme.surfaceGrey,
+                  ? accent.withValues(alpha: 0.1)
+                  : cs.surfaceContainer,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isSelected
-                    ? (color ?? AppTheme.primaryGreen).withOpacity(0.5)
-                    : AppTheme.textGrey.withOpacity(0.2),
+                    ? accent.withValues(alpha: 0.5)
+                    : cs.onSurfaceVariant.withValues(alpha: 0.2),
               ),
             ),
             child: Row(
@@ -54,22 +55,22 @@ class WalletSelectorChip extends StatelessWidget {
                 Icon(
                   Icons.account_balance_wallet,
                   size: 16,
-                  color: isSelected ? (color ?? AppTheme.primaryGreen) : AppTheme.textGrey,
+                  color: isSelected ? accent : cs.onSurfaceVariant,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   accountName ?? context.l10n.txSelectWallet,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : AppTheme.textGrey,
+                    color: isSelected ? cs.onSurface : cs.onSurfaceVariant,
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(
+                Icon(
                   Icons.keyboard_arrow_down,
                   size: 16,
-                  color: AppTheme.textGrey,
+                  color: cs.onSurfaceVariant,
                 ),
               ],
             ),

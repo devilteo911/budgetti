@@ -1,6 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -44,7 +43,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.person_pin, size: 64, color: AppTheme.primaryGreen),
+            Icon(Icons.person_pin,
+                size: 64, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 24),
             Text(
               context.l10n.authChooseUsername,
@@ -54,7 +54,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             const SizedBox(height: 8),
             Text(
               context.l10n.authUsernameHint,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textGrey),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),

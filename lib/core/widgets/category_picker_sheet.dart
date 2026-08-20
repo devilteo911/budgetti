@@ -2,7 +2,6 @@ import 'package:budgetti/core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/models/category.dart';
 
 class CategoryPickerSheet extends ConsumerWidget {
@@ -21,8 +20,10 @@ class CategoryPickerSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final categoriesAsync = ref.watch(categoriesProvider);
-    final categoryColors = ref.watch(categoryColorCacheProvider(Theme.of(context).colorScheme.brightness));
+    final categoryColors =
+        ref.watch(categoryColorCacheProvider(cs.brightness));
     final categoryIcons = ref.watch(categoryIconCacheProvider);
 
     return ConstrainedBox(
@@ -38,7 +39,7 @@ class CategoryPickerSheet extends ConsumerWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppTheme.textGrey.withOpacity(0.3),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -47,7 +48,7 @@ class CategoryPickerSheet extends ConsumerWidget {
               title ?? context.l10n.uiSelectCategory,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: cs.onSurface,
                   ),
             ),
             const SizedBox(height: 16),
@@ -63,7 +64,7 @@ class CategoryPickerSheet extends ConsumerWidget {
                     child: Center(
                       child: Text(
                         context.l10n.uiNoCategories,
-                        style: const TextStyle(color: AppTheme.textGrey),
+                        style: TextStyle(color: cs.onSurfaceVariant),
                       ),
                     ),
                   );
@@ -84,14 +85,14 @@ class CategoryPickerSheet extends ConsumerWidget {
                         title: Text(
                           cat.name,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: cs.onSurface,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                         leading: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
+                            color: color.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -105,8 +106,7 @@ class CategoryPickerSheet extends ConsumerWidget {
                           Navigator.of(context).pop();
                         },
                         trailing: isSelected
-                            ? const Icon(Icons.check_circle,
-                                color: AppTheme.primaryGreen)
+                            ? Icon(Icons.check_circle, color: cs.primary)
                             : null,
                       );
                     },
@@ -116,14 +116,13 @@ class CategoryPickerSheet extends ConsumerWidget {
               loading: () => const Center(
                 child: Padding(
                   padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+                  child: CircularProgressIndicator(),
                 ),
               ),
               error: (e, s) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text("Error: $e",
-                      style: const TextStyle(color: Colors.red)),
+                  child: Text("Error: $e", style: TextStyle(color: cs.error)),
                 ),
               ),
             ),

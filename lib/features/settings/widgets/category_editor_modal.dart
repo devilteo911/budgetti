@@ -1,6 +1,6 @@
 import 'package:budgetti/core/constants/category_icons.dart';
 import 'package:budgetti/core/l10n.dart';
-import 'package:budgetti/core/theme/app_theme.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +20,14 @@ const List<int> _colors = [
   0xFF607D8B, // Blue Grey
   0xFFE91E63, // Pink
 ];
+
+/// Legible ink for text/icons painted directly on a user-chosen swatch — the
+/// palette spans near-black to near-white, so neither white nor onSurface works
+/// for all of it.
+Color _inkOn(Color background) =>
+    ThemeData.estimateBrightnessForColor(background) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
 
 class CategoryEditorModal extends ConsumerStatefulWidget {
   final Category? category;
@@ -83,6 +91,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final categoryColor = Color(_selectedColor);
 
     return SafeArea(
@@ -93,9 +102,10 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
           maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
         decoration: BoxDecoration(
-          color: AppTheme.backgroundBlack,
+          color: cs.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
+          border:
+              Border.all(color: cs.onSurface.withValues(alpha: 0.05), width: 1),
         ),
         child: Padding(
           padding: EdgeInsets.only(
@@ -117,7 +127,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: cs.onSurface.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -128,7 +138,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                     ? context.l10n.setNewCategory
                     : context.l10n.setEditCategory,
                 style: theme.textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+                  color: cs.onSurface,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.5,
                 ),
@@ -152,20 +162,20 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                       TextFormField(
                         controller: _nameController,
                         onChanged: (val) => setState(() {}),
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: cs.onSurface,
                           fontWeight: FontWeight.bold,
                         ),
                         decoration: InputDecoration(
                           hintText: context.l10n.setCategoryNameHint,
                           hintStyle: TextStyle(
-                            color: Colors.white.withOpacity(0.2),
+                            color: cs.onSurface.withValues(alpha: 0.2),
                           ),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.03),
+                          fillColor: cs.onSurface.withValues(alpha: 0.03),
                           prefixIcon: Icon(
                             Icons.label_outline,
-                            color: categoryColor.withOpacity(0.6),
+                            color: categoryColor.withValues(alpha: 0.6),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -174,13 +184,13 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: Colors.white.withOpacity(0.05),
+                              color: cs.onSurface.withValues(alpha: 0.05),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: categoryColor.withOpacity(0.5),
+                              color: categoryColor.withValues(alpha: 0.5),
                               width: 2,
                             ),
                           ),
@@ -203,10 +213,10 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                 Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.03),
+                                    color: cs.onSurface.withValues(alpha: 0.03),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.05),
+                                      color: cs.onSurface.withValues(alpha: 0.05),
                                     ),
                                   ),
                                   child: Row(
@@ -214,12 +224,12 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                       _buildTypeOption(
                                         'expense',
                                         context.l10n.commonExpense,
-                                        theme.colorScheme.error,
+                                        expenseInk(cs.brightness),
                                       ),
                                       _buildTypeOption(
                                         'income',
                                         context.l10n.commonIncome,
-                                        AppTheme.primaryGreen,
+                                        incomeInk(cs.brightness),
                                       ),
                                     ],
                                   ),
@@ -243,10 +253,10 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                       color: categoryColor,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: const Center(
+                                    child: Center(
                                       child: Icon(
                                         Icons.colorize,
-                                        color: Colors.white,
+                                        color: _inkOn(categoryColor),
                                         size: 20,
                                       ),
                                     ),
@@ -265,7 +275,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                       TextFormField(
                         controller: _descriptionController,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: cs.onSurface.withValues(alpha: 0.8),
                           fontSize: 14,
                         ),
                         maxLines: 2,
@@ -273,13 +283,13 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                           hintText:
                               context.l10n.setCategoryDescriptionHint,
                           hintStyle: TextStyle(
-                            color: Colors.white.withOpacity(0.2),
+                            color: cs.onSurface.withValues(alpha: 0.2),
                           ),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.03),
+                          fillColor: cs.onSurface.withValues(alpha: 0.03),
                           prefixIcon: Icon(
                             Icons.notes_rounded,
-                            color: categoryColor.withOpacity(0.4),
+                            color: categoryColor.withValues(alpha: 0.4),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -288,13 +298,13 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: Colors.white.withOpacity(0.05),
+                              color: cs.onSurface.withValues(alpha: 0.05),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: categoryColor.withOpacity(0.3),
+                              color: categoryColor.withValues(alpha: 0.3),
                               width: 1.5,
                             ),
                           ),
@@ -309,10 +319,10 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                         height: 380, // Fixed height for the grid within scroll
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.02),
+                            color: cs.onSurface.withValues(alpha: 0.02),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.05),
+                              color: cs.onSurface.withValues(alpha: 0.05),
                             ),
                           ),
                           child: CustomScrollView(
@@ -331,7 +341,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                       child: Text(
                                         group.name.toUpperCase(),
                                         style: TextStyle(
-                                          color: Colors.white.withOpacity(0.3),
+                                          color: cs.onSurface.withValues(alpha: 0.3),
                                           fontSize: 11,
                                           fontWeight: FontWeight.w900,
                                           letterSpacing: 1.2,
@@ -369,16 +379,12 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                             decoration: BoxDecoration(
                                               color: isSelected
                                                   ? categoryColor
-                                                  : Colors.white.withOpacity(
-                                                      0.03,
-                                                    ),
+                                                  : cs.onSurface.withValues(alpha: 0.03),
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                               border: Border.all(
                                                 color: isSelected
-                                                    ? Colors.white.withOpacity(
-                                                        0.5,
-                                                      )
+                                                    ? cs.onSurface.withValues(alpha: 0.5)
                                                     : Colors.transparent,
                                                 width: 1.5,
                                               ),
@@ -387,10 +393,9 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                                               iconData,
                                               size: 20,
                                               color: isSelected
-                                                  ? Colors.white
-                                                  : Colors.white.withOpacity(
-                                                      0.4,
-                                                    ),
+                                                  ? _inkOn(categoryColor)
+                                                  : cs.onSurface
+                                                      .withValues(alpha: 0.4),
                                             ),
                                           ),
                                         );
@@ -430,7 +435,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                         child: Text(
                           context.l10n.commonCancel,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
+                            color: cs.onSurface.withValues(alpha: 0.5),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -444,7 +449,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                         style:
                             ElevatedButton.styleFrom(
                               backgroundColor: categoryColor,
-                              foregroundColor: Colors.white,
+                              foregroundColor: _inkOn(categoryColor),
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
@@ -452,7 +457,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                               ),
                             ).copyWith(
                               shadowColor: WidgetStateProperty.all(
-                                categoryColor.withOpacity(0.5),
+                                categoryColor.withValues(alpha: 0.5),
                               ),
                               elevation: WidgetStateProperty.all(8),
                             ),
@@ -478,12 +483,13 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
   }
 
   Widget _buildLabel(String text) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 10),
       child: Text(
         text,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.4),
+          color: cs.onSurface.withValues(alpha: 0.4),
           fontSize: 11,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.2,
@@ -493,6 +499,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
   }
 
   Widget _buildPreview(Color color) {
+    final cs = Theme.of(context).colorScheme;
     final displayName = _nameController.text.isEmpty
         ? context.l10n.setNewCategory
         : _nameController.text;
@@ -513,7 +520,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
             ),
             child: Icon(
               IconData(_selectedIcon, fontFamily: 'MaterialIcons'),
-              color: Colors.white,
+              color: _inkOn(color),
               size: 28,
             ),
           ),
@@ -526,8 +533,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                   displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
@@ -540,8 +547,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                       .toUpperCase(),
                   style: TextStyle(
                     color: _type == 'expense'
-                        ? Colors.redAccent.withOpacity(0.8)
-                        : AppTheme.primaryGreen.withOpacity(0.8),
+                        ? expenseInk(cs.brightness)
+                        : incomeInk(cs.brightness),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -556,6 +563,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
   }
 
   Widget _buildTypeOption(String value, String label, Color color) {
+    final cs = Theme.of(context).colorScheme;
     final isSelected = _type == value;
     return Expanded(
       child: GestureDetector(
@@ -572,8 +580,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
               label,
               style: TextStyle(
                 color: isSelected
-                    ? Colors.black
-                    : Colors.white.withOpacity(0.4),
+                    ? _inkOn(color)
+                    : cs.onSurface.withValues(alpha: 0.4),
                 fontWeight: FontWeight.w900,
                 fontSize: 13,
               ),
@@ -588,7 +596,6 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
     showModalBottomSheet(
       useRootNavigator: true,
       context: context,
-      backgroundColor: AppTheme.surfaceGrey,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -600,8 +607,8 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
           children: [
             Text(
               ctx.l10n.setSelectColor,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: Theme.of(ctx).colorScheme.onSurface,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -628,18 +635,21 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
                       color: Color(color),
                       shape: BoxShape.circle,
                       border: isSelected
-                          ? Border.all(color: Colors.white, width: 3)
+                          ? Border.all(
+                              color: Theme.of(ctx).colorScheme.onSurface,
+                              width: 3)
                           : null,
                       boxShadow: [
                         BoxShadow(
-                          color: Color(color).withOpacity(0.4),
+                          color: Color(color).withValues(alpha: 0.4),
                           blurRadius: 8,
                           offset: const Offset(0, 3),
                         ),
                       ],
                     ),
                     child: isSelected
-                        ? const Icon(Icons.check, color: Colors.white, size: 20)
+                        ? Icon(Icons.check,
+                            color: _inkOn(Color(color)), size: 20)
                         : null,
                   ),
                 );

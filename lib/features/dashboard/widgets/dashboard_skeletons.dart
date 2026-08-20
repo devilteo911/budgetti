@@ -1,4 +1,3 @@
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/features/dashboard/widgets/summary_card.dart';
 import 'package:flutter/material.dart';
@@ -12,9 +11,14 @@ class TransactionItemSkeleton extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceGrey.withOpacity(0.5),
+        color: Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.surfaceGreyLight.withOpacity(0.2), width: 1),
+        border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHigh
+                .withValues(alpha: 0.2),
+            width: 1),
       ),
       child: Row(
         children: [

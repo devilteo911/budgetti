@@ -1,4 +1,3 @@
-import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -22,7 +21,7 @@ class Skeleton extends StatelessWidget {
       height: height,
       width: width,
       decoration: BoxDecoration(
-        color: color ?? AppTheme.surfaceGreyLight,
+        color: color ?? Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
@@ -44,8 +43,9 @@ class ShimmerLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: baseColor ?? AppTheme.surfaceGreyLight,
-      highlightColor: highlightColor ?? AppTheme.surfaceGrey.withOpacity(0.5),
+      baseColor: baseColor ?? Theme.of(context).colorScheme.surfaceContainerHigh,
+      highlightColor: highlightColor ??
+          Theme.of(context).colorScheme.surfaceContainer.withValues(alpha: 0.5),
       child: child,
     );
   }

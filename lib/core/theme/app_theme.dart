@@ -44,22 +44,6 @@ enum AppPalette {
 class AppTheme {
   AppTheme._();
 
-  // Legacy constants kept const so existing `const` literal widgets compile.
-  // These DO NOT react to palette changes — new code must use
-  // Theme.of(context).colorScheme instead. Migration is incremental.
-  @Deprecated('Use Theme.of(context).colorScheme.primary')
-  static const Color primaryGreen = Color(0xFF63E6BE);
-  @Deprecated('Use Theme.of(context).scaffoldBackgroundColor')
-  static const Color backgroundBlack = Color(0xFF000000);
-  @Deprecated('Use Theme.of(context).colorScheme.surfaceContainer')
-  static const Color surfaceGrey = Color(0xFF1C1C1E);
-  @Deprecated('Use Theme.of(context).colorScheme.surfaceContainerHigh')
-  static const Color surfaceGreyLight = Color(0xFF2C2C2E);
-  @Deprecated('Use Theme.of(context).colorScheme.onSurface')
-  static const Color textWhite = Color(0xFFFFFFFF);
-  @Deprecated('Use Theme.of(context).colorScheme.onSurfaceVariant')
-  static const Color textGrey = Color(0xFF8E8E93);
-
   static ColorScheme _buildScheme(
     AppPalette palette,
     Brightness brightness,
