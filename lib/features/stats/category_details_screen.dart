@@ -47,7 +47,7 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final period = ref.watch(selectedStatsPeriodProvider);
-    final transactionsAsync = ref.watch(transactionsProvider(null));
+    final transactionsAsync = ref.watch(periodTransactionsProvider(period));
     final currencyFormatter = ref.watch(currencyProvider);
     final tagMap = ref.watch(tagMapProvider);
     final budgetMap = ref.watch(budgetMapProvider);

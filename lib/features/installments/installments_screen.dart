@@ -34,7 +34,7 @@ class InstallmentsScreen extends ConsumerWidget {
     final plansAsync = ref.watch(installmentsProvider);
     // Real charges attached to each plan, so a row can show what the schedule
     // says *and* what the ledger confirms.
-    final txns = ref.watch(transactionsProvider(null)).value ?? const [];
+    final txns = ref.watch(installmentTransactionsProvider).value ?? const [];
     final linkedCounts = <String, int>{};
     for (final t in txns) {
       final id = t.installmentId;

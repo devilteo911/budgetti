@@ -251,12 +251,40 @@ final accountsProvider = StreamProvider<List<Account>>((ref) {
   return ref.watch(financeServiceProvider).watchAccounts();
 });
 
+/// Rolling 12-month window — the unbounded full-table watch fed six
+/// aggregators, and every emission re-mapped every row on the UI isolate.
+/// Everything these aggregators compute looks at the last 12 months at most;
+/// the stats year picker and the installment screens have their own scoped
+/// variants ([periodTransactionsProvider], [installmentTransactionsProvider]).
 final transactionsProvider = StreamProvider.family<List<Transaction>, String?>((
   ref,
   accountId,
 ) {
   final service = ref.watch(financeServiceProvider);
-  return service.watchTransactions(accountId: accountId);
+  final now = DateTime.now();
+  return service.watchTransactions(
+    accountId: accountId,
+    startDate: DateTime(now.year, now.month - 11, 1),
+  );
+});
+
+/// Stats periods can reach further back than the rolling window — this
+/// family scopes the watch to exactly the selected year (month filtering
+/// happens client-side, as before).
+final periodTransactionsProvider =
+    StreamProvider.family<List<Transaction>, StatsPeriod>((ref, period) {
+  final service = ref.watch(financeServiceProvider);
+  return service.watchTransactions(
+    startDate: DateTime(period.year, 1, 1),
+    endDate: DateTime(period.year, 12, 31, 23, 59, 59, 999),
+  );
+});
+
+/// Linked payments + attach-a-payment candidates for the installment screens,
+/// without watching (and re-mapping) the whole ledger.
+final installmentTransactionsProvider =
+    StreamProvider<List<Transaction>>((ref) {
+  return ref.watch(financeServiceProvider).watchInstallmentRelevant();
 });
 
 final categoriesProvider = StreamProvider<List<Category>>((ref) {
@@ -580,43 +608,20 @@ class FilteredTotals {
   static const empty = FilteredTotals(income: 0, expense: 0, count: 0);
 }
 
-final filteredTotalsProvider = Provider<FilteredTotals>((ref) {
-  final all = ref.watch(transactionsProvider(null)).value ?? [];
+/// SQL aggregate over the same filter as the ledger page query — the hero
+/// totals used to re-filter the full 12-month watch in memory on every
+/// emission. (income, expense, count) with the model's classifier: non-transfer
+/// by sign, transfers excluded.
+final filteredTotalsProvider = StreamProvider<FilteredTotals>((ref) {
   final filters = ref.watch(transactionFiltersProvider);
   final walletId = ref.watch(selectedWalletIdProvider);
-
-  if (all.isEmpty) return FilteredTotals.empty;
-
-  double income = 0;
-  double expense = 0;
-  int count = 0;
-
-  for (final t in all) {
-    if (walletId != null && t.accountId != walletId) continue;
-    final range = filters.dateRange;
-    if (range != null) {
-      if (t.date.isBefore(range.start)) continue;
-      if (t.date.isAfter(range.end)) continue;
-    }
-    if (filters.categories.isNotEmpty &&
-        !filters.categories.contains(t.category)) {
-      continue;
-    }
-    if (filters.tags.isNotEmpty &&
-        !t.tags.any((tag) => filters.tags.contains(tag))) {
-      continue;
-    }
-
-    if (t.type == 'transfer') continue;
-    count++;
-    if (t.isIncome) {
-      income += t.amount;
-    } else if (t.isExpense) {
-      expense += t.amount.abs();
-    }
-  }
-
-  return FilteredTotals(income: income, expense: expense, count: count);
+  return ref.watch(financeServiceProvider).watchTotals(
+        accountId: walletId,
+        startDate: filters.dateRange?.start,
+        endDate: filters.dateRange?.end,
+        categories: filters.categories,
+        tags: filters.tags,
+      ).map((t) => FilteredTotals(income: t.$1, expense: t.$2, count: t.$3));
 });
 
 final categoryMapProvider = Provider<Map<String, Category>>((ref) {
@@ -820,7 +825,7 @@ final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
   ref,
   period,
 ) {
-  final transactionsAsync = ref.watch(transactionsProvider(null));
+  final transactionsAsync = ref.watch(periodTransactionsProvider(period));
 
   return transactionsAsync.whenData((allTransactions) {
     final transactions = allTransactions.where((t) {
@@ -905,7 +910,7 @@ class ChartSeries {
 final chartsDataProvider = Provider<AsyncValue<ChartSeries>>((ref) {
   final granularity = ref.watch(chartGranularityProvider);
   final period = ref.watch(selectedStatsPeriodProvider);
-  final transactionsAsync = ref.watch(transactionsProvider(null));
+  final transactionsAsync = ref.watch(periodTransactionsProvider(period));
 
   return transactionsAsync.whenData((allTransactions) {
     if (allTransactions.isEmpty) return ChartSeries(expenses: [], income: []);

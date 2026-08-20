@@ -207,4 +207,103 @@ void _migrationTests() {
         .get();
     expect(live.map((t) => t.id), ['old']);
   });
+
+  // The SQL totals aggregate replaced an in-memory re-filter of the whole
+  // ledger — it must classify exactly like the model does: income/expense =
+  // non-transfer by sign, transfers and their exclusion counted the same way.
+  test('watchTotals matches the in-memory filter over the same rows', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts(); // seeds the default account
+
+    final base = DateTime(2026, 3, 1);
+    final rows = [
+      (id: 't1', amount: 100.0, type: 'income', date: base, category: 'Salary', tags: <String>[]),
+      (id: 't2', amount: -40.0, type: 'expense', date: base.add(const Duration(days: 1)), category: 'Food', tags: <String>['Groceries']),
+      (id: 't3', amount: -60.0, type: 'expense', date: base.add(const Duration(days: 2)), category: 'Food', tags: <String>[]),
+      (id: 't4', amount: 50.0, type: 'transfer', date: base.add(const Duration(days: 3)), category: '', tags: <String>[]),
+      (id: 't5', amount: -10.0, type: 'expense', date: DateTime(2025, 1, 1), category: 'Food', tags: <String>[]), // outside range
+      (id: 't6', amount: -20.0, type: 'expense', date: base.add(const Duration(days: 4)), category: 'Bills', tags: <String>['Groceries']),
+    ];
+    for (final r in rows) {
+      await service.addTransaction(model.Transaction(
+        id: r.id,
+        accountId: 'user-a_main',
+        amount: r.amount,
+        date: r.date,
+        description: r.id,
+        category: r.category,
+        type: r.type,
+        tags: r.tags,
+      ));
+    }
+
+    Future<(double, double, int)> totals() async {
+      final list = await service
+          .watchTotals(
+            startDate: DateTime(2026, 1, 1),
+            endDate: DateTime(2026, 12, 31, 23, 59, 59, 999),
+            categories: ['Food', 'Bills'],
+            tags: ['Groceries'],
+          )
+          .first;
+      return list;
+    }
+
+    final (income, expense, count) = await totals();
+    // Only t2 and t6 match (in-range, category, tag); the transfer never counts.
+    expect(income, 0.0);
+    expect(expense, 60.0);
+    expect(count, 2);
+
+    // Unfiltered totals: t1+t2+t3+t6 count, t5 is out of range, transfer t4
+    // excluded from income/expense but… transfers are skipped entirely by the
+    // old in-memory loop, so count must skip them too.
+    final (allIncome, allExpense, allCount) =
+        await service.watchTotals(startDate: DateTime(2026, 1, 1)).first;
+    expect(allIncome, 100.0);
+    expect(allExpense, 120.0);
+    expect(allCount, 4);
+  });
+
+  test('watchInstallmentRelevant returns linked rows and unlinked expenses',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    final base = DateTime(2026, 3, 1);
+    await service.addTransaction(model.Transaction(
+      id: 'linked',
+      accountId: 'user-a_main',
+      amount: -100,
+      date: base,
+      description: 'rate',
+      category: 'Shopping',
+      installmentId: 'plan1',
+    ));
+    await service.addTransaction(model.Transaction(
+      id: 'unlinked-expense',
+      accountId: 'user-a_main',
+      amount: -10,
+      date: base,
+      description: 'coffee',
+      category: 'Food',
+    ));
+    await service.addTransaction(model.Transaction(
+      id: 'income',
+      accountId: 'user-a_main',
+      amount: 50,
+      date: base,
+      description: 'salary',
+      category: 'Salary',
+      type: 'income',
+    ));
+
+    final rows = await service.watchInstallmentRelevant().first;
+    expect(rows.map((t) => t.id),
+        unorderedEquals(['linked', 'unlinked-expense']));
+  });
 }

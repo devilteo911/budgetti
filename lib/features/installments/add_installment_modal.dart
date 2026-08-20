@@ -321,7 +321,7 @@ class _LinkedPayments extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final currency = ref.watch(currencyProvider);
-    final txns = ref.watch(transactionsProvider(null)).value ?? const [];
+    final txns = ref.watch(installmentTransactionsProvider).value ?? const [];
     final linked = txns.where((t) => t.installmentId == plan.id).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
     final due = plan.paidCount();

@@ -14,7 +14,8 @@ class TransactionsHero extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final totals = ref.watch(filteredTotalsProvider);
+    final totals =
+        ref.watch(filteredTotalsProvider).value ?? FilteredTotals.empty;
     final filters = ref.watch(transactionFiltersProvider);
     final currency = ref.watch(currencyProvider);
 

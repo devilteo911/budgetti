@@ -336,22 +336,22 @@ class FinanceService {
     }
 
     final result = await query.get();
-
-    return result
-        .map(
-          (t) => model_txn.Transaction(
-      id: t.id,
-      accountId: t.accountId ?? '1',
-            toAccountId: t.toAccountId,
-      amount: t.amount,
-      description: t.description,
-      category: t.category,
-            type: t.type,
-      date: t.date,
-      tags: t.tags ?? [],
-      installmentId: t.installmentId,
-    )).toList();
+    return result.map(_toModelTx).toList();
   }
+
+  /// Drift row → domain model, shared by every transactions read.
+  model_txn.Transaction _toModelTx(Transaction t) => model_txn.Transaction(
+        id: t.id,
+        accountId: t.accountId ?? '1',
+        toAccountId: t.toAccountId,
+        amount: t.amount,
+        description: t.description,
+        category: t.category,
+        type: t.type,
+        date: t.date,
+        tags: t.tags ?? [],
+        installmentId: t.installmentId,
+      );
 
   Stream<List<model_txn.Transaction>> watchTransactions({
     String? accountId,
@@ -389,23 +389,76 @@ class FinanceService {
       (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),
     ]);
 
-    return query.watch().map((result) {
-      return result
-          .map(
-            (t) => model_txn.Transaction(
-              id: t.id,
-              accountId: t.accountId ?? '1',
-              toAccountId: t.toAccountId,
-              amount: t.amount,
-              description: t.description,
-              category: t.category,
-              type: t.type,
-              date: t.date,
-              tags: t.tags ?? [],
-              installmentId: t.installmentId,
-            ),
-          )
-          .toList();
+    return query.watch().map((result) => result.map(_toModelTx).toList());
+  }
+
+  /// The rows the installment screens filter client-side: charges linked to
+  /// any plan, plus unlinked expenses (attach-a-payment candidates). Replaces
+  /// their full-ledger watch — unlinked income and transfers are noise there.
+  Stream<List<model_txn.Transaction>> watchInstallmentRelevant() {
+    final query = _db.select(_db.transactions)
+      ..where((tbl) =>
+          tbl.isDeleted.equals(false) &
+          tbl.userId.equals(_userId) &
+          (tbl.installmentId.isNotNull() | tbl.type.equals('expense')))
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+        (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),
+      ]);
+    return query.watch().map((result) => result.map(_toModelTx).toList());
+  }
+
+  /// Totals over exactly the filter the ledger page queries — a SQL
+  /// aggregate watched on the transactions table, instead of re-watching and
+  /// re-mapping the whole ledger on the UI isolate. Classification mirrors
+  /// the model: income/expense = non-transfer by sign, transfers excluded.
+  Stream<(double, double, int)> watchTotals({
+    String? accountId,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<String>? categories,
+    List<String>? tags,
+  }) {
+    final where = <String>['is_deleted = 0', 'user_id = ?'];
+    final vars = <Variable>[Variable(_userId)];
+    if (accountId != null) {
+      where.add('account_id = ?');
+      vars.add(Variable(accountId));
+    }
+    if (startDate != null || endDate != null) {
+      where.add('date BETWEEN ? AND ?');
+      vars.add(Variable(startDate ?? DateTime(1900)));
+      vars.add(Variable(endDate ?? DateTime(2100)));
+    }
+    if (categories != null && categories.isNotEmpty) {
+      where.add('category IN (${List.filled(categories.length, '?').join(', ')})');
+      vars.addAll([for (final c in categories) Variable(c)]);
+    }
+    if (tags != null && tags.isNotEmpty) {
+      // Same whole-element json_each match as _hasAnyTag — escaped literals,
+      // the only form customSelect can embed.
+      final literals = [for (final t in tags) "'${t.replaceAll("'", "''")}'"];
+      where.add(
+          'json_valid(tags) AND EXISTS (SELECT 1 FROM json_each(transactions.tags) WHERE value IN (${literals.join(', ')}))');
+    }
+    return _db
+        .customSelect(
+          'SELECT '
+          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount > 0 THEN amount ELSE 0 END), 0) AS income, '
+          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount < 0 THEN -amount ELSE 0 END), 0) AS expense, '
+          'SUM(CASE WHEN type != \'transfer\' THEN 1 ELSE 0 END) AS count '
+          'FROM transactions WHERE ${where.join(' AND ')}',
+          variables: vars,
+          readsFrom: {_db.transactions},
+        )
+        .watch()
+        .map((rows) {
+      final r = rows.single;
+      return (
+        r.read<double>('income'),
+        r.read<double>('expense'),
+        r.read<int>('count'),
+      );
     });
   }
 
