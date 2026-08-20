@@ -166,14 +166,25 @@ class PersistenceService {
   // PocketBase sync
   static const _pbServerUrlKey = 'pb_server_url';
   static const _pbLastSyncAtKey = 'pb_last_sync_at'; // millis since epoch
+  static const _pbPullSyncAtKey = 'pb_pull_sync_at'; // millis since epoch
   static const _pbLastSyncSummaryKey = 'pb_last_sync_summary';
 
-  /// Sync cursor: the max `lastUpdated` seen across the last completed sync.
-  /// Epoch on first sync so everything is treated as new.
+  /// Push cursor: the max local `lastUpdated` confirmed pushed. Drives which
+  /// local rows a sync pushes.
   DateTime getLastSyncAt() =>
       DateTime.fromMillisecondsSinceEpoch(_prefs.getInt(_pbLastSyncAtKey) ?? 0);
   Future<void> setLastSyncAt(DateTime t) =>
       _prefs.setInt(_pbLastSyncAtKey, t.millisecondsSinceEpoch);
+
+  /// Pull cursor: the max server-stamped `updated` confirmed pulled/pushed.
+  /// Its own clock domain (PB's, not the device's) — that split is what keeps
+  /// a fast device clock from permanently diverging the pull filter. Starts
+  /// at epoch on upgrade, so the first new-code sync re-pulls everything once
+  /// (conflict-checked, so it converges without dupes).
+  DateTime getPullSyncAt() => DateTime.fromMillisecondsSinceEpoch(
+      _prefs.getInt(_pbPullSyncAtKey) ?? 0);
+  Future<void> setPullSyncAt(DateTime t) =>
+      _prefs.setInt(_pbPullSyncAtKey, t.millisecondsSinceEpoch);
 
   String getServerUrl() => _prefs.getString(_pbServerUrlKey) ?? '';
   Future<void> setServerUrl(String url) =>

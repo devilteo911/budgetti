@@ -23,14 +23,23 @@ void _ensureSqlite() {
   }
 }
 
-/// In-memory PocketBase stand-in: mirrors what the real client does —
-/// `listChanges` filters by `lastUpdated > since`, `upsert` stores by id.
-class _FakeClient implements SyncClient {
+/// In-memory PocketBase stand-in: mirrors what the real client + server do —
+/// every write restamps `updated` (the autodate), pulls filter on it, the LWW
+/// guard rejects stale bodies, pushes go through `batchPush`.
+class _FakeClient extends SyncClient {
   @override
   final String userId;
   final Map<String, Map<String, Map<String, dynamic>>> _store = {};
 
   _FakeClient(this.userId);
+
+  /// Deterministic server clock: strictly increasing, so `updated` filters
+  /// behave like PB's autodate without wall-clock flakiness. Based after the
+  /// dates tests use for lastUpdated, so pushed rows' server stamps advance
+  /// the pull cursor.
+  int _clockMs = 1790000000000;
+  DateTime _tick() =>
+      DateTime.fromMillisecondsSinceEpoch(_clockMs += 1000, isUtc: true);
 
   /// Test seam: collections the server doesn't serve at all — a 404 before
   /// their migration has run, or a permissions/outage failure.
@@ -46,6 +55,12 @@ class _FakeClient implements SyncClient {
   /// Held by tests that need a sync to pause mid-flight (lock testing).
   Future<void>? gate;
 
+  /// How many bulk pushes were issued (the service must batch, not loop).
+  int batchPushCalls = 0;
+
+  /// Per-id push attempt counts (dead-letter observability).
+  final Map<String, int> pushAttempts = {};
+
   @override
   Future<List<Map<String, dynamic>>> listChanges(
       String c, DateTime since) async {
@@ -54,9 +69,9 @@ class _FakeClient implements SyncClient {
     if (failCollections.contains(c)) throw Exception('404: no collection $c');
     final entries = _store[c]?.entries.toList() ?? const [];
     return entries.where((e) {
-      final lu = e.value['lastUpdated'] as String?;
-      if (lu == null) return false;
-      return DateTime.parse(lu).isAfter(since);
+      final up = e.value['updated'] as String?;
+      if (up == null) return false;
+      return DateTime.parse(up).isAfter(since);
     }).map((e) => {...e.value, 'id': e.key}).toList();
   }
 
@@ -67,10 +82,18 @@ class _FakeClient implements SyncClient {
   /// our push", the exact window the server guard exists for.
   void Function(String c, String id)? onBeforeUpsert;
 
+  void _write(String c, String id, Map<String, dynamic> body) {
+    _store.putIfAbsent(c, () => {})[id] = {
+      ...Map<String, dynamic>.from(body),
+      'updated': _tick().toUtc().toIso8601String(),
+    };
+  }
+
   @override
   Future<Map<String, dynamic>> upsert(
       String c, String id, Map<String, dynamic> body) async {
     if (authExpired) throw const SyncAuthExpired();
+    pushAttempts[id] = (pushAttempts[id] ?? 0) + 1;
     if (reject.contains(id)) throw Exception('rejected: $id');
     if (onBeforeUpsert != null) onBeforeUpsert!(c, id);
     final stored = _store[c]?[id];
@@ -83,7 +106,7 @@ class _FakeClient implements SyncClient {
         throw LwwStaleWrite(c, id);
       }
     }
-    _store.putIfAbsent(c, () => {})[id] = Map<String, dynamic>.from(body);
+    _write(c, id, body);
     return {..._store[c]![id]!, 'id': id};
   }
 
@@ -95,10 +118,17 @@ class _FakeClient implements SyncClient {
     return {...row, 'id': id};
   }
 
+  @override
+  Future<List<PushOutcome>> batchPush(
+      String collection, List<(String, Map<String, dynamic>)> rows) {
+    batchPushCalls++;
+    return super.batchPush(collection, rows);
+  }
+
   /// Test seam: mutate a stored row the way another device would.
   void edit(String c, String id, Map<String, dynamic> patch) {
     final row = _store[c]?[id];
-    if (row != null) _store[c]![id] = {...row, ...patch};
+    if (row != null) _write(c, id, {...row, ...patch});
   }
 }
 
@@ -356,8 +386,11 @@ void main() {
     final fullPush = await service.sync(full: true, pull: false);
     expect(fullPush.pushed, 1);
     expect(client._store['categories']!['c1']!['name'], 'Stranded');
-    // One-way runs must not move the cursor.
-    expect(persistence.getLastSyncAt(), DateTime(2026, 7, 10));
+    // A push-only run advances the push cursor to exactly what it confirmed
+    // pushed (the stranded row's ts) — that's safe now that pull has its own
+    // cursor; re-pushing a confirmed row would be a no-op, and the pull
+    // cursor is untouched by a push-only pass.
+    expect(persistence.getLastSyncAt(), t1);
   });
 
   test('a rejected timestamped row rewinds the cursor and is retried',
@@ -487,6 +520,8 @@ void main() {
           'installmentId': '', // PB's empty text
           'isDeleted': false,
           'lastUpdated': t1.toUtc().toIso8601String(),
+          // Every server row carries the autodate now — pulls filter on it.
+          'updated': t1.toUtc().toIso8601String(),
         },
       },
     });
@@ -671,6 +706,119 @@ void main() {
     expect(summary.pushed, 1, reason: 'stale claim must not deadlock sync');
   });
 
+  test('a permanently-rejected row is dead-lettered and the cursor passes',
+      () async {
+    final (db, persistence, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    final t2 = DateTime(2026, 7, 1, 11);
+    for (final (id, ts) in [('c1', t1), ('c2', t2)]) {
+      await db.into(db.categories).insert(CategoriesCompanion.insert(
+            id: id,
+            name: id,
+            iconCode: 1,
+            colorHex: 2,
+            type: 'expense',
+            userId: const Value('u1'),
+            lastUpdated: Value(ts),
+          ));
+    }
+    client.reject.add('c1');
+
+    // Five full attempts: the row fails each time, pinning the cursor…
+    for (var i = 0; i < 4; i++) {
+      final s = await service.sync();
+      expect(s.skipped, 1);
+      expect(s.deadLettered, 0);
+      expect(persistence.getLastSyncAt().isBefore(t1), isTrue,
+          reason: 'still retriable, the cursor stays behind it');
+    }
+    // …the fifth crossing dead-letters it and lets the cursor pass.
+    final fifth = await service.sync();
+    expect(fifth.skipped, 1);
+    expect(fifth.deadLettered, 1);
+    expect(persistence.getLastSyncAt(), t2,
+        reason: 'the cursor must pass the dead-lettered row');
+
+    // No longer selected: further syncs neither retry it nor count it.
+    final after = await service.sync();
+    expect(after.skipped, 0);
+    expect(client.pushAttempts['c1'], 5);
+
+    // Editing the row (new lastUpdated) clears the slate — it retries. The
+    // edit also fixes whatever the server objected to, hence reject.clear.
+    client.reject.clear();
+    await (db.update(db.categories)..where((t) => t.id.equals('c1'))).write(
+        CategoriesCompanion(
+            name: const Value('Fixed'),
+            lastUpdated: Value(DateTime(2026, 7, 1, 12))));
+    final retried = await service.sync();
+    expect(retried.pushed, 1);
+    expect(client._store['categories']!['c1']!['name'], 'Fixed');
+  });
+
+  test('pull and push each advance only their own cursor', () async {
+    final t1 = DateTime(2026, 7, 1, 10);
+    final (db, persistence, client, service) = await _harness(initialStore: {
+      'categories': {
+        'remote1': {
+          'name': 'Remote',
+          'iconCode': 1,
+          'colorHex': 2,
+          'type': 'expense',
+          'isDeleted': false,
+          'lastUpdated': t1.toUtc().toIso8601String(),
+          'updated': t1.toUtc().toIso8601String(),
+        },
+      },
+    });
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'local1',
+          name: 'Local',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(t1.add(const Duration(hours: 2))),
+        ));
+
+    final pullOnly = await service.sync(full: true, push: false);
+    expect(pullOnly.pulled, 1);
+    // Pull confirmed the server up to its stamp — but the local row newer
+    // than the (epoch) push cursor is still unpushed.
+    expect(persistence.getPullSyncAt(), t1);
+    expect(client._store['categories']!.containsKey('local1'), isFalse);
+
+    final pushOnly = await service.sync(full: true, pull: false);
+    expect(pushOnly.pushed, greaterThanOrEqualTo(1));
+    expect(persistence.getLastSyncAt(), t1.add(const Duration(hours: 2)));
+    // The push itself stamped a server `updated` for local1 — the pull cursor
+    // learns it from the push outcome, so the next pull skips our own writes.
+    expect(persistence.getPullSyncAt().isAfter(t1), isTrue);
+
+    // Neither direction re-does its work.
+    final noop = await service.sync();
+    expect(noop.pushed, 0);
+    expect(noop.pulled, 0);
+  });
+
+  test('pushes go through batchPush, not a per-row upsert loop', () async {
+    final (db, _, client, service) = await _harness();
+    for (final id in ['c1', 'c2', 'c3']) {
+      await db.into(db.categories).insert(CategoriesCompanion.insert(
+            id: id,
+            name: id,
+            iconCode: 1,
+            colorHex: 2,
+            type: 'expense',
+            userId: const Value('u1'),
+            lastUpdated: Value(DateTime(2026, 7, 1, 10)),
+          ));
+    }
+    await service.sync();
+    expect(client.batchPushCalls, greaterThan(0));
+    expect(client._store['categories']?.length, 3);
+  });
+
   test('pull-only does not push, push-only does not pull', () async {
     final t1 = DateTime(2026, 7, 1, 10);
     final (db, persistence, client, service) = await _harness(initialStore: {
@@ -682,6 +830,7 @@ void main() {
           'type': 'expense',
           'isDeleted': false,
           'lastUpdated': t1.toUtc().toIso8601String(),
+          'updated': t1.toUtc().toIso8601String(),
         },
       },
     });

@@ -86,12 +86,28 @@ class SyncAuthExpired implements Exception {
   const SyncAuthExpired();
 }
 
+/// Per-row outcome of a batched push, aligned with the input order.
+class PushOutcome {
+  /// The server-stamped `updated` when the row landed (the pull cursor is
+  /// driven by this server clock — see the cursor notes in [PocketBaseSyncService]).
+  final DateTime? updated;
+  final LwwStaleWrite? stale;
+  final Object? error;
+  const PushOutcome.pushed(this.updated) : stale = null, error = null;
+  const PushOutcome.remoteWins(this.stale) : updated = null, error = null;
+  const PushOutcome.failed(this.error) : updated = null, stale = null;
+  bool get pushed => updated != null;
+}
+
 /// The only IO seam in sync: reads remote changes and upserts rows by id.
 /// Faked in tests; [PocketBaseSyncClient] wraps the real SDK.
 abstract class SyncClient {
   String get userId;
 
-  /// Rows in [collection] whose `lastUpdated` is after [since] (ISO filter).
+  /// Rows in [collection] whose `updated` (server-stamped autodate) is after
+  /// [since]. Driving the pull by the server clock, not by the device-written
+  /// `lastUpdated`, is what keeps a fast device clock from permanently
+  /// diverging the pull filter.
   Future<List<Map<String, dynamic>>> listChanges(
       String collection, DateTime since);
 
@@ -103,6 +119,29 @@ abstract class SyncClient {
 
   /// One stored row, for the remote-wins apply after an [LwwStaleWrite].
   Future<Map<String, dynamic>> getRecord(String collection, String id);
+
+  /// Pushes [rows] (id + body) in bulk. The real client uses PB's
+  /// transactional `/api/batch` (PUT upserts, ≤200 per call); this default
+  /// loops [upsert] so simple clients and tests get identical per-row
+  /// semantics. Returns one [PushOutcome] per input row, in order.
+  Future<List<PushOutcome>> batchPush(
+      String collection, List<(String, Map<String, dynamic>)> rows) async {
+    return [
+      for (final (id, body) in rows)
+        await () async {
+          try {
+            final row = await upsert(collection, id, body);
+            return PushOutcome.pushed(_fromIso(row['updated']));
+          } on LwwStaleWrite catch (e) {
+            return PushOutcome.remoteWins(e);
+          } on SyncAuthExpired {
+            rethrow;
+          } catch (e) {
+            return PushOutcome.failed(e);
+          }
+        }()
+    ];
+  }
 }
 
 /// [SyncClient] over a live PocketBase instance. `owner` on create is the
@@ -110,6 +149,10 @@ abstract class SyncClient {
 class PocketBaseSyncClient implements SyncClient {
   final pb.PocketBase client;
   PocketBaseSyncClient(this.client);
+
+  /// PB's documented ceiling for `/api/batch` sub-requests (and what the
+  /// server's enable_batch hook configures).
+  static const _batchChunk = 200;
 
   @override
   String get userId => client.authStore.record?.id ?? '';
@@ -120,11 +163,66 @@ class PocketBaseSyncClient implements SyncClient {
     try {
       final rows = await client.collection(collection).getFullList(
             batch: 500,
-            filter: 'lastUpdated > "${since.toUtc().toIso8601String()}"',
+            filter: 'updated > "${since.toUtc().toIso8601String()}"',
           );
       return rows.map((r) => {...r.data, 'id': r.id}).toList();
     } on pb.ClientException catch (e) {
       throw _mapClientException(e);
+    }
+  }
+
+  @override
+  Future<List<PushOutcome>> batchPush(
+      String collection, List<(String, Map<String, dynamic>)> rows) async {
+    final outcomes = <PushOutcome>[];
+    for (var i = 0; i < rows.length; i += _batchChunk) {
+      final chunk = rows.skip(i).take(_batchChunk).toList();
+      outcomes.addAll(await _pushChunk(collection, chunk));
+    }
+    return outcomes;
+  }
+
+  /// One `/api/batch` call per chunk: PUT upserts (id in the body) — PB
+  /// creates when missing and updates when present, and the update route is
+  /// what the server's LWW guard watches, so stale rows reject here too.
+  /// The batch is transactional all-or-nothing, so any failure rolls the
+  /// whole chunk back and we replay row-by-row through [upsert] — per-row
+  /// outcomes (skip counting, remote-wins, dead-lettering) survive intact.
+  Future<List<PushOutcome>> _pushChunk(
+      String collection, List<(String, Map<String, dynamic>)> chunk) async {
+    final batch = client.createBatch();
+    final sub = batch.collection(collection);
+    for (final (id, body) in chunk) {
+      sub.upsert(body: {...body, 'id': id, 'owner': userId});
+    }
+    try {
+      final results = await batch.send();
+      return [
+        for (final r in results)
+          PushOutcome.pushed(_fromIso(
+              (r.body as Map<String, dynamic>?)?['updated']))
+      ];
+    } on pb.ClientException catch (e) {
+      if (e.statusCode == 401) throw const SyncAuthExpired();
+      debugPrint(
+          'PB sync: batch chunk failed ($collection, ${chunk.length} rows), '
+          'replaying row-by-row: $e');
+      // ponytail: replay-through-upsert also covers the mixed case; a future
+      // per-item error map from PB could skip straight to the guilty rows.
+      final outcomes = <PushOutcome>[];
+      for (final (id, body) in chunk) {
+        try {
+          final row = await upsert(collection, id, body);
+          outcomes.add(PushOutcome.pushed(_fromIso(row['updated'])));
+        } on LwwStaleWrite catch (e2) {
+          outcomes.add(PushOutcome.remoteWins(e2));
+        } on SyncAuthExpired {
+          rethrow;
+        } catch (e2) {
+          outcomes.add(PushOutcome.failed(e2));
+        }
+      }
+      return outcomes;
     }
   }
 
@@ -226,16 +324,19 @@ class _Spec {
       localChanges;
   final Future<Map<String, DateTime?>> Function(AppDatabase db, Set<String> ids)
       localLastUpdated;
+
+  /// Applies remote rows in one `db.batch()` — one table-update notification
+  /// per collection instead of one per row (the full-pull watch storm).
   final Future<void> Function(
-          AppDatabase db, String userId, Map<String, dynamic> row)
-      applyRemote;
+          AppDatabase db, String userId, List<Map<String, dynamic>> rows)
+      applyRemotes;
 
   /// Writes `lastUpdated = now` on [ids]. Called only for rows the server
   /// actually accepted — see the push loop in [PocketBaseSyncService.sync].
   final Future<void> Function(AppDatabase db, Set<String> ids, DateTime now)
       stamp;
   const _Spec(this.collection, this.localChanges, this.localLastUpdated,
-      this.applyRemote, this.stamp);
+      this.applyRemotes, this.stamp);
 }
 
 class _Row {
@@ -357,11 +458,19 @@ class PocketBaseSyncService {
         .write(const SyncLocksCompanion(running: Value(false)));
   }
 
-  /// [full] ignores the stored cursor and considers every row on both sides —
+  /// [full] ignores the stored cursors and considers every row on both sides —
   /// the recovery lever for a poisoned cursor (rows stranded behind it) and
   /// the engine of the git-style "push/pull everything" actions. [pull] /
-  /// [push] select the direction; the stored cursor is only advanced by a
-  /// bidirectional run, so a one-way pass can never strand the other side.
+  /// [push] select the direction; each cursor is only advanced by a run that
+  /// actually ran its direction, so a one-way pass can never strand the other.
+  ///
+  /// There are two cursors, one per clock domain:
+  ///   * push cursor (`pb_last_sync_at`): max local `lastUpdated` confirmed
+  ///     pushed — selects which local rows get pushed.
+  ///   * pull cursor (`pb_pull_sync_at`): max server-stamped `updated`
+  ///     confirmed seen (pulled or pushed) — filters the remote listChanges.
+  /// One shared cursor mixed device wall-clock stamps with server stamps, so
+  /// a fast device clock diverged the pull filter permanently.
   Future<SyncSummary> sync({
     bool full = false,
     bool pull = true,
@@ -376,36 +485,44 @@ class PocketBaseSyncService {
     sessionExpired.value = false;
     final now = DateTime.now();
     var pushed = 0, pulled = 0, conflicts = 0, remoteWins = 0;
+    var deadLettered = 0;
     var authExpired = false;
     try {
-      final cursor =
+      final pushCursor =
           full ? DateTime.fromMillisecondsSinceEpoch(0) : _persistence.getLastSyncAt();
-      var maxTs = cursor;
+      final pullCursor =
+          full ? DateTime.fromMillisecondsSinceEpoch(0) : _persistence.getPullSyncAt();
+      var maxPushTs = pushCursor;
+      var maxPullTs = pullCursor;
       var skipped = 0;
       String? firstSkipReason;
-      // Oldest lastUpdated among rows the server rejected: the cursor must
-      // stay behind it, or the row is never selected again (the exact bug
-      // that stranded a whole ledger behind an advanced cursor).
+      // Oldest lastUpdated among rows the server rejected (and that are not
+      // dead-lettered): the push cursor must stay behind it, or the row is
+      // never selected again (the exact bug that stranded a whole ledger
+      // behind an advanced cursor).
       DateTime? minFailedTs;
       // A whole collection failed (typically 404: the server hasn't run the
       // migration that creates it yet). The other collections still sync, but
-      // the cursor must not advance — it's global, and moving it would strand
-      // every row the failed collection never got to compare.
+      // neither cursor may advance — moving it would strand every row the
+      // failed collection never got to compare.
       var collectionFailed = false;
 
       for (final spec in _specs) {
         try {
-          // --- PULL ---
+          // --- PULL (server `updated` > pull cursor) ---
           final applied = <String>{};
           if (pull) {
-            final remote = await _client.listChanges(spec.collection, cursor);
+            final remote = await _client.listChanges(spec.collection, pullCursor);
             if (remote.isNotEmpty) {
               final localMap = await spec.localLastUpdated(
                   _db, remote.map((r) => r['id'] as String).toSet());
+              // One insertOrReplace per row inside a single db.batch(): a
+              // table-update notification per row re-ran every watch N times
+              // during a full pull; a batch emits once per table.
+              final toApply = <Map<String, dynamic>>[];
               for (final r in remote) {
-                final id = r['id'] as String;
                 final remoteTs = _fromIso(r['lastUpdated']);
-                final localTs = localMap[id];
+                final localTs = localMap[r['id'] as String];
                 // Compare at whole-second granularity: a restored backup
                 // truncates local timestamps to seconds, so a sub-second-newer
                 // remote would otherwise win forever on a tie-ish compare.
@@ -415,11 +532,17 @@ class PocketBaseSyncService {
                   conflicts++; // local wins; its edit is pushed below
                   continue;
                 }
-                await spec.applyRemote(_db, _userId, r);
-                applied.add(id);
-                pulled++;
-                if (remoteTs != null && remoteTs.isAfter(maxTs)) {
-                  maxTs = remoteTs;
+                toApply.add(r);
+              }
+              if (toApply.isNotEmpty) {
+                await spec.applyRemotes(_db, _userId, toApply);
+                for (final r in toApply) {
+                  applied.add(r['id'] as String);
+                  pulled++;
+                  final rts = _fromIso(r['lastUpdated']);
+                  if (rts != null && rts.isAfter(maxPushTs)) maxPushTs = rts;
+                  final rus = _fromIso(r['updated']);
+                  if (rus != null && rus.isAfter(maxPullTs)) maxPullTs = rus;
                 }
               }
             }
@@ -428,58 +551,84 @@ class PocketBaseSyncService {
           // --- PUSH (skip rows just applied from remote) ---
           // Resilient: a row PB rejects (e.g. per-device seed ids that aren't
           // valid server PKs) is skipped + counted, not allowed to abort the
-          // whole sync.
+          // whole sync. Rows that keep failing are dead-lettered (see
+          // [_maxPushAttempts]) so the cursor can pass them.
           //
           // A rejected row must keep its NULL `lastUpdated` so the next sync
           // selects it again. Stamping before the push (as this used to do)
           // burned the only marker that said "not on the server yet", and once
           // the cursor advanced past it the row was excluded forever.
           if (push) {
-            final changes = await spec.localChanges(_db, cursor, now);
-            final toStamp = <String>{};
-            for (final row in changes) {
-              if (applied.contains(row.id)) continue;
-              try {
-                await _client.upsert(spec.collection, row.id, row.body);
-                pushed++;
-                if (row.needsStamp) toStamp.add(row.id);
-                final ts = row.lastUpdated ?? now;
-                if (ts.isAfter(maxTs)) maxTs = ts;
-              } on LwwStaleWrite {
-                // The server's guard says the stored row is newer — remote
-                // wins. Fetch it and adopt it instead of skipping: a skip
-                // rewinds the cursor and re-picks the fight every sync.
-                final remote =
-                    await _client.getRecord(spec.collection, row.id);
-                await spec.applyRemote(_db, _userId, remote);
-                remoteWins++;
-                final rts = _fromIso(remote['lastUpdated']);
-                if (rts != null && rts.isAfter(maxTs)) maxTs = rts;
-              } on SyncAuthExpired {
-                rethrow;
-              } catch (e) {
-                debugPrint('PB sync: skip ${spec.collection}/${row.id}: $e');
-                skipped++;
-                firstSkipReason ??= '${spec.collection}/${row.id}';
-                final ts = row.lastUpdated;
-                if (ts != null &&
-                    (minFailedTs == null || ts.isBefore(minFailedTs))) {
-                  minFailedTs = ts;
+            final failures = await _failuresFor(spec.collection);
+            bool isDeadLetter(_Row r) {
+              final f = failures[r.id];
+              return f != null &&
+                  f.attempts >= _maxPushAttempts &&
+                  r.lastUpdated != null &&
+                  f.lastUpdatedMs ==
+                      r.lastUpdated!.millisecondsSinceEpoch;
+            }
+
+            final rows = (await spec.localChanges(_db, pushCursor, now))
+                .where((r) => !applied.contains(r.id) && !isDeadLetter(r))
+                .toList();
+            if (rows.isNotEmpty) {
+              final outcomes = await _client.batchPush(spec.collection,
+                  [for (final r in rows) (r.id, r.body)]);
+              final toStamp = <String>{};
+              for (var i = 0; i < rows.length; i++) {
+                final row = rows[i];
+                final o = outcomes[i];
+                if (o.pushed) {
+                  pushed++;
+                  if (row.needsStamp) toStamp.add(row.id);
+                  final ts = row.lastUpdated ?? now;
+                  if (ts.isAfter(maxPushTs)) maxPushTs = ts;
+                  final su = o.updated;
+                  if (su != null && su.isAfter(maxPullTs)) maxPullTs = su;
+                } else if (o.stale != null) {
+                  // The server's guard says the stored row is newer — remote
+                  // wins. Fetch it and adopt it instead of skipping: a skip
+                  // rewinds the cursor and re-picks the fight every sync.
+                  final remote =
+                      await _client.getRecord(spec.collection, row.id);
+                  await spec.applyRemotes(_db, _userId, [remote]);
+                  remoteWins++;
+                  final rts = _fromIso(remote['lastUpdated']);
+                  if (rts != null && rts.isAfter(maxPushTs)) maxPushTs = rts;
+                  final rus = _fromIso(remote['updated']);
+                  if (rus != null && rus.isAfter(maxPullTs)) maxPullTs = rus;
+                } else {
+                  debugPrint(
+                      'PB sync: skip ${spec.collection}/${row.id}: ${o.error}');
+                  skipped++;
+                  firstSkipReason ??= '${spec.collection}/${row.id}';
+                  final ts = row.lastUpdated;
+                  if (ts != null) {
+                    final attempts =
+                        await _recordFailure(spec.collection, row.id, ts, '${o.error}');
+                    if (attempts >= _maxPushAttempts) {
+                      deadLettered++;
+                    } else if (minFailedTs == null ||
+                        ts.isBefore(minFailedTs)) {
+                      minFailedTs = ts;
+                    }
+                  }
                 }
               }
+              if (toStamp.isNotEmpty) await spec.stamp(_db, toStamp, now);
             }
-            if (toStamp.isNotEmpty) await spec.stamp(_db, toStamp, now);
           }
         } on SyncAuthExpired {
           // Expired token: every remaining collection would fail the same
-          // way. Abort, freeze the cursor, and surface re-login.
+          // way. Abort, freeze both cursors, and surface re-login.
           debugPrint('PB sync: auth expired, aborting');
           authExpired = true;
           break;
         } catch (e) {
           // The collection itself is unreachable (404 before its migration
           // has run, permissions, outage). Every other collection still
-          // syncs; see [collectionFailed] for why the cursor freezes.
+          // syncs; see [collectionFailed] for why the cursors freeze.
           debugPrint('PB sync: collection ${spec.collection} failed: $e');
           collectionFailed = true;
           skipped++;
@@ -487,11 +636,19 @@ class PocketBaseSyncService {
         }
       }
 
-      // Cursor semantics: "both sides agree up to T" — so only a
-      // bidirectional run may move it, never past a rejected row, and never
-      // while a whole collection was skipped or the session died.
-      if (pull && push && !collectionFailed && !authExpired) {
-        var newCursor = maxTs;
+      // The pull cursor advances from everything the run confirmed about the
+      // server's clock — rows it applied and server stamps on pushed rows —
+      // regardless of which direction ran: a push-only pass that skips this
+      // would make the next pull re-fetch (and re-apply) our own writes.
+      // ponytail: a remote write landing between our pull and our push
+      // outcome stamps can still fall behind this cursor; the window is
+      // minutes, the guard keeps it non-corrupting, and Settings →
+      // "Pull everything" is the rescue if it ever matters.
+      if (!collectionFailed && !authExpired && maxPullTs.isAfter(pullCursor)) {
+        await _persistence.setPullSyncAt(maxPullTs);
+      }
+      if (push && !collectionFailed && !authExpired) {
+        var newCursor = maxPushTs;
         if (minFailedTs != null && minFailedTs.isBefore(newCursor)) {
           newCursor = minFailedTs.subtract(const Duration(milliseconds: 1));
         }
@@ -503,8 +660,9 @@ class PocketBaseSyncService {
         conflicts: conflicts,
         skipped: skipped,
         remoteWins: remoteWins,
-        lastSyncAt: maxTs,
+        lastSyncAt: maxPushTs,
         authExpired: authExpired,
+        deadLettered: deadLettered,
         firstSkipReason: firstSkipReason,
       );
       if (authExpired) sessionExpired.value = true;
@@ -519,6 +677,56 @@ class PocketBaseSyncService {
       syncing.value = false;
       await _releaseSyncLock();
     }
+  }
+
+  /// After this many consecutive failed attempts (at the same lastUpdated),
+  /// a row is dead-lettered: no longer selected, no longer pinning the push
+  /// cursor — surfaced once in the summary instead. A row edit restamps it
+  /// and clears the slate.
+  static const _maxPushAttempts = 5;
+
+  /// Failure-ledger entries for [collection]: id → (lastUpdatedMs, attempts).
+  /// A row is dead-lettered only while BOTH attempts ≥ [maxPushAttempts] AND
+  /// its lastUpdated still matches the failed one — editing the row changes
+  /// the stamp and un-dead-letters it.
+  Future<Map<String, SyncFailure>> _failuresFor(String collection) async {
+    final rows = await (_db.select(_db.syncFailures)
+          ..where((t) => t.collection.equals(collection)))
+        .get();
+    return {for (final r in rows) r.recordId: r};
+  }
+
+  /// Increments the failure ledger for one row (resetting when its
+  /// lastUpdated changed since the last failure — the row was edited, so the
+  /// old verdict no longer applies) and returns the new attempt count.
+  Future<int> _recordFailure(
+      String collection, String id, DateTime lastUpdated, Object error) async {
+    final ms = lastUpdated.millisecondsSinceEpoch;
+    final existing = await (_db.select(_db.syncFailures)
+          ..where((t) =>
+              t.collection.equals(collection) & t.recordId.equals(id)))
+        .getSingleOrNull();
+    // Read-modify-write, not an UPSERT: safe because the cross-isolate lock
+    // means exactly one sync writes here at a time.
+    final nextAttempts =
+        (existing == null || existing.lastUpdatedMs != ms) ? 1 : existing.attempts + 1;
+    final companion = SyncFailuresCompanion(
+      collection: Value(collection),
+      recordId: Value(id),
+      lastUpdatedMs: Value(ms),
+      attempts: Value(nextAttempts),
+      lastError: Value('$error'),
+      lastAttemptAt: Value(DateTime.now()),
+    );
+    if (existing == null) {
+      await _db.into(_db.syncFailures).insert(companion);
+    } else {
+      await (_db.update(_db.syncFailures)
+            ..where((t) =>
+                t.collection.equals(collection) & t.recordId.equals(id)))
+          .write(companion);
+    }
+    return nextAttempts;
   }
 
   // ── categories ──────────────────────────────────────────────────────────
@@ -549,20 +757,24 @@ class PocketBaseSyncService {
               .get();
           return {for (final r in rows) r.id: r.lastUpdated};
         },
-        (db, userId, r) => db.into(db.categories).insert(
-              CategoriesCompanion.insert(
-                id: r['id'] as String,
-                userId: Value(userId),
-                name: r['name'] as String? ?? '',
-                iconCode: _toInt(r['iconCode']),
-                colorHex: _toInt(r['colorHex']),
-                type: r['type'] as String? ?? 'expense',
-                description: Value(r['description'] as String?),
-                isDeleted: Value(_toBool(r['isDeleted'])),
-                lastUpdated: Value(_fromIso(r['lastUpdated'])),
-              ),
-              mode: InsertMode.insertOrReplace,
-            ),
+        (db, userId, rows) => db.batch((b) {
+              for (final r in rows) {
+                b.insert(
+                    db.categories,
+                    CategoriesCompanion.insert(
+                      id: r['id'] as String,
+                      userId: Value(userId),
+                      name: r['name'] as String? ?? '',
+                      iconCode: _toInt(r['iconCode']),
+                      colorHex: _toInt(r['colorHex']),
+                      type: r['type'] as String? ?? 'expense',
+                      description: Value(r['description'] as String?),
+                      isDeleted: Value(_toBool(r['isDeleted'])),
+                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                    ),
+                    mode: InsertMode.insertOrReplace);
+              }
+            }),
         (db, ids, now) => (db.update(db.categories)
               ..where((t) => t.id.isIn(ids)))
             .write(CategoriesCompanion(lastUpdated: Value(now))),
@@ -592,17 +804,21 @@ class PocketBaseSyncService {
               .get();
           return {for (final r in rows) r.id: r.lastUpdated};
         },
-        (db, userId, r) => db.into(db.tags).insert(
-              TagsCompanion.insert(
-                id: r['id'] as String,
-                userId: Value(userId),
-                name: r['name'] as String? ?? '',
-                colorHex: _toInt(r['colorHex']),
-                isDeleted: Value(_toBool(r['isDeleted'])),
-                lastUpdated: Value(_fromIso(r['lastUpdated'])),
-              ),
-              mode: InsertMode.insertOrReplace,
-            ),
+        (db, userId, rows) => db.batch((b) {
+              for (final r in rows) {
+                b.insert(
+                    db.tags,
+                    TagsCompanion.insert(
+                      id: r['id'] as String,
+                      userId: Value(userId),
+                      name: r['name'] as String? ?? '',
+                      colorHex: _toInt(r['colorHex']),
+                      isDeleted: Value(_toBool(r['isDeleted'])),
+                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                    ),
+                    mode: InsertMode.insertOrReplace);
+              }
+            }),
         (db, ids, now) => (db.update(db.tags)..where((t) => t.id.isIn(ids)))
             .write(TagsCompanion(lastUpdated: Value(now))),
       );
@@ -636,21 +852,26 @@ class PocketBaseSyncService {
                   .get();
           return {for (final r in rows) r.id: r.lastUpdated};
         },
-        (db, userId, r) => db.into(db.accounts).insert(
-              AccountsCompanion.insert(
-                id: r['id'] as String,
-                userId: Value(userId),
-                name: r['name'] as String? ?? '',
-                balance: Value(_toDouble(r['balance'])),
-                currency: Value(r['currency'] as String? ?? 'EUR'),
-                providerName: Value(r['providerName'] as String?),
-                isDefault: Value(_toBool(r['isDefault'])),
-                initialBalanceDate: Value(_fromIso(r['initialBalanceDate'])),
-                isDeleted: Value(_toBool(r['isDeleted'])),
-                lastUpdated: Value(_fromIso(r['lastUpdated'])),
-              ),
-              mode: InsertMode.insertOrReplace,
-            ),
+        (db, userId, rows) => db.batch((b) {
+              for (final r in rows) {
+                b.insert(
+                    db.accounts,
+                    AccountsCompanion.insert(
+                      id: r['id'] as String,
+                      userId: Value(userId),
+                      name: r['name'] as String? ?? '',
+                      balance: Value(_toDouble(r['balance'])),
+                      currency: Value(r['currency'] as String? ?? 'EUR'),
+                      providerName: Value(r['providerName'] as String?),
+                      isDefault: Value(_toBool(r['isDefault'])),
+                      initialBalanceDate:
+                          Value(_fromIso(r['initialBalanceDate'])),
+                      isDeleted: Value(_toBool(r['isDeleted'])),
+                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                    ),
+                    mode: InsertMode.insertOrReplace);
+              }
+            }),
         (db, ids, now) => (db.update(db.accounts)..where((t) => t.id.isIn(ids)))
             .write(AccountsCompanion(lastUpdated: Value(now))),
       );
@@ -687,26 +908,30 @@ class PocketBaseSyncService {
               .get();
           return {for (final r in rows) r.id: r.lastUpdated};
         },
-        (db, userId, r) => db.into(db.transactions).insert(
-              TransactionsCompanion.insert(
-                id: r['id'] as String,
-                userId: Value(userId),
-                accountId: Value(r['accountId'] as String?),
-                toAccountId: Value(r['toAccountId'] as String?),
-                amount: _toDouble(r['amount']),
-                description: r['description'] as String? ?? '',
-                category: r['category'] as String? ?? '',
-                type: Value(r['type'] as String? ?? 'expense'),
-                date: _fromIso(r['date']) ?? DateTime.now(),
-                tags: Value(_toStringList(r['tags'])),
-                // PocketBase stores an unset text field as '' — keep that as
-                // "unlinked" rather than a dangling empty plan id.
-                installmentId: Value(_emptyToNull(r['installmentId'])),
-                isDeleted: Value(_toBool(r['isDeleted'])),
-                lastUpdated: Value(_fromIso(r['lastUpdated'])),
-              ),
-              mode: InsertMode.insertOrReplace,
-            ),
+        (db, userId, rows) => db.batch((b) {
+              for (final r in rows) {
+                b.insert(
+                    db.transactions,
+                    TransactionsCompanion.insert(
+                      id: r['id'] as String,
+                      userId: Value(userId),
+                      accountId: Value(r['accountId'] as String?),
+                      toAccountId: Value(r['toAccountId'] as String?),
+                      amount: _toDouble(r['amount']),
+                      description: r['description'] as String? ?? '',
+                      category: r['category'] as String? ?? '',
+                      type: Value(r['type'] as String? ?? 'expense'),
+                      date: _fromIso(r['date']) ?? DateTime.now(),
+                      tags: Value(_toStringList(r['tags'])),
+                      // PocketBase stores an unset text field as '' — keep
+                      // that as "unlinked" rather than a dangling empty id.
+                      installmentId: Value(_emptyToNull(r['installmentId'])),
+                      isDeleted: Value(_toBool(r['isDeleted'])),
+                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                    ),
+                    mode: InsertMode.insertOrReplace);
+              }
+            }),
         (db, ids, now) => (db.update(db.transactions)
               ..where((t) => t.id.isIn(ids)))
             .write(TransactionsCompanion(lastUpdated: Value(now))),
@@ -738,18 +963,22 @@ class PocketBaseSyncService {
                   .get();
           return {for (final r in rows) r.id: r.lastUpdated};
         },
-        (db, userId, r) => db.into(db.budgets).insert(
-              BudgetsCompanion.insert(
-                id: r['id'] as String,
-                userId: Value(userId),
-                category: r['category'] as String? ?? '',
-                limitAmount: _toDouble(r['limitAmount']),
-                period: r['period'] as String? ?? 'monthly',
-                isDeleted: Value(_toBool(r['isDeleted'])),
-                lastUpdated: Value(_fromIso(r['lastUpdated'])),
-              ),
-              mode: InsertMode.insertOrReplace,
-            ),
+        (db, userId, rows) => db.batch((b) {
+              for (final r in rows) {
+                b.insert(
+                    db.budgets,
+                    BudgetsCompanion.insert(
+                      id: r['id'] as String,
+                      userId: Value(userId),
+                      category: r['category'] as String? ?? '',
+                      limitAmount: _toDouble(r['limitAmount']),
+                      period: r['period'] as String? ?? 'monthly',
+                      isDeleted: Value(_toBool(r['isDeleted'])),
+                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                    ),
+                    mode: InsertMode.insertOrReplace);
+              }
+            }),
         (db, ids, now) => (db.update(db.budgets)..where((t) => t.id.isIn(ids)))
             .write(BudgetsCompanion(lastUpdated: Value(now))),
       );
@@ -783,21 +1012,25 @@ class PocketBaseSyncService {
                   .get();
           return {for (final r in rows) r.id: r.lastUpdated};
         },
-        (db, userId, r) => db.into(db.installments).insert(
-              InstallmentsCompanion.insert(
-                id: r['id'] as String,
-                userId: Value(userId),
-                description: r['description'] as String? ?? '',
-                totalAmount: _toDouble(r['totalAmount']),
-                installmentCount: _toInt(r['installmentCount']),
-                startDate: _fromIso(r['startDate']) ?? DateTime.now(),
-                category: Value(r['category'] as String?),
-                accountId: Value(r['accountId'] as String?),
-                isDeleted: Value(_toBool(r['isDeleted'])),
-                lastUpdated: Value(_fromIso(r['lastUpdated'])),
-              ),
-              mode: InsertMode.insertOrReplace,
-            ),
+        (db, userId, rows) => db.batch((b) {
+              for (final r in rows) {
+                b.insert(
+                    db.installments,
+                    InstallmentsCompanion.insert(
+                      id: r['id'] as String,
+                      userId: Value(userId),
+                      description: r['description'] as String? ?? '',
+                      totalAmount: _toDouble(r['totalAmount']),
+                      installmentCount: _toInt(r['installmentCount']),
+                      startDate: _fromIso(r['startDate']) ?? DateTime.now(),
+                      category: Value(r['category'] as String?),
+                      accountId: Value(r['accountId'] as String?),
+                      isDeleted: Value(_toBool(r['isDeleted'])),
+                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                    ),
+                    mode: InsertMode.insertOrReplace);
+              }
+            }),
         (db, ids, now) => (db.update(db.installments)
               ..where((t) => t.id.isIn(ids)))
             .write(InstallmentsCompanion(lastUpdated: Value(now))),
