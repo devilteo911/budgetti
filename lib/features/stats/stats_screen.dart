@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/error_text.dart';
 
 /// What the DISTRIBUTION and BREAKDOWN sections slice expenses by.
 enum _StatsDimension { categories, tags }
@@ -74,9 +75,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
 
     final scheme = Theme.of(context).colorScheme;
     final period = ref.watch(selectedStatsPeriodProvider);
-    final statsAsync = ref.watch(statsDataProvider(period));
-    final categoryMap = ref.watch(categoryMapProvider);
-    final currencyFormatter = ref.watch(currencyProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -90,162 +88,129 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
           ),
         ),
       ),
-      body: statsAsync.when(
-        loading: () => Center(
-          child: CircularProgressIndicator(color: scheme.primary),
-        ),
-        error: (err, _) =>
-            Center(child: Text(context.l10n.statsError(err.toString()))),
-        data: (stats) {
-          final isEmpty =
-              stats.categoryTotals.isEmpty && stats.monthlyBreakdown.isEmpty;
-          final totalExpenses = stats.totalExpenses;
-          final isTags = _dimension == _StatsDimension.tags;
-          final sortedEntries = (isTags ? stats.tagTotals : stats.categoryTotals)
-              .entries
-              .toList()
-            ..sort((a, b) => b.value.compareTo(a.value));
-          final tagColors = ref.watch(tagColorCacheProvider);
-          final catColors =
-              ref.watch(categoryColorCacheProvider(scheme.brightness));
-          final catIcons = ref.watch(categoryIconCacheProvider);
-          final colorMap = isTags ? tagColors : catColors;
-          final iconFor = isTags
-              ? (String _) => Icons.sell_outlined
-              : (String name) => catIcons[name] ??
-                  categoryIcon(
-                    name,
-                    iconCode: categoryMap[name]?.iconCode,
-                  );
+      body: ref.watch(statsDataProvider(period)).when(
+            loading: () =>
+                Center(child: CircularProgressIndicator(color: scheme.primary)),
+            error: (err, _) => Center(
+                child: Text(context.l10n.statsError(errorText(context, err)))),
+            data: (stats) => _report(stats, period, scheme),
+          ),
+    );
+  }
 
-          return CustomScrollView(
-            slivers: [
-              const SliverToBoxAdapter(child: StatsFilterBar()),
-              if (isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _EmptyState(period: period),
-                )
-              else ...[
-                Stagger(
-                  controller: _entrance,
-                  begin: 0.00,
-                  end: 0.55,
-                  child: const SliverToBoxAdapter(child: StatsHero()),
-                ),
-                SliverToBoxAdapter(
-                  child: _DimensionToggle(
-                    value: _dimension,
-                    onChanged: (d) {
-                      if (d == _dimension) return;
-                      setState(() => _dimension = d);
-                      _replay();
-                    },
-                  ),
-                ),
-                if (sortedEntries.isNotEmpty) ...[
-                  Stagger(
-                    controller: _entrance,
-                    begin: 0.10,
-                    end: 0.65,
-                    child: SliverToBoxAdapter(
-                      child: SectionLabel(
-                        text: context.l10n.statsDistribution.toUpperCase(),
-                        count: sortedEntries.length,
-                      ),
-                    ),
-                  ),
-                  Stagger(
-                    controller: _entrance,
-                    begin: 0.15,
-                    end: 0.75,
-                    child: SliverToBoxAdapter(
-                      child: CategoryDistribution(
-                        sortedEntries: sortedEntries,
-                        colorMap: colorMap,
-                        total: totalExpenses,
-                        currencyFormatter: currencyFormatter,
-                      ),
-                    ),
-                  ),
-                ] else ...[
-                  const SliverToBoxAdapter(
-                    child: _NoTagsHint(),
-                  ),
-                ],
-                Stagger(
-                  controller: _entrance,
-                  begin: 0.25,
-                  end: 0.80,
-                  child: SliverToBoxAdapter(
-                    child: SectionLabel(
-                        text: context.l10n.statsTrends.toUpperCase()),
-                  ),
-                ),
-                Stagger(
-                  controller: _entrance,
-                  begin: 0.30,
-                  end: 0.85,
-                  child: const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: SpendingLineChart(),
-                    ),
-                  ),
-                ),
-                if (sortedEntries.isNotEmpty) ...[
-                  Stagger(
-                    controller: _entrance,
-                    begin: 0.35,
-                    end: 0.90,
-                    child: SliverToBoxAdapter(
-                      child: SectionLabel(
-                          text: context.l10n.statsBreakdown.toUpperCase()),
-                    ),
-                  ),
-                  Stagger(
-                    controller: _entrance,
-                    begin: 0.40,
-                    end: 0.95,
-                    child: _BreakdownSliver(
-                      sortedEntries: sortedEntries,
-                      colorMap: colorMap,
-                      iconFor: iconFor,
-                      total: totalExpenses,
-                      currencyFormatter: currencyFormatter,
-                      onTap: isTags
-                          ? null
-                          : (name) => _openCategoryDetails(name),
-                    ),
-                  ),
-                ],
-                if (period.month == null &&
-                    stats.monthlyBreakdown.isNotEmpty) ...[
-                  Stagger(
-                    controller: _entrance,
-                    begin: 0.45,
-                    end: 1.0,
-                    child: SliverToBoxAdapter(
-                      child: SectionLabel(
-                          text: context.l10n.statsLedgerMonthly.toUpperCase()),
-                    ),
-                  ),
-                  Stagger(
-                    controller: _entrance,
-                    begin: 0.50,
-                    end: 1.0,
-                    child: _MonthlySliver(
-                      monthlyData: stats.monthlyBreakdown,
-                      currencyFormatter: currencyFormatter,
-                    ),
-                  ),
-                ],
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
-              ],
-            ],
-          );
-        },
-      ),
+  /// One staggered slab of the report: every section fades in on the same
+  /// entrance controller, each at its own offset.
+  Widget _slab(double begin, double end, Widget child) =>
+      Stagger(controller: _entrance, begin: begin, end: end, child: child);
+
+  Widget _sectionLabel(double begin, double end, String text, {int? count}) =>
+      _slab(
+        begin,
+        end,
+        SliverToBoxAdapter(
+          child: SectionLabel(text: text.toUpperCase(), count: count),
+        ),
+      );
+
+  Widget _report(StatsData stats, StatsPeriod period, ColorScheme scheme) {
+    if (stats.categoryTotals.isEmpty && stats.monthlyBreakdown.isEmpty) {
+      return CustomScrollView(
+        slivers: [
+          const SliverToBoxAdapter(child: StatsFilterBar()),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _EmptyState(period: period),
+          ),
+        ],
+      );
+    }
+
+    final currencyFormatter = ref.watch(currencyProvider);
+    final categoryMap = ref.watch(categoryMapProvider);
+    final isTags = _dimension == _StatsDimension.tags;
+    final sortedEntries =
+        (isTags ? stats.tagTotals : stats.categoryTotals).entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+    final colorMap = isTags
+        ? ref.watch(tagColorCacheProvider)
+        : ref.watch(categoryColorCacheProvider(scheme.brightness));
+    final catIcons = ref.watch(categoryIconCacheProvider);
+    final iconFor = isTags
+        ? (String _) => Icons.sell_outlined
+        : (String name) =>
+            catIcons[name] ??
+            categoryIcon(name, iconCode: categoryMap[name]?.iconCode);
+
+    return CustomScrollView(
+      slivers: [
+        const SliverToBoxAdapter(child: StatsFilterBar()),
+        _slab(0.00, 0.55, const SliverToBoxAdapter(child: StatsHero())),
+        SliverToBoxAdapter(
+          child: _DimensionToggle(
+            value: _dimension,
+            onChanged: (d) {
+              if (d == _dimension) return;
+              setState(() => _dimension = d);
+              _replay();
+            },
+          ),
+        ),
+        if (sortedEntries.isNotEmpty) ...[
+          _sectionLabel(0.10, 0.65, context.l10n.statsDistribution,
+              count: sortedEntries.length),
+          _slab(
+            0.15,
+            0.75,
+            SliverToBoxAdapter(
+              child: CategoryDistribution(
+                sortedEntries: sortedEntries,
+                colorMap: colorMap,
+                total: stats.totalExpenses,
+                currencyFormatter: currencyFormatter,
+              ),
+            ),
+          ),
+        ] else
+          const SliverToBoxAdapter(child: _NoTagsHint()),
+        _sectionLabel(0.25, 0.80, context.l10n.statsTrends),
+        _slab(
+          0.30,
+          0.85,
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: SpendingLineChart(),
+            ),
+          ),
+        ),
+        if (sortedEntries.isNotEmpty) ...[
+          _sectionLabel(0.35, 0.90, context.l10n.statsBreakdown),
+          _slab(
+            0.40,
+            0.95,
+            _BreakdownSliver(
+              sortedEntries: sortedEntries,
+              colorMap: colorMap,
+              iconFor: iconFor,
+              total: stats.totalExpenses,
+              currencyFormatter: currencyFormatter,
+              onTap: isTags ? null : _openCategoryDetails,
+            ),
+          ),
+        ],
+        if (period.month == null && stats.monthlyBreakdown.isNotEmpty) ...[
+          _sectionLabel(0.45, 1.0, context.l10n.statsLedgerMonthly),
+          _slab(
+            0.50,
+            1.0,
+            _MonthlySliver(
+              monthlyData: stats.monthlyBreakdown,
+              currencyFormatter: currencyFormatter,
+            ),
+          ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      ],
     );
   }
 }
