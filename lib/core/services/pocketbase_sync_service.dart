@@ -182,7 +182,7 @@ class PocketBaseSyncClient implements SyncClient {
     try {
       final rows = await client.collection(collection).getFullList(
             batch: 500,
-            filter: 'updated > "${since.toUtc().toIso8601String()}"',
+            filter: 'updated > "${pbDateLiteral(since)}"',
           );
       return rows.map((r) => {...r.data, 'id': r.id}).toList();
     } on pb.ClientException catch (e) {
@@ -395,6 +395,16 @@ String? _emptyToNull(dynamic v) {
   final s = v?.toString();
   return (s == null || s.isEmpty) ? null : s;
 }
+
+/// PocketBase compares date filters as raw strings against its stored
+/// `YYYY-MM-DD HH:MM:SS.sssZ` form — it does not parse the literal. Dart's
+/// `toIso8601String()` emits a `T` separator, and 'T' > ' ', so
+/// `updated > "2026-08-20T09:00:00.000Z"` hid EVERY row stamped on the same
+/// calendar day as the cursor: server-side edits only became visible once the
+/// UTC date rolled over. Same instant, space separator, and the compare is
+/// chronological again (the same canonical form lww_guard.pb.js relies on).
+String pbDateLiteral(DateTime t) =>
+    t.toUtc().toIso8601String().replaceFirst('T', ' ');
 
 List<String> _toStringList(dynamic v) =>
     (v as List?)?.map((e) => e.toString()).toList() ?? const [];

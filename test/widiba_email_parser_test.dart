@@ -290,6 +290,111 @@ FILIALE DISPONENTE 00102 BON. SEPA 0832700202672025486296062730IT DEL 20.05.26 O
     });
   });
 
+  group('Hai ricevuto un addebito', () {
+    const sdd = 'Ciao Matteo, '
+        'hai ricevuto sul conto 6003/656696 di Moro Matteo, Nico Miriam un '
+        'addebito di 21,99 euro con descrizione per Addebito Diretto '
+        'ADDEBITO SDD N. 32161656 A FAVORE ILIAD CODICE MANDATO '
+        'ILIAD-BAEE0C-1 IMPORTO 21,99 COMMISSIONI 0,00 SPESE 0,00 '
+        'Un memo per te Verifica di avere sul tuo conto corrente il saldo '
+        'disponibile sufficiente. A presto, il tuo team Widiba';
+
+    const mirror = 'Ciao Matteo, '
+        'hai ricevuto sul conto 6003/656696 di Moro Matteo, Nico Miriam un '
+        'addebito di 51,25 euro con descrizione per Pagamento Europay Su Pos '
+        'DATA 17/08/26 ORA 17.31 LOC.PADOVA A presto, il tuo team Widiba';
+
+    test('SDD parses as an expense towards the creditor', () {
+      final r = parser.parse(
+        subject: 'Hai ricevuto un addebito',
+        body: sdd,
+        receivedAt: received,
+      );
+
+      expect(r, isNotNull);
+      expect(r!.type, 'expense');
+      expect(r.amount, -21.99);
+      expect(r.description, 'ILIAD');
+      expect(r.counterparty, 'ILIAD');
+      expect(r.date, received);
+    });
+
+    test('the card-payment mirror is not booked, and not surfaced', () {
+      expect(
+        parser.parse(
+          subject: 'Hai ricevuto un addebito',
+          body: mirror,
+          receivedAt: received,
+        ),
+        isNull,
+      );
+      expect(
+        parser.looksTransactional('Hai ricevuto un addebito', mirror),
+        isFalse,
+      );
+    });
+
+    test('BANCOMAT Pay parses with the merchant and its own date', () {
+      const bancomat = 'Ciao Matteo, '
+          'hai ricevuto sul conto 6003/656696 di Moro Matteo, Nico Miriam un '
+          'addebito di 16,05 euro con descrizione BANCOMAT Pay - '
+          'A101253390603442481600002000IT PAGAMENTO EFFETTUATO CON BANCOMAT '
+          'PAY VS AMAZON DATA: 11-08-2026 A presto, il tuo team Widiba';
+
+      final r = parser.parse(
+        subject: 'Hai ricevuto un addebito',
+        body: bancomat,
+        receivedAt: received,
+      );
+
+      expect(r, isNotNull);
+      expect(r!.type, 'expense');
+      expect(r.amount, -16.05);
+      expect(r.description, 'AMAZON');
+      expect(r.date, DateTime(2026, 8, 11));
+    });
+
+    test('an unknown addebito flavour stays surfaced for review', () {
+      const unknown = 'Ciao Matteo, hai ricevuto sul conto 6003/656696 un '
+          'addebito di 2,00 euro con descrizione per Canone Mensile Conto '
+          'A presto, il tuo team Widiba';
+      expect(
+        parser.parse(
+          subject: 'Hai ricevuto un addebito',
+          body: unknown,
+          receivedAt: received,
+        ),
+        isNull,
+      );
+      expect(
+        parser.looksTransactional('Hai ricevuto un addebito', unknown),
+        isTrue,
+      );
+    });
+  });
+
+  group('looksTransactional', () {
+    test('an email without an amount is never a movement', () {
+      expect(
+        parser.looksTransactional('Questa estate porta con te la tua Carta '
+            'di Debito Widiba', 'Ciao Matteo, voglia di partire?'),
+        isFalse,
+      );
+    });
+
+    test('a wrong-PIN notice carries an amount but moved nothing', () {
+      expect(
+        parser.looksTransactional(
+          'Pagamento con Carta di debito',
+          'Ciao Matteo, il giorno 08/08/2026 alle ore 14:39 hai sbagliato il '
+              'pin di 67,00 euro con Carta di debito n. **** **30 presso '
+              'PARADISE. A presto, il tuo team Widiba',
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group('robustness', () {
     test('unknown subject returns null', () {
       final r = parser.parse(

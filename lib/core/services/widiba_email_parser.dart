@@ -7,6 +7,9 @@
 ///   - "Pagamento bollettino CBILL"           -> expense
 ///   - "Modello F24 inserito"                  -> expense
 ///   - "Hai ricevuto un accredito"            -> income
+///   - "Hai ricevuto un addebito"             -> expense, but only the SDD
+///     (direct debit) and BANCOMAT Pay flavours: every other flavour is the
+///     account-level mirror of a notification we already parse
 ///   - "Bonifico SEPA ... a tuo favore"       -> income
 ///   - "Bonifico SEPA inoltrato/istantaneo"   -> undecided (expense or transfer)
 ///   - "Conferma ricezione Bonifico SEPA"     -> null on purpose (duplicate of
@@ -62,6 +65,10 @@ class WidibaEmailParser {
     }
     if (haystack.contains('f24')) {
       return _parseF24(text, receivedAt, snippet);
+    }
+    // Last: the SEPA/CBILL bodies also say "Data di addebito".
+    if (haystack.contains('addebito')) {
+      return _parseAccountDebit(text, receivedAt, snippet);
     }
     return null;
   }
@@ -264,6 +271,115 @@ class WidibaEmailParser {
     final date = (dateStr != null ? _parseDate(dateStr) : null) ?? receivedAt;
 
     return (amount: amount!, date: date);
+  }
+
+  /// Descrizioni of the "Hai ricevuto un addebito" email that only mirror a
+  /// movement another Widiba notification already reports — the mirror lands a
+  /// day later with a worse description ("LOC.PADOVA" vs "IPER"), so booking it
+  /// would double every card spend.
+  static const _mirroredDebits = [
+    'pagamento europay su pos', // "Pagamento con Carta di debito"
+    'pagamento istantaneo', // "Bonifico SEPA inoltrato"
+    'pagamento imposte', // "Modello F24 inserito" / CBILL
+  ];
+
+  /// The account-level debit notice, one line with everything in it:
+  ///
+  ///   SDD      "... un addebito di 21,99 euro con descrizione per Addebito
+  ///             Diretto ADDEBITO SDD N. 32161656 A FAVORE ILIAD CODICE
+  ///             MANDATO ILIAD-BAEE0C-1 IMPORTO 21,99 COMMISSIONI 0,00 SPESE 0,00"
+  ///   BANCOMAT "... un addebito di 16,05 euro con descrizione BANCOMAT Pay -
+  ///             A1012533906… PAGAMENTO EFFETTUATO CON BANCOMAT PAY VS AMAZON
+  ///             DATA: 11-08-2026"
+  ///
+  /// Those two are the flavours nothing else reports; every other one is a
+  /// mirror, see [_mirroredDebits].
+  ParsedBankDraft? _parseAccountDebit(
+    String text,
+    DateTime receivedAt,
+    String snippet,
+  ) {
+    final descrizione = _debitDescription(text);
+    if (descrizione == null) return null;
+
+    // ponytail: headline amount only — the SDDs seen so far all read
+    // "COMMISSIONI 0,00 SPESE 0,00". Add them if a charged one shows up.
+    final amount = _parseAmount(
+        RegExp(r'un addebito di ([\d.]+,\d{2}) euro', caseSensitive: false)
+            .firstMatch(text)!
+            .group(1)!);
+    if (amount == null) return null;
+
+    final kind = descrizione.toLowerCase();
+    String? payee;
+    var date = receivedAt;
+
+    if (kind.startsWith('addebito diretto')) {
+      payee = RegExp(r'A FAVORE\s+(.+?)\s+CODICE MANDATO', caseSensitive: false)
+          .firstMatch(descrizione)
+          ?.group(1)
+          ?.trim();
+      payee ??= 'Addebito diretto';
+    } else if (kind.startsWith('bancomat pay')) {
+      payee = RegExp(r'\bVS\s+(.+?)(?:\s+DATA:|$)', caseSensitive: false)
+              .firstMatch(descrizione)
+              ?.group(1)
+              ?.trim() ??
+          'BANCOMAT Pay';
+      final d = RegExp(r'DATA:\s*(\d{1,2})-(\d{1,2})-(\d{4})')
+          .firstMatch(descrizione);
+      if (d != null) {
+        date = DateTime(int.parse(d.group(3)!), int.parse(d.group(2)!),
+            int.parse(d.group(1)!));
+      }
+    } else {
+      return null; // a mirror, or a flavour we have not seen yet
+    }
+
+    return ParsedBankDraft(
+      amount: -amount,
+      description: payee,
+      date: date,
+      type: 'expense',
+      counterparty: payee,
+      rawSnippet: snippet,
+    );
+  }
+
+  /// Everything after "con descrizione [per]" in the account-debit notice —
+  /// the bank crams the whole movement in there. Null when this isn't one.
+  String? _debitDescription(String text) => RegExp(
+        r'un addebito di [\d.]+,\d{2} euro con descrizione(?: per)?\s+(.+?)(?:\s+Un memo per te|\s+A presto|$)',
+        caseSensitive: false,
+      ).firstMatch(text)?.group(1)?.trim();
+
+  /// Whether an email [parse] could not read is worth showing in the review
+  /// inbox. False for the ones that are duplicates or non-movements by
+  /// construction; anything else stays surfaced with its raw text, which is
+  /// how new templates get discovered.
+  bool looksTransactional(String subject, String body) {
+    final s = subject.toLowerCase();
+    if (s.contains('conferma ricezione')) return false;
+
+    final text = _normalize(body);
+    final lower = text.toLowerCase();
+
+    // No amount anywhere: newsletters and card ads, not movements.
+    if (!RegExp(r'\d,\d{2}\s*(?:euro|€)').hasMatch(lower)) return false;
+
+    // Carries an amount but nothing moved.
+    if (lower.contains('hai sbagliato il pin')) return false;
+
+    final descrizione = _debitDescription(text)?.toLowerCase();
+    if (descrizione != null && _mirroredDebits.any(descrizione.startsWith)) {
+      return false;
+    }
+
+    const keywords = [
+      'pagamento', 'bonifico', 'accredito', 'addebito',
+      'carta', 'cbill', 'bollettino', 'prelievo',
+    ];
+    return keywords.any(s.contains);
   }
 
   /// Value of a label/value pair in the bank's table emails, stopping at the

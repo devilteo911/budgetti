@@ -99,7 +99,14 @@ class BankSyncService {
 
       if (parsed == null) {
         if (skippedIds.contains(email.id)) {
-          // Retried and still unreadable: the row is already surfaced.
+          // Retried and still unreadable: the row is already surfaced. Unless
+          // the parser has since learnt it's a duplicate — then retire it.
+          if (!_parser.looksTransactional(email.subject, email.body)) {
+            await (_db.update(_db.pendingTransactions)
+                  ..where((t) => t.gmailMessageId.equals(email.id)))
+                .write(const PendingTransactionsCompanion(
+                    status: Value('ignored')));
+          }
           existingIds.add(email.id);
           continue;
         }
@@ -355,7 +362,7 @@ class BankSyncService {
   /// receipt-confirmations get 'ignored' (never shown). Returns the row id
   /// when the email was surfaced.
   Future<String?> _recordSkipped(WidibaEmail email) async {
-    final surfaced = _looksTransactional(email.subject);
+    final surfaced = _parser.looksTransactional(email.subject, email.body);
 
     final plain = email.body.replaceAll(RegExp(r'\s+'), ' ').trim();
     final alt = email.altBody?.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -384,16 +391,6 @@ class BankSyncService {
           mode: InsertMode.insertOrIgnore,
         );
     return surfaced ? id : null;
-  }
-
-  bool _looksTransactional(String subject) {
-    final s = subject.toLowerCase();
-    if (s.contains('conferma ricezione')) return false;
-    const keywords = [
-      'pagamento', 'bonifico', 'accredito', 'addebito',
-      'carta', 'cbill', 'bollettino', 'prelievo',
-    ];
-    return keywords.any(s.contains);
   }
 
   Future<Set<String>> _existingGmailIds() async {

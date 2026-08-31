@@ -486,7 +486,7 @@ class _CategoryEditorModalState extends ConsumerState<CategoryEditorModal> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
-              IconData(_selectedIcon, fontFamily: 'MaterialIcons'),
+              categoryIcon('', iconCode: _selectedIcon),
               color: _inkOn(color),
               size: 28,
             ),

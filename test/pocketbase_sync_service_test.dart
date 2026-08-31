@@ -859,4 +859,16 @@ void main() {
     expect(pushOnly.pushed, greaterThanOrEqualTo(1));
     expect(client._store['categories']!.containsKey('local1'), isTrue);
   });
+
+  // PB compares date filters as raw strings against its stored
+  // `YYYY-MM-DD HH:MM:SS.sssZ` form. Verified against a live 0.39.6:
+  // `updated > "2026-08-20T00:00:00.000Z"` returned 0 rows for a record
+  // stamped `2026-08-20 09:37:40.528Z`, the space-separated literal returned
+  // it — 'T' sorts after ' ', so a `T` cursor hid every same-day change.
+  test('pull filter literal is space-separated, so it sorts before same-day '
+      'server stamps', () {
+    final lit = pbDateLiteral(DateTime.utc(2026, 8, 20, 0, 0, 0));
+    expect(lit, '2026-08-20 00:00:00.000Z');
+    expect('2026-08-20 09:37:40.528Z'.compareTo(lit) > 0, isTrue);
+  });
 }

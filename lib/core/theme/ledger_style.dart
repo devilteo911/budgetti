@@ -108,9 +108,13 @@ Color unknownCategoryInk(ColorScheme scheme) => scheme.onSurfaceVariant;
 /// `FinanceService._repairDefaultCategoryIcons`, which only ever covered ten
 /// hardcoded names on ids shaped `${userId}_cat_<Name>`, so every user-created
 /// category (UUID id) stayed broken.
-final Set<int> _pickableCodes = {
+///
+/// Maps to the picker's own `const IconData` rather than rebuilding one from
+/// the codepoint: `IconData(code)` is opaque to the icon tree-shaker, which
+/// fails the release build outright.
+final Map<int, IconData> _pickableIcons = {
   for (final group in categoryIconGroups)
-    for (final icon in group.icons) icon.codePoint,
+    for (final icon in group.icons) icon.codePoint: icon,
 };
 
 /// Name fragment → glyph, first match wins, most specific first. Italian and
@@ -167,9 +171,8 @@ const List<(List<String>, IconData)> _keywordIcons = [
 /// trusted, and to a neutral glyph when the name says nothing either — an
 /// honest blank beats a confidently wrong boat.
 IconData categoryIcon(String name, {int? iconCode, bool isIncome = false}) {
-  if (iconCode != null && _pickableCodes.contains(iconCode)) {
-    return IconData(iconCode, fontFamily: 'MaterialIcons');
-  }
+  final picked = iconCode == null ? null : _pickableIcons[iconCode];
+  if (picked != null) return picked;
   final needle = name.toLowerCase();
   for (final (fragments, icon) in _keywordIcons) {
     for (final fragment in fragments) {
