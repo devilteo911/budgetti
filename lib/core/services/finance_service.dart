@@ -716,32 +716,53 @@ class FinanceService {
       );
 
   Future<void> upsertBudget(model_budget.Budget budget) async {
-    // Check if exists for this user
-    final exists = await (_db.select(_db.budgets)
-      ..where(
-              (tbl) =>
-                  tbl.category.equals(budget.category) &
-                  tbl.period.equals(budget.period) &
-                  tbl.userId.equals(_userId) &
-                  tbl.isDeleted.equals(false),
-            )
-    ).getSingleOrNull();
+    // Newest first, not getSingleOrNull(): two devices can each create a
+    // budget for the same category while offline (the web app could too), and
+    // two live rows made that throw, so the budget could never be set again.
+    final live = await (_db.select(_db.budgets)
+          ..where((tbl) =>
+              tbl.category.equals(budget.category) &
+              tbl.period.equals(budget.period) &
+              tbl.userId.equals(_userId) &
+              tbl.isDeleted.equals(false))
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.lastUpdated,
+                  mode: OrderingMode.desc,
+                  nulls: NullsOrder.last,
+                ),
+          ]))
+        .get();
 
-    if (exists != null) {
-        await (_db.update(_db.budgets)..where((t) => t.id.equals(exists.id))).write(BudgetsCompanion(
-        limitAmount: Value(budget.limit),
-        lastUpdated: Value(DateTime.now()),
-      ));
-    } else {
+    if (live.isEmpty) {
       await _db.into(_db.budgets).insert(BudgetsCompanion.insert(
         id: const Uuid().v4(),
         category: budget.category,
         limitAmount: budget.limit,
         period: budget.period,
-              userId: Value(_userId),
+        userId: Value(_userId),
         lastUpdated: Value(DateTime.now()),
       ));
+      return;
     }
+
+    await _db.transaction(() async {
+      await (_db.update(_db.budgets)..where((t) => t.id.equals(live.first.id)))
+          .write(BudgetsCompanion(
+        limitAmount: Value(budget.limit),
+        lastUpdated: Value(DateTime.now()),
+      ));
+      // Retire the stale duplicates (stamped, so the delete syncs): left live
+      // they'd show as a second row for the category with the old limit.
+      if (live.length > 1) {
+        await (_db.update(_db.budgets)
+              ..where((t) => t.id.isIn(live.skip(1).map((r) => r.id))))
+            .write(BudgetsCompanion(
+          isDeleted: const Value(true),
+          lastUpdated: Value(DateTime.now()),
+        ));
+      }
+    });
   }
 
   Future<void> deleteBudget(String id) async {

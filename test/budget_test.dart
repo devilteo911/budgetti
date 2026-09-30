@@ -26,15 +26,26 @@ void main() {
   late AppDatabase db;
   late FinanceService service;
 
-  Future<void> seed(String id, String category, double limit) =>
+  Future<void> seed(
+    String id,
+    String category,
+    double limit, {
+    DateTime? updated,
+    bool unstamped = false,
+  }) =>
       db.into(db.budgets).insert(BudgetsCompanion.insert(
             id: id,
             userId: const Value('user-a'),
             category: category,
             limitAmount: limit,
             period: 'monthly',
-            lastUpdated: Value(DateTime(2026, 1, 1)),
+            lastUpdated:
+                Value(unstamped ? null : updated ?? DateTime(2026, 1, 1)),
           ));
+
+  Future<List<Budget>> live() => (db.select(db.budgets)
+        ..where((t) => t.isDeleted.equals(false)))
+      .get();
 
   setUp(() {
     db = AppDatabase.forExecutor(NativeDatabase.memory());
@@ -76,5 +87,50 @@ void main() {
     final live = await service.getBudgets();
     expect(live.single.category, 'Food');
     expect(live.single.limit, 150);
+  });
+
+  // Two devices can each create a budget for the same category while offline,
+  // and the web app could before its fix. upsertBudget used getSingleOrNull(),
+  // which throws StateError on two live rows, so the user could never set that
+  // budget again.
+  test('setting a limit with two live rows for the category still works',
+      () async {
+    await seed('b-old', 'Food', 200, updated: DateTime(2026, 1, 1));
+    await seed('b-new', 'Food', 300, updated: DateTime(2026, 3, 1));
+
+    await service.upsertBudget(
+        model.Budget(id: '', userId: '', category: 'Food', limit: 150));
+
+    final rows = await live();
+    expect(rows.single.id, 'b-new', reason: 'the most recently edited row wins');
+    expect(rows.single.limitAmount, 150);
+    final old = await (db.select(db.budgets)
+          ..where((t) => t.id.equals('b-old')))
+        .getSingle();
+    expect(old.isDeleted, isTrue,
+        reason: 'the stale duplicate is retired so the list shows one row');
+    expect(old.lastUpdated!.isAfter(DateTime(2026, 3, 1)), isTrue,
+        reason: 'and the retirement syncs');
+  });
+
+  test('a row that never got a lastUpdated stamp loses to a stamped one',
+      () async {
+    await seed('b-blank', 'Food', 200, unstamped: true);
+    await seed('b-stamped', 'Food', 300, updated: DateTime(2026, 1, 1));
+
+    await service.upsertBudget(
+        model.Budget(id: '', userId: '', category: 'Food', limit: 150));
+
+    expect((await live()).single.id, 'b-stamped');
+  });
+
+  test('duplicates in another period or category are left alone', () async {
+    await seed('b-food', 'Food', 200);
+    await seed('b-fuel', 'Fuel', 80);
+
+    await service.upsertBudget(
+        model.Budget(id: '', userId: '', category: 'Food', limit: 150));
+
+    expect((await live()).map((r) => r.id), unorderedEquals(['b-food', 'b-fuel']));
   });
 }
