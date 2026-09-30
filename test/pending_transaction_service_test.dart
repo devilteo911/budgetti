@@ -130,6 +130,7 @@ Future<(AppDatabase, PendingTransactionService, PersistenceService)>
 
 model.Transaction _edited({
   String accountId = 'wallet',
+  String? toAccountId,
   double amount = -12.5,
   String description = 'Edited by hand',
   String type = 'expense',
@@ -137,6 +138,7 @@ model.Transaction _edited({
     model.Transaction(
       id: 'edited-tx',
       accountId: accountId,
+      toAccountId: toAccountId,
       amount: amount,
       date: _day,
       description: description,
@@ -412,6 +414,33 @@ void main() {
       expect(await service.approveWith('app', _edited()), isFalse);
       expect(await service.approveWith('ign', _edited()), isFalse);
       expect(await db.select(db.transactions).get(), isEmpty);
+    });
+
+    // The sheet blocks this itself, but the booking core is the last line: a
+    // transfer that moves nothing (or loses money) must not reach the ledger
+    // whichever door it comes through.
+    test('a transfer with no destination, or into its own source, is refused',
+        () async {
+      final (db, service) = _setup();
+      await _insertDraft(db);
+
+      for (final to in [null, 'wallet']) {
+        await expectLater(
+          service.approveWith('pending_x',
+              _edited(type: 'transfer', toAccountId: to, amount: 30)),
+          throwsArgumentError,
+          reason: 'toAccountId: $to',
+        );
+      }
+      expect(await db.select(db.transactions).get(), isEmpty);
+      expect((await _draft(db)).status, 'pending'); // still there to fix
+
+      // A real destination books.
+      expect(
+        await service.approveWith('pending_x',
+            _edited(type: 'transfer', toAccountId: 'other', amount: 30)),
+        isTrue,
+      );
     });
 
     test('an explicit choice is not second-guessed by the duplicate recheck',

@@ -92,11 +92,6 @@ class PendingTransactionService {
     String? toAccountId,
     String? category,
   }) async {
-    if (type == 'transfer' &&
-        (toAccountId == null || toAccountId == accountId)) {
-      throw ArgumentError('A transfer needs a destination other than its source');
-    }
-
     // The draft may hold no category, or one the owner deleted since capture:
     // ask the ledger before falling back to 'Uncategorized'.
     if (type != 'transfer' &&
@@ -179,7 +174,15 @@ class PendingTransactionService {
         .getSingleOrNull();
   }
 
+  /// The one place both [approve] and [approveWith] book through. Throws inside
+  /// the caller's DB transaction, so a refused booking leaves the draft pending.
   Future<void> _book(PendingTransaction draft, model.Transaction tx) async {
+    // A transfer to itself moves nothing, and one with no destination loses the
+    // money: the add sheet blocks both, this is the last line for every door.
+    if (tx.type == 'transfer' &&
+        (tx.toAccountId == null || tx.toAccountId == tx.accountId)) {
+      throw ArgumentError('A transfer needs a destination other than its source');
+    }
     await _finance.addTransaction(tx);
     await _markStatus(draft.id, 'approved');
   }
