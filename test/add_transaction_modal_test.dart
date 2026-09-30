@@ -316,6 +316,11 @@ void main() {
       return (saved!, shown);
     }
 
+    /// Every value the owner did not touch, in one record: amount, sign (in the
+    /// amount), category, wallet and date.
+    (double, String, String, DateTime) untouched(Transaction t) =>
+        (t.amount, t.category, t.accountId, t.date);
+
     testWidgets('a positive row stored as "expense" (legacy +11,95 "Ali")',
         (tester) async {
       final (saved, shown) = await openAndSave(
@@ -324,25 +329,26 @@ void main() {
       // Untouched: the sign survives (the bug flipped it to −11,95), the type
       // heals to match, nothing else moves.
       expect(saved.amount, 11.95);
-      expect((saved.type, saved.category, saved.accountId),
-          ('income', 'Groceries', 'w1'));
+      expect(untouched(saved), (11.95, 'Groceries', 'w1', day));
+      expect(saved.type, 'income');
       expect(shown, 'income');
     });
 
     testWidgets('a negative row stored as "income"', (tester) async {
-      final (saved, shown) =
-          await openAndSave(tester, tx(amount: -5, type: 'income'));
+      final (saved, shown) = await openAndSave(
+          tester, tx(amount: -5, type: 'income', category: 'Groceries'));
 
+      expect(untouched(saved), (-5.0, 'Groceries', 'w1', day));
+      expect(saved.type, 'expense');
       expect(shown, 'expense');
-      expect((saved.amount, saved.type), (-5.0, 'expense'));
     });
 
     testWidgets('a normal expense round-trips unchanged', (tester) async {
       final (saved, shown) = await openAndSave(tester, tx(amount: -10.5));
 
       expect(shown, 'expense');
-      expect((saved.amount, saved.type, saved.category, saved.date),
-          (-10.5, 'expense', 'Dining', day));
+      expect(untouched(saved), (-10.5, 'Dining', 'w1', day));
+      expect(saved.type, 'expense');
     });
 
     testWidgets('a normal income round-trips unchanged', (tester) async {
@@ -350,7 +356,8 @@ void main() {
           tester, tx(amount: 100, type: 'income', category: 'Salary'));
 
       expect(shown, 'income');
-      expect((saved.amount, saved.type, saved.category), (100.0, 'income', 'Salary'));
+      expect(untouched(saved), (100.0, 'Salary', 'w1', day));
+      expect(saved.type, 'income');
     });
 
     testWidgets('a transfer stays a transfer', (tester) async {
@@ -368,8 +375,8 @@ void main() {
       final (saved, shown) = await openAndSave(tester, existing);
 
       expect(shown, 'transfer');
-      expect((saved.amount, saved.type, saved.toAccountId, saved.category),
-          (30.0, 'transfer', 'w2', 'Transfer'));
+      expect(untouched(saved), (30.0, 'Transfer', 'w1', day));
+      expect((saved.type, saved.toAccountId), ('transfer', 'w2'));
     });
   });
 
