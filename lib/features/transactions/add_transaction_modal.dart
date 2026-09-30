@@ -112,7 +112,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       // fill. An existing row keeps exactly what it has, empty or not.
       _selectedCategory = isPrefill && t.category.isEmpty ? null : t.category;
       _selectedDate = t.date;
-      _type = t.type;
+      // An existing row is what its sign says, as everywhere else in the ledger
+      // (list, RECENTI, totals) and in the web editor. The stored type can
+      // disagree on legacy rows, and saving re-signs the amount from `_type`:
+      // starting from the stored type flipped +11,95 "expense" to −11,95.
+      _type = widget.transaction == null || t.type == 'transfer'
+          ? t.type
+          : (t.amount > 0 ? 'income' : 'expense');
       _selectedTags = List.from(t.tags);
       _selectedAccountId = isPrefill && t.accountId.isEmpty ? null : t.accountId;
       _selectedToAccountId = t.toAccountId;

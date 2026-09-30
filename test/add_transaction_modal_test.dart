@@ -6,6 +6,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
+import 'package:budgetti/features/transactions/widgets/type_selector.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart';
@@ -216,6 +217,82 @@ void main() {
       final saved = await saveUntouched(tester, tx(accountId: ''));
 
       expect(saved.accountId, '');
+    });
+  });
+
+  // The ledger classifies a row by its sign (RECENTI, the list, the totals); the
+  // sheet used to start from the STORED type. On a legacy row where the two
+  // disagree, an untouched save then re-signed the amount from the stale type
+  // (+11,95 "expense" became −11,95). The web editor derives the type from the
+  // sign; so does this one, for any existing row that is not a transfer.
+  group('an existing transaction opens as what its sign says it is', () {
+    Future<(Transaction, String)> openAndSave(
+        WidgetTester tester, Transaction existing) async {
+      Transaction? saved;
+      await pump(tester, transaction: existing, onSave: (t) async => saved = t);
+      final shown = tester.widget<TypeSelector>(find.byType(TypeSelector)).selected;
+
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      expect(saved, isNotNull);
+      return (saved!, shown);
+    }
+
+    testWidgets('a positive row stored as "expense" (legacy +11,95 "Ali")',
+        (tester) async {
+      final (saved, shown) = await openAndSave(
+          tester, tx(amount: 11.95, type: 'expense', category: 'Groceries'));
+
+      // Untouched: the sign survives (the bug flipped it to −11,95), the type
+      // heals to match, nothing else moves.
+      expect(saved.amount, 11.95);
+      expect((saved.type, saved.category, saved.accountId),
+          ('income', 'Groceries', 'w1'));
+      expect(shown, 'income');
+    });
+
+    testWidgets('a negative row stored as "income"', (tester) async {
+      final (saved, shown) =
+          await openAndSave(tester, tx(amount: -5, type: 'income'));
+
+      expect(shown, 'expense');
+      expect((saved.amount, saved.type), (-5.0, 'expense'));
+    });
+
+    testWidgets('a normal expense round-trips unchanged', (tester) async {
+      final (saved, shown) = await openAndSave(tester, tx(amount: -10.5));
+
+      expect(shown, 'expense');
+      expect((saved.amount, saved.type, saved.category, saved.date),
+          (-10.5, 'expense', 'Dining', day));
+    });
+
+    testWidgets('a normal income round-trips unchanged', (tester) async {
+      final (saved, shown) = await openAndSave(
+          tester, tx(amount: 100, type: 'income', category: 'Salary'));
+
+      expect(shown, 'income');
+      expect((saved.amount, saved.type, saved.category), (100.0, 'income', 'Salary'));
+    });
+
+    testWidgets('a transfer stays a transfer', (tester) async {
+      final existing = Transaction(
+        id: 't2',
+        accountId: 'w1',
+        toAccountId: 'w2',
+        amount: 30,
+        date: day,
+        description: 'Move',
+        category: 'Transfer',
+        type: 'transfer',
+      );
+
+      final (saved, shown) = await openAndSave(tester, existing);
+
+      expect(shown, 'transfer');
+      expect((saved.amount, saved.type, saved.toAccountId, saved.category),
+          (30.0, 'transfer', 'w2', 'Transfer'));
     });
   });
 
