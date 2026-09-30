@@ -1487,13 +1487,13 @@ abstract class AppLocalizations {
   /// No description provided for @setRestoreCategoriesBody.
   ///
   /// In en, this message translates to:
-  /// **'This will restore default categories if they were deleted or modified. Your custom categories will not be affected.'**
+  /// **'This brings back default categories you deleted. Ones you renamed, and your own categories, are left as they are.'**
   String get setRestoreCategoriesBody;
 
   /// No description provided for @setRestoreTagsBody.
   ///
   /// In en, this message translates to:
-  /// **'This will restore default tags if they were deleted or modified. Your custom tags will not be affected.'**
+  /// **'This brings back default tags you deleted. Ones you renamed, and your own tags, are left as they are.'**
   String get setRestoreTagsBody;
 
   /// No description provided for @setRestore.

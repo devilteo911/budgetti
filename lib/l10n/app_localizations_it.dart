@@ -788,11 +788,11 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get setRestoreCategoriesBody =>
-      'Ripristina le categorie predefinite se sono state eliminate o modificate. Le tue categorie personalizzate non verranno toccate.';
+      'Riporta le categorie predefinite che hai eliminato. Quelle rinominate e le tue categorie personalizzate restano come sono.';
 
   @override
   String get setRestoreTagsBody =>
-      'Ripristina i tag predefiniti se sono stati eliminati o modificati. I tuoi tag personalizzati non verranno toccati.';
+      'Riporta i tag predefiniti che hai eliminato. Quelli rinominati e i tuoi tag personalizzati restano come sono.';
 
   @override
   String get setRestore => 'Ripristina';

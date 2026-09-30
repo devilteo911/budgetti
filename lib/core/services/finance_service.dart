@@ -906,46 +906,91 @@ class FinanceService {
     }
   }
 
-  Future<void> restoreDefaultCategories() async {
-    await _db.batch((batch) {
-      for (final d in _defaultCategories) {
-        batch.insert(
-          _db.categories,
-          CategoriesCompanion.insert(
-            id: '${_userId}_cat_${d.name}',
-            name: d.name,
-            iconCode: d.icon.codePoint,
-            colorHex: d.color,
-            type: d.type,
-            userId: Value(_userId),
-            lastUpdated: Value(DateTime.now()),
-          ),
-          mode: InsertMode.replace, // Upsert
-        );
+  /// Which soft-deleted row of the default [name] should come back, or null when
+  /// none should. [rows] are the owner's rows of one table in rowid order; [seed]
+  /// is the infix FinanceService puts in its ids (`_cat_`, `_tag_`), [type] is
+  /// null for tags.
+  ///
+  /// Nothing comes back when the default still has a live copy, or has a live row
+  /// with its seeded id under a new name (the owner renamed Dining to "Eating
+  /// out": reviving Dining would be a duplicate). Otherwise the owner's own
+  /// `<userId><seed><name>` copy, then any seeded copy, then the oldest row.
+  static String? _reviveTarget(
+    List<({String id, String name, String? type, bool deleted})> rows,
+    String userId,
+    String seed,
+    String name,
+    String? type,
+  ) {
+    bool slot(({String id, String name, String? type, bool deleted}) r) =>
+        r.name == name && r.type == type;
+    if (rows.any((r) => !r.deleted && (slot(r) || r.id.endsWith('$seed$name')))) {
+      return null;
+    }
+    final dead = rows.where((r) => r.deleted && slot(r)).toList();
+    for (final want in <bool Function(String)>[
+      (id) => id == '$userId$seed$name',
+      (id) => id.endsWith('$seed$name'),
+      (_) => true,
+    ]) {
+      for (final r in dead) {
+        if (want(r.id)) return r.id;
       }
-    });
-
-    // Ensure they are not marked as deleted (in case they were deleted before)
-    // The replace defined above might not handle partial updates like un-deleting if the row exists but isDeleted=true?
-    // Actually Drift's InsertMode.replace replaces the *whole row*,
-    // effectively resetting everything including isDeleted back to false (default).
+    }
+    return null;
   }
 
-  Future<void> restoreDefaultTags() async {
-    await _db.batch((batch) {
-      for (final d in _defaultTags) {
-        batch.insert(
-          _db.tags,
-          TagsCompanion.insert(
-            id: '${_userId}_tag_${d.name}',
-            name: d.name,
-            colorHex: d.color,
-            userId: Value(_userId),
-            lastUpdated: Value(DateTime.now()),
-          ),
-          mode: InsertMode.replace,
-        );
-      }
-    });
+  /// Brings back the default categories the owner lost, in place: each comes back
+  /// as the soft-deleted row it was (same id, icon and colour), stamped now so
+  /// last-write-wins carries it to the server. It never inserts, so it cannot add
+  /// a duplicate, and a second call finds nothing to do. Returns how many came back.
+  Future<int> restoreDefaultCategories() async {
+    final rows = [
+      for (final c in await (_db.select(_db.categories)
+            ..where((t) => t.userId.equals(_userId))
+            ..orderBy([
+              (t) => OrderingTerm(expression: const CustomExpression<int>('rowid')),
+            ]))
+          .get())
+        (id: c.id, name: c.name, type: c.type as String?, deleted: c.isDeleted)
+    ];
+    final ids = {
+      for (final d in _defaultCategories)
+        ?_reviveTarget(rows, '${_userId}_cat_', '_cat_', d.name, d.type),
+    };
+    if (ids.isEmpty) return 0;
+    await (_db.update(_db.categories)..where((t) => t.id.isIn(ids))).write(
+      CategoriesCompanion(
+        isDeleted: const Value(false),
+        lastUpdated: Value(DateTime.now()),
+      ),
+    );
+    return ids.length;
+  }
+
+  /// Same rule for the default tags: revive, never insert. See
+  /// [restoreDefaultCategories].
+  Future<int> restoreDefaultTags() async {
+    final rows = [
+      for (final t in await (_db.select(_db.tags)
+            ..where((t) => t.userId.equals(_userId))
+            ..orderBy([
+              (t) => OrderingTerm(expression: const CustomExpression<int>('rowid')),
+            ]))
+          .get())
+        (id: t.id, name: t.name, type: null as String?, deleted: t.isDeleted)
+    ];
+    final ids = {
+      for (final d in _defaultTags)
+        ?_reviveTarget(rows, '${_userId}_tag_', '_tag_', d.name, null),
+    };
+    if (ids.isEmpty) return 0;
+    await (_db.update(_db.tags)..where((t) => t.id.isIn(ids))).write(
+      TagsCompanion(
+        isDeleted: const Value(false),
+        lastUpdated: Value(DateTime.now()),
+      ),
+    );
+    return ids.length;
   }
 }
