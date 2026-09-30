@@ -567,6 +567,18 @@ void main() {
       });
     });
 
+    test('a foreign-currency draft opens with an empty amount, keeping its cue',
+        () async {
+      final (db, _) = _setup();
+      await _insertDraft(db, description: 'Starbucks · 12,50 USD', amount: -12.5);
+
+      final t = draftPrefill(await draft(db));
+
+      expect(t.amount, 0); // the stored figure is dollars read as euros
+      expect(t.description, 'Starbucks · 12,50 USD');
+      expect(t.type, 'expense');
+    });
+
     test('an unknown wallet or category is empty, for the sheet to default',
         () async {
       final (db, _) = _setup();

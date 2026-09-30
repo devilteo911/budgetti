@@ -1,4 +1,5 @@
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/services/bank_draft.dart' show foreignAmountOf;
 import 'package:budgetti/core/services/bank_sync_service.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
@@ -234,7 +235,11 @@ model.Transaction draftPrefill(PendingTransaction d, {String? accountId}) {
   final type = d.suggestedType == 'income' || d.suggestedType == 'transfer'
       ? d.suggestedType
       : 'expense';
-  final amount = d.parsedAmount.abs();
+  // A foreign-currency push stored its foreign figure as if it were euros: the
+  // sheet starts empty for the owner to type the real euro amount (the original
+  // stays visible in the description).
+  final amount =
+      foreignAmountOf(d.parsedDescription) != null ? 0.0 : d.parsedAmount.abs();
   return model.Transaction(
     id: '',
     accountId: accountId ?? '',

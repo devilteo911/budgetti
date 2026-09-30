@@ -5,6 +5,7 @@ import 'package:budgetti/core/database/database.dart'
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart';
+import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/features/transactions/email_inbox_screen.dart';
 import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
@@ -66,6 +67,7 @@ void main() {
     String source = 'revolut',
     String gmailMessageId = 'x',
     String rawSnippet = '',
+    String description = 'Coffee',
   }) async {
     final db = AppDatabase.forExecutor(NativeDatabase.memory());
     addTearDown(db.close);
@@ -78,7 +80,7 @@ void main() {
             emailSubject: 'Hai pagato',
             emailReceivedAt: day,
             parsedAmount: amount,
-            parsedDescription: 'Coffee',
+            parsedDescription: description,
             parsedDate: day,
             createdAt: day,
             status: Value(status),
@@ -209,6 +211,54 @@ void main() {
           source: 'widiba', gmailMessageId: 'g1', rawSnippet: 'Ciao Matteo, hai');
 
       expect(find.textContaining('Ciao Matteo'), findsNothing);
+    });
+  });
+
+  // The stored amount of a non-euro push is the foreign figure read as if it
+  // were euros. Showing it as euros, and booking it on a plain Approva, would put
+  // a wrong amount in the ledger.
+  group('a draft in a foreign currency', () {
+    const foreign = 'Starbucks · 12,50 USD';
+
+    testWidgets('shows its original currency in the header', (tester) async {
+      await pumpInbox(tester, amount: -12.5, description: foreign);
+
+      expect(find.text('−12,50 USD'), findsOneWidget);
+      expect(find.textContaining('€'), findsNothing);
+    });
+
+    testWidgets('a euro draft is still shown in euros', (tester) async {
+      await pumpInbox(tester, amount: -12.5, description: 'Starbucks');
+
+      expect(find.text('-€12.50'), findsOneWidget);
+    });
+
+    testWidgets('plain Approve opens the edit sheet instead of booking',
+        (tester) async {
+      final db =
+          await pumpInbox(tester, amount: -12.5, description: foreign);
+
+      await tester.tap(find.text('Approve'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AddTransactionModal), findsOneWidget);
+      expect(amountField(tester), isEmpty); // the owner types the euro amount
+      expect(find.widgetWithText(TextFormField, foreign), findsOneWidget);
+      final rows = (await tester.runAsync(() async => (
+            await db.select(db.transactions).get(),
+            await db.select(db.pendingTransactions).get(),
+          )))!;
+      expect(rows.$1, isEmpty); // nothing booked
+      expect(rows.$2.single.status, 'pending'); // and still to review
+    });
+
+    testWidgets('the pencil opens the same empty-amount sheet', (tester) async {
+      await pumpInbox(tester, amount: -12.5, description: foreign);
+
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+
+      expect(amountField(tester), isEmpty);
     });
   });
 

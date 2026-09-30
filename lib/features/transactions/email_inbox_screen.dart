@@ -3,6 +3,7 @@ import 'package:budgetti/core/database/database.dart'
 import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/services/bank_draft.dart' show foreignAmountOf;
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart'
     show draftPrefill;
@@ -103,6 +104,15 @@ Future<void> _editAndApprove(
   );
 }
 
+/// The draft's amount in ITS currency. A euro draft goes through [currency]; a
+/// foreign push keeps its original figure ("−12,50 USD"), because the stored
+/// amount is that figure read as euros and showing it as euros would be a lie.
+String draftAmountLabel(PendingTransaction d, NumberFormat currency) {
+  final foreign = foreignAmountOf(d.parsedDescription);
+  if (foreign == null) return currency.format(d.parsedAmount);
+  return '${d.parsedAmount < 0 ? '−' : '+'}${foreign.amount} ${foreign.currency}';
+}
+
 /// Only a Revolut push has a snippet worth reading on the card: a Widiba
 /// draft's is the email greeting, a statement row's (`revcsv_` id) a CSV line.
 bool _showsSnippet(PendingTransaction d) =>
@@ -194,7 +204,7 @@ class _DraftCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                currency.format(draft.parsedAmount),
+                draftAmountLabel(draft, currency),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -312,6 +322,11 @@ class _DraftCard extends ConsumerWidget {
       ref.read(pendingTransactionServiceProvider).reject(draft.id);
 
   Future<void> _approve(BuildContext context, WidgetRef ref) async {
+    // A foreign-currency draft has no euro amount to book: the owner types it in
+    // the edit sheet, which opens on the draft with the amount left empty.
+    if (foreignAmountOf(draft.parsedDescription) != null) {
+      return _editAndApprove(context, ref, draft);
+    }
     final service = ref.read(pendingTransactionServiceProvider);
 
     var type = draft.suggestedType;
@@ -660,7 +675,7 @@ class _DuplicateNotice extends ConsumerWidget {
                 label: context.l10n.txFromEmail,
                 description: draft.parsedDescription,
                 date: draft.parsedDate,
-                amountLabel: currency.format(draft.parsedAmount),
+                amountLabel: draftAmountLabel(draft, currency),
               ),
               const SizedBox(height: 8),
               _CompareBlock(
