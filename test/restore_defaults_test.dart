@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/open.dart' as sqlite3open;
 
 import 'fixtures/owner_defaults_fixture.dart';
+import 'fixtures/seed_owner.dart';
 
 // `flutter test` runs in the VM without sqlite3_flutter_libs' bundled native,
 // so point the FFI loader at the system library (.so.0 — no -dev symlink here).
@@ -20,35 +21,7 @@ void _ensureSqlite() {
   } catch (_) {}
 }
 
-const owner = 'owner';
-
-DateTime _at(int seconds) => DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-
-/// The owner's defaults exactly as the phone exported them, after the batch.
-Future<void> seedAsExported(AppDatabase db) async {
-  for (final (id, name, type, icon, color, deleted, sec) in exportedCategories) {
-    await db.into(db.categories).insert(CategoriesCompanion.insert(
-          id: id,
-          name: name,
-          iconCode: icon,
-          colorHex: color,
-          type: type,
-          userId: const Value(owner),
-          isDeleted: Value(deleted),
-          lastUpdated: Value(_at(sec)),
-        ));
-  }
-  for (final (id, name, color, deleted, sec) in exportedTags) {
-    await db.into(db.tags).insert(TagsCompanion.insert(
-          id: id,
-          name: name,
-          colorHex: color,
-          userId: const Value(owner),
-          isDeleted: Value(deleted),
-          lastUpdated: Value(_at(sec)),
-        ));
-  }
-}
+Future<void> seedAsExported(AppDatabase db) => seedOwner(db, beforeTheBatch: false);
 
 /// (id, name, icon, colour, is_deleted, last_updated) per row, in rowid order.
 Future<List<String>> _categoryRows(AppDatabase db) async => [
@@ -173,6 +146,32 @@ void main() {
     });
   });
 
+  // Which copy of a default comes back: the owner's own seeded `<uid>_cat_<Name>`,
+  // even when another seeded copy sits earlier in rowid order.
+  test('prefers the owner\'s own copy even when another seed comes first',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    for (final id in ['other_cat_Groceries', 'owner_cat_Groceries']) {
+      await db.into(db.categories).insert(CategoriesCompanion.insert(
+            id: id,
+            name: 'Groceries',
+            iconCode: 1,
+            colorHex: 2,
+            type: 'expense',
+            userId: const Value(owner),
+            isDeleted: const Value(true),
+          ));
+    }
+
+    await FinanceService(db, owner).restoreDefaultCategories();
+
+    final live = await (db.select(db.categories)
+          ..where((t) => t.isDeleted.equals(false)))
+        .get();
+    expect(live.map((r) => r.id), ['owner_cat_Groceries']);
+  });
+
   group('restore default tags', () {
     // Every default tag still has a live copy, so there is nothing to bring back.
     test('revives nothing and adds no duplicates', () async {
@@ -185,6 +184,28 @@ void main() {
 
       expect(revived, 0);
       expect(await _tagRows(db), before);
+    });
+
+    test('prefers the owner\'s own tag even when another seed comes first',
+        () async {
+      final db = AppDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(db.close);
+      for (final id in ['other_tag_Gift', 'owner_tag_Gift']) {
+        await db.into(db.tags).insert(TagsCompanion.insert(
+              id: id,
+              name: 'Gift',
+              colorHex: 1,
+              userId: const Value(owner),
+              isDeleted: const Value(true),
+            ));
+      }
+
+      await FinanceService(db, owner).restoreDefaultTags();
+
+      final live = await (db.select(db.tags)
+            ..where((t) => t.isDeleted.equals(false)))
+          .get();
+      expect(live.map((r) => r.id), ['owner_tag_Gift']);
     });
 
     test('revives a default tag that has no live copy', () async {

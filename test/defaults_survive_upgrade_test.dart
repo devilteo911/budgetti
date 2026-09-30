@@ -10,6 +10,7 @@ import 'package:sqlite3/open.dart' as sqlite3open;
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import 'fixtures/owner_defaults_fixture.dart';
+import 'fixtures/seed_owner.dart';
 
 // `flutter test` runs in the VM without sqlite3_flutter_libs' bundled native,
 // so point the FFI loader at the system library (.so.0 — no -dev symlink here).
@@ -22,40 +23,10 @@ void _ensureSqlite() {
   } catch (_) {}
 }
 
-const owner = 'owner';
-const beforeStamp = 1784585637; // what the five rows still carried before the batch
-
-DateTime _at(int seconds) => DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-
-/// The owner's defaults as they stood just BEFORE the batch: every row the
-/// batch stamped is still live, stamped with its old date. [exportedCategories]
-/// is the state after it.
+/// The state just BEFORE the batch, plus live spending that names the five, as
+/// the owner's ledger does.
 Future<void> seedBeforeTheBatch(AppDatabase db) async {
-  for (final (id, name, type, icon, color, deleted, sec) in exportedCategories) {
-    final hit = sec == theBatchSecond;
-    await db.into(db.categories).insert(CategoriesCompanion.insert(
-          id: id,
-          name: name,
-          iconCode: icon,
-          colorHex: color,
-          type: type,
-          userId: const Value(owner),
-          isDeleted: Value(hit ? false : deleted),
-          lastUpdated: Value(_at(hit ? beforeStamp : sec)),
-        ));
-  }
-  for (final (id, name, color, deleted, sec) in exportedTags) {
-    final hit = sec == theBatchSecond;
-    await db.into(db.tags).insert(TagsCompanion.insert(
-          id: id,
-          name: name,
-          colorHex: color,
-          userId: const Value(owner),
-          isDeleted: Value(hit ? false : deleted),
-          lastUpdated: Value(_at(hit ? beforeStamp : sec)),
-        ));
-  }
-  // Live spending that names the five, as the owner's ledger does.
+  await seedOwner(db, beforeTheBatch: true);
   await db.into(db.accounts).insert(AccountsCompanion.insert(
       id: 'acc', name: 'Wallet', userId: const Value(owner)));
   var n = 0;

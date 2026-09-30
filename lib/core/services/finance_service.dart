@@ -956,7 +956,7 @@ class FinanceService {
     ];
     final ids = {
       for (final d in _defaultCategories)
-        ?_reviveTarget(rows, '${_userId}_cat_', '_cat_', d.name, d.type),
+        ?_reviveTarget(rows, _userId, '_cat_', d.name, d.type),
     };
     if (ids.isEmpty) return 0;
     await (_db.update(_db.categories)..where((t) => t.id.isIn(ids))).write(
@@ -982,7 +982,7 @@ class FinanceService {
     ];
     final ids = {
       for (final d in _defaultTags)
-        ?_reviveTarget(rows, '${_userId}_tag_', '_tag_', d.name, null),
+        ?_reviveTarget(rows, _userId, '_tag_', d.name, null),
     };
     if (ids.isEmpty) return 0;
     await (_db.update(_db.tags)..where((t) => t.id.isIn(ids))).write(
