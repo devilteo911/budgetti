@@ -302,8 +302,11 @@ class FinanceService {
     var query = _db.select(_db.transactions)
       ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
 
+    // A transfer belongs to both wallets: filtering on the source alone hid
+    // the incoming leg from the destination's own history.
     if (accountId != null) {
-      query.where((tbl) => tbl.accountId.equals(accountId));
+      query.where((tbl) =>
+          tbl.accountId.equals(accountId) | tbl.toAccountId.equals(accountId));
     }
 
     if (startDate != null || endDate != null) {
@@ -369,8 +372,11 @@ class FinanceService {
     var query = _db.select(_db.transactions)
       ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
 
+    // A transfer belongs to both wallets: filtering on the source alone hid
+    // the incoming leg from the destination's own history.
     if (accountId != null) {
-      query.where((tbl) => tbl.accountId.equals(accountId));
+      query.where((tbl) =>
+          tbl.accountId.equals(accountId) | tbl.toAccountId.equals(accountId));
     }
 
     if (startDate != null || endDate != null) {

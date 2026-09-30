@@ -306,4 +306,45 @@ void _migrationTests() {
     expect(rows.map((t) => t.id),
         unorderedEquals(['linked', 'unlinked-expense']));
   });
+
+  // A wallet's view filtered on accountId only, so the top-up that arrived in
+  // Revolut (accountId = Widiba, toAccountId = Revolut) was missing from its
+  // own history while still counting in its balance.
+  test('a wallet view lists the transfers arriving in it, live and one-shot',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    for (final id in ['widiba', 'revolut']) {
+      await db.into(db.accounts).insert(AccountsCompanion.insert(
+            id: id,
+            userId: const Value('user-a'),
+            name: id,
+          ));
+    }
+    Future<void> insert(String id, String from, String? to, String type) =>
+        db.into(db.transactions).insert(TransactionsCompanion.insert(
+              id: id,
+              userId: const Value('user-a'),
+              accountId: Value(from),
+              toAccountId: Value(to),
+              amount: type == 'transfer' ? 100 : -12,
+              description: id,
+              category: 'x',
+              type: Value(type),
+              date: DateTime(2026, 6, 23),
+            ));
+    await insert('topup', 'widiba', 'revolut', 'transfer');
+    await insert('conad', 'revolut', null, 'expense');
+    await insert('rent', 'widiba', null, 'expense');
+    final service = FinanceService(db, 'user-a');
+
+    final revolut = await service.getTransactions(accountId: 'revolut');
+    expect(revolut.map((t) => t.id), unorderedEquals(['topup', 'conad']));
+
+    final widiba = await service.getTransactions(accountId: 'widiba');
+    expect(widiba.map((t) => t.id), unorderedEquals(['topup', 'rent']));
+
+    final live = await service.watchTransactions(accountId: 'revolut').first;
+    expect(live.map((t) => t.id), unorderedEquals(['topup', 'conad']));
+  });
 }
