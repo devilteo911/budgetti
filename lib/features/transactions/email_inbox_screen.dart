@@ -326,6 +326,17 @@ class _DraftCard extends ConsumerWidget {
       return;
     }
 
+    // A transfer from a wallet to itself moves nothing: same guard as the add
+    // sheet. (approve() refuses it too; this is the friendly version.)
+    if (type == 'transfer' && toAccountId == sourceId) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.txPleaseSelectOtherWallet)),
+        );
+      }
+      return;
+    }
+
     final tx = await service.approve(
       draft,
       type: type,

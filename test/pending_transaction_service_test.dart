@@ -565,6 +565,19 @@ void main() {
     });
   });
 
+  test('a transfer into its own source wallet is refused', () async {
+    final (db, service) = _setup();
+    await _insertDraft(db, type: 'undecided');
+
+    await expectLater(
+      service.approve(await _draft(db),
+          type: 'transfer', accountId: 'wallet', toAccountId: 'wallet'),
+      throwsArgumentError,
+    );
+    expect(await db.select(db.transactions).get(), isEmpty);
+    expect((await _draft(db)).status, 'pending');
+  });
+
   test('the compare sheet never resolves to a deleted transaction', () async {
     final (db, service) = _setup();
     await _insertTx(db, isDeleted: true);

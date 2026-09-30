@@ -92,6 +92,11 @@ class PendingTransactionService {
     String? toAccountId,
     String? category,
   }) async {
+    if (type == 'transfer' &&
+        (toAccountId == null || toAccountId == accountId)) {
+      throw ArgumentError('A transfer needs a destination other than its source');
+    }
+
     // The draft may hold no category, or one the owner deleted since capture:
     // ask the ledger before falling back to 'Uncategorized'.
     if (type != 'transfer' &&
