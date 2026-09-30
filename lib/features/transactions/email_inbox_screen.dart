@@ -103,6 +103,13 @@ Future<void> _editAndApprove(
   );
 }
 
+/// Only a Revolut push has a snippet worth reading on the card: a Widiba
+/// draft's is the email greeting, a statement row's (`revcsv_` id) a CSV line.
+bool _showsSnippet(PendingTransaction d) =>
+    d.source == 'revolut' &&
+    !d.gmailMessageId.startsWith('revcsv_') &&
+    d.rawSnippet.isNotEmpty;
+
 /// Human name of a draft's capture source, shown so the user can tell which
 /// wallet a draft will land in before approving it.
 String sourceLabel(String source) => switch (source) {
@@ -201,6 +208,15 @@ class _DraftCard extends ConsumerWidget {
             draft.parsedDescription,
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
+          if (_showsSnippet(draft)) ...[
+            const SizedBox(height: 2),
+            Text(
+              draft.rawSnippet.replaceAll(' ⟂ ', ' · '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+          ],
           const SizedBox(height: 4),
           Row(
             children: [

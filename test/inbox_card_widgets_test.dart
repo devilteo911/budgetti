@@ -62,14 +62,18 @@ void main() {
     double amount = -10,
     String type = 'expense',
     String? suggestedCategory,
+    String source = 'revolut',
+    String gmailMessageId = 'x',
+    String rawSnippet = '',
   }) async {
     final db = AppDatabase.forExecutor(NativeDatabase.memory());
     addTearDown(db.close);
     await tester.runAsync(() => db.into(db.pendingTransactions).insert(
           PendingTransactionsCompanion.insert(
             id: 'pending_x',
-            gmailMessageId: 'x',
-            source: const Value('revolut'),
+            gmailMessageId: gmailMessageId,
+            source: Value(source),
+            rawSnippet: Value(rawSnippet),
             emailSubject: 'Hai pagato',
             emailReceivedAt: day,
             parsedAmount: amount,
@@ -147,6 +151,44 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(await storedCategory(tester, db), 'Treats');
+    });
+  });
+
+  // What the push actually said, so a wrong merchant or amount is visible
+  // without opening anything — but only where the snippet is readable: a Widiba
+  // draft's snippet is the email greeting, a statement row's is a CSV line.
+  group('raw text under the description', () {
+    const push = 'Revolut ⟂ Hai speso €12,50 presso LO CHEF';
+
+    testWidgets('a Revolut notification shows its text, joined with dots',
+        (tester) async {
+      await pumpInbox(tester, gmailMessageId: 'rev_ab12', rawSnippet: push);
+
+      expect(find.text('Revolut · Hai speso €12,50 presso LO CHEF'),
+          findsOneWidget);
+      expect(find.textContaining('⟂'), findsNothing);
+    });
+
+    testWidgets('it is capped at two lines', (tester) async {
+      await pumpInbox(tester,
+          gmailMessageId: 'rev_ab12', rawSnippet: 'Revolut ⟂ ${'lungo ' * 80}');
+
+      final text = tester.widget<Text>(find.textContaining('Revolut · lungo'));
+      expect((text.maxLines, text.overflow), (2, TextOverflow.ellipsis));
+    });
+
+    testWidgets('a statement row shows no snippet', (tester) async {
+      await pumpInbox(tester,
+          gmailMessageId: 'revcsv_ab12', rawSnippet: '24 giu 2026,Conad,-12,26€');
+
+      expect(find.textContaining('Conad'), findsNothing);
+    });
+
+    testWidgets('a Widiba draft shows no snippet', (tester) async {
+      await pumpInbox(tester,
+          source: 'widiba', gmailMessageId: 'g1', rawSnippet: 'Ciao Matteo, hai');
+
+      expect(find.textContaining('Ciao Matteo'), findsNothing);
     });
   });
 
