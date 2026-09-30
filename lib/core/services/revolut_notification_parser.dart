@@ -18,8 +18,10 @@ import 'package:budgetti/core/services/bank_draft.dart';
 export 'package:budgetti/core/services/bank_draft.dart' show ParsedBankDraft;
 
 /// Description of a draft whose push named no merchant. Every such movement
-/// shares it, so it must never be read as a merchant identity (learned
-/// category, duplicate matching by name).
+/// shares it, so it is no merchant identity: the learned category ignores it.
+/// Duplicate matching still runs on it, on date + amount alone (a same-day
+/// same-amount movement scores 0.5, over the threshold) — on purpose: a false
+/// flag costs one "No, è diversa" tap, a missed one silently double-counts.
 const revolutFallbackDescription = 'Movimento Revolut';
 
 class RevolutNotificationParser {

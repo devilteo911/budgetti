@@ -293,4 +293,73 @@ void main() {
       expect(await learn('   '), isNull);
     });
   });
+
+  // A push with no merchant carries the shared fallback text, so its name says
+  // nothing: the match runs on date + amount alone (0.5 for the same day, just
+  // over the 0.45 threshold; a day apart 0.4, under it). Deliberate: a false
+  // flag costs one "No, è diversa" tap, a missed one silently double-counts.
+  group('findDuplicate with the generic Revolut description', () {
+    late AppDatabase db;
+    var n = 0;
+    setUp(() {
+      db = AppDatabase.forExecutor(NativeDatabase.memory());
+      n = 0;
+    });
+    tearDown(() => db.close());
+
+    final noon = DateTime(2026, 6, 24, 12);
+    Future<void> tx(String description, DateTime date,
+            {double amount = -12.26}) =>
+        db.into(db.transactions).insert(TransactionsCompanion.insert(
+              id: 'tx${n++}',
+              amount: amount,
+              description: description,
+              category: 'Groceries',
+              type: const Value('expense'),
+              date: date,
+            ));
+
+    Future<DuplicateMatch?> find(String description, DateTime date,
+            {double amount = -12.26}) =>
+        findDuplicate(db, amount: amount, description: description, date: date);
+
+    test('a merchant-less push is flagged against a same-day same-amount tx',
+        () async {
+      await tx('Conad', noon);
+
+      final m = await find(revolutFallbackDescription, noon);
+
+      expect(m?.transactionId, 'tx0');
+      expect(m?.score, 0.5); // date only: the names share nothing
+    });
+
+    test('a day apart the same push is not flagged', () async {
+      await tx('Conad', noon.subtract(const Duration(days: 1)));
+
+      expect(await find(revolutFallbackDescription, noon), isNull);
+    });
+
+    test('a different amount is never a twin, whatever the day', () async {
+      await tx('Conad', noon, amount: -5);
+
+      expect(await find(revolutFallbackDescription, noon), isNull);
+    });
+
+    test('the statement row with the real merchant still catches a booked '
+        'merchant-less push', () async {
+      await tx(revolutFallbackDescription, noon); // approved from the push
+
+      final m = await find('Conad', noon); // the CSV row, later
+
+      expect(m?.transactionId, 'tx0');
+    });
+
+    test('two different merchant-less pushes of the same amount and day: the '
+        'second is flagged once the first is booked (one tap to dismiss)',
+        () async {
+      await tx(revolutFallbackDescription, noon);
+
+      expect(await find(revolutFallbackDescription, noon), isNotNull);
+    });
+  });
 }
