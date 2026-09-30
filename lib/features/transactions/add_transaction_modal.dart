@@ -220,6 +220,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       } else {
         await service.addTransaction(transaction);
       }
+    } catch (e, st) {
+      // Stay open, with what the owner typed, so the save can be retried.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.txError(errorText(context, e, st)))),
+        );
+      }
+      return;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
