@@ -454,8 +454,10 @@ class PocketBaseSyncService {
 
   /// Runs between the categories pull and push of a sync: the place to give
   /// categories their palette slot, after any slot another device assigned has
-  /// been learned and before the result is pushed. Null in tests that do not care.
-  final Future<void> Function()? afterCategoriesPull;
+  /// been learned and before the result is pushed. It returns the ids it changed,
+  /// so the push does not skip them as "just applied from the server". Null in
+  /// tests that do not care.
+  final Future<Iterable<String>> Function()? afterCategoriesPull;
 
   PocketBaseSyncService(this._client, this._db, this._persistence, this._userId,
       {this.afterCategoriesPull});
@@ -587,7 +589,9 @@ class PocketBaseSyncService {
             }
           }
 
-          if (spec.collection == 'categories') await afterCategoriesPull?.call();
+          if (spec.collection == 'categories') {
+            applied.removeAll(await afterCategoriesPull?.call() ?? const []);
+          }
 
           // --- PUSH (skip rows just applied from remote) ---
           // Resilient: a row PB rejects (e.g. per-device seed ids that aren't

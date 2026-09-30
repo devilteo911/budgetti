@@ -183,7 +183,7 @@ void main() {
       await spend(db, 'Bills', -50);
       await spend(db, 'Health', -40);
 
-      final n = await backfillColorSlots(db, owner);
+      final n = (await backfillColorSlots(db, owner)).length;
 
       expect(n, 5);
       expect(await slots(db),
@@ -223,7 +223,7 @@ void main() {
       await cat(db, 'dead', 'Dead', deleted: true);
       final now = DateTime(2026, 10, 1, 9, 30);
 
-      final n = await backfillColorSlots(db, owner, now: now);
+      final n = (await backfillColorSlots(db, owner, now: now)).length;
 
       expect(n, 1);
       final rows = {
@@ -252,7 +252,7 @@ void main() {
       await backfillColorSlots(db, owner, now: DateTime(2026, 10, 1));
       final before = await (db.select(db.categories)).get();
 
-      final n = await backfillColorSlots(db, owner, now: DateTime(2026, 10, 2));
+      final n = (await backfillColorSlots(db, owner, now: DateTime(2026, 10, 2))).length;
 
       expect(n, 0);
       final after = await (db.select(db.categories)).get();

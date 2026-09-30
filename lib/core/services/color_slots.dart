@@ -58,7 +58,8 @@ Future<int> nextColorSlot(AppDatabase db, String userId) async {
 
 /// Gives every visible expense category that has no slot one, once, biggest
 /// spender first — so the categories that dominate the charts get different
-/// colours. Returns how many it assigned.
+/// colours. Returns the ids it assigned (a sync must push those even when it has
+/// just pulled the same rows).
 ///
 /// Only rows with a NULL slot are ever written, so a stored slot is never
 /// rewritten and a second run is a no-op. The batch is stamped with one [now] so
@@ -67,14 +68,18 @@ Future<int> nextColorSlot(AppDatabase db, String userId) async {
 /// result is a pure function of (rows without a slot, spend, slots already set),
 /// so devices with the same synced ledger compute the same slots.
 ///
+/// ponytail: on a device that has not pulled its transactions yet (the categories
+/// are pulled first) spend is unknown and ties break by id; the device that owns
+/// the ledger backfills first, so this only shows on a cold second device.
+///
 /// ponytail: the write re-stamps whole rows, so an edit to the same category made
 /// elsewhere since this device last pulled can be overwritten, once, by the stamp.
 /// Fix would be a slot-only LWW; not worth it while one person owns the ledger.
-Future<int> backfillColorSlots(AppDatabase db, String userId,
+Future<List<String>> backfillColorSlots(AppDatabase db, String userId,
     {DateTime? now}) async {
   final rows = await _visibleExpense(db, userId);
   final open = [for (final r in rows) if (r.colorSlot == null) r];
-  if (open.isEmpty) return 0;
+  if (open.isEmpty) return const [];
 
   // Money out per category name: negative, non-transfer, live.
   final spendRows = await db.customSelect(
@@ -102,5 +107,5 @@ Future<int> backfillColorSlots(AppDatabase db, String userId,
       );
     }
   });
-  return open.length;
+  return [for (final r in open) r.id];
 }

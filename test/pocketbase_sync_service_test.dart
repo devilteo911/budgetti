@@ -1043,5 +1043,22 @@ void main() {
       expect(client._store['categories']!['c2']!['colorSlot'], c2! + 1,
           reason: 'pushed in the same sync');
     });
+
+    test('a category pulled and then given a slot in the same sync is still '
+        'pushed in it (a pulled row is normally skipped by the push)', () async {
+      final (db, _, client, service) = await _harness(
+        backfillColors: true,
+        initialStore: {
+          'categories': {'c1': remote('Food', withSlot: false, at: DateTime(2026, 7, 4))},
+        },
+      );
+
+      await service.sync();
+
+      final slot = (await _category(db, 'c1'))!.colorSlot;
+      expect(slot, isNotNull, reason: 'pulled with no slot, then backfilled');
+      expect(client._store['categories']!['c1']!['colorSlot'], slot! + 1,
+          reason: 'the backfill re-stamped the row, so the push must not skip it');
+    });
   });
 }
