@@ -1,4 +1,4 @@
-import 'dart:ffi';
+import 'dart:ffi' show DynamicLibrary;
 
 import 'package:budgetti/core/database/database.dart'
     show AppDatabase, PendingTransaction, PendingTransactionsCompanion;
@@ -158,6 +158,19 @@ void main() {
       final pencil = tester.getCenter(find.byIcon(Icons.edit_outlined));
       expect(tester.getCenter(find.text('Ignore')).dx, lessThan(pencil.dx));
       expect(pencil.dx, lessThan(tester.getCenter(find.text('Approve')).dx));
+    });
+
+    testWidgets('the three actions fit a narrow phone without overflowing',
+        (tester) async {
+      tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+
+      await pumpInbox(tester, suggestedCategory: 'Spesa');
+
+      // A RenderFlex overflow would have failed the pump above.
+      expect(tester.takeException(), isNull);
+      expect(find.text('Approve'), findsOneWidget);
     });
 
     testWidgets('an unrecognised message offers it too', (tester) async {
