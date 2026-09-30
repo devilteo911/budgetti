@@ -34,6 +34,34 @@ Account acc(double balance) => Account(
 );
 
 void main() {
+  group('parseAmount', () {
+    test('reads both locales, the last separator is the decimal one', () {
+      expect(parseAmount('1234,56'), 1234.56);
+      expect(parseAmount('1.234,56'), 1234.56);
+      expect(parseAmount('1,234.50'), 1234.5);
+      expect(parseAmount('12,50'), 12.5);
+      expect(parseAmount('12.5'), 12.5);
+      expect(parseAmount('1234'), 1234);
+    });
+
+    test('three trailing digits are thousands, not decimals', () {
+      expect(parseAmount('1.234'), 1234);
+      expect(parseAmount('1,234'), 1234);
+    });
+
+    test('keeps the sign and tolerates padding', () {
+      expect(parseAmount(' -12,50 '), -12.5);
+      expect(parseAmount('+3,5'), 3.5);
+    });
+
+    test('garbage is null, not zero', () {
+      expect(parseAmount(''), isNull);
+      expect(parseAmount('abc'), isNull);
+      expect(parseAmount('12,x'), isNull);
+      expect(parseAmount('1,2,3x'), isNull);
+    });
+  });
+
   group('dashboardStats', () {
     test('splits this month by sign and excludes transfers', () {
       final stats = dashboardStats(

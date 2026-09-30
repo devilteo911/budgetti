@@ -12,6 +12,7 @@
 /// of being silently dropped.
 library;
 
+import 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/core/services/bank_draft.dart';
 
 export 'package:budgetti/core/services/bank_draft.dart' show ParsedBankDraft;
@@ -36,7 +37,7 @@ class RevolutNotificationParser {
     // the foreign and the account amount, and this can take the foreign one —
     // visible and fixable in the review inbox before approval. Prefer-by-
     // currency only if that turns out to be common.
-    final amount = _parseAmount(match.group(2) ?? match.group(3)!);
+    final amount = parseAmount(match.group(2) ?? match.group(3)!);
     if (amount == null || amount == 0) return null;
 
     final counterparty = _counterparty(haystack, match.end, title);
@@ -148,24 +149,6 @@ class RevolutNotificationParser {
     r'|(\d[\d.,]*\d|\d)\s*([€$£]|eur|usd|gbp))',
     caseSensitive: false,
   );
-
-  /// Locale-agnostic: Revolut renders €1.234,56 in Italian and €1,234.56 in
-  /// English, so the separator that appears *last* is the decimal one. A group
-  /// of exactly three trailing digits is thousands, anything else is decimals
-  /// (money never has three).
-  double? _parseAmount(String raw) {
-    final s = raw.trim();
-    final decimalAt =
-        [s.lastIndexOf('.'), s.lastIndexOf(',')].reduce((a, b) => a > b ? a : b);
-    if (decimalAt < 0) return double.tryParse(s);
-
-    final stripped = s.replaceAll(RegExp(r'[.,]'), '');
-    if (s.length - decimalAt - 1 == 3) return double.tryParse(stripped);
-
-    final digits = s.substring(0, decimalAt).replaceAll(RegExp(r'[.,]'), '');
-    return double.tryParse('${digits.isEmpty ? '0' : digits}'
-        '.${s.substring(decimalAt + 1)}');
-  }
 }
 
 const _genericTitles = <String>{'revolut', 'revolut pay', 'revolut business'};

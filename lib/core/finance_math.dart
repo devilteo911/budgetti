@@ -18,6 +18,29 @@ import 'package:budgetti/models/transaction.dart';
 
 const _monthKeyFormat = 'yyyy-MM';
 
+/// A typed or captured amount in either locale, `null` when it isn't one.
+///
+/// `double.tryParse('1234,56')` is null (and `'1.234,56'` too), which the
+/// wallet form then turned into a 0 balance. The separator that appears
+/// *last* is the decimal one, so `1.234,56` and `1,234.50` both read right; a
+/// group of exactly three trailing digits is thousands, anything else is
+/// decimals (money never has three). A leading sign is kept.
+double? parseAmount(String raw) {
+  var s = raw.trim();
+  final sign = s.startsWith('-') ? -1 : 1;
+  if (s.startsWith('-') || s.startsWith('+')) s = s.substring(1).trimLeft();
+  if (!RegExp(r'^[.,]?\d[\d.,]*$').hasMatch(s)) return null;
+
+  final decimalAt =
+      [s.lastIndexOf('.'), s.lastIndexOf(',')].reduce((a, b) => a > b ? a : b);
+  final tail = s.substring(decimalAt + 1);
+  final decimals = decimalAt < 0 || tail.length == 3 ? 0 : tail.length;
+  // Digits with the decimal point moved by exponent: "123456e-2" parses to
+  // exactly the double nearest 1234.56.
+  final v = double.tryParse('${s.replaceAll(RegExp(r'[.,]'), '')}e-$decimals');
+  return v == null ? null : sign * v;
+}
+
 /// `2026-08` for a date — the key both clients use for a month bucket.
 String monthKey(DateTime d) => DateFormat(_monthKeyFormat).format(d);
 

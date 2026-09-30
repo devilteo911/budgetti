@@ -280,7 +280,9 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
     super.initState();
     if (widget.wallet != null) {
       _nameController.text = widget.wallet!.name;
-      _amountController.text = widget.wallet!.initialBalance.toString();
+      // Two decimals, never three: parseAmount reads "1.005" as thousands.
+      _amountController.text =
+          widget.wallet!.initialBalance.toStringAsFixed(2);
       _isDefault = widget.wallet!.isDefault;
       _initialBalanceDate = widget.wallet!.initialBalanceDate;
     } else {
@@ -364,8 +366,7 @@ class _WalletEditorModalState extends State<_WalletEditorModal> {
             FilledButton(
               onPressed: () async {
                 final name = _nameController.text.trim();
-                final amount =
-                    double.tryParse(_amountController.text) ?? 0.0;
+                final amount = parseAmount(_amountController.text) ?? 0.0;
                 if (name.isEmpty) return;
                 final service = ref.read(financeServiceProvider);
                 final navigator = Navigator.of(context);
