@@ -4,6 +4,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
 import 'package:budgetti/features/settings/widgets/wallet_skeleton.dart';
 import 'package:budgetti/models/account.dart';
+import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,7 +72,7 @@ class WalletsScreen extends ConsumerWidget {
             }
             final formatter = ref.watch(currencyProvider);
             return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: EdgeInsets.fromLTRB(16, 8, 16, DockMetrics.clearance(context)),
               itemCount: accounts.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (_, index) {
@@ -89,7 +90,7 @@ class WalletsScreen extends ConsumerWidget {
           loading: () => ShimmerLoading(
             child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: EdgeInsets.fromLTRB(16, 8, 16, DockMetrics.clearance(context)),
               itemCount: 5,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (_, __) => const WalletItemSkeleton(),

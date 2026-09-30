@@ -8,6 +8,7 @@ import 'package:budgetti/features/dashboard/widgets/dashboard_carousel.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_stat_grid.dart';
 import 'package:budgetti/features/dashboard/widgets/recent_transactions_panel.dart';
 import 'package:budgetti/core/widgets/skeleton.dart';
+import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -135,9 +136,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Text(context.l10n.dashErrorCalculatingStats)),
                   data: (stats) {
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 24,
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        24,
+                        16,
+                        DockMetrics.clearance(context),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

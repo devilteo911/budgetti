@@ -3,6 +3,7 @@ import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/settings/widgets/category_editor_modal.dart';
 import 'package:budgetti/models/category.dart';
+import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,7 +135,7 @@ class CategoriesScreen extends ConsumerWidget {
               categories.where((c) => c.type == 'income').toList();
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, DockMetrics.clearance(context)),
             children: [
               if (expense.isNotEmpty) ...[
                 _sectionLabel(context, context.l10n.setExpenses),

@@ -1,3 +1,4 @@
+import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -174,7 +175,8 @@ class _TransactionListState extends ConsumerState<TransactionList>
       );
     }
 
-    slivers.add(const SliverPadding(padding: EdgeInsets.only(bottom: 100)));
+    slivers.add(SliverPadding(
+        padding: EdgeInsets.only(bottom: DockMetrics.clearance(context))));
 
     return CustomScrollView(
       controller: widget.scrollController,

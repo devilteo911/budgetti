@@ -93,7 +93,7 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
           Positioned(
             left: 0,
             right: 0,
-            bottom: bottomInset + 16,
+            bottom: bottomInset + DockMetrics.bottomGap,
             child: Center(
               child: FloatingPillNav(
                 slots: buildNavSlots(
@@ -208,6 +208,23 @@ class NavSlot {
       NavSlot._(icon: icon, activeIcon: icon, label: label, onAction: onTap);
 
   bool get isAction => onAction != null;
+}
+
+/// Where the floating dock sits, for every screen that scrolls underneath it.
+abstract final class DockMetrics {
+  /// Space between the pill and the bottom edge (above the gesture-bar inset).
+  static const double bottomGap = 16;
+
+  /// The pill's height: its items plus the glass container's vertical padding.
+  /// Must equal [FloatingPillNav]'s rendered height (asserted in
+  /// test/dock_clearance_test.dart).
+  static const double height = 64;
+
+  /// How much of a screen's bottom the dock covers, plus a little air. Every
+  /// scrollable in the shell ends with this much padding, so its last row can be
+  /// scrolled clear of the pill instead of ending underneath it.
+  static double clearance(BuildContext context) =>
+      MediaQuery.viewPaddingOf(context).bottom + bottomGap + height + 16;
 }
 
 /// GitHub-Store-inspired floating pill bottom nav.

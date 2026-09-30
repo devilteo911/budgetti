@@ -11,6 +11,7 @@ import 'package:budgetti/features/stats/widgets/stagger.dart';
 import 'package:budgetti/features/stats/widgets/stats_filter_bar.dart';
 import 'package:budgetti/features/stats/widgets/stats_hero.dart';
 import 'package:budgetti/features/charts/widgets/spending_line_chart.dart';
+import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -209,7 +210,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen>
             ),
           ),
         ],
-        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        SliverToBoxAdapter(child: SizedBox(height: DockMetrics.clearance(context))),
       ],
     );
   }

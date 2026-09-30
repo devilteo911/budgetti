@@ -1,3 +1,4 @@
+import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
 import 'package:flutter/material.dart';
 
 /// Scaffold wrapper that matches the app-wide AppBar + body styling used by
@@ -37,7 +38,7 @@ class SettingsScaffold extends StatelessWidget {
       ),
       floatingActionButton: floatingActionButton,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, DockMetrics.clearance(context)),
         children: children,
       ),
     );
