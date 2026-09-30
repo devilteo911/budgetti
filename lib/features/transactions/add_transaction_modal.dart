@@ -75,6 +75,13 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   late bool _categoryTouched;
   Timer? _suggestTimer;
 
+  /// What the sheet has to tell the owner (a refused save, a failed scan), drawn
+  /// above the Save button. Not a SnackBar: while the sheet is open the root
+  /// ScaffoldMessenger draws that BEHIND it, so the owner only saw the sheet
+  /// refusing to close.
+  String? _message;
+  bool _messageIsError = true;
+
   /// Raise the keyboard only for a blank new sheet: not an edit, not a scan, and
   /// not a prefill that already carries its amount.
   late final bool _autofocusAmount;
@@ -132,6 +139,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     // one (learned, or picked on the card) is the owner's already.
     _categoryTouched = widget.transaction != null || _selectedCategory != null;
     _descriptionController.addListener(_onDescriptionChanged);
+    _amountController.addListener(_clearMessage);
+    _descriptionController.addListener(_clearMessage);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -171,6 +180,16 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   /// The ledger newest first, for [defaultCategoryFor]; empty while it loads.
   List<Transaction> _history() =>
       ref.read(transactionsProvider(null)).value ?? const [];
+
+  void _say(String text, {bool error = true}) => setState(() {
+        _message = text;
+        _messageIsError = error;
+      });
+
+  /// Any edit makes the message stale.
+  void _clearMessage() {
+    if (_message != null) setState(() => _message = null);
+  }
 
   void _onDescriptionChanged() {
     if (_categoryTouched || _type == 'transfer') return;
@@ -225,18 +244,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
         _descriptionController.text = result.merchant!;
       }
       if (result.date != null) _selectedDate = result.date!;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.txReceiptScanned)),
-        );
-      }
+      if (mounted) _say(context.l10n.txReceiptScanned, error: false);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(context.l10n.txOcrError(errorText(context, e)))),
-        );
-      }
+      if (mounted) _say(context.l10n.txOcrError(errorText(context, e)));
     } finally {
       if (mounted) setState(() => _isScanning = false);
     }
@@ -244,15 +254,16 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
 
   Future<void> _submit() async {
     if (_saving) return;
+    _clearMessage();
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
-      _toast(context.l10n.txPleaseSelectWallet);
+      _say(context.l10n.txPleaseSelectWallet);
       return;
     }
     if (_type == 'transfer' &&
         (_selectedToAccountId == null ||
             _selectedToAccountId == _selectedAccountId)) {
-      _toast(context.l10n.txPleaseSelectOtherWallet);
+      _say(context.l10n.txPleaseSelectOtherWallet);
       return;
     }
 
@@ -288,11 +299,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       }
     } catch (e, st) {
       // Stay open, with what the owner typed, so the save can be retried.
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.txError(errorText(context, e, st)))),
-        );
-      }
+      if (mounted) _say(context.l10n.txError(errorText(context, e, st)));
       return;
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -321,10 +328,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     );
   }
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -351,6 +354,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
         onWalletSelected: (account) {
           if (account == null) return;
           setState(() {
+            _message = null;
             if (isFrom) {
               _selectedAccountId = account.id;
             } else {
@@ -437,6 +441,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                     selected: _type,
                     onChanged: (v) {
                       setState(() {
+                        _message = null;
                         _type = v;
                         _selectedCategory = defaultCategoryFor(
                           _type,
@@ -464,6 +469,21 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                   const LedgerDivider(),
                 ],
                 _staggered(8, _buildTagsSection()),
+                if (_message != null) ...[
+                  const SizedBox(height: 16),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _message!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _messageIsError ? scheme.error : scheme.primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 Row(
                   children: [

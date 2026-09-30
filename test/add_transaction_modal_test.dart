@@ -151,6 +151,12 @@ void main() {
     return router;
   }
 
+  /// A message drawn inside the sheet. A SnackBar is not an option while the
+  /// sheet is open: the root ScaffoldMessenger draws it BEHIND the sheet, so the
+  /// owner only sees the sheet refusing to close.
+  Finder inlineMessage(String text) =>
+      find.descendant(of: find.byType(AddTransactionModal), matching: find.text(text));
+
   // The save had try/finally and no catch: a service exception escaped the tap
   // handler, the sheet stayed open and nothing on screen said the save failed.
   testWidgets('a failing save says so and leaves the sheet open, ready to retry',
@@ -165,14 +171,85 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(calls, 1);
-    expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.textContaining('Error'), findsOneWidget);
+    expect(inlineMessage('Error: Something went wrong. Try again.'),
+        findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing); // it would be under the sheet
     expect(find.byType(AddTransactionModal), findsOneWidget);
 
     // Not stuck "saving": the button works again.
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
     expect(calls, 2);
+  });
+
+  group('validation errors are shown inside the sheet', () {
+    const noDestination = 'Please select a different destination wallet';
+
+    Transaction transfer({String? to}) => Transaction(
+          id: 't2',
+          accountId: 'w1',
+          toAccountId: to,
+          amount: 30,
+          date: day,
+          description: 'Move',
+          category: 'Transfer',
+          type: 'transfer',
+        );
+
+    testWidgets('a new transfer with no destination', (tester) async {
+      var saves = 0;
+      await pump(tester, onSave: (_) async => saves++);
+      await tester.tap(find.text('TRANSFER'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), '5');
+      await tester.enterText(find.byType(TextFormField).at(1), 'Move');
+
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+
+      expect(inlineMessage(noDestination), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(AddTransactionModal), findsOneWidget);
+      expect(saves, 0);
+    });
+
+    testWidgets('a transfer into its own source wallet', (tester) async {
+      var saves = 0;
+      await pump(tester,
+          transaction: transfer(to: 'w1'), onSave: (_) async => saves++);
+
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      expect(inlineMessage(noDestination), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(AddTransactionModal), findsOneWidget);
+      expect(saves, 0);
+    });
+
+    testWidgets('the message goes away on the next edit', (tester) async {
+      await pump(tester, transaction: transfer(to: 'w1'));
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+      expect(inlineMessage(noDestination), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).at(1), 'Moved');
+      await tester.pump();
+
+      expect(inlineMessage(noDestination), findsNothing);
+    });
+
+    testWidgets('and on the next tap of Save', (tester) async {
+      await pump(tester, transaction: transfer(to: 'w1'));
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      // Nothing fixed: it is raised again, not stacked or left stale.
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      expect(inlineMessage(noDestination), findsOneWidget);
+    });
   });
 
   // Opening an existing transaction and saving it untouched must never rewrite
