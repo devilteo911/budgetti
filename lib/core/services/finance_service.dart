@@ -547,14 +547,30 @@ class FinanceService {
         ..where(
           (tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId),
         )
-        ..orderBy([(t) => OrderingTerm(expression: t.name)]);
+        ..orderBy([
+          (t) => OrderingTerm(expression: t.name),
+          (t) => OrderingTerm(expression: const CustomExpression<int>('rowid')),
+        ]);
 
-  Future<List<model.Category>> getCategories() async {
-    return (await _categoriesQuery().get()).map(_toCategory).toList();
+  /// Two seeders once gave every default a twin, and the upgrade that used to
+  /// soft-delete the twins hid real data, so the twins now just stay out of the
+  /// lists: one row per [key], the first of [rows] (oldest, by the query order).
+  static List<T> _onePerKey<T>(Iterable<T> rows, String Function(T) key) {
+    final seen = <String>{};
+    return [for (final r in rows) if (seen.add(key(r))) r];
   }
 
-  Stream<List<model.Category>> watchCategories() =>
-      _categoriesQuery().watch().map((rows) => rows.map(_toCategory).toList());
+  // Same name + type = the same category (an income and an expense may share one).
+  static String _categoryKey(Category c) => '${c.name}\u0000${c.type}';
+
+  Future<List<model.Category>> getCategories() async {
+    final rows = await _categoriesQuery().get();
+    return _onePerKey(rows, _categoryKey).map(_toCategory).toList();
+  }
+
+  Stream<List<model.Category>> watchCategories() => _categoriesQuery()
+      .watch()
+      .map((rows) => _onePerKey(rows, _categoryKey).map(_toCategory).toList());
 
   model.Category _toCategory(Category c) => model.Category(
         id: c.id,
@@ -636,13 +652,17 @@ class FinanceService {
   }
 
   MultiSelectable<Tag> _tagsQuery() => _db.select(_db.tags)
-    ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
+    ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId))
+    ..orderBy([
+      (t) => OrderingTerm(expression: const CustomExpression<int>('rowid')),
+    ]);
 
   Future<List<model_tag.Tag>> getTags() async =>
-      (await _tagsQuery().get()).map(_toTag).toList();
+      _onePerKey(await _tagsQuery().get(), (t) => t.name).map(_toTag).toList();
 
-  Stream<List<model_tag.Tag>> watchTags() =>
-      _tagsQuery().watch().map((rows) => rows.map(_toTag).toList());
+  Stream<List<model_tag.Tag>> watchTags() => _tagsQuery()
+      .watch()
+      .map((rows) => _onePerKey(rows, (t) => t.name).map(_toTag).toList());
 
   model_tag.Tag _toTag(Tag t) => model_tag.Tag(
         id: t.id,

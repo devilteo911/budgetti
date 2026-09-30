@@ -344,9 +344,11 @@ class AppDatabase extends _$AppDatabase {
         await _addColumnIfMissing(
             m, pendingTransactions, pendingTransactions.source);
       }
-      if (from < 12) {
-        await _dedupeSeededDefaults();
-      }
+      // (v12 used to soft-delete duplicate seeded defaults here. It is gone on
+      // purpose: an upgrade must never hide a row. Its deletions carried a fresh
+      // stamp, so they won last-write-wins and travelled to every device, and on
+      // 2026-09-30 one run left five categories with no live copy at all. The
+      // lists collapse duplicates on read instead — see FinanceService.)
       if (from < 13) {
         await m.createTable(installments);
       }
@@ -379,36 +381,6 @@ class AppDatabase extends _$AppDatabase {
         await customSelect('PRAGMA table_info(${table.actualTableName})').get();
     if (have.any((r) => r.read<String>('name') == column.name)) return;
     await m.addColumn(table, column);
-  }
-
-  /// One-off cleanup for the duplicate defaults two seeders used to create:
-  /// this class seeded userId-less rows keyed `<timestamp><name>`, while
-  /// FinanceService seeded `<userId>_cat_<name>`, so neither deduped the other
-  /// and every default existed twice. Keeps the oldest row per name (lowest
-  /// rowid = first inserted) and soft-deletes the newer copies.
-  ///
-  /// Safe against transactions: they reference categories and tags by NAME,
-  /// not by id, so the surviving row keeps matching. Soft delete (rather than
-  /// DELETE) is what the sync layer expects — a hard delete would come back on
-  /// the next pull.
-  @visibleForTesting
-  Future<void> dedupeForTest() => _dedupeSeededDefaults();
-
-  Future<void> _dedupeSeededDefaults() async {
-    // Categories group by (name, type): the same name can legitimately exist
-    // as both an income and an expense category.
-    const keys = {'categories': 'name, type', 'tags': 'name'};
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    for (final entry in keys.entries) {
-      await customStatement(
-        'UPDATE ${entry.key} SET is_deleted = 1, last_updated = ? '
-        'WHERE is_deleted = 0 AND rowid NOT IN ('
-        '  SELECT MIN(rowid) FROM ${entry.key} WHERE is_deleted = 0'
-        '  GROUP BY ${entry.value}'
-        ')',
-        [now],
-      );
-    }
   }
 }
 
