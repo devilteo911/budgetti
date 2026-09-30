@@ -99,6 +99,41 @@ void main() {
     });
   });
 
+  // Day gaps are calendar days. Measured as elapsed 24h blocks between local
+  // midnights they shrink across a spring-forward change (2026-03-29 in Rome is
+  // a 23-hour day), so consecutive days scored as the same day. The dates are
+  // built local, as the app's are: under TZ=Europe/Rome this fails on the old
+  // arithmetic; under TZ=UTC there is no DST and it passes either way.
+  group('duplicateConfidence across a DST change', () {
+    double score(DateTime draft, DateTime tx) => duplicateConfidence(
+          draftDate: draft,
+          draftDescription: 'Esselunga', // nothing shared with the other title
+          txDate: tx,
+          txDescription: 'Farmacia',
+        );
+
+    test('consecutive days over the spring change are one day apart', () {
+      // 0.5 * 0.8 (one day) + 0 (names share nothing)
+      expect(score(DateTime(2026, 3, 30), DateTime(2026, 3, 29)), closeTo(0.4, 1e-9));
+      expect(score(DateTime(2026, 3, 29), DateTime(2026, 3, 28)), closeTo(0.4, 1e-9));
+    });
+
+    test('the same day is still the same day', () {
+      expect(score(DateTime(2026, 3, 29, 23), DateTime(2026, 3, 29, 1)),
+          closeTo(0.5, 1e-9));
+    });
+
+    test('two days over the change are two days, not one', () {
+      // 0.5 * 0.6
+      expect(score(DateTime(2026, 3, 30), DateTime(2026, 3, 28)), closeTo(0.3, 1e-9));
+    });
+
+    test('and the autumn change behaves the same', () {
+      expect(score(DateTime(2026, 10, 26), DateTime(2026, 10, 25)), closeTo(0.4, 1e-9));
+      expect(score(DateTime(2026, 10, 27), DateTime(2026, 10, 25)), closeTo(0.3, 1e-9));
+    });
+  });
+
   group('guessCategory', () {
     String? guess(String description, {String type = 'expense'}) =>
         guessCategory(ParsedBankDraft(

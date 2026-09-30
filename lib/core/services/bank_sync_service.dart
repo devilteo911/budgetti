@@ -526,8 +526,10 @@ double duplicateConfidence({
   required DateTime txDate,
   required String txDescription,
 }) {
-  final dayDiff = DateTime(draftDate.year, draftDate.month, draftDate.day)
-      .difference(DateTime(txDate.year, txDate.month, txDate.day))
+  // Calendar days, counted on UTC midnights: between two local midnights a
+  // spring-forward day is 23 hours and `inDays` would call it zero.
+  final dayDiff = DateTime.utc(draftDate.year, draftDate.month, draftDate.day)
+      .difference(DateTime.utc(txDate.year, txDate.month, txDate.day))
       .inDays
       .abs();
   final dateScore = switch (dayDiff) {
