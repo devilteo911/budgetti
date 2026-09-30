@@ -581,10 +581,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       ),
       data: (categories) {
         final filtered = categories.where((c) => c.type == _type).toList();
+        // What the row shows is what a save writes. An existing transaction whose
+        // category is not among the options (deleted, 'Uncategorized', the other
+        // kind's) shows its stored name, muted, instead of the first option; a
+        // new sheet keeps starting on the default.
         final selected = filtered
                 .where((c) => c.name == _selectedCategory)
                 .firstOrNull ??
-            filtered.firstOrNull;
+            (widget.transaction == null ? filtered.firstOrNull : null);
         final icon = selected != null
             ? (icons[selected.name] ?? Icons.category_outlined)
             : Icons.category_outlined;
@@ -594,7 +598,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
 
         return LedgerFieldRow(
           kicker: context.l10n.commonCategory.toUpperCase(),
-          value: selected?.name ?? _selectedCategory,
+          value: selected?.name ??
+              (_selectedCategory == '' ? null : _selectedCategory),
           placeholder: context.l10n.txSelectCategory,
           leadingIcon: icon,
           leadingColor: color,

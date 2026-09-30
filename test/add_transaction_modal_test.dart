@@ -153,6 +153,56 @@ void main() {
     return router;
   }
 
+  // The label has to be what will be saved. A row whose category is not among
+  // the options (deleted, the "Uncategorized" placeholder) used to show the FIRST
+  // option while an untouched save kept the stored name: the label lied.
+  group('the category row of an existing transaction shows what is stored', () {
+    Finder categoryRow(String name) => find.descendant(
+        of: find.byType(AddTransactionModal), matching: find.text(name));
+
+    testWidgets('a deleted category', (tester) async {
+      await pump(tester, transaction: tx(category: 'Groceries'));
+
+      expect(categoryRow('Groceries'), findsOneWidget);
+      expect(categoryRow('Dining'), findsNothing); // the first option
+    });
+
+    testWidgets('the Uncategorized placeholder', (tester) async {
+      await pump(tester, transaction: tx(category: 'Uncategorized'));
+
+      expect(categoryRow('Uncategorized'), findsOneWidget);
+      expect(categoryRow('Dining'), findsNothing);
+    });
+
+    testWidgets('a category in the list is shown as before', (tester) async {
+      await pump(tester, transaction: tx(category: 'Treats'));
+
+      expect(categoryRow('Treats'), findsOneWidget);
+    });
+
+    testWidgets('picking from the list still replaces it', (tester) async {
+      Transaction? saved;
+      await pump(tester,
+          transaction: tx(category: 'Groceries'), onSave: (t) async => saved = t);
+
+      await tester.tap(categoryRow('Groceries'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Treats'));
+      await tester.pumpAndSettle();
+      expect(categoryRow('Treats'), findsOneWidget);
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      expect(saved?.category, 'Treats');
+    });
+
+    testWidgets('a new sheet still starts on the default', (tester) async {
+      await pump(tester);
+
+      expect(categoryRow('Dining'), findsOneWidget);
+    });
+  });
+
   /// A message drawn inside the sheet. A SnackBar is not an option while the
   /// sheet is open: the root ScaffoldMessenger draws it BEHIND the sheet, so the
   /// owner only sees the sheet refusing to close.
