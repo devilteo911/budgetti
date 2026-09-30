@@ -52,6 +52,44 @@ void main() {
     ]));
   });
 
+  // v17: the inbox needs to remember a duplicate warning the owner dismissed
+  // ("No, è diversa") so the approve-time recheck doesn't flag it again. Local
+  // table, so the only proof it works is upgrading a real v16-shaped database.
+  test('v16 -> v17 adds duplicate_dismissed, false by default, rows intact',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory(setup: (raw) {
+      // ponytail: v16's pending_transactions by hand (drift has no "open at
+      // version N" without schema-dump tooling); it is the shape that shipped.
+      raw.execute('CREATE TABLE pending_transactions ('
+          'id TEXT NOT NULL, user_id TEXT NULL, gmail_message_id TEXT NOT NULL, '
+          "source TEXT NOT NULL DEFAULT 'widiba', email_subject TEXT NOT NULL, "
+          'email_received_at INTEGER NOT NULL, parsed_amount REAL NOT NULL, '
+          'parsed_description TEXT NOT NULL, parsed_date INTEGER NOT NULL, '
+          "suggested_type TEXT NOT NULL DEFAULT 'expense', "
+          'suggested_category TEXT NULL, counterparty TEXT NULL, '
+          "raw_snippet TEXT NOT NULL DEFAULT '', "
+          "status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL, "
+          'duplicate_of_id TEXT NULL, duplicate_score REAL NULL, '
+          'PRIMARY KEY (id))');
+      raw.execute('INSERT INTO pending_transactions (id, gmail_message_id, '
+          'email_subject, email_received_at, parsed_amount, '
+          'parsed_description, parsed_date, created_at, duplicate_of_id) '
+          "VALUES ('p1', 'g1', 'subj', 1, -10, 'Coffee', 1, 1, 'tx-old')");
+      raw.execute('PRAGMA user_version = 16');
+    }));
+    addTearDown(db.close);
+
+    final rows = await db.customSelect(
+      'SELECT id, parsed_description, duplicate_of_id, duplicate_dismissed '
+      'FROM pending_transactions',
+    ).get();
+
+    expect(rows, hasLength(1));
+    expect(rows.single.read<String>('parsed_description'), 'Coffee');
+    expect(rows.single.read<String>('duplicate_of_id'), 'tx-old');
+    expect(rows.single.read<bool>('duplicate_dismissed'), isFalse);
+  });
+
   // The stale-balance bug: accountsProvider was a FutureProvider that nothing
   // re-ran after sync. watchAccounts must re-emit when a transaction lands —
   // balances derive from transactions, not just the accounts table.

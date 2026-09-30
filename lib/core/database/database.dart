@@ -180,6 +180,11 @@ class PendingTransactions extends Table {
   TextColumn get duplicateOfId => text().nullable()();
   RealColumn get duplicateScore => real().nullable()();
 
+  // The owner said "No, it's a different one" to the warning: the approve-time
+  // recheck must not flag this draft again.
+  BoolColumn get duplicateDismissed =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -240,7 +245,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 16; // v16: sync lock + push-failure ledger
+  int get schemaVersion => 17; // v17: pending_transactions.duplicate_dismissed
 
   /// Every index the schema declares, as full CREATE statements. Drift's
   /// codegen only picks up `@TableIndex` annotations — the plain
@@ -391,6 +396,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 16) {
         await m.createTable(syncLocks);
         await m.createTable(syncFailures);
+      }
+      if (from < 17) {
+        await m.addColumn(
+            pendingTransactions, pendingTransactions.duplicateDismissed);
       }
     },
   );

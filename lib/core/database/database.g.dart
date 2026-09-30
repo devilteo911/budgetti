@@ -3682,6 +3682,20 @@ class $PendingTransactionsTable extends PendingTransactions
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _duplicateDismissedMeta =
+      const VerificationMeta('duplicateDismissed');
+  @override
+  late final GeneratedColumn<bool> duplicateDismissed = GeneratedColumn<bool>(
+    'duplicate_dismissed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("duplicate_dismissed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3701,6 +3715,7 @@ class $PendingTransactionsTable extends PendingTransactions
     createdAt,
     duplicateOfId,
     duplicateScore,
+    duplicateDismissed,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3859,6 +3874,15 @@ class $PendingTransactionsTable extends PendingTransactions
         ),
       );
     }
+    if (data.containsKey('duplicate_dismissed')) {
+      context.handle(
+        _duplicateDismissedMeta,
+        duplicateDismissed.isAcceptableOrUnknown(
+          data['duplicate_dismissed']!,
+          _duplicateDismissedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3936,6 +3960,10 @@ class $PendingTransactionsTable extends PendingTransactions
         DriftSqlType.double,
         data['${effectivePrefix}duplicate_score'],
       ),
+      duplicateDismissed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}duplicate_dismissed'],
+      )!,
     );
   }
 
@@ -3964,6 +3992,7 @@ class PendingTransaction extends DataClass
   final DateTime createdAt;
   final String? duplicateOfId;
   final double? duplicateScore;
+  final bool duplicateDismissed;
   const PendingTransaction({
     required this.id,
     this.userId,
@@ -3982,6 +4011,7 @@ class PendingTransaction extends DataClass
     required this.createdAt,
     this.duplicateOfId,
     this.duplicateScore,
+    required this.duplicateDismissed,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4013,6 +4043,7 @@ class PendingTransaction extends DataClass
     if (!nullToAbsent || duplicateScore != null) {
       map['duplicate_score'] = Variable<double>(duplicateScore);
     }
+    map['duplicate_dismissed'] = Variable<bool>(duplicateDismissed);
     return map;
   }
 
@@ -4045,6 +4076,7 @@ class PendingTransaction extends DataClass
       duplicateScore: duplicateScore == null && nullToAbsent
           ? const Value.absent()
           : Value(duplicateScore),
+      duplicateDismissed: Value(duplicateDismissed),
     );
   }
 
@@ -4073,6 +4105,7 @@ class PendingTransaction extends DataClass
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       duplicateOfId: serializer.fromJson<String?>(json['duplicateOfId']),
       duplicateScore: serializer.fromJson<double?>(json['duplicateScore']),
+      duplicateDismissed: serializer.fromJson<bool>(json['duplicateDismissed']),
     );
   }
   @override
@@ -4096,6 +4129,7 @@ class PendingTransaction extends DataClass
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'duplicateOfId': serializer.toJson<String?>(duplicateOfId),
       'duplicateScore': serializer.toJson<double?>(duplicateScore),
+      'duplicateDismissed': serializer.toJson<bool>(duplicateDismissed),
     };
   }
 
@@ -4117,6 +4151,7 @@ class PendingTransaction extends DataClass
     DateTime? createdAt,
     Value<String?> duplicateOfId = const Value.absent(),
     Value<double?> duplicateScore = const Value.absent(),
+    bool? duplicateDismissed,
   }) => PendingTransaction(
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
@@ -4141,6 +4176,7 @@ class PendingTransaction extends DataClass
     duplicateScore: duplicateScore.present
         ? duplicateScore.value
         : this.duplicateScore,
+    duplicateDismissed: duplicateDismissed ?? this.duplicateDismissed,
   );
   PendingTransaction copyWithCompanion(PendingTransactionsCompanion data) {
     return PendingTransaction(
@@ -4185,6 +4221,9 @@ class PendingTransaction extends DataClass
       duplicateScore: data.duplicateScore.present
           ? data.duplicateScore.value
           : this.duplicateScore,
+      duplicateDismissed: data.duplicateDismissed.present
+          ? data.duplicateDismissed.value
+          : this.duplicateDismissed,
     );
   }
 
@@ -4207,7 +4246,8 @@ class PendingTransaction extends DataClass
           ..write('status: $status, ')
           ..write('createdAt: $createdAt, ')
           ..write('duplicateOfId: $duplicateOfId, ')
-          ..write('duplicateScore: $duplicateScore')
+          ..write('duplicateScore: $duplicateScore, ')
+          ..write('duplicateDismissed: $duplicateDismissed')
           ..write(')'))
         .toString();
   }
@@ -4231,6 +4271,7 @@ class PendingTransaction extends DataClass
     createdAt,
     duplicateOfId,
     duplicateScore,
+    duplicateDismissed,
   );
   @override
   bool operator ==(Object other) =>
@@ -4252,7 +4293,8 @@ class PendingTransaction extends DataClass
           other.status == this.status &&
           other.createdAt == this.createdAt &&
           other.duplicateOfId == this.duplicateOfId &&
-          other.duplicateScore == this.duplicateScore);
+          other.duplicateScore == this.duplicateScore &&
+          other.duplicateDismissed == this.duplicateDismissed);
 }
 
 class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
@@ -4273,6 +4315,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
   final Value<DateTime> createdAt;
   final Value<String?> duplicateOfId;
   final Value<double?> duplicateScore;
+  final Value<bool> duplicateDismissed;
   final Value<int> rowid;
   const PendingTransactionsCompanion({
     this.id = const Value.absent(),
@@ -4292,6 +4335,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     this.createdAt = const Value.absent(),
     this.duplicateOfId = const Value.absent(),
     this.duplicateScore = const Value.absent(),
+    this.duplicateDismissed = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PendingTransactionsCompanion.insert({
@@ -4312,6 +4356,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     required DateTime createdAt,
     this.duplicateOfId = const Value.absent(),
     this.duplicateScore = const Value.absent(),
+    this.duplicateDismissed = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        gmailMessageId = Value(gmailMessageId),
@@ -4339,6 +4384,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     Expression<DateTime>? createdAt,
     Expression<String>? duplicateOfId,
     Expression<double>? duplicateScore,
+    Expression<bool>? duplicateDismissed,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4359,6 +4405,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
       if (createdAt != null) 'created_at': createdAt,
       if (duplicateOfId != null) 'duplicate_of_id': duplicateOfId,
       if (duplicateScore != null) 'duplicate_score': duplicateScore,
+      if (duplicateDismissed != null) 'duplicate_dismissed': duplicateDismissed,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4381,6 +4428,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     Value<DateTime>? createdAt,
     Value<String?>? duplicateOfId,
     Value<double?>? duplicateScore,
+    Value<bool>? duplicateDismissed,
     Value<int>? rowid,
   }) {
     return PendingTransactionsCompanion(
@@ -4401,6 +4449,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
       createdAt: createdAt ?? this.createdAt,
       duplicateOfId: duplicateOfId ?? this.duplicateOfId,
       duplicateScore: duplicateScore ?? this.duplicateScore,
+      duplicateDismissed: duplicateDismissed ?? this.duplicateDismissed,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4459,6 +4508,9 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
     if (duplicateScore.present) {
       map['duplicate_score'] = Variable<double>(duplicateScore.value);
     }
+    if (duplicateDismissed.present) {
+      map['duplicate_dismissed'] = Variable<bool>(duplicateDismissed.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4485,6 +4537,7 @@ class PendingTransactionsCompanion extends UpdateCompanion<PendingTransaction> {
           ..write('createdAt: $createdAt, ')
           ..write('duplicateOfId: $duplicateOfId, ')
           ..write('duplicateScore: $duplicateScore, ')
+          ..write('duplicateDismissed: $duplicateDismissed, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6917,6 +6970,7 @@ typedef $$PendingTransactionsTableCreateCompanionBuilder =
       required DateTime createdAt,
       Value<String?> duplicateOfId,
       Value<double?> duplicateScore,
+      Value<bool> duplicateDismissed,
       Value<int> rowid,
     });
 typedef $$PendingTransactionsTableUpdateCompanionBuilder =
@@ -6938,6 +6992,7 @@ typedef $$PendingTransactionsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<String?> duplicateOfId,
       Value<double?> duplicateScore,
+      Value<bool> duplicateDismissed,
       Value<int> rowid,
     });
 
@@ -7032,6 +7087,11 @@ class $$PendingTransactionsTableFilterComposer
 
   ColumnFilters<double> get duplicateScore => $composableBuilder(
     column: $table.duplicateScore,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get duplicateDismissed => $composableBuilder(
+    column: $table.duplicateDismissed,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7129,6 +7189,11 @@ class $$PendingTransactionsTableOrderingComposer
     column: $table.duplicateScore,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get duplicateDismissed => $composableBuilder(
+    column: $table.duplicateDismissed,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PendingTransactionsTableAnnotationComposer
@@ -7214,6 +7279,11 @@ class $$PendingTransactionsTableAnnotationComposer
     column: $table.duplicateScore,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get duplicateDismissed => $composableBuilder(
+    column: $table.duplicateDismissed,
+    builder: (column) => column,
+  );
 }
 
 class $$PendingTransactionsTableTableManager
@@ -7276,6 +7346,7 @@ class $$PendingTransactionsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> duplicateOfId = const Value.absent(),
                 Value<double?> duplicateScore = const Value.absent(),
+                Value<bool> duplicateDismissed = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingTransactionsCompanion(
                 id: id,
@@ -7295,6 +7366,7 @@ class $$PendingTransactionsTableTableManager
                 createdAt: createdAt,
                 duplicateOfId: duplicateOfId,
                 duplicateScore: duplicateScore,
+                duplicateDismissed: duplicateDismissed,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7316,6 +7388,7 @@ class $$PendingTransactionsTableTableManager
                 required DateTime createdAt,
                 Value<String?> duplicateOfId = const Value.absent(),
                 Value<double?> duplicateScore = const Value.absent(),
+                Value<bool> duplicateDismissed = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingTransactionsCompanion.insert(
                 id: id,
@@ -7335,6 +7408,7 @@ class $$PendingTransactionsTableTableManager
                 createdAt: createdAt,
                 duplicateOfId: duplicateOfId,
                 duplicateScore: duplicateScore,
+                duplicateDismissed: duplicateDismissed,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
