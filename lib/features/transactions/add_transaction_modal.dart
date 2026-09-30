@@ -67,6 +67,10 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   String? _selectedToAccountId;
   String? _selectedInstallmentId;
 
+  /// Raise the keyboard only for a blank new sheet: not an edit, not a scan, and
+  /// not a prefill that already carries its amount.
+  late final bool _autofocusAmount;
+
   /// Only what the user typed. Wallet and category are auto-filled after the
   /// first frame, so including them would make an untouched sheet look dirty.
   String get _typed =>
@@ -107,6 +111,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       _selectedInstallmentId = t.installmentId;
     }
     _openedWith = _typed;
+    _autofocusAmount = widget.transaction == null &&
+        !widget.triggerScan &&
+        _amountController.text.isEmpty;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -369,6 +376,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                     controller: _amountController,
                     currencySymbol: currency.currencySymbol,
                     type: _type,
+                    autofocus: _autofocusAmount,
                   ),
                 ),
                 const SizedBox(height: 28),

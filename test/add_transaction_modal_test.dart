@@ -4,6 +4,7 @@ import 'package:budgetti/core/database/database.dart' show AppDatabase;
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
+import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart';
@@ -213,6 +214,40 @@ void main() {
       final saved = await saveUntouched(tester, tx(accountId: ''));
 
       expect(saved.accountId, '');
+    });
+  });
+
+  bool amountFocused(WidgetTester tester) => tester
+      .widget<EditableText>(find.descendant(
+          of: find.byType(AmountHeroField), matching: find.byType(EditableText)))
+      .focusNode
+      .hasFocus;
+
+  // The common case is a fresh amount to type: the keyboard should already be up.
+  group('the amount field takes focus only on a blank new sheet', () {
+    testWidgets('a new sheet', (tester) async {
+      await pump(tester);
+
+      expect(amountFocused(tester), isTrue);
+    });
+
+    testWidgets('an existing transaction being edited', (tester) async {
+      await pump(tester, transaction: tx());
+
+      expect(amountFocused(tester), isFalse);
+    });
+
+    testWidgets('a prefill that already has its amount', (tester) async {
+      await pump(tester, prefill: tx());
+
+      expect(amountFocused(tester), isFalse);
+    });
+
+    testWidgets('a prefill without one (an unrecognised message)',
+        (tester) async {
+      await pump(tester, prefill: tx(amount: 0));
+
+      expect(amountFocused(tester), isTrue);
     });
   });
 

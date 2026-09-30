@@ -7,11 +7,15 @@ class AmountHeroField extends StatelessWidget {
   final String currencySymbol;
   final String type;
 
+  /// Raise the keyboard as the sheet opens.
+  final bool autofocus;
+
   const AmountHeroField({
     super.key,
     required this.controller,
     required this.currencySymbol,
     required this.type,
+    this.autofocus = false,
   });
 
   Color _typeColor(BuildContext context) {
@@ -67,6 +71,7 @@ class AmountHeroField extends StatelessWidget {
               Expanded(
                 child: TextFormField(
                   controller: controller,
+                  autofocus: autofocus,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   cursorColor: color,
