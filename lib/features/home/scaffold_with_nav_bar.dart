@@ -1,4 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/glass.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
@@ -75,39 +76,6 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
     );
   }
 
-  // Nav slots: 4 branches + center action. Branch indices map 1:1 to
-  // StatefulShellRoute branches in app_router.dart.
-  List<_NavSlot> _buildSlots() => [
-    _NavSlot.branch(
-      0,
-      Icons.dashboard_outlined,
-      Icons.dashboard,
-      context.l10n.authNavDashboard,
-    ),
-    _NavSlot.branch(
-      1,
-      Icons.receipt_long_outlined,
-      Icons.receipt_long,
-      context.l10n.authNavHistory,
-    ),
-    _NavSlot.action(Icons.add, context.l10n.commonAdd, () {
-      HapticFeedback.mediumImpact();
-      _onAddTransaction();
-    }),
-    _NavSlot.branch(
-      2,
-      Icons.pie_chart_outline,
-      Icons.pie_chart,
-      context.l10n.authNavStats,
-    ),
-    _NavSlot.branch(
-      3,
-      Icons.settings_outlined,
-      Icons.settings,
-      context.l10n.authNavSettings,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final currentIndex = widget.navigationShell.currentIndex;
@@ -127,8 +95,15 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
             right: 0,
             bottom: bottomInset + 16,
             child: Center(
-              child: _FloatingPillNav(
-                slots: _buildSlots(),
+              child: FloatingPillNav(
+                slots: buildNavSlots(
+                  context.l10n,
+                  reviewCount: ref.watch(reviewInboxCountProvider),
+                  onAdd: () {
+                    HapticFeedback.mediumImpact();
+                    _onAddTransaction();
+                  },
+                ),
                 currentBranchIndex: currentIndex,
                 onBranchSelected: _goBranch,
               ),
@@ -189,35 +164,48 @@ class _SyncSpinnerState extends State<_SyncSpinner>
   }
 }
 
-class _NavSlot {
+@visibleForTesting
+class NavSlot {
   final int? branchIndex;
   final IconData icon;
   final IconData activeIcon;
   final String label;
   final VoidCallback? onAction;
 
-  const _NavSlot._({
+  /// Items waiting behind this slot; a badge shows when above zero.
+  final int badge;
+
+  /// What a screen reader adds to [label] when [badge] is showing.
+  final String? badgeLabel;
+
+  const NavSlot._({
     this.branchIndex,
     required this.icon,
     required this.activeIcon,
     required this.label,
     this.onAction,
+    this.badge = 0,
+    this.badgeLabel,
   });
 
-  factory _NavSlot.branch(
+  factory NavSlot.branch(
     int index,
     IconData icon,
     IconData activeIcon,
-    String label,
-  ) => _NavSlot._(
+    String label, {
+    int badge = 0,
+    String? badgeLabel,
+  }) => NavSlot._(
     branchIndex: index,
     icon: icon,
     activeIcon: activeIcon,
     label: label,
+    badge: badge,
+    badgeLabel: badgeLabel,
   );
 
-  factory _NavSlot.action(IconData icon, String label, VoidCallback onTap) =>
-      _NavSlot._(icon: icon, activeIcon: icon, label: label, onAction: onTap);
+  factory NavSlot.action(IconData icon, String label, VoidCallback onTap) =>
+      NavSlot._(icon: icon, activeIcon: icon, label: label, onAction: onTap);
 
   bool get isAction => onAction != null;
 }
@@ -225,12 +213,14 @@ class _NavSlot {
 /// GitHub-Store-inspired floating pill bottom nav.
 /// Glass capsule with an animated gradient indicator that slides behind
 /// the selected branch. Action slots (e.g. '+') don't move the indicator.
-class _FloatingPillNav extends StatelessWidget {
-  final List<_NavSlot> slots;
+@visibleForTesting
+class FloatingPillNav extends StatelessWidget {
+  final List<NavSlot> slots;
   final int currentBranchIndex;
   final ValueChanged<int> onBranchSelected;
 
-  const _FloatingPillNav({
+  const FloatingPillNav({
+    super.key,
     required this.slots,
     required this.currentBranchIndex,
     required this.onBranchSelected,
@@ -239,6 +229,12 @@ class _FloatingPillNav extends StatelessWidget {
   static const double _itemWidth = 62;
   static const double _itemHeight = 56;
   static const double _hPad = 6;
+
+  /// The slot's Semantics label already carries the count in words; the badge's
+  /// own "3" would be read a second time.
+  static Widget _badged(int count, Widget icon) => count > 0
+      ? ExcludeSemantics(child: Badge.count(count: count, child: icon))
+      : icon;
 
   int? _slotIndexForBranch(int branchIndex) {
     for (var i = 0; i < slots.length; i++) {
@@ -300,7 +296,9 @@ class _FloatingPillNav extends StatelessWidget {
                     // The pill is icon-only, so the label a screen reader
                     // announces has to come from here.
                     child: Semantics(
-                      label: s.label,
+                      label: s.badge > 0 && s.badgeLabel != null
+                          ? '${s.label}, ${s.badgeLabel}'
+                          : s.label,
                       button: true,
                       selected: selected,
                       child: InkWell(
@@ -316,12 +314,15 @@ class _FloatingPillNav extends StatelessWidget {
                           scale: selected ? 1.15 : 1.0,
                           duration: const Duration(milliseconds: 220),
                           curve: Curves.easeOutCubic,
-                          child: Icon(
-                            selected ? s.activeIcon : s.icon,
-                            color: selected
-                                ? scheme.primary
-                                : scheme.onSurfaceVariant,
-                            size: 24,
+                          child: _badged(
+                            s.badge,
+                            Icon(
+                              selected ? s.activeIcon : s.icon,
+                              color: selected
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant,
+                              size: 24,
+                            ),
                           ),
                         ),
                       ),
@@ -336,3 +337,37 @@ class _FloatingPillNav extends StatelessWidget {
     );
   }
 }
+
+/// Nav slots: 4 branches + the centre action. Branch indices map 1:1 to
+/// StatefulShellRoute branches in app_router.dart. [reviewCount] — bank drafts
+/// plus unreadable messages waiting in the review inbox — rides on History,
+/// where the inbox banner lives.
+@visibleForTesting
+List<NavSlot> buildNavSlots(
+  AppLocalizations l10n, {
+  required int reviewCount,
+  required VoidCallback onAdd,
+}) => [
+  NavSlot.branch(
+    0,
+    Icons.dashboard_outlined,
+    Icons.dashboard,
+    l10n.authNavDashboard,
+  ),
+  NavSlot.branch(
+    1,
+    Icons.receipt_long_outlined,
+    Icons.receipt_long,
+    l10n.authNavHistory,
+    badge: reviewCount,
+    badgeLabel: l10n.txReviewBannerCount(reviewCount),
+  ),
+  NavSlot.action(Icons.add, l10n.commonAdd, onAdd),
+  NavSlot.branch(2, Icons.pie_chart_outline, Icons.pie_chart, l10n.authNavStats),
+  NavSlot.branch(
+    3,
+    Icons.settings_outlined,
+    Icons.settings,
+    l10n.authNavSettings,
+  ),
+];

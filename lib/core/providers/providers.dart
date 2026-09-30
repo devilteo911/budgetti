@@ -248,6 +248,15 @@ final skippedEmailsProvider = StreamProvider<List<PendingTransaction>>((ref) {
   return ref.watch(pendingTransactionServiceProvider).watchSkipped();
 });
 
+/// Everything waiting in the review inbox: drafts to approve plus messages the
+/// parser could not read. What the History banner lists and the nav badge counts.
+final reviewInboxCountProvider = Provider<int>((ref) {
+  final skipped = ref
+      .watch(skippedEmailsProvider)
+      .maybeWhen(data: (s) => s.length, orElse: () => 0);
+  return ref.watch(pendingTransactionsCountProvider) + skipped;
+});
+
 /// The existing transaction a flagged draft may duplicate, for the compare UI.
 final duplicateSourceTxProvider =
     FutureProvider.family<db.Transaction?, String>((ref, txId) {
