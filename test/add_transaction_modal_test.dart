@@ -1,6 +1,7 @@
 import 'dart:ffi' show DynamicLibrary;
 
-import 'package:budgetti/core/database/database.dart' show AppDatabase;
+import 'package:budgetti/core/database/database.dart'
+    show AppDatabase, CategoriesCompanion, TransactionsCompanion;
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
@@ -11,6 +12,7 @@ import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/installment.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/models/transaction.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -292,6 +294,74 @@ void main() {
       await tester.pumpAndSettle();
 
       expect((saved?.type, saved?.category), ('income', 'Salary'));
+    });
+  });
+
+  // Typing "Conad" should file it where the owner filed Conad before — but only
+  // while the owner has not decided, and never on a transaction being edited.
+  group('the description suggests a category from the ledger', () {
+    Future<void> seedConad(AppDatabase db) async {
+      await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c_spesa', name: 'Spesa', iconCode: 0, colorHex: 0, type: 'expense'));
+      await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'old',
+          amount: -20,
+          description: 'CONAD ADRIATICO',
+          category: 'Spesa',
+          type: const Value('expense'),
+          date: DateTime(2026, 1, 5)));
+    }
+
+    Future<Transaction> typeAndSave(
+      WidgetTester tester,
+      String description, {
+      Transaction? transaction,
+      Future<void> Function()? beforeTyping,
+    }) async {
+      Transaction? saved;
+      await pump(tester,
+          transaction: transaction,
+          seed: seedConad,
+          onSave: (t) async => saved = t);
+      await beforeTyping?.call();
+      await tester.enterText(find.byType(TextFormField).at(1), description);
+      await tester.pump(const Duration(milliseconds: 600)); // the debounce
+      await tester.pumpAndSettle();
+      if (transaction == null) {
+        await tester.enterText(find.byType(TextFormField).at(0), '5');
+      }
+      await tester.tap(find.text(transaction == null ? 'SAVE' : 'UPDATE'));
+      await tester.pumpAndSettle();
+      return saved!;
+    }
+
+    testWidgets('a merchant the ledger knows fills the category',
+        (tester) async {
+      expect((await typeAndSave(tester, 'Conad')).category, 'Spesa');
+    });
+
+    testWidgets('a merchant it does not know leaves the default',
+        (tester) async {
+      expect((await typeAndSave(tester, 'Lidl')).category, 'Dining');
+    });
+
+    testWidgets('a category the owner picked is not overridden', (tester) async {
+      final saved = await typeAndSave(tester, 'Conad', beforeTyping: () async {
+        await tester.tap(find.text('Dining')); // the category row
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Treats'));
+        await tester.pumpAndSettle();
+      });
+
+      expect(saved.category, 'Treats');
+    });
+
+    testWidgets('an existing transaction keeps its own category',
+        (tester) async {
+      final saved =
+          await typeAndSave(tester, 'Conad', transaction: tx(category: 'Treats'));
+
+      expect(saved.category, 'Treats');
     });
   });
 

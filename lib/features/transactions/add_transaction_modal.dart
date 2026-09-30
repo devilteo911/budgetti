@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/services/bank_sync_service.dart' show learnedCategory;
 import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
@@ -67,6 +70,11 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   String? _selectedToAccountId;
   String? _selectedInstallmentId;
 
+  /// The owner chose the category (or arrived with one from the inbox): the
+  /// description no longer suggests one. A type switch re-arms it.
+  late bool _categoryTouched;
+  Timer? _suggestTimer;
+
   /// Raise the keyboard only for a blank new sheet: not an edit, not a scan, and
   /// not a prefill that already carries its amount.
   late final bool _autofocusAmount;
@@ -114,6 +122,10 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     _autofocusAmount = widget.transaction == null &&
         !widget.triggerScan &&
         _amountController.text.isEmpty;
+    // An existing row keeps its category; an inbox prefill that arrives with
+    // one (learned, or picked on the card) is the owner's already.
+    _categoryTouched = widget.transaction != null || _selectedCategory != null;
+    _descriptionController.addListener(_onDescriptionChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -154,8 +166,38 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   List<Transaction> _history() =>
       ref.read(transactionsProvider(null)).value ?? const [];
 
+  void _onDescriptionChanged() {
+    if (_categoryTouched || _type == 'transfer') return;
+    _suggestTimer?.cancel();
+    _suggestTimer = Timer(const Duration(milliseconds: 400), _suggestCategory);
+  }
+
+  /// Files a typed merchant where the owner filed it last time. Re-checks after
+  /// the await: the owner may have picked a category, switched kind or kept
+  /// typing while the ledger was read.
+  Future<void> _suggestCategory() async {
+    final typed = _descriptionController.text.trim();
+    if (typed.isEmpty) return;
+    final learned = await learnedCategory(
+      ref.read(databaseProvider),
+      typed,
+      income: _type == 'income',
+    );
+    if (!mounted ||
+        learned == null ||
+        _categoryTouched ||
+        _type == 'transfer' ||
+        _descriptionController.text.trim() != typed) {
+      return;
+    }
+    final categories = ref.read(categoriesProvider).value ?? const [];
+    if (!categories.any((c) => c.type == _type && c.name == learned)) return;
+    setState(() => _selectedCategory = learned);
+  }
+
   @override
   void dispose() {
+    _suggestTimer?.cancel();
     _amountController.dispose();
     _descriptionController.dispose();
     _animation.dispose();
@@ -323,7 +365,10 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
         selectedCategoryName: _selectedCategory,
         type: _type == 'expense' ? 'expense' : 'income',
         onCategorySelected: (category) {
-          setState(() => _selectedCategory = category.name);
+          setState(() {
+            _selectedCategory = category.name;
+            _categoryTouched = true;
+          });
         },
       ),
     );
@@ -392,7 +437,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                           ref.read(categoriesProvider).value ?? [],
                           _history(),
                         );
-                                      });
+                        _categoryTouched = false;
+                      });
                     },
                   ),
                 ),
