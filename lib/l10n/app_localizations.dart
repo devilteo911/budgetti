@@ -1244,6 +1244,12 @@ abstract class AppLocalizations {
   /// **'Credit to review'**
   String get notifEmailIncome;
 
+  /// No description provided for @notifBankDraftsSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions to review'**
+  String get notifBankDraftsSummary;
+
   /// No description provided for @notifEmailReview.
   ///
   /// In en, this message translates to:

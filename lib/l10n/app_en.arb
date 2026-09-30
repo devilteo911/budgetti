@@ -191,6 +191,7 @@
   "notifBackupSuccessBody": "Your data has been backed up.",
   "notifBackupErrorBody": "There was an error during backup.",
   "notifEmailIncome": "Credit to review",
+  "notifBankDraftsSummary": "Transactions to review",
   "notifEmailReview": "Transfer to review",
   "notifEmailExpense": "Payment to review",
   "setSettings": "Settings",

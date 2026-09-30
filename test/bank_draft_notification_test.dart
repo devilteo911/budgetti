@@ -29,4 +29,38 @@ void main() {
     expect(bankDraftNotificationDetails.iOS!.threadIdentifier, bankDraftsGroupKey);
     expect(bankDraftsGroupKey, 'bank_drafts');
   });
+
+  // Android's own summary for the stack has no intent from us: tapping the
+  // COLLAPSED group only brought the app back on its last screen and cleared all
+  // the notifications. We post the summary ourselves, with the same tap route.
+  group('the group summary', () {
+    test('is a summary of the same group, with the same channel', () {
+      final android = bankDraftsSummaryDetails.android!;
+
+      expect(android.setAsGroupSummary, isTrue);
+      expect(android.groupKey, bankDraftsGroupKey);
+      expect(android.channelId, bankDraftNotificationDetails.android!.channelId);
+      expect(bankDraftsSummaryDetails.iOS!.threadIdentifier, bankDraftsGroupKey);
+    });
+
+    test('carries a payload, or the tap handler would ignore it', () {
+      expect(bankDraftsSummaryPayload, isNotEmpty);
+    });
+
+    test('a tap on it reaches the tap handler, like an individual one', () {
+      final taps = <String>[];
+
+      routeNotificationTap(bankDraftsSummaryPayload, taps.add);
+      routeNotificationTap('pending_rev_abc', taps.add);
+      routeNotificationTap(null, taps.add);
+      routeNotificationTap('', taps.add);
+
+      expect(taps, [bankDraftsSummaryPayload, 'pending_rev_abc']);
+    });
+
+    test('is titled without a count, in both languages', () {
+      expect(AppLocalizationsIt().notifBankDraftsSummary, 'Transazioni da rivedere');
+      expect(AppLocalizationsEn().notifBankDraftsSummary, 'Transactions to review');
+    });
+  });
 }

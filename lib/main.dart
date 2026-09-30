@@ -101,13 +101,19 @@ void callbackDispatcher() {
         }
 
         // 'skipped' rows are surfaced in the review inbox, not notified.
-        for (final draft in newDrafts.where((d) => d.status == 'pending')) {
+        final notifiable = newDrafts.where((d) => d.status == 'pending');
+        for (final draft in notifiable) {
           await notificationService.showEmailTransactionNotification(
             pendingId: draft.id,
             amount: draft.parsedAmount,
             description: draft.parsedDescription,
             type: draft.suggestedType,
           );
+        }
+        // One summary of our own for the stack, so tapping the collapsed group
+        // opens the review inbox too.
+        if (notifiable.isNotEmpty) {
+          await notificationService.showBankDraftsSummary();
         }
         debugPrint('Bank sync (bg): ${newDrafts.length} new drafts');
       } catch (e) {

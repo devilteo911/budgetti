@@ -657,6 +657,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifEmailIncome => 'Credit to review';
 
   @override
+  String get notifBankDraftsSummary => 'Transactions to review';
+
+  @override
   String get notifEmailReview => 'Transfer to review';
 
   @override

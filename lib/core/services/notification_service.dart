@@ -6,11 +6,7 @@ import 'package:flutter/foundation.dart';
 
 /// Every capture notification joins this group, so a busy morning collapses into
 /// one stack in the shade instead of a column of separate cards.
-///
-/// ponytail: no explicit summary notification — Android synthesises one for a
-/// group of four or more. If a device shows them unstacked, post one more
-/// notification with `groupKey: bankDraftsGroupKey, setAsGroupSummary: true`
-/// after the last capture.
+/// The stack's summary is posted explicitly, see [bankDraftsSummaryDetails].
 const bankDraftsGroupKey = 'bank_drafts';
 
 /// How a captured bank movement is announced.
@@ -30,6 +26,34 @@ const bankDraftNotificationDetails = NotificationDetails(
     threadIdentifier: bankDraftsGroupKey,
   ),
 );
+
+/// The summary of the stack of capture notifications. Left to itself Android
+/// synthesises one with no intent from us, so tapping the COLLAPSED group only
+/// brought the app back on its last screen and cleared every notification. We
+/// post our own: same group and channel, and a payload that the tap handler
+/// routes to the review inbox like an individual notification's.
+const bankDraftsSummaryDetails = NotificationDetails(
+  android: AndroidNotificationDetails(
+    'email_transactions',
+    'Bank Email Transactions',
+    channelDescription: 'New transactions detected from bank emails',
+    importance: Importance.max,
+    priority: Priority.high,
+    groupKey: bankDraftsGroupKey,
+    setAsGroupSummary: true,
+  ),
+  iOS: DarwinNotificationDetails(threadIdentifier: bankDraftsGroupKey),
+);
+
+/// Any non-empty payload opens the review inbox (see [routeNotificationTap]).
+const bankDraftsSummaryPayload = 'bank_drafts';
+const _bankDraftsSummaryId = 4001;
+
+/// What a notification tap does: a non-empty payload goes to [onTap]. Pure, so
+/// the summary's tap can be shown to take the same road as an individual one.
+void routeNotificationTap(String? payload, void Function(String)? onTap) {
+  if (payload != null && payload.isNotEmpty) onTap?.call(payload);
+}
 
 class NotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -69,10 +93,7 @@ class NotificationService {
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         debugPrint("Notification tapped: ${response.payload}");
-        final payload = response.payload;
-        if (payload != null && payload.isNotEmpty) {
-          onNotificationTap?.call(payload);
-        }
+        routeNotificationTap(response.payload, onNotificationTap);
       },
     );
   }
@@ -267,6 +288,20 @@ class NotificationService {
       '$formattedAmount · $description',
       bankDraftNotificationDetails,
       payload: pendingId,
+    );
+  }
+
+  /// The one summary for the stack of capture notifications, with static text
+  /// (no count: it is reposted under the same id as drafts come in). Call after
+  /// the last [showEmailTransactionNotification] of a batch.
+  Future<void> showBankDraftsSummary() async {
+    final l10n = await backgroundL10n();
+    await _notificationsPlugin.show(
+      _bankDraftsSummaryId,
+      l10n.notifBankDraftsSummary,
+      null,
+      bankDraftsSummaryDetails,
+      payload: bankDraftsSummaryPayload,
     );
   }
 

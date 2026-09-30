@@ -191,6 +191,7 @@
   "notifBackupSuccessBody": "I tuoi dati sono stati salvati.",
   "notifBackupErrorBody": "Si è verificato un errore durante il backup.",
   "notifEmailIncome": "Accredito da rivedere",
+  "notifBankDraftsSummary": "Transazioni da rivedere",
   "notifEmailReview": "Bonifico da rivedere",
   "notifEmailExpense": "Pagamento da rivedere",
   "setSettings": "Impostazioni",

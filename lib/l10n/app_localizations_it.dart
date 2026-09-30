@@ -665,6 +665,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get notifEmailIncome => 'Accredito da rivedere';
 
   @override
+  String get notifBankDraftsSummary => 'Transazioni da rivedere';
+
+  @override
   String get notifEmailReview => 'Bonifico da rivedere';
 
   @override
