@@ -225,6 +225,11 @@ class PendingTransactionService {
 /// SEPA out) starts as an expense; a skipped raw message has no amount (0 — the
 /// sheet shows an empty field), its receipt date and its subject as the note.
 /// [accountId] and the category are empty when unknown, for the sheet to default.
+///
+/// An unreadable Revolut push is described by its BODY, not its title: the title
+/// ("Revolut") says nothing, and the raw text is `title ⟂ body` (or the body
+/// alone when the push had no title). Other sources keep their own description:
+/// a Widiba snippet is the email greeting.
 model.Transaction draftPrefill(PendingTransaction d, {String? accountId}) {
   final type = d.suggestedType == 'income' || d.suggestedType == 'transfer'
       ? d.suggestedType
@@ -235,8 +240,22 @@ model.Transaction draftPrefill(PendingTransaction d, {String? accountId}) {
     accountId: accountId ?? '',
     amount: type == 'expense' ? -amount : amount,
     date: d.status == 'skipped' ? d.emailReceivedAt : d.parsedDate,
-    description: d.parsedDescription,
+    description: _prefillDescription(d),
     category: d.suggestedCategory ?? '',
     type: type,
   );
+}
+
+String _prefillDescription(PendingTransaction d) {
+  if (d.status != 'skipped' || d.source != 'revolut') return d.parsedDescription;
+  const separator = ' ⟂ ';
+  final at = d.rawSnippet.indexOf(separator);
+  var body = at >= 0
+      ? d.rawSnippet.substring(at + separator.length)
+      // No separator: the title alone (== the description) or, for a push with
+      // no title, the body alone.
+      : (d.rawSnippet == d.parsedDescription ? '' : d.rawSnippet);
+  body = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (body.isEmpty) return d.parsedDescription;
+  return body.length > 60 ? '${body.substring(0, 60).trimRight()}…' : body;
 }

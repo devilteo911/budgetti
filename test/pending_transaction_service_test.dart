@@ -37,6 +37,7 @@ Future<void> _insertDraft(
   String status = 'pending',
   String source = 'widiba',
   String? suggestedCategory,
+  String rawSnippet = '',
   String? duplicateOfId,
   double? duplicateScore,
 }) =>
@@ -54,6 +55,7 @@ Future<void> _insertDraft(
             status: Value(status),
             source: Value(source),
             suggestedCategory: Value(suggestedCategory),
+            rawSnippet: Value(rawSnippet),
             duplicateOfId: Value(duplicateOfId),
             duplicateScore: Value(duplicateScore),
           ),
@@ -500,6 +502,69 @@ void main() {
       expect(t.amount, 0); // the sheet renders 0 as an empty field
       expect(t.date, row.emailReceivedAt);
       expect(t.description, 'Weird');
+    });
+
+    // A skipped Revolut push carries only its TITLE ("Revolut") as description,
+    // which tells the owner nothing: the body is what they need to finish it.
+    group('an unreadable Revolut push', () {
+      Future<String> descriptionOf(String snippet,
+          {String title = 'Revolut', String source = 'revolut'}) async {
+        final (db, _) = _setup();
+        await _insertDraft(db,
+            status: 'skipped',
+            amount: 0,
+            type: 'undecided',
+            description: title,
+            source: source,
+            rawSnippet: snippet);
+        return draftPrefill(await draft(db)).description;
+      }
+
+      test('opens with its body as the description', () async {
+        expect(
+          await descriptionOf('Revolut ⟂ Pagamento in elaborazione presso un '
+              'nuovo esercente'),
+          'Pagamento in elaborazione presso un nuovo esercente',
+        );
+      });
+
+      test('a long body is cut, on one line', () async {
+        final d = await descriptionOf('Revolut ⟂ ${'parola ' * 30}\nfine');
+
+        expect(d.length, lessThanOrEqualTo(61)); // 60 + the ellipsis
+        expect(d, endsWith('…'));
+        expect(d, isNot(contains('\n')));
+      });
+
+      test('with no body it is the title', () async {
+        expect(await descriptionOf('Revolut'), 'Revolut');
+      });
+
+      test('a push with no title (the text alone) opens with the text',
+          () async {
+        expect(
+          await descriptionOf('Pagamento in elaborazione',
+              title: 'Notifica Revolut'),
+          'Pagamento in elaborazione',
+        );
+      });
+
+      test('a Widiba email keeps its subject: its snippet is the greeting',
+          () async {
+        expect(
+          await descriptionOf('Ciao Matteo, il giorno 04/06 hai',
+              title: 'Disposizione', source: 'widiba'),
+          'Disposizione',
+        );
+      });
+
+      test('a draft that parsed keeps its description', () async {
+        final (db, _) = _setup();
+        await _insertDraft(db,
+            source: 'revolut', description: 'Lo Chef', rawSnippet: 'Revolut ⟂ Hai speso');
+
+        expect(draftPrefill(await draft(db)).description, 'Lo Chef');
+      });
     });
 
     test('an unknown wallet or category is empty, for the sheet to default',
