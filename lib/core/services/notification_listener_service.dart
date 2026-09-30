@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show Random;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -48,25 +50,33 @@ class NotificationListenerService {
     return drain(File('${dir.path}/$_bufferFile'));
   }
 
-  /// Takes everything out of the listener's [buffer] file, exactly once.
+  /// Takes everything out of the listener's [buffer] file.
   ///
   /// The buffer is the only copy of a captured push, and launch, resume,
   /// pull-to-refresh and the background task all drain it. Reading it in place
   /// and deleting it afterwards let a push the listener appended in between be
-  /// deleted unread, and let two drains both read the same file. So the buffer
-  /// is claimed first by renaming it to `<buffer>.draining` — atomic, so only
-  /// one caller wins and the listener's next push starts a fresh buffer — and
-  /// only then read and deleted.
+  /// deleted unread. So the buffer is claimed first by renaming it — atomic, so
+  /// only one caller wins and the listener's next push starts a fresh buffer —
+  /// and only then read and deleted.
   ///
-  /// A claim that is still there was left by a drain that died before deleting
-  /// it: those pushes exist nowhere else, so it is finished first. A corrupt
+  /// Every drain claims under its OWN unique name (the buffer's name plus
+  /// `.draining.` and a timestamp-and-random suffix). A shared name would let a second drain's rename land on a first
+  /// drain's claim it has not read yet: POSIX rename replaces the target, and
+  /// those pushes would be destroyed unread.
+  ///
+  /// Every claim already in the directory is finished first, oldest first: it was
+  /// left by a drain that died before deleting it, or belongs to one still
+  /// reading it in another isolate. Those pushes exist nowhere else. A corrupt
   /// claim or buffer cannot be recovered and is dropped rather than retried
   /// forever (the listener writes atomically, so this is not expected).
   ///
-  /// ponytail: drains inside one isolate are queued, which makes "exactly one
-  /// gets the pushes" deterministic there. Across isolates only the rename
-  /// protects, and a drain that starts while another isolate's claim is still
-  /// in flight may read it too: harmless, capture dedups by content hash.
+  /// ponytail: what this does not cover. A drain returns the pushes AFTER
+  /// deleting their claim, so a process killed before capture has inserted the
+  /// drafts loses that batch; a claim still held by a live drain in another
+  /// isolate can be read twice, which is harmless because capture dedups by
+  /// content id. Deleting the claim only after the insert would close the first,
+  /// at the price of re-reading on every failure. Drains within one isolate are
+  /// queued, so "exactly one gets the pushes" is deterministic there.
   static Future<List<RawNotification>> drain(File buffer) {
     final run = _lane.then((_) => _drain(buffer));
     _lane = run.then((_) {}, onError: (_) {});
@@ -75,15 +85,48 @@ class NotificationListenerService {
 
   static Future<void> _lane = Future.value();
 
-  static Future<List<RawNotification>> _drain(File buffer) async {
-    final claim = File('${buffer.path}.draining');
-    final out = await _takeClaim(claim);
+  /// [drain] without the in-isolate queue and with a hook at each stage
+  /// ('recovered', 'claimed'), to replay the interleavings of two drains in
+  /// different isolates, which the queue hides from a single-isolate test.
+  @visibleForTesting
+  static Future<List<RawNotification>> drainInterleaved(
+    File buffer,
+    Future<void> Function(String stage) pause,
+  ) =>
+      _drain(buffer, pause);
+
+  static Future<List<RawNotification>> _drain(
+    File buffer, [
+    Future<void> Function(String stage)? pause,
+  ]) async {
+    final out = <RawNotification>[];
+    for (final claim in await _claimsBeside(buffer)) {
+      out.addAll(await _takeClaim(claim));
+    }
+    await pause?.call('recovered');
+
+    final mine = File('${buffer.path}.draining.'
+        '${DateTime.now().microsecondsSinceEpoch}-${_random.nextInt(1 << 32)}');
     try {
-      await buffer.rename(claim.path);
+      await buffer.rename(mine.path);
     } on FileSystemException {
       return out; // no buffer, or another drain claimed it first
     }
-    return [...out, ...await _takeClaim(claim)];
+    await pause?.call('claimed');
+    return [...out, ...await _takeClaim(mine)];
+  }
+
+  static final _random = Random();
+
+  /// Claims sitting next to [buffer], oldest first (the names embed the time).
+  static Future<List<File>> _claimsBeside(File buffer) async {
+    final prefix = '${buffer.uri.pathSegments.last}.draining';
+    if (!await buffer.parent.exists()) return const [];
+    final claims = [
+      await for (final e in buffer.parent.list())
+        if (e is File && e.uri.pathSegments.last.startsWith(prefix)) e,
+    ];
+    return claims..sort((a, b) => a.path.compareTo(b.path));
   }
 
   static Future<List<RawNotification>> _takeClaim(File claim) async {

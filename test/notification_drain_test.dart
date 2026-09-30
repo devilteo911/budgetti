@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -107,5 +108,64 @@ void main() {
     // Whatever the interleaving, every push comes out exactly once.
     expect([...got, ...rest].map((n) => n.key).toSet(), {'a', 'b'});
     expect(got.length + rest.length, 2);
+  });
+
+  // The loss race: drain B (another isolate) finds no claim, drain A then claims
+  // buffer 1 but has not read it yet, the listener writes buffer 2, and B claims
+  // buffer 2. With one shared claim name, B's rename REPLACED A's claim and
+  // buffer 1 was destroyed unread.
+  test('a drain claiming while another holds an unread claim destroys nothing',
+      () async {
+    await write(buffer, ['one']);
+    final bLooked = Completer<void>(), releaseB = Completer<void>();
+    final aClaimed = Completer<void>(), releaseA = Completer<void>();
+
+    // B has looked for leftover claims, found none, and stalls.
+    final b = NotificationListenerService.drainInterleaved(buffer, (stage) async {
+      if (stage == 'recovered') {
+        bLooked.complete();
+        await releaseB.future;
+      }
+    });
+    await bLooked.future;
+    // A claims buffer 1 and stalls before reading it.
+    final a = NotificationListenerService.drainInterleaved(buffer, (stage) async {
+      if (stage == 'claimed') {
+        aClaimed.complete();
+        await releaseA.future;
+      }
+    });
+    await aClaimed.future;
+    // The listener starts a fresh buffer while A still holds buffer 1.
+    await write(buffer, ['two']);
+
+    releaseB.complete();
+    final gotB = await b;
+    releaseA.complete();
+    final gotA = await a;
+
+    expect([...gotA, ...gotB].map((n) => n.key).toList()..sort(), ['one', 'two']);
+  });
+
+  test('claims left under any name are all recovered, oldest first', () async {
+    await write(File('${buffer.path}.draining.2000-2'), ['second']);
+    await write(File('${buffer.path}.draining.1000-1'), ['first']);
+    await write(buffer, ['live']);
+
+    final got = await NotificationListenerService.drain(buffer);
+
+    expect(got.map((n) => n.key), ['first', 'second', 'live']);
+    expect(dir.listSync().whereType<File>(), isEmpty);
+  });
+
+  test('other files in the directory are left alone', () async {
+    final other = File('${dir.path}/something_else.draining');
+    await write(other, ['x']);
+    await write(buffer, ['a']);
+
+    final got = await NotificationListenerService.drain(buffer);
+
+    expect(got.map((n) => n.key), ['a']);
+    expect(other.existsSync(), isTrue);
   });
 }
