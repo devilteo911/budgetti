@@ -100,10 +100,14 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                   _transferAccounts(cs),
                   const SizedBox(height: 32),
                 ],
-                _sectionTitle(cs, context.l10n.commonCategory),
-                const SizedBox(height: 16),
-                _categoryChips(cs, isTransfer),
-                const SizedBox(height: 32),
+                // A category chip rewrites `type`, which would turn a transfer
+                // into a plain expense while still carrying toAccountId.
+                if (!isTransfer) ...[
+                  _sectionTitle(cs, context.l10n.commonCategory),
+                  const SizedBox(height: 16),
+                  _categoryChips(cs),
+                  const SizedBox(height: 32),
+                ],
                 _sectionTitle(cs, context.l10n.commonTags),
                 const SizedBox(height: 16),
                 _tagChips(cs),
@@ -269,7 +273,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
     );
   }
 
-  Widget _categoryChips(ColorScheme cs, bool isTransfer) {
+  Widget _categoryChips(ColorScheme cs) {
     final colors = ref.watch(categoryColorCacheProvider(cs.brightness));
     return ref.watch(categoriesProvider).when(
           loading: () => const CircularProgressIndicator(),
@@ -281,7 +285,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
               spacing: 8,
               runSpacing: 12,
               children: categories.where((c) => c.type == wanted).map((c) {
-                final isSelected = _tx.category == c.name && !isTransfer;
+                final isSelected = _tx.category == c.name;
                 return _pickChip(
                   cs,
                   label: c.name,

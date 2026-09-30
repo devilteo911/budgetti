@@ -2,6 +2,7 @@ import 'dart:ffi';
 
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/finance_service.dart';
+import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_test/flutter_test.dart';
@@ -96,5 +97,43 @@ void main() {
     final accounts = await FinanceService(db, 'user-a').getAccounts();
 
     expect(accounts.firstWhere((a) => a.id == 'revolut').balance, 50);
+  });
+
+  // The transaction page's category chip did `copyWith(category:, type:
+  // amount>0 ? 'income' : 'expense')` on a transfer, keeping toAccountId: the
+  // moved amount then counted as income on the source and vanished from the
+  // destination. There is no widget test infra, so this pins the money rule
+  // the editor's `if (!isTransfer)` guard protects.
+  test('a transfer only moves money; retyping it invents some', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    for (final id in ['widiba', 'revolut']) {
+      await db.into(db.accounts).insert(AccountsCompanion.insert(
+            id: id,
+            userId: const Value('user-a'),
+            name: id,
+            balance: Value(id == 'widiba' ? 1000 : 0),
+          ));
+    }
+    final service = FinanceService(db, 'user-a');
+    final transfer = model.Transaction(
+      id: 'tx-transfer',
+      accountId: 'widiba',
+      toAccountId: 'revolut',
+      amount: 100,
+      date: DateTime(2026, 6, 23),
+      description: 'Ricarica',
+      category: 'Transfer',
+      type: 'transfer',
+    );
+    await service.addTransaction(transfer);
+
+    Future<double> total() async => (await service.getAccounts())
+        .fold<double>(0, (sum, a) => sum + a.balance);
+    expect(await total(), 1000);
+
+    await service.updateTransaction(
+        transfer.copyWith(category: 'Salary', type: 'income'));
+    expect(await total(), 1100);
   });
 }
