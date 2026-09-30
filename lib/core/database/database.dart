@@ -294,24 +294,21 @@ class AppDatabase extends _$AppDatabase {
         await m.createIndex(Index(name, stmt));
       }
     },
+    // Every step below must be safe to run twice. An older build opens a newer
+    // database without complaint — it only rewrites user_version — and leaves the
+    // newer schema in place, so upgrading again re-runs steps over columns and
+    // tables that already exist. (createTable and the index statements are
+    // IF NOT EXISTS; adding a column is what has to be checked.)
     onUpgrade: (Migrator m, int from, int to) async {
       if (from < 2) {
         await m.createTable(tags);
       }
       if (from < 3) {
-        try {
-          await m.addColumn(categories, categories.description);
-        } catch (e) {
-          // Ignore: column might already exist
-        }
+        await _addColumnIfMissing(m, categories, categories.description);
       }
       if (from < 4) {
-        try {
-          await m.addColumn(categories, categories.userId);
-          await m.addColumn(tags, tags.userId);
-        } catch (e) {
-          // Ignore: column might already exist
-        }
+        await _addColumnIfMissing(m, categories, categories.userId);
+        await _addColumnIfMissing(m, tags, tags.userId);
       }
       if (from < 5) {
         // Add new tables
@@ -320,62 +317,32 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(budgets);
 
         // Add sync columns to existing tables
-        // Categories
-        try {
-          await m.addColumn(categories, categories.isDeleted);
-        } catch (e) {
-          // Ignore
-        }
-        try {
-          await m.addColumn(categories, categories.lastUpdated);
-        } catch (e) {
-          // Ignore
-        }
-
-        // Tags
-        try {
-          await m.addColumn(tags, tags.isDeleted);
-        } catch (e) {
-          // Ignore
-        }
-        try {
-          await m.addColumn(tags, tags.lastUpdated);
-        } catch (e) {
-          // Ignore
-        }
+        await _addColumnIfMissing(m, categories, categories.isDeleted);
+        await _addColumnIfMissing(m, categories, categories.lastUpdated);
+        await _addColumnIfMissing(m, tags, tags.isDeleted);
+        await _addColumnIfMissing(m, tags, tags.lastUpdated);
       }
       if (from < 6) {
-        try {
-          await m.addColumn(accounts, accounts.isDefault);
-          await m.addColumn(accounts, accounts.initialBalanceDate);
-        } catch (e) {
-          // Ignore: column might already exist
-        }
+        await _addColumnIfMissing(m, accounts, accounts.isDefault);
+        await _addColumnIfMissing(m, accounts, accounts.initialBalanceDate);
       }
       if (from < 7) {
-        try {
-          await m.addColumn(transactions, transactions.toAccountId);
-          await m.addColumn(transactions, transactions.type);
-        } catch (e) {
-          // Ignore: column might already exist
-        }
+        await _addColumnIfMissing(m, transactions, transactions.toAccountId);
+        await _addColumnIfMissing(m, transactions, transactions.type);
       }
       // (v8's index creation never worked — see [_indexes]; v15 creates them.)
       if (from < 9) {
         await m.createTable(pendingTransactions);
       }
       if (from < 10) {
-        try {
-          await m.addColumn(
-              pendingTransactions, pendingTransactions.duplicateOfId);
-          await m.addColumn(
-              pendingTransactions, pendingTransactions.duplicateScore);
-        } catch (_) {}
+        await _addColumnIfMissing(
+            m, pendingTransactions, pendingTransactions.duplicateOfId);
+        await _addColumnIfMissing(
+            m, pendingTransactions, pendingTransactions.duplicateScore);
       }
       if (from < 11) {
-        try {
-          await m.addColumn(pendingTransactions, pendingTransactions.source);
-        } catch (_) {}
+        await _addColumnIfMissing(
+            m, pendingTransactions, pendingTransactions.source);
       }
       if (from < 12) {
         await _dedupeSeededDefaults();
@@ -384,9 +351,7 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(installments);
       }
       if (from < 14) {
-        try {
-          await m.addColumn(transactions, transactions.installmentId);
-        } catch (_) {}
+        await _addColumnIfMissing(m, transactions, transactions.installmentId);
       }
       if (from < 15) {
         for (final (name, stmt) in _indexes) {
@@ -398,11 +363,23 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(syncFailures);
       }
       if (from < 17) {
-        await m.addColumn(
-            pendingTransactions, pendingTransactions.duplicateDismissed);
+        await _addColumnIfMissing(
+            m, pendingTransactions, pendingTransactions.duplicateDismissed);
       }
     },
   );
+
+  /// `ALTER TABLE … ADD COLUMN`, unless the table already has the column.
+  Future<void> _addColumnIfMissing(
+    Migrator m,
+    TableInfo table,
+    GeneratedColumn column,
+  ) async {
+    final have =
+        await customSelect('PRAGMA table_info(${table.actualTableName})').get();
+    if (have.any((r) => r.read<String>('name') == column.name)) return;
+    await m.addColumn(table, column);
+  }
 
   /// One-off cleanup for the duplicate defaults two seeders used to create:
   /// this class seeded userId-less rows keyed `<timestamp><name>`, while

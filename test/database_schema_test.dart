@@ -1,11 +1,14 @@
 import 'dart:ffi';
+import 'dart:io';
 
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/transaction.dart' as model;
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/open.dart' as sqlite3open;
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 // `flutter test` runs in the VM without sqlite3_flutter_libs' bundled native,
 // so point the FFI loader at the system library (.so.0 — no -dev symlink here).
@@ -88,6 +91,204 @@ void main() {
     expect(rows.single.read<String>('parsed_description'), 'Coffee');
     expect(rows.single.read<String>('duplicate_of_id'), 'tx-old');
     expect(rows.single.read<bool>('duplicate_dismissed'), isFalse);
+  });
+
+  // An older build opens a NEWER database without complaint — it only rewrites
+  // user_version — and leaves the newer schema in place. Installing the newer
+  // build again then re-runs its upgrade steps over columns and tables that are
+  // already there: "duplicate column name" and a database that never opens. Every
+  // `from < N` step has to be safe to run twice.
+  group('re-upgrading a database an older build had opened', () {
+    /// A current (v17) database file holding one row of everything the upgrade
+    /// steps touch, closed and ready to be tampered with.
+    Future<File> currentDb() async {
+      final dir = await Directory.systemTemp.createTemp('budgetti_downgrade_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/db.sqlite');
+      final db = AppDatabase.forExecutor(NativeDatabase(file));
+      await db.into(db.accounts).insert(AccountsCompanion.insert(
+          id: 'acc', userId: const Value('u'), name: 'Widiba'));
+      await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'cat', name: 'Dining', iconCode: 1, colorHex: 2, type: 'expense'));
+      await db.into(db.tags).insert(
+          TagsCompanion.insert(id: 'tag', name: 'Trip', colorHex: 3));
+      await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'tx',
+          userId: const Value('u'),
+          accountId: const Value('acc'),
+          amount: -12.5,
+          description: 'Coffee',
+          category: 'Dining',
+          date: DateTime(2026, 6, 24)));
+      for (final (id, dismissed) in [('kept', true), ('plain', false)]) {
+        await db.into(db.pendingTransactions).insert(
+              PendingTransactionsCompanion.insert(
+                id: id,
+                gmailMessageId: id,
+                emailSubject: 's',
+                emailReceivedAt: DateTime(2026, 6, 24),
+                parsedAmount: -10,
+                parsedDescription: 'Coffee',
+                parsedDate: DateTime(2026, 6, 24),
+                createdAt: DateTime(2026, 6, 24),
+                duplicateOfId: const Value('tx'),
+                duplicateScore: const Value(0.8),
+                duplicateDismissed: Value(dismissed),
+              ),
+            );
+      }
+      await db.close();
+      return file;
+    }
+
+    void tamper(File file, void Function(sqlite.Database raw) f) {
+      final raw = sqlite.sqlite3.open(file.path);
+      f(raw);
+      raw.dispose();
+    }
+
+    /// Opens [file] with the current build (its upgrade runs) and reads back
+    /// what the steps must not have disturbed.
+    Future<Map<String, Object?>> reopen(File file) async {
+      final db = AppDatabase.forExecutor(NativeDatabase(file));
+      final out = <String, Object?>{
+        'accounts': [for (final a in await db.select(db.accounts).get()) a.name],
+        'categories': [for (final c in await db.select(db.categories).get()) c.name],
+        'tags': [for (final t in await db.select(db.tags).get()) t.name],
+        'transactions': [
+          for (final t in await db.select(db.transactions).get())
+            (t.description, t.amount)
+        ],
+        'pending': {
+          for (final p in await db.select(db.pendingTransactions).get())
+            p.id: (p.duplicateOfId, p.duplicateScore, p.duplicateDismissed),
+        },
+      };
+      await db.close();
+      return out;
+    }
+
+    const intact = {
+      'accounts': ['Widiba'],
+      'categories': ['Dining'],
+      'tags': ['Trip'],
+      'transactions': [('Coffee', -12.5)],
+      'pending': {'kept': ('tx', 0.8, true), 'plain': ('tx', 0.8, false)},
+    };
+
+    int userVersion(File file) {
+      final raw = sqlite.sqlite3.open(file.path);
+      final v = raw.select('PRAGMA user_version').first.values.first as int;
+      raw.dispose();
+      return v;
+    }
+
+    test('v17 schema, user_version 16 (the QA-4 brick): opens, data intact',
+        () async {
+      final file = await currentDb();
+      tamper(file, (raw) => raw.execute('PRAGMA user_version = 16'));
+
+      expect(await reopen(file), intact);
+      expect(userVersion(file), 17);
+    });
+
+    test('v17 schema, user_version 1: every step re-runs over what exists',
+        () async {
+      final file = await currentDb();
+      tamper(file, (raw) => raw.execute('PRAGMA user_version = 1'));
+
+      expect(await reopen(file), intact);
+      expect(userVersion(file), 17);
+    });
+
+    // The old steps wrapped their addColumn pairs in one swallow-all try: the
+    // first column already existing skipped the second, silently. A half-applied
+    // step (or a downgrade past it) left the second column missing for good.
+    test('a step whose first column exists still adds its second', () async {
+      final file = await currentDb();
+      tamper(file, (raw) {
+        // duplicate_of_id stays; duplicate_score (its v10 partner) goes. So does
+        // duplicate_dismissed, so that v17 is not what this test is about.
+        raw.execute('ALTER TABLE pending_transactions DROP COLUMN duplicate_score');
+        raw.execute(
+            'ALTER TABLE pending_transactions DROP COLUMN duplicate_dismissed');
+        raw.execute('PRAGMA user_version = 9');
+      });
+
+      final db = AppDatabase.forExecutor(NativeDatabase(file));
+      final pending = await db.select(db.pendingTransactions).get();
+      await db.close();
+
+      final raw = sqlite.sqlite3.open(file.path);
+      final columns = raw
+          .select('PRAGMA table_info(pending_transactions)')
+          .map((r) => r['name'] as String)
+          .toSet();
+      raw.dispose();
+      expect(columns, containsAll(['duplicate_of_id', 'duplicate_score']));
+      expect(pending.map((p) => p.id), unorderedEquals(['kept', 'plain']));
+      expect(pending.map((p) => p.duplicateOfId), everyElement('tx'));
+    });
+
+    // The other side of the same change: the steps no longer swallow every error,
+    // so a genuinely old database must still get each column added for real.
+    test('a v2-shaped database still gets every column the old steps add',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('budgetti_v2_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/db.sqlite');
+      tamper(file, (raw) {
+        raw.execute('CREATE TABLE categories (id TEXT NOT NULL, name TEXT NOT NULL, '
+            'icon_code INTEGER NOT NULL, color_hex INTEGER NOT NULL, '
+            'type TEXT NOT NULL, PRIMARY KEY (id))');
+        raw.execute('CREATE TABLE tags (id TEXT NOT NULL, name TEXT NOT NULL, '
+            'color_hex INTEGER NOT NULL, PRIMARY KEY (id))');
+        raw.execute("INSERT INTO categories VALUES ('c', 'Dining', 1, 2, 'expense')");
+        raw.execute("INSERT INTO tags VALUES ('t', 'Trip', 3)");
+        raw.execute('PRAGMA user_version = 2');
+      });
+
+      final db = AppDatabase.forExecutor(NativeDatabase(file));
+      final cats = await db.select(db.categories).get();
+      final tagRows = await db.select(db.tags).get();
+      await db.close();
+
+      expect((cats.single.name, cats.single.isDeleted, cats.single.userId),
+          ('Dining', false, null));
+      expect((tagRows.single.name, tagRows.single.isDeleted), ('Trip', false));
+      final raw = sqlite.sqlite3.open(file.path);
+      Set<String> columns(String table) => raw
+          .select('PRAGMA table_info($table)')
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(columns('categories'),
+          containsAll(['description', 'user_id', 'is_deleted', 'last_updated']));
+      expect(columns('tags'), containsAll(['user_id', 'is_deleted', 'last_updated']));
+      expect(columns('accounts'), containsAll(['is_default', 'initial_balance_date']));
+      expect(columns('transactions'),
+          containsAll(['to_account_id', 'type', 'installment_id']));
+      expect(columns('pending_transactions'), containsAll(
+          ['duplicate_of_id', 'duplicate_score', 'source', 'duplicate_dismissed']));
+      raw.dispose();
+    });
+
+    test('the tables and indexes steps create survive a re-run', () async {
+      final file = await currentDb();
+      tamper(file, (raw) => raw.execute('PRAGMA user_version = 1'));
+      await reopen(file);
+
+      final raw = sqlite.sqlite3.open(file.path);
+      final names = raw
+          .select("SELECT name FROM sqlite_master WHERE type IN ('table','index')")
+          .map((r) => r['name'] as String)
+          .toSet();
+      raw.dispose();
+      expect(names, containsAll([
+        'tags', 'accounts', 'transactions', 'budgets', 'pending_transactions',
+        'installments', 'sync_locks', 'sync_failures',
+        'idx_transactions_date', 'idx_pending_status',
+      ]));
+    });
   });
 
   // The stale-balance bug: accountsProvider was a FutureProvider that nothing
