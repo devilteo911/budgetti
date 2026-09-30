@@ -176,7 +176,10 @@ class _SecondaryRow extends StatelessWidget {
         children.add(Container(width: 1, height: 34, color: divider));
       }
     }
-    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: children);
+    // End, not center: a label that wraps ('MEDIA GIORNALIERA') makes its
+    // column taller, and centring then sat its value off the baseline of the
+    // one-line labels beside it. Every column ends with a value; align those.
+    return Row(crossAxisAlignment: CrossAxisAlignment.end, children: children);
   }
 }
 
