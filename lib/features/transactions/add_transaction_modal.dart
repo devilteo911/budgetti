@@ -124,16 +124,17 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
 
       if (_type != 'transfer') {
         final categories = ref.read(categoriesProvider).value ?? [];
-        final filtered = categories.where((c) => c.type == _type).toList();
         // A prefill's category may be gone by now (suggested at capture): default
         // it like an unset one, so the owner never saves a name the row doesn't
         // show. Never for an existing row — saving it untouched must not rewrite
         // its category, whatever kind or state that category is in (legacy rows
         // hold income categories on expenses, deleted names, or none).
         final stale = isPrefill &&
-            !filtered.any((c) => c.name == _selectedCategory);
-        if (filtered.isNotEmpty && (_selectedCategory == null || stale)) {
-          _selectedCategory = filtered.first.name;
+            !categories
+                .any((c) => c.type == _type && c.name == _selectedCategory);
+        final start = defaultCategoryFor(_type, categories, _history());
+        if (start != null && (_selectedCategory == null || stale)) {
+          _selectedCategory = start;
           setState(() {});
         }
       }
@@ -141,6 +142,10 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       if (widget.triggerScan) _scanReceipt();
     });
   }
+
+  /// The ledger newest first, for [defaultCategoryFor]; empty while it loads.
+  List<Transaction> _history() =>
+      ref.read(transactionsProvider(null)).value ?? const [];
 
   @override
   void dispose() {
@@ -374,14 +379,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                     onChanged: (v) {
                       setState(() {
                         _type = v;
-                        final categories =
-                            ref.read(categoriesProvider).value ?? [];
-                        final filtered = categories
-                            .where((c) => c.type == _type)
-                            .toList();
-                        _selectedCategory =
-                            filtered.isNotEmpty ? filtered.first.name : null;
-                      });
+                        _selectedCategory = defaultCategoryFor(
+                          _type,
+                          ref.read(categoriesProvider).value ?? [],
+                          _history(),
+                        );
+                                      });
                     },
                   ),
                 ),

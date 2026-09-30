@@ -14,6 +14,7 @@ library;
 import 'package:intl/intl.dart';
 
 import 'package:budgetti/models/account.dart';
+import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/transaction.dart';
 
 const _monthKeyFormat = 'yyyy-MM';
@@ -316,4 +317,27 @@ ChartSeries chartSeries(
     expenses: sorted(expenseBuckets),
     income: sorted(incomeBuckets),
   );
+}
+
+/// The category a new [type] transaction starts on: the one the newest
+/// transaction of that type used — the owner's habit — else the first category
+/// of the type. Null when the type has none (a transfer).
+///
+/// A newest transaction filed under something that is not a category of that
+/// type any more (deleted, the 'Uncategorized' placeholder, a legacy row on an
+/// income category) falls back to the first category; it does not reach for an
+/// older transaction, so the default never depends on how far back the list
+/// goes. [txsNewestFirst] is the order the ledger streams them in.
+String? defaultCategoryFor(
+  String type,
+  List<Category> categories,
+  List<Transaction> txsNewestFirst,
+) {
+  final ofType = categories.where((c) => c.type == type).toList();
+  if (ofType.isEmpty) return null;
+  final last = txsNewestFirst.where((t) => t.type == type).firstOrNull;
+  if (last != null && ofType.any((c) => c.name == last.category)) {
+    return last.category;
+  }
+  return ofType.first.name;
 }

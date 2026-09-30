@@ -1,5 +1,6 @@
 import 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/models/account.dart';
+import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -270,6 +271,77 @@ void main() {
 
       expect([for (final p in s.expenses) p.label.day], [3, 11, 20]);
       expect(s.income, isEmpty);
+    });
+  });
+
+  // A new sheet starts on the category the owner last used for that kind of
+  // movement — habit, not the alphabetically first category.
+  group('defaultCategoryFor', () {
+    Category cat(String name, String type) => Category(
+          id: 'c$name',
+          userId: 'u',
+          name: name,
+          iconCode: 0,
+          colorHex: 0,
+          type: type,
+        );
+    final categories = [
+      cat('Dining', 'expense'),
+      cat('Groceries', 'expense'),
+      cat('Freelance', 'income'),
+      cat('Salary', 'income'),
+    ];
+    final d = DateTime(2026, 8, 20);
+
+    test('no history: the first category of the type', () {
+      expect(defaultCategoryFor('expense', categories, const []), 'Dining');
+      expect(defaultCategoryFor('income', categories, const []), 'Freelance');
+    });
+
+    test('the newest transaction of that type decides', () {
+      final history = [
+        tx(-9, d, category: 'Groceries'),
+        tx(-5, d, category: 'Dining'),
+      ];
+
+      expect(defaultCategoryFor('expense', categories, history), 'Groceries');
+    });
+
+    test('a transaction of the other type is ignored', () {
+      final history = [
+        tx(100, d, category: 'Salary', type: 'income'), // newest, but income
+        tx(-5, d, category: 'Groceries'),
+      ];
+
+      expect(defaultCategoryFor('expense', categories, history), 'Groceries');
+      expect(defaultCategoryFor('income', categories, history), 'Salary');
+    });
+
+    test('a transfer is neither', () {
+      final history = [tx(50, d, category: 'Transfer', type: 'transfer')];
+
+      expect(defaultCategoryFor('expense', categories, history), 'Dining');
+    });
+
+    test('a last category that is gone or a placeholder falls back to the '
+        'first, not to an older transaction', () {
+      final gone = [tx(-1, d, category: 'Pranzo'), tx(-5, d, category: 'Groceries')];
+      final uncategorized = [tx(-1, d, category: 'Uncategorized')];
+
+      expect(defaultCategoryFor('expense', categories, gone), 'Dining');
+      expect(defaultCategoryFor('expense', categories, uncategorized), 'Dining');
+    });
+
+    test('a category of the other kind is not inherited', () {
+      // Legacy row: an expense filed under an income category.
+      final history = [tx(-5, d, category: 'Salary')];
+
+      expect(defaultCategoryFor('expense', categories, history), 'Dining');
+    });
+
+    test('null when the type has no category (a transfer)', () {
+      expect(defaultCategoryFor('transfer', categories, const []), isNull);
+      expect(defaultCategoryFor('expense', const [], const []), isNull);
     });
   });
 }

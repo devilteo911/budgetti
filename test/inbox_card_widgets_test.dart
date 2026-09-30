@@ -12,6 +12,7 @@ import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/installment.dart';
 import 'package:budgetti/models/tag.dart';
+import 'package:budgetti/models/transaction.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter/material.dart';
@@ -102,6 +103,8 @@ void main() {
         accountsProvider.overrideWith((ref) => Stream.value(<Account>[])),
         // What the add sheet opened by the pencil reads.
         financeServiceProvider.overrideWithValue(FinanceService(db, 'u')),
+        transactionsProvider(null)
+            .overrideWith((ref) => Stream.value(<Transaction>[])),
         tagsProvider.overrideWith((ref) => Stream.value(<Tag>[])),
         installmentsProvider.overrideWith((ref) => Stream.value(<Installment>[])),
       ],

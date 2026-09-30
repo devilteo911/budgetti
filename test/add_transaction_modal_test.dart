@@ -72,7 +72,9 @@ void main() {
     WidgetTester tester, {
     Transaction? transaction,
     Transaction? prefill,
-    required Future<void> Function(Transaction) onSave,
+    List<Transaction> history = const [],
+    Future<void> Function(AppDatabase db)? seed,
+    Future<void> Function(Transaction)? onSave,
   }) async {
     SharedPreferences.setMockInitialValues({'notifications_enabled': false});
     final prefs = await SharedPreferences.getInstance();
@@ -80,6 +82,7 @@ void main() {
     addTearDown(db.close);
     tester.view.physicalSize = const Size(800, 2400);
     addTearDown(tester.view.reset);
+    if (seed != null) await tester.runAsync(() => seed(db));
 
     final router = GoRouter(routes: [
       // Watches what the sheet reads, so those providers are warm (as they are
@@ -89,6 +92,7 @@ void main() {
         builder: (_, __) => Consumer(builder: (context, ref, _) {
           ref.watch(categoriesProvider);
           ref.watch(accountsProvider);
+          ref.watch(transactionsProvider(null));
           return const Scaffold();
         }),
       ),
@@ -98,7 +102,7 @@ void main() {
           body: AddTransactionModal(
             transaction: transaction,
             prefill: prefill,
-            onSave: onSave,
+            onSave: onSave ?? (_) async {},
           ),
         ),
       ),
@@ -106,6 +110,9 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
+        databaseProvider.overrideWithValue(db),
+        transactionsProvider(null)
+            .overrideWith((ref) => Stream.value(history)),
         currencyProvider.overrideWithValue(
             NumberFormat.simpleCurrency(name: 'EUR', locale: 'en_US')),
         financeServiceProvider.overrideWithValue(FinanceService(db, 'u')),
@@ -119,6 +126,9 @@ void main() {
             ])),
         categoriesProvider.overrideWith((ref) => Stream.value([
               category('Dining', 'expense'),
+              category('Spesa', 'expense'),
+              category('Treats', 'expense'),
+              category('Freelance', 'income'),
               category('Salary', 'income'),
             ])),
         tagsProvider.overrideWith((ref) => Stream.value(<Tag>[])),
@@ -203,6 +213,50 @@ void main() {
       final saved = await saveUntouched(tester, tx(accountId: ''));
 
       expect(saved.accountId, '');
+    });
+  });
+
+  group('the category a new sheet starts on', () {
+    Future<Transaction> saveNew(WidgetTester tester,
+        {List<Transaction> history = const []}) async {
+      Transaction? saved;
+      await pump(tester, history: history, onSave: (t) async => saved = t);
+      await tester.enterText(find.byType(TextFormField).at(0), '5');
+      await tester.enterText(find.byType(TextFormField).at(1), 'Something');
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+      return saved!;
+    }
+
+    testWidgets('is the last one used for that kind of movement',
+        (tester) async {
+      final saved = await saveNew(tester, history: [
+        tx(amount: 100, type: 'income', category: 'Salary'), // newest, income
+        tx(category: 'Treats'),
+        tx(category: 'Dining'),
+      ]);
+
+      expect(saved.category, 'Treats');
+    });
+
+    testWidgets('with no history it is the first', (tester) async {
+      expect((await saveNew(tester)).category, 'Dining');
+    });
+
+    testWidgets('switching kind re-picks it for the new kind', (tester) async {
+      Transaction? saved;
+      await pump(tester,
+          history: [tx(category: 'Treats'), tx(amount: 100, type: 'income', category: 'Salary')],
+          onSave: (t) async => saved = t);
+
+      await tester.tap(find.text('INCOME'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), '5');
+      await tester.enterText(find.byType(TextFormField).at(1), 'Pay');
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+
+      expect((saved?.type, saved?.category), ('income', 'Salary'));
     });
   });
 
