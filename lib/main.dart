@@ -206,7 +206,19 @@ Future<void> main() async {
   // was in the database but invisible until the process was killed and
   // relaunched. Re-run every open query instead.
   // (The listener registers itself with WidgetsBinding, which keeps it alive.)
-  AppLifecycleListener(onResume: () => db.markTablesUpdated(db.allTables));
+  //
+  // Also drain the Revolut buffer on resume: a push captured while the app was
+  // in the background otherwise waits for the 15-minute task or a relaunch. The
+  // pass joins one already in flight (see BankSyncService.syncNotifications).
+  AppLifecycleListener(onResume: () async {
+    db.markTablesUpdated(db.allTables);
+    if (!persistence.getRevolutSyncEnabled()) return;
+    try {
+      await container.read(bankSyncServiceProvider).syncNotifications();
+    } catch (e) {
+      debugPrint('Resume revolut drain failed: $e');
+    }
+  });
 
   runApp(
     UncontrolledProviderScope(container: container,
