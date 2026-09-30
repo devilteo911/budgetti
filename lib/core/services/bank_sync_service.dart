@@ -177,7 +177,20 @@ class BankSyncService {
   /// for good, so there is no retry pass. Notifications the parser can't read
   /// are surfaced with their raw text and stay that way — the fix is to teach
   /// the parser the template and re-enter that one by hand.
-  Future<List<PendingTransaction>> syncNotifications() async {
+  Future<List<PendingTransaction>> syncNotifications() {
+    // Launch, resume, pull-to-refresh and the background task can all ask while
+    // a pass is still parsing: join it instead of starting a second one that
+    // would drain, parse and insert over the first.
+    // ponytail: per isolate (static), not per service instance. The background
+    // task is another isolate; there the drain's atomic rename is the guard.
+    final pass = _notificationsInFlight ??= _syncNotifications()
+        .whenComplete(() => _notificationsInFlight = null);
+    return pass;
+  }
+
+  static Future<List<PendingTransaction>>? _notificationsInFlight;
+
+  Future<List<PendingTransaction>> _syncNotifications() async {
     final notifications = await _notifications.pull();
     if (notifications.isEmpty) return const [];
 
