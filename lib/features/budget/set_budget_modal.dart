@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:budgetti/core/widgets/discard_guard.dart';
+import 'package:budgetti/core/widgets/inline_sheet_message.dart';
 
 class SetBudgetModal extends ConsumerStatefulWidget {
   final String categoryName;
@@ -28,6 +29,10 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
   late TextEditingController _amountController;
   bool _isLoading = false;
 
+  /// A failed save, shown above the buttons: a SnackBar would be drawn behind
+  /// this sheet.
+  String? _error;
+
   /// The form is one field, so the snapshot is that field.
   late final String _openedWith;
 
@@ -40,6 +45,9 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
           : '',
     );
     _openedWith = _amountController.text;
+    _amountController.addListener(() {
+      if (_error != null) setState(() => _error = null);
+    });
   }
 
   @override
@@ -51,7 +59,10 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
   Future<void> _saveBudget() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _error = null;
+      _isLoading = true;
+    });
     try {
       final newLimit = double.parse(
         _amountController.text.replaceAll(',', '.'),
@@ -75,9 +86,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.budgetSaveError(errorText(context, e)))),
-        );
+        setState(() => _error = context.l10n.budgetSaveError(errorText(context, e)));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -85,7 +94,10 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
   }
 
   Future<void> _clearBudget() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _error = null;
+      _isLoading = true;
+    });
     try {
       // Delete the rows: saving a limit of 0 left a budget that read as set.
       await ref.read(financeServiceProvider).deleteBudget(widget.categoryName);
@@ -98,9 +110,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.budgetSaveError(errorText(context, e)))),
-        );
+        setState(() => _error = context.l10n.budgetSaveError(errorText(context, e)));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -229,6 +239,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                 ],
               ),
             ),
+            InlineSheetMessage(_error),
             const SizedBox(height: 24),
             Row(
               children: [

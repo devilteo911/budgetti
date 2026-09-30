@@ -1,3 +1,4 @@
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/installment.dart';
@@ -8,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/widgets/discard_guard.dart';
+import 'package:budgetti/core/widgets/inline_sheet_message.dart';
 
 /// Create or edit an installment plan. Four inputs (what, how much in total,
 /// how many rates, when the first one is charged) — everything else about the
@@ -32,6 +34,10 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
   String? _accountId;
   bool _saving = false;
 
+  /// A failed save, shown above the button: a SnackBar would be drawn behind
+  /// this sheet.
+  String? _error;
+
   /// Everything the form holds, compared against the snapshot taken when the
   /// sheet opened.
   String get _snapshot => '${_description.text}|${_total.text}|${_count.text}'
@@ -51,6 +57,11 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
     _category = e?.category;
     _accountId = e?.accountId;
     _openedWith = _snapshot;
+    for (final c in [_description, _total, _count]) {
+      c.addListener(() {
+        if (_error != null) setState(() => _error = null);
+      });
+    }
   }
 
   @override
@@ -80,7 +91,10 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
+    setState(() {
+      _error = null;
+      _saving = true;
+    });
     try {
       await ref.read(financeServiceProvider).upsertInstallment(Installment(
             id: widget.existing?.id ?? '',
@@ -95,8 +109,7 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.instSaveError('$e'))));
+        setState(() => _error = context.l10n.instSaveError(errorText(context, e)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -269,6 +282,7 @@ class _AddInstallmentModalState extends ConsumerState<AddInstallmentModal> {
                 const SizedBox(height: 24),
                 _LinkedPayments(plan: widget.existing!),
               ],
+              InlineSheetMessage(_error),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _saving

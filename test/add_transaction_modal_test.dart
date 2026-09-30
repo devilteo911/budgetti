@@ -77,6 +77,7 @@ void main() {
     Transaction? transaction,
     Transaction? prefill,
     List<Transaction> history = const [],
+    List<Account>? accounts,
     Future<void> Function(AppDatabase db)? seed,
     Future<void> Function(Transaction)? onSave,
   }) async {
@@ -120,7 +121,8 @@ void main() {
         currencyProvider.overrideWithValue(
             NumberFormat.simpleCurrency(name: 'EUR', locale: 'en_US')),
         financeServiceProvider.overrideWithValue(FinanceService(db, 'u')),
-        accountsProvider.overrideWith((ref) => Stream.value([
+        accountsProvider.overrideWith((ref) => Stream.value(accounts ??
+            [
               Account(
                   id: 'w1',
                   name: 'Revolut',
@@ -225,6 +227,32 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
       expect(find.byType(AddTransactionModal), findsOneWidget);
       expect(saves, 0);
+    });
+
+    // The form's own validators already draw under their fields; pinned here so
+    // "every path shows its error inside the sheet" stays true for all of them.
+    testWidgets('an empty form shows its field errors', (tester) async {
+      await pump(tester);
+
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+
+      expect(inlineMessage('Enter amount'), findsOneWidget);
+      expect(inlineMessage('Enter description'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('no wallet to book into', (tester) async {
+      await pump(tester, accounts: const []);
+      await tester.enterText(find.byType(TextFormField).at(0), '5');
+      await tester.enterText(find.byType(TextFormField).at(1), 'Coffee');
+
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+
+      expect(inlineMessage('Please select a wallet'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(AddTransactionModal), findsOneWidget);
     });
 
     testWidgets('the message goes away on the next edit', (tester) async {

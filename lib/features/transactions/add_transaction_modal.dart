@@ -21,6 +21,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
 import 'package:budgetti/core/widgets/discard_guard.dart';
+import 'package:budgetti/core/widgets/inline_sheet_message.dart';
 
 class AddTransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
@@ -469,21 +470,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                   const LedgerDivider(),
                 ],
                 _staggered(8, _buildTagsSection()),
-                if (_message != null) ...[
-                  const SizedBox(height: 16),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      _message!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _messageIsError ? scheme.error : scheme.primary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+                InlineSheetMessage(_message, isError: _messageIsError),
                 const SizedBox(height: 28),
                 Row(
                   children: [
