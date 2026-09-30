@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:pocketbase/pocketbase.dart';
 
@@ -28,7 +27,7 @@ ErrorKind classifyError(Object error) {
 }
 
 /// Short, safe detail text for a caught error — the `{error}` slot of a
-/// "<what failed>: {error}" message.
+/// `"<what failed>: {error}"` message.
 ///
 /// `'$e'` is developer text, not user text: [ClientException] prints the
 /// request URL and the entire response body, Drift prints the failing SQL. It

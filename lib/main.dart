@@ -2,7 +2,6 @@ import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/router/app_router.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:dynamic_color/dynamic_color.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +26,7 @@ import 'package:pocketbase/pocketbase.dart' as pb;
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    if (task == NotificationLogic.AUTO_BACKUP_TASK) {
+    if (task == NotificationLogic.autoBackupTask) {
       final prefs = await SharedPreferences.getInstance();
       final persistence = PersistenceService(prefs);
       final db = AppDatabase();
@@ -55,7 +54,7 @@ void callbackDispatcher() {
       }
     }
 
-    if (task == NotificationLogic.GMAIL_SYNC_TASK) {
+    if (task == NotificationLogic.gmailSyncTask) {
       final prefs = await SharedPreferences.getInstance();
       final persistence = PersistenceService(prefs);
       final emailEnabled = persistence.getEmailSyncEnabled();
@@ -114,7 +113,7 @@ void callbackDispatcher() {
       }
     }
 
-    if (task == NotificationLogic.PB_SYNC_TASK) {
+    if (task == NotificationLogic.pbSyncTask) {
       final prefs = await SharedPreferences.getInstance();
       final persistence = PersistenceService(prefs);
       if (persistence.getServerUrl().isEmpty) return Future.value(true);
@@ -225,7 +224,7 @@ Future<void> main() async {
     // Run reminder update and workmanager init concurrently
     await Future.wait([
       container.read(notificationLogicProvider).updateDailyReminder(),
-      Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode),
+      Workmanager().initialize(callbackDispatcher),
     ]);
     await container.read(notificationLogicProvider).updateAutoBackupSchedule();
     await container.read(notificationLogicProvider).updateBankSyncSchedule();

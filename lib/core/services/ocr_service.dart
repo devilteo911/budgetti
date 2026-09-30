@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:ui';
 
 import 'package:mobile_ocr/mobile_ocr_plugin.dart';
@@ -38,7 +39,7 @@ class OcrService {
 
       return _processLines(allLines);
     } catch (e) {
-      print('MobileOCR failed: $e');
+      debugPrint('MobileOCR failed: $e');
       return ReceiptOcrResult();
     }
   }

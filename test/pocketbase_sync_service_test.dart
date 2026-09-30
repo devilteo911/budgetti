@@ -512,7 +512,7 @@ void main() {
     // PB stores an unset text field as '', not null — pulled back naively that
     // becomes an empty plan id, which reads as "linked to nothing".
     final t1 = DateTime(2026, 7, 1, 10);
-    final (db, _, __, service) = await _harness(initialStore: {
+    final (db, _, _, service) = await _harness(initialStore: {
       'transactions': {
         'tx-plain': {
           'accountId': 'acc1',

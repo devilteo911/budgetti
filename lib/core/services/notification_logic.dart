@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
@@ -17,10 +18,10 @@ class NotificationLogic {
     this._persistenceService,
   );
 
-  static const int DAILY_REMINDER_ID = 999;
-  static const String AUTO_BACKUP_TASK = "auto_backup_task";
-  static const String GMAIL_SYNC_TASK = "gmail_sync_task";
-  static const String PB_SYNC_TASK = "pb_sync_task";
+  static const int dailyReminderId = 999;
+  static const String autoBackupTask = "auto_backup_task";
+  static const String gmailSyncTask = "gmail_sync_task";
+  static const String pbSyncTask = "pb_sync_task";
 
   Future<void> checkBudgetAlerts(Transaction newTransaction) async {
     if (!_persistenceService.getNotificationsEnabled() ||
@@ -74,7 +75,7 @@ class NotificationLogic {
   Future<void> updateDailyReminder() async {
     if (!_persistenceService.getNotificationsEnabled() ||
         !_persistenceService.getDailyReminderEnabled()) {
-      await _notificationService.cancelNotification(DAILY_REMINDER_ID);
+      await _notificationService.cancelNotification(dailyReminderId);
       return;
     }
 
@@ -86,7 +87,7 @@ class NotificationLogic {
     final minute = int.tryParse(bits[1]) ?? 0;
 
     await _notificationService.scheduleDailyReminder(
-      id: DAILY_REMINDER_ID,
+      id: dailyReminderId,
       hour: hour,
       minute: minute,
     );
@@ -96,7 +97,7 @@ class NotificationLogic {
     final enabled = _persistenceService.getAutoBackupEnabled();
     
     // Always cancel existing to be safe
-    await Workmanager().cancelByUniqueName(AUTO_BACKUP_TASK);
+    await Workmanager().cancelByUniqueName(autoBackupTask);
     
     if (!enabled) return;
 
@@ -118,11 +119,11 @@ class NotificationLogic {
 
     final initialDelay = scheduleTime.difference(now);
     
-    print('📅 Auto-backup scheduled to run in ${initialDelay.inMinutes} minutes at $scheduleTime');
+    debugPrint('📅 Auto-backup scheduled to run in ${initialDelay.inMinutes} minutes at $scheduleTime');
 
     await Workmanager().registerPeriodicTask(
-      AUTO_BACKUP_TASK,
-      AUTO_BACKUP_TASK,
+      autoBackupTask,
+      autoBackupTask,
       frequency: const Duration(days: 1),
       initialDelay: initialDelay,
       constraints: Constraints(
@@ -141,15 +142,15 @@ class NotificationLogic {
   /// The task keeps its original unique name so an already-registered schedule
   /// from a previous install still gets cancelled here.
   Future<void> updateBankSyncSchedule() async {
-    await Workmanager().cancelByUniqueName(GMAIL_SYNC_TASK);
+    await Workmanager().cancelByUniqueName(gmailSyncTask);
 
     final email = _persistenceService.getEmailSyncEnabled();
     final revolut = _persistenceService.getRevolutSyncEnabled();
     if (!email && !revolut) return;
 
     await Workmanager().registerPeriodicTask(
-      GMAIL_SYNC_TASK,
-      GMAIL_SYNC_TASK,
+      gmailSyncTask,
+      gmailSyncTask,
       frequency: const Duration(minutes: 15),
       initialDelay: const Duration(minutes: 15),
       constraints: Constraints(
@@ -161,7 +162,7 @@ class NotificationLogic {
       existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
 
-    print('🏦 Bank sync scheduled every 15 minutes '
+    debugPrint('🏦 Bank sync scheduled every 15 minutes '
         '(email: $email, revolut: $revolut)');
   }
 
@@ -169,13 +170,13 @@ class NotificationLogic {
   /// workmanager setup rather than adding a second scheduler. Skipped until a
   /// server URL is configured.
   Future<void> updatePocketBaseSyncSchedule() async {
-    await Workmanager().cancelByUniqueName(PB_SYNC_TASK);
+    await Workmanager().cancelByUniqueName(pbSyncTask);
 
     if (_persistenceService.getServerUrl().isEmpty) return;
 
     await Workmanager().registerPeriodicTask(
-      PB_SYNC_TASK,
-      PB_SYNC_TASK,
+      pbSyncTask,
+      pbSyncTask,
       frequency: const Duration(days: 1),
       initialDelay: const Duration(hours: 6),
       constraints: Constraints(
@@ -185,7 +186,7 @@ class NotificationLogic {
       existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
 
-    print('☁️ PocketBase sync scheduled daily');
+    debugPrint('☁️ PocketBase sync scheduled daily');
   }
 }
 
