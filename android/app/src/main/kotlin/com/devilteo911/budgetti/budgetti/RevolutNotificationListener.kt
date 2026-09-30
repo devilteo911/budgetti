@@ -19,7 +19,15 @@ private const val MAX_BUFFERED = 300
 /// getApplicationSupportDirectory(), so pulls work from any isolate.
 class RevolutNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (!sbn.packageName.startsWith(REVOLUT_PKG_PREFIX)) return
+        // Debug builds also accept pushes posted from the adb shell, so
+        // `adb shell cmd notification post` can stand in for Revolut and drive
+        // the whole path (listener, buffer, drain, parser, inbox) without a real
+        // payment. BuildConfig.DEBUG is a compile-time false in release and the
+        // package name is deliberately a literal here, not a const: a top-level
+        // const would keep the string in the release class file.
+        val pkg = sbn.packageName
+        if (!pkg.startsWith(REVOLUT_PKG_PREFIX) &&
+            !(BuildConfig.DEBUG && pkg == "com.android.shell")) return
         val n = sbn.notification ?: return
         val extras = n.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()

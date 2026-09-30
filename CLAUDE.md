@@ -74,6 +74,17 @@ what the plan says you owe, they only expose a rate nobody recorded.
 
 Three types: income, expense, and transfer (moves money between accounts via `toAccountId`). Expenses are stored as negative amounts.
 
+### E2E: injecting Revolut pushes
+
+A debug build accepts notifications posted from the adb shell as if they were
+Revolut's, so the whole capture path runs without a real payment:
+`adb shell cmd notification post -S bigtext -t 'Revolut' <unique-tag> 'Hai pagato 10,00 € presso LO CHEF'`
+(a unique tag per push — the listener dedupes on the notification key). Needs
+notification access granted to the app, and a debug APK signed with the same
+cert as the installed build with an equal versionCode (`flutter build apk --debug
+--build-number=2003`, then `adb install -r`). The hook is `BuildConfig.DEBUG`-gated
+in `RevolutNotificationListener.kt`: it is compiled out of release APKs.
+
 ## Style reference
 
 When modifying UI, consult https://docs.flutter.dev/ui/widgets/material for Material Design 3 widget guidance.

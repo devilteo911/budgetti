@@ -20,6 +20,12 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    // AGP 8 no longer generates BuildConfig by default; the notification
+    // listener's debug-only injection hook reads BuildConfig.DEBUG.
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.devilteo911.budgetti.budgetti"
