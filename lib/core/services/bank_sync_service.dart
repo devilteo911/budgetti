@@ -64,6 +64,22 @@ class BankSyncService {
     return null;
   }
 
+  /// The category to pre-select for a draft: what the owner filed the same
+  /// merchant under last time (ledger first), else the keyword guess resolved
+  /// against the live categories. Undecided and transfer drafts never learn —
+  /// the owner has not said yet what kind of movement they are.
+  Future<String?> _suggest(ParsedBankDraft parsed) async {
+    if (parsed.type == 'income' || parsed.type == 'expense') {
+      final learned = await learnedCategory(
+        _db,
+        parsed.description,
+        income: parsed.type == 'income',
+      );
+      if (learned != null) return learned;
+    }
+    return _liveCategory(guessCategory(parsed));
+  }
+
   /// Runs one sync pass. Returns the newly inserted rows: parsed drafts
   /// (status 'pending') plus surfaced unparsable emails (status 'skipped').
   /// Previously skipped emails are re-fetched and retried every pass, so a
@@ -135,7 +151,7 @@ class BankSyncService {
               parsedDescription: parsed.description,
               parsedDate: parsed.date,
               suggestedType: Value(parsed.type),
-              suggestedCategory: Value(await _liveCategory(guessCategory(parsed))),
+              suggestedCategory: Value(await _suggest(parsed)),
               counterparty: Value(parsed.counterparty),
               rawSnippet: Value(parsed.rawSnippet),
               createdAt: DateTime.now(),
@@ -224,7 +240,7 @@ class BankSyncService {
               parsedDescription: parsed.description,
               parsedDate: parsed.date,
               suggestedType: Value(parsed.type),
-              suggestedCategory: Value(await _liveCategory(guessCategory(parsed))),
+              suggestedCategory: Value(await _suggest(parsed)),
               counterparty: Value(parsed.counterparty),
               rawSnippet: Value(parsed.rawSnippet),
               createdAt: DateTime.now(),
@@ -297,7 +313,7 @@ class BankSyncService {
               parsedDescription: draft.description,
               parsedDate: draft.date,
               suggestedType: Value(draft.type),
-              suggestedCategory: Value(await _liveCategory(guessCategory(draft))),
+              suggestedCategory: Value(await _suggest(draft)),
               counterparty: Value(draft.counterparty),
               rawSnippet: Value(draft.rawSnippet),
               createdAt: DateTime.now(),
@@ -509,6 +525,61 @@ double duplicateConfidence({
   };
   return 0.5 * dateScore +
       0.5 * descriptionSimilarity(draftDescription, txDescription);
+}
+
+/// Similarity a ledger description needs to lend its category to a draft. In
+/// practice a score is either 0.9 (one side contained in the other) or 1.0
+/// (identical token sets): replaying 568 real rows, 0.7 / 0.8 / 0.9 predict
+/// identically, and 1.0 would cost ~8 points of coverage for +0.3 of precision.
+const learnThreshold = 0.9;
+
+/// Whether [name] is a category the owner still has. 'Uncategorized' and
+/// 'Transfer' are placeholders the app writes, not categories, so they are not.
+Future<bool> isLiveCategory(AppDatabase db, String name) async {
+  final row = await (db.select(db.categories)
+        ..where((c) => c.isDeleted.equals(false) & c.name.equals(name))
+        ..limit(1))
+      .getSingleOrNull();
+  return row != null;
+}
+
+/// The category the owner filed the same merchant under last time, or null.
+///
+/// Newest same-sign, non-transfer transaction whose description matches
+/// ([learnThreshold]) decides — and if that category no longer exists the answer
+/// is null, NOT the next older live match. Measured on the real ledger, skipping
+/// past dead categories made 52 wrong suggestions on 156 rows filed under
+/// deleted categories (CONAD hijacked by a one-off "Pranzo conad").
+///
+/// ponytail: last wins. Majority-of-3 changed 5 rows for a net of -1, so it is
+/// not built. In-memory scan of the newest 600 rows; index or narrow the query
+/// if the ledger's history ever makes that too slow at capture.
+Future<String?> learnedCategory(
+  AppDatabase db,
+  String description, {
+  required bool income,
+}) async {
+  // Every push with no merchant shares the fallback text: not an identity.
+  if (description.trim().isEmpty || description == revolutFallbackDescription) {
+    return null;
+  }
+  final rows = await (db.select(db.transactions)
+        ..where((t) =>
+            t.isDeleted.equals(false) &
+            t.type.equals('transfer').not() &
+            (income
+                ? t.amount.isBiggerThanValue(0)
+                : t.amount.isSmallerThanValue(0)))
+        ..orderBy([(t) => OrderingTerm.desc(t.date)])
+        ..limit(600))
+      .get();
+  for (final tx in rows) {
+    if (descriptionSimilarity(description, tx.description) < learnThreshold) {
+      continue;
+    }
+    return await isLiveCategory(db, tx.category) ? tx.category : null;
+  }
+  return null;
 }
 
 /// Token-overlap similarity (Jaccard) on normalized descriptions, boosted to

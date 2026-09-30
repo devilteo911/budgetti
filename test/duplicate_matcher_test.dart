@@ -1,8 +1,30 @@
+import 'dart:ffi';
+
+import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/bank_draft.dart';
 import 'package:budgetti/core/services/bank_sync_service.dart';
+import 'package:budgetti/core/services/revolut_notification_parser.dart'
+    show revolutFallbackDescription;
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/open.dart' as sqlite3open;
+
+// See finance_service_seed_test.dart: point the FFI loader at the system lib.
+void _ensureSqlite() {
+  try {
+    sqlite3open.open.overrideFor(
+      sqlite3open.OperatingSystem.linux,
+      () => DynamicLibrary.open('/lib/x86_64-linux-gnu/libsqlite3.so.0'),
+    );
+  } catch (_) {
+    // Already overridden or not on Linux — ignore.
+  }
+}
 
 void main() {
+  setUpAll(_ensureSqlite);
+
   group('descriptionSimilarity', () {
     test('merchant name buried in POS boilerplate scores high', () {
       final sim = descriptionSimilarity(
@@ -159,6 +181,116 @@ void main() {
 
     test('income keeps its own table', () {
       expect(guess('Stipendio agosto', type: 'income'), 'Salary');
+    });
+  });
+
+  // B1: the suggestion at capture comes from what the owner actually filed under
+  // the same merchant, newest first. Rule and threshold were measured by
+  // replaying the real ledger (see the commit that introduced it).
+  group('learnedCategory', () {
+    late AppDatabase db;
+    setUp(() => db = AppDatabase.forExecutor(NativeDatabase.memory()));
+    tearDown(() => db.close());
+
+    Future<void> category(String name, {bool deleted = false}) =>
+        db.into(db.categories).insert(CategoriesCompanion.insert(
+              id: 'cat_$name',
+              name: name,
+              iconCode: 0,
+              colorHex: 0,
+              type: 'expense',
+              isDeleted: Value(deleted),
+            ));
+
+    var n = 0;
+    Future<void> tx(
+      String description,
+      String category, {
+      double amount = -10,
+      String type = 'expense',
+      int day = 1,
+      bool deleted = false,
+    }) =>
+        db.into(db.transactions).insert(TransactionsCompanion.insert(
+              id: 'tx${n++}',
+              amount: amount,
+              description: description,
+              category: category,
+              type: Value(type),
+              date: DateTime(2026, 1, day),
+              isDeleted: Value(deleted),
+            ));
+
+    Future<String?> learn(String d, {bool income = false}) =>
+        learnedCategory(db, d, income: income);
+
+    test('the merchant is filed where the owner filed it last', () async {
+      await category('Groceries');
+      await category('Spesa');
+      await tx('Conad', 'Groceries', day: 1);
+      await tx('CONAD ADRIATICO SPA', 'Spesa', day: 9);
+
+      // Containment either way round scores 0.9: the newest one wins.
+      expect(await learn('Conad'), 'Spesa');
+      expect(await learn('PAGAMENTO POS CONAD'), 'Spesa');
+    });
+
+    test('a merchant the ledger never saw learns nothing', () async {
+      await category('Spesa');
+      await tx('Conad', 'Spesa');
+
+      expect(await learn('Lidl'), isNull);
+    });
+
+    test('a newest match filed under a dead category is null, not skipped past',
+        () async {
+      await category('Spesa');
+      await category('Pranzo', deleted: true);
+      await tx('Conad', 'Spesa', day: 1);
+      await tx('Pranzo conad', 'Pranzo', day: 9); // one-off, category since removed
+
+      // Measured on the real ledger: skipping to the older live match made 52
+      // wrong suggestions (CONAD hijacked by a one-off "Pranzo conad").
+      expect(await learn('Conad'), isNull);
+    });
+
+    test('Uncategorized and Transfer are not categories to suggest', () async {
+      await tx('Conad', 'Uncategorized');
+      expect(await learn('Conad'), isNull);
+    });
+
+    test('income and expense never learn from each other', () async {
+      await category('Salary');
+      await category('Spesa');
+      await tx('Acme Srl', 'Salary', amount: 1500, type: 'income');
+      await tx('Acme Srl', 'Spesa', amount: -20);
+
+      expect(await learn('Acme Srl', income: true), 'Salary');
+      expect(await learn('Acme Srl', income: false), 'Spesa');
+    });
+
+    test('a transfer is never learned from, even under a live category name',
+        () async {
+      await category('Spesa');
+      await tx('Ricarica Revolut', 'Spesa', type: 'transfer');
+
+      expect(await learn('Ricarica Revolut'), isNull);
+    });
+
+    test('a deleted transaction teaches nothing', () async {
+      await category('Spesa');
+      await tx('Conad', 'Spesa', deleted: true);
+
+      expect(await learn('Conad'), isNull);
+    });
+
+    test('the generic Revolut fallback description is never learned', () async {
+      await category('Spesa');
+      await tx(revolutFallbackDescription, 'Spesa');
+
+      expect(await learn(revolutFallbackDescription), isNull);
+      expect(await learn(''), isNull);
+      expect(await learn('   '), isNull);
     });
   });
 }

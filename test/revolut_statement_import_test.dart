@@ -40,7 +40,8 @@ void main() {
 
   // The keyword guesser only suggests categories that actually exist for the
   // user — mirror the seeded id _ensureUserDefaults would have created.
-  void seedCategory(AppDatabase db, String id, String name) {
+  void seedCategory(AppDatabase db, String id, String name,
+      {bool deleted = false}) {
     db.into(db.categories).insert(CategoriesCompanion.insert(
           id: id,
           userId: const Value('user-a'),
@@ -48,6 +49,22 @@ void main() {
           iconCode: 0,
           colorHex: 0,
           type: 'expense',
+          isDeleted: Value(deleted),
+        ));
+  }
+
+  // A movement the owner already filed, months before the statement's rows.
+  void seedTx(AppDatabase db, String id, String description, String category,
+      int day) {
+    db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: id,
+          userId: const Value('user-a'),
+          accountId: const Value('acc-1'),
+          amount: -20,
+          description: description,
+          category: category,
+          type: const Value('expense'),
+          date: DateTime(2026, 1, day),
         ));
   }
 
@@ -106,6 +123,68 @@ Totale,,,"68,00€",,"0,00€","0,00€","0,00€"
 
     // Null, not a dead name — the review falls back to "uncategorised".
     expect(r.drafts.single.suggestedCategory, isNull);
+  });
+
+  // B1: at capture the ledger wins over the keyword table — the owner's own
+  // filing of the same merchant beats a guess baked into the app.
+  group('category suggestion from the ledger', () {
+    test('the merchant is suggested the category the owner filed it under',
+        () async {
+      final db = AppDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(db.close);
+      seedCategory(db, 'user-a_cat_Groceries', 'Groceries');
+      seedCategory(db, 'cat-spesa', 'Spesa');
+      seedTx(db, 't1', 'CONAD ADRIATICO SPA', 'Spesa', 5);
+
+      final r = await _service(db).importStatement(_csv);
+
+      final conad = r.drafts.firstWhere((d) => d.parsedDescription == 'Conad');
+      expect(conad.suggestedCategory, 'Spesa'); // not the keyword's Groceries
+    });
+
+    test('a merchant the ledger never saw falls back to the keyword table',
+        () async {
+      final db = AppDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(db.close);
+      seedCategory(db, 'user-a_cat_Groceries', 'Groceries');
+      seedCategory(db, 'cat-spesa', 'Spesa');
+      seedTx(db, 't1', 'Farmacia Centrale', 'Spesa', 5);
+
+      final r = await _service(db).importStatement(_csv);
+
+      final conad = r.drafts.firstWhere((d) => d.parsedDescription == 'Conad');
+      expect(conad.suggestedCategory, 'Groceries');
+    });
+
+    test('a newest match under a deleted category falls back to the keyword, '
+        'never to an older live match', () async {
+      final db = AppDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(db.close);
+      seedCategory(db, 'user-a_cat_Groceries', 'Groceries');
+      seedCategory(db, 'cat-spesa', 'Spesa');
+      seedCategory(db, 'cat-pranzo', 'Pranzo', deleted: true);
+      seedTx(db, 't1', 'Conad', 'Spesa', 5);
+      seedTx(db, 't2', 'Pranzo conad', 'Pranzo', 20); // one-off, newer
+
+      final r = await _service(db).importStatement(_csv);
+
+      final conad = r.drafts.firstWhere((d) => d.parsedDescription == 'Conad');
+      expect(conad.suggestedCategory, 'Groceries'); // not the older 'Spesa'
+    });
+
+    test('an income draft learns from income, not from a same-named expense',
+        () async {
+      final db = AppDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(db.close);
+      seedCategory(db, 'cat-spesa', 'Spesa');
+      seedTx(db, 't1', 'Pagamento da ROSSI MARIO', 'Spesa', 5); // an expense
+
+      final r = await _service(db).importStatement(_csv);
+
+      final topUp = r.drafts
+          .firstWhere((d) => d.parsedDescription == 'Pagamento da ROSSI MARIO');
+      expect(topUp.suggestedCategory, isNull);
+    });
   });
 
   test('re-importing an overlapping statement adds nothing', () async {

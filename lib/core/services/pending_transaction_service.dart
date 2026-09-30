@@ -68,6 +68,17 @@ class PendingTransactionService {
     String? toAccountId,
     String? category,
   }) async {
+    // The draft may hold no category, or one the owner deleted since capture:
+    // ask the ledger before falling back to 'Uncategorized'.
+    if (type != 'transfer' &&
+        (category == null || !await isLiveCategory(_db, category))) {
+      category = await learnedCategory(
+        _db,
+        draft.parsedDescription,
+        income: type == 'income',
+      );
+    }
+
     final amountAbs = draft.parsedAmount.abs();
     final tx = model.Transaction(
       id: const Uuid().v4(),
@@ -135,6 +146,12 @@ class PendingTransactionService {
     return (_db.select(_db.transactions)
           ..where((t) => t.id.equals(id) & t.isDeleted.equals(false)))
         .getSingleOrNull();
+  }
+
+  /// The inbox chip's pick: what [approve] will file the draft under.
+  Future<void> setSuggestedCategory(String id, String name) {
+    return (_db.update(_db.pendingTransactions)..where((t) => t.id.equals(id)))
+        .write(PendingTransactionsCompanion(suggestedCategory: Value(name)));
   }
 
   Future<void> _markStatus(String id, String status) {

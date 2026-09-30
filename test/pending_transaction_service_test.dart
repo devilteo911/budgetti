@@ -5,6 +5,7 @@ import 'package:budgetti/core/services/bank_sync_service.dart'
     show duplicateThreshold;
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart';
+import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_test/flutter_test.dart';
@@ -59,6 +60,9 @@ Future<void> _insertTx(
   String id = 'tx-existing',
   double amount = -10,
   String description = 'Coffee',
+  String category = 'Dining',
+  String type = 'expense',
+  DateTime? date,
   bool isDeleted = false,
 }) =>
     db.into(db.transactions).insert(
@@ -68,12 +72,24 @@ Future<void> _insertTx(
             accountId: const Value('wallet'),
             amount: amount,
             description: description,
-            category: 'Dining',
-            type: const Value('expense'),
-            date: _day,
+            category: category,
+            type: Value(type),
+            date: date ?? _day,
             isDeleted: Value(isDeleted),
           ),
         );
+
+Future<void> _insertCategory(AppDatabase db, String name,
+        {bool deleted = false}) =>
+    db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'cat_$name',
+          userId: const Value('user-a'),
+          name: name,
+          iconCode: 0,
+          colorHex: 0,
+          type: 'expense',
+          isDeleted: Value(deleted),
+        ));
 
 (AppDatabase, PendingTransactionService) _setup() {
   final db = AppDatabase.forExecutor(NativeDatabase.memory());
@@ -211,6 +227,92 @@ void main() {
       expect(first, isNotNull);
       expect(second, isNull); // was a phantom un-booked transaction with id ''
       expect(await db.select(db.transactions).get(), hasLength(1));
+    });
+  });
+
+  // B1: approve() must never book a category that no longer exists. A draft can
+  // hold a name the owner deleted after capture, or none at all.
+  group('category at approval', () {
+    // Months before the draft, so the duplicate recheck ignores it.
+    final old = DateTime(2026, 1, 5);
+
+    Future<String> booked(AppDatabase db, model.Transaction? tx) async =>
+        (await (db.select(db.transactions)
+                  ..where((t) => t.id.equals(tx?.id ?? '')))
+                .getSingle())
+            .category;
+
+    test('a draft with no category is filed where the ledger filed it',
+        () async {
+      final (db, service) = _setup();
+      await _insertCategory(db, 'Coffee shops');
+      await _insertTx(db, description: 'Coffee', category: 'Coffee shops', date: old);
+      await _insertDraft(db);
+
+      final tx = await service.approve(await _draft(db),
+          type: 'expense', accountId: 'wallet');
+
+      expect(await booked(db, tx), 'Coffee shops');
+    });
+
+    test('a draft holding a deleted category is re-resolved, not booked dead',
+        () async {
+      final (db, service) = _setup();
+      await _insertCategory(db, 'Coffee shops');
+      await _insertCategory(db, 'Eating out', deleted: true);
+      await _insertTx(db, description: 'Coffee', category: 'Coffee shops', date: old);
+      await _insertDraft(db);
+
+      final tx = await service.approve(await _draft(db),
+          type: 'expense', accountId: 'wallet', category: 'Eating out');
+
+      expect(await booked(db, tx), 'Coffee shops');
+    });
+
+    test('nothing learned and nothing live falls back to Uncategorized',
+        () async {
+      final (db, service) = _setup();
+      await _insertCategory(db, 'Eating out', deleted: true);
+      await _insertDraft(db);
+
+      final tx = await service.approve(await _draft(db),
+          type: 'expense', accountId: 'wallet', category: 'Eating out');
+
+      expect(await booked(db, tx), 'Uncategorized');
+    });
+
+    test('a live category the owner picked is kept over the ledger', () async {
+      final (db, service) = _setup();
+      await _insertCategory(db, 'Coffee shops');
+      await _insertCategory(db, 'Treats');
+      await _insertTx(db, description: 'Coffee', category: 'Coffee shops', date: old);
+      await _insertDraft(db);
+
+      final tx = await service.approve(await _draft(db),
+          type: 'expense', accountId: 'wallet', category: 'Treats');
+
+      expect(await booked(db, tx), 'Treats');
+    });
+
+    test('a transfer stays Transfer and never learns', () async {
+      final (db, service) = _setup();
+      await _insertCategory(db, 'Coffee shops');
+      await _insertTx(db, description: 'Coffee', category: 'Coffee shops', date: old);
+      await _insertDraft(db);
+
+      final tx = await service.approve(await _draft(db),
+          type: 'transfer', accountId: 'wallet', toAccountId: 'other');
+
+      expect(await booked(db, tx), 'Transfer');
+    });
+
+    test('the inbox chip can set the category the approval will use', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db);
+
+      await service.setSuggestedCategory('pending_x', 'Treats');
+
+      expect((await _draft(db)).suggestedCategory, 'Treats');
     });
   });
 

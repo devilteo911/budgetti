@@ -5,6 +5,7 @@ import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
+import 'package:budgetti/core/widgets/category_picker_sheet.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -176,23 +177,10 @@ class _DraftCard extends ConsumerWidget {
                 DateFormat('dd MMM yyyy').format(draft.parsedDate),
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
-              if (draft.suggestedCategory != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    draft.suggestedCategory!,
-                    style: TextStyle(fontSize: 11, color: scheme.primary),
-                  ),
-                ),
-              ],
+              const SizedBox(width: 8),
+              // Always shown, even with nothing suggested: it is the only way
+              // to file a draft from the inbox before approving it.
+              Flexible(child: _categoryChip(context, ref, scheme)),
             ],
           ),
           if (draft.duplicateOfId != null) ...[
@@ -218,6 +206,51 @@ class _DraftCard extends ConsumerWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _categoryChip(BuildContext context, WidgetRef ref, ColorScheme scheme) {
+    final suggested = draft.suggestedCategory;
+    final color = suggested == null ? scheme.onSurfaceVariant : scheme.primary;
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _pickCategory(context, ref),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  suggested ?? context.l10n.commonCategory,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: color),
+                ),
+              ),
+              Icon(Icons.expand_more, size: 14, color: color),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The pick is stored on the draft: it is what [_approve] files it under.
+  void _pickCategory(BuildContext context, WidgetRef ref) {
+    final service = ref.read(pendingTransactionServiceProvider);
+    showAppSheet<void>(
+      context,
+      isScrollControlled: true,
+      builder: (_) => CategoryPickerSheet(
+        title: context.l10n.txSelectCategory,
+        selectedCategoryName: draft.suggestedCategory,
+        type: draft.suggestedType == 'income' ? 'income' : 'expense',
+        onCategorySelected: (c) => service.setSuggestedCategory(draft.id, c.name),
       ),
     );
   }
