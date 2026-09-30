@@ -600,7 +600,7 @@ class FinanceService {
           ..where((t) => t.id.equals(category.id)))
         .getSingle();
     await _db.transaction(() async {
-      await (_db.update(_db.categories)..where((t) => t.id.equals(category.id))).write(CategoriesCompanion(
+      await (_db.update(_db.categories)..where(_sameCategory(old))).write(CategoriesCompanion(
         name: Value(category.name),
         iconCode: Value(category.iconCode),
         colorHex: Value(category.colorHex),
@@ -644,8 +644,29 @@ class FinanceService {
     });
   }
 
+  /// The live rows one list entry stands for: [row] and every twin with its name
+  /// and type (the lists show one per key — see [_onePerKey]). Editing or deleting
+  /// the visible row has to reach them all, or a hidden twin takes its place.
+  Expression<bool> Function(Categories) _sameCategory(Category row) =>
+      (t) =>
+          t.id.equals(row.id) |
+          (t.isDeleted.equals(false) &
+              t.userId.equals(_userId) &
+              t.name.equals(row.name) &
+              t.type.equals(row.type));
+
+  Expression<bool> Function(Tags) _sameTag(Tag row) => (t) =>
+      t.id.equals(row.id) |
+      (t.isDeleted.equals(false) &
+          t.userId.equals(_userId) &
+          t.name.equals(row.name));
+
   Future<void> deleteCategory(String id) async {
-    await (_db.update(_db.categories)..where((t) => t.id.equals(id))).write(CategoriesCompanion(
+    final row = await (_db.select(_db.categories)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    await (_db.update(_db.categories)
+          ..where(row == null ? (t) => t.id.equals(id) : _sameCategory(row)))
+        .write(CategoriesCompanion(
       isDeleted: const Value(true),
       lastUpdated: Value(DateTime.now()),
     ));
@@ -685,7 +706,7 @@ class FinanceService {
     final old = await (_db.select(_db.tags)..where((t) => t.id.equals(tag.id)))
         .getSingle();
     await _db.transaction(() async {
-      await (_db.update(_db.tags)..where((t) => t.id.equals(tag.id))).write(TagsCompanion(
+      await (_db.update(_db.tags)..where(_sameTag(old))).write(TagsCompanion(
         name: Value(tag.name),
         colorHex: Value(tag.colorHex),
         lastUpdated: Value(DateTime.now()),
@@ -713,7 +734,11 @@ class FinanceService {
   }
 
   Future<void> deleteTag(String id) async {
-    await (_db.update(_db.tags)..where((t) => t.id.equals(id))).write(TagsCompanion(
+    final row = await (_db.select(_db.tags)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    await (_db.update(_db.tags)
+          ..where(row == null ? (t) => t.id.equals(id) : _sameTag(row)))
+        .write(TagsCompanion(
       isDeleted: const Value(true),
       lastUpdated: Value(DateTime.now()),
     ));
