@@ -441,7 +441,7 @@
   "txFilterByWallet": "Filter by Wallet",
   "txFilters": "Filters",
   "txFrom": "From",
-  "txFromEmail": "From email",
+  "txFromEmail": "From the message",
   "txIgnore": "Ignore",
   "txInstallment": "Installment",
   "txInstallmentOption": "{amount} × {count} · {paid} due so far",

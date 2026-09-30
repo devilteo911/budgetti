@@ -63,4 +63,27 @@ void main() {
       expect(AppLocalizationsEn().notifBankDraftsSummary, 'Transactions to review');
     });
   });
+
+  // The History banner counts unreadable Revolut pushes as well as Widiba emails.
+  group('unrecognized items are messages, not emails', () {
+    test('the banner count (it)', () {
+      final it = AppLocalizationsIt();
+
+      expect(it.txUnrecognizedCount(1), '1 messaggio non riconosciuto');
+      expect(it.txUnrecognizedCount(3), '3 messaggi non riconosciuti');
+    });
+
+    test('the banner count (en)', () {
+      final en = AppLocalizationsEn();
+
+      expect(en.txUnrecognizedCount(1), '1 unrecognized message');
+      expect(en.txUnrecognizedCount(3), '3 unrecognized messages');
+    });
+
+    // The compare sheet labels the draft's side for every source, Revolut too.
+    test('the compare sheet names the draft side neutrally', () {
+      expect(AppLocalizationsIt().txFromEmail, 'Dal messaggio');
+      expect(AppLocalizationsEn().txFromEmail, 'From the message');
+    });
+  });
 }

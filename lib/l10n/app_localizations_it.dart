@@ -1500,7 +1500,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get txFrom => 'Da';
 
   @override
-  String get txFromEmail => 'Dall\'email';
+  String get txFromEmail => 'Dal messaggio';
 
   @override
   String get txIgnore => 'Ignora';
@@ -1682,8 +1682,8 @@ class AppLocalizationsIt extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count email non riconosciute',
-      one: '1 email non riconosciuta',
+      other: '$count messaggi non riconosciuti',
+      one: '1 messaggio non riconosciuto',
     );
     return '$_temp0';
   }

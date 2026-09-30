@@ -2747,7 +2747,7 @@ abstract class AppLocalizations {
   /// No description provided for @txFromEmail.
   ///
   /// In en, this message translates to:
-  /// **'From email'**
+  /// **'From the message'**
   String get txFromEmail;
 
   /// No description provided for @txIgnore.

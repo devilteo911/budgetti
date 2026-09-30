@@ -1489,7 +1489,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get txFrom => 'From';
 
   @override
-  String get txFromEmail => 'From email';
+  String get txFromEmail => 'From the message';
 
   @override
   String get txIgnore => 'Ignore';
