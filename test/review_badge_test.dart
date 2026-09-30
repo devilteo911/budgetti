@@ -80,7 +80,8 @@ void main() {
     });
 
     // The pill's glass container reads the theme settings, hence the prefs.
-    Future<void> pumpPill(WidgetTester tester, int review) async {
+    Future<void> pumpPill(WidgetTester tester, int review,
+        {int current = 0}) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       await tester.pumpWidget(ProviderScope(
@@ -92,7 +93,7 @@ void main() {
             body: Center(
               child: FloatingPillNav(
                 slots: slots(review),
-                currentBranchIndex: 0,
+                currentBranchIndex: current,
                 onBranchSelected: (_) {},
               ),
             ),
@@ -114,6 +115,32 @@ void main() {
 
       expect(find.byType(Badge), findsNothing);
     });
+
+    // The badge used to sit in a Stack that aligned the icon top-left of its
+    // cell, so the History glyph jumped out of the centred pill whenever a count
+    // showed. The badge may only overlay: the glyph's centre must not move.
+    for (final selected in [false, true]) {
+      for (final count in [1, 15, 99, 150]) {
+        testWidgets(
+            'the History icon stays put under a badge of $count '
+            '(${selected ? 'selected' : 'unselected'})', (tester) async {
+          final glyph = find.byIcon(
+              selected ? Icons.receipt_long : Icons.receipt_long_outlined);
+
+          await pumpPill(tester, 0, current: selected ? 1 : 0);
+          final without = tester.getCenter(glyph);
+
+          await pumpPill(tester, count, current: selected ? 1 : 0);
+          await tester.pumpAndSettle();
+          expect(tester.getCenter(glyph), offsetMoreOrLessEquals(without, epsilon: 0.01));
+
+          // And the badge rides on the glyph, not on the far corner of its cell.
+          final badge = tester.getCenter(find.byType(Badge));
+          expect((badge - without).dx.abs(), lessThan(20));
+          expect((badge - without).dy.abs(), lessThan(20));
+        });
+      }
+    }
 
     testWidgets('a screen reader hears the count after the label',
         (tester) async {

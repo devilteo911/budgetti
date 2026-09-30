@@ -232,8 +232,15 @@ class FloatingPillNav extends StatelessWidget {
 
   /// The slot's Semantics label already carries the count in words; the badge's
   /// own "3" would be read a second time.
+  ///
+  /// Badge is a Stack that aligns its child top-start, so handed the cell's tight
+  /// constraints it parked the glyph in the cell's corner. The Center gives it
+  /// loose ones: the Badge shrinks to the glyph, which stays where an unbadged
+  /// one sits, and the count only overlays its corner.
   static Widget _badged(int count, Widget icon) => count > 0
-      ? ExcludeSemantics(child: Badge.count(count: count, child: icon))
+      ? Center(
+          child: ExcludeSemantics(child: Badge.count(count: count, child: icon)),
+        )
       : icon;
 
   int? _slotIndexForBranch(int branchIndex) {
