@@ -527,7 +527,8 @@ class _SkippedCard extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: Text(item.emailSubject),
         content: SingleChildScrollView(
-          child: Text(
+          // Selectable: this text is what the parser gets taught from.
+          child: SelectableText(
             item.rawSnippet.isEmpty
                 ? context.l10n.txNoContent
                 : item.rawSnippet,

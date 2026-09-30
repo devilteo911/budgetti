@@ -157,6 +157,23 @@ void main() {
   // What the push actually said, so a wrong merchant or amount is visible
   // without opening anything — but only where the snippet is readable: a Widiba
   // draft's snippet is the email greeting, a statement row's is a CSV line.
+  // A message the parser couldn't read is the owner's only source for teaching
+  // it the template: the text has to be copyable.
+  testWidgets('the unreadable-message dialog shows selectable text',
+      (tester) async {
+    await pumpInbox(tester,
+        status: 'skipped',
+        amount: 0,
+        type: 'undecided',
+        rawSnippet: 'Revolut ⟂ Pagamento in elaborazione');
+
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    final text = tester.widget<SelectableText>(find.byType(SelectableText));
+    expect(text.data, 'Revolut ⟂ Pagamento in elaborazione');
+  });
+
   group('raw text under the description', () {
     const push = 'Revolut ⟂ Hai speso €12,50 presso LO CHEF';
 
