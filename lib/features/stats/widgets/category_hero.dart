@@ -45,10 +45,7 @@ class CategoryHero extends ConsumerWidget {
     final double avg;
     final String avgLabel;
     if (isMonthly) {
-      final days = (period.year == now.year && period.month == now.month)
-          ? now.day
-          : DateTime(period.year, period.month! + 1, 0).day;
-      avg = days > 0 ? total / days : 0;
+      avg = total / daysInPeriod(period, now: now);
       avgLabel = context.l10n.statsDailyAvg;
     } else {
       final monthsElapsed = period.year == now.year ? now.month : 12;

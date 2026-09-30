@@ -31,12 +31,7 @@ class StatsHero extends ConsumerWidget {
         0.0;
     final netFlow = totalEarned - totalExpenses;
 
-    final daysToDivide = isMonthly
-        ? (period.year == now.year && period.month == now.month
-            ? now.day
-            : DateTime(period.year, period.month! + 1, 0).day)
-        : 365;
-    final dailyAvg = totalExpenses / daysToDivide;
+    final dailyAvg = totalExpenses / daysInPeriod(period, now: now);
 
     final monthKey = DateFormat('yyyy-MM').format(now);
     final currentMonthSpent =
@@ -57,7 +52,8 @@ class StatsHero extends ConsumerWidget {
     final heroValue = switch (scope) {
       StatsScope.expenses => totalExpenses,
       StatsScope.income => totalEarned,
-      StatsScope.all => totalEarned + totalExpenses,
+      // Net, as the kicker says: earned + spent was gross volume.
+      StatsScope.all => netFlow,
     };
 
     return Padding(
@@ -79,12 +75,20 @@ class StatsHero extends ConsumerWidget {
                 value: currency.format(dailyAvg),
                 valueColor: scheme.onSurface,
               ),
-              _SecondaryStat(
-                label: context.l10n.statsNetFlow.toUpperCase(),
-                value: (netFlow >= 0 ? '+' : '') + currency.format(netFlow),
-                valueColor:
-                    netFlow >= 0 ? scheme.primary : scheme.error,
-              ),
+              // The net-activity hero already is the net flow; show what came
+              // in instead of repeating it.
+              if (scope == StatsScope.all)
+                _SecondaryStat(
+                  label: context.l10n.statsTotalEarned.toUpperCase(),
+                  value: currency.format(totalEarned),
+                  valueColor: scheme.primary,
+                )
+              else
+                _SecondaryStat(
+                  label: context.l10n.statsNetFlow.toUpperCase(),
+                  value: (netFlow >= 0 ? '+' : '') + currency.format(netFlow),
+                  valueColor: netFlow >= 0 ? scheme.primary : scheme.error,
+                ),
               if (showPrediction)
                 _SecondaryStat(
                   label: context.l10n.statsPredicted.toUpperCase(),

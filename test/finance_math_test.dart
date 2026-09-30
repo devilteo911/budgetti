@@ -197,6 +197,34 @@ void main() {
     });
   });
 
+  group('daysInPeriod', () {
+    test('the running year counts to today, not 365', () {
+      // Aug 20 = 31+28+31+30+31+30+31+20; dividing a part-year by 365 made
+      // the daily average look 37% smaller than it is.
+      expect(daysInPeriod(StatsPeriod(year: 2026), now: _now), 232);
+    });
+
+    test('a finished year is 365 or 366', () {
+      expect(daysInPeriod(StatsPeriod(year: 2025), now: _now), 365);
+      expect(daysInPeriod(StatsPeriod(year: 2024), now: _now), 366);
+    });
+
+    test('a month counts to today when running, else its full length', () {
+      expect(daysInPeriod(StatsPeriod(year: 2026, month: 8), now: _now), 20);
+      expect(daysInPeriod(StatsPeriod(year: 2026, month: 7), now: _now), 31);
+      expect(daysInPeriod(StatsPeriod(year: 2024, month: 2), now: _now), 29);
+    });
+
+    test('a DST change inside the year does not eat a day', () {
+      // Local difference() across the March clock change is 23h short in
+      // Europe/Rome and inDays floors it to 88.
+      expect(
+        daysInPeriod(StatsPeriod(year: 2026), now: DateTime(2026, 3, 30, 12)),
+        89,
+      );
+    });
+  });
+
   group('chartSeries', () {
     test('weekly buckets start on Monday', () {
       // 2026-08-20 is a Thursday; its week starts Monday 2026-08-17.

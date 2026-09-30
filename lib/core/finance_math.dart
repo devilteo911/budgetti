@@ -196,6 +196,24 @@ class StatsData {
   });
 }
 
+/// How many days [period] has run: to today (inclusive) while it is still
+/// going, its full length once it is over. The divisor for a daily average —
+/// a flat 365 understated the running year by however much of it is left.
+///
+/// Counted on `DateTime.utc` dates: a local `difference().inDays` across a DST
+/// change is a day short.
+int daysInPeriod(StatsPeriod period, {DateTime? now}) {
+  final ref = now ?? DateTime.now();
+  final start = DateTime.utc(period.year, period.month ?? 1, 1);
+  final end = period.month == null
+      ? DateTime.utc(period.year + 1, 1, 1)
+      : DateTime.utc(period.year, period.month! + 1, 1);
+  final tomorrow = DateTime.utc(ref.year, ref.month, ref.day + 1);
+  final upTo =
+      tomorrow.isAfter(start) && tomorrow.isBefore(end) ? tomorrow : end;
+  return upTo.difference(start).inDays;
+}
+
 /// Category, tag and per-month totals for the rows of [period].
 ///
 /// Filters by [period] itself rather than trusting the caller's query, which
