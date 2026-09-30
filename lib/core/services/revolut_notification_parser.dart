@@ -56,10 +56,10 @@ class RevolutNotificationParser {
 
     return ParsedBankDraft(
       amount: type == 'income' ? amount : -amount,
-      description: [
-        counterparty ?? revolutFallbackDescription,
-        if (currency != 'EUR') '$rawAmount $currency',
-      ].join(' · '),
+      description: currency == 'EUR'
+          ? counterparty ?? revolutFallbackDescription
+          : withForeignAmount(
+              counterparty ?? revolutFallbackDescription, rawAmount, currency),
       date: when.toLocal(),
       type: type,
       counterparty: counterparty,
