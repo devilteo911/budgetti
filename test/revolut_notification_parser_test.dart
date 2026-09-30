@@ -101,6 +101,45 @@ void main() {
     });
   });
 
+  // A merchant is free text: "Ricarica Telefonica" carries the income verb
+  // 'ricarica', and the direction must come from the sentence around the amount,
+  // not from a word in the merchant's name.
+  group('direction comes from the sentence, not the merchant', () {
+    test('a purchase at a merchant named like an income verb is an expense', () {
+      final r = run('Revolut', 'Hai pagato 10,00 € presso Ricarica Telefonica');
+
+      expect(r!.type, 'expense');
+      expect(r.amount, -10.0);
+      expect(r.counterparty, 'Ricarica Telefonica');
+    });
+
+    test('same when the merchant is the title and the body has the verb', () {
+      final r = run('Ricarica Telefonica', 'Hai pagato 10 €');
+
+      expect(r!.type, 'expense');
+      expect(r.amount, -10.0);
+    });
+
+    test('a verb after the amount still counts ("€100,00 ricevuti")', () {
+      final r = run('Revolut', '100,00 € ricevuti');
+
+      expect(r!.type, 'income');
+      expect(r.amount, 100.0);
+    });
+
+    test('a verb only in the title still counts', () {
+      expect(run('Rimborso ricevuto', '€15,00')!.type, 'income');
+    });
+
+    test('a merchant with an expense verb in its name does not flip an income',
+        () {
+      // "Pagamento" in a payer's name must not beat "ricevuto".
+      final r = run('Revolut', 'Hai ricevuto €50,00 da Pagamento Srl');
+
+      expect(r!.type, 'income');
+    });
+  });
+
   group('amount formats', () {
     test('italian thousands with cents', () {
       expect(run('Revolut', 'Hai speso €1.234,56 presso Ikea')!.amount,

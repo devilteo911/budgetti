@@ -48,7 +48,7 @@ class RevolutNotificationParser {
     if (amount == null || amount == 0) return null;
 
     final counterparty = _counterparty(haystack, match.end, title);
-    final type = _type(haystack);
+    final type = _type(haystack, title, text);
 
     return ParsedBankDraft(
       amount: type == 'income' ? amount : -amount,
@@ -96,16 +96,34 @@ class RevolutNotificationParser {
   /// Direction from the wording. Verbs beat positional hints in both
   /// directions, because the hints are ambiguous on their own: "Prelievo da
   /// ATM" contains " da " but is money out, and its verb is what settles it.
-  /// Within each tier income wins, so "pagamento ricevuto" reads as money in.
-  String _type(String haystack) {
-    if (_incomeVerbs.any(haystack.contains)) return 'income';
-    if (_expenseVerbs.any(haystack.contains)) return 'expense';
+  /// Within each zone income wins, so "pagamento ricevuto" reads as money in.
+  ///
+  /// The zones are the sentence, not the merchant: the body up to where the
+  /// merchant begins, then the title. A merchant is free text ("Ricarica
+  /// Telefonica" holds the income verb 'ricarica'), so "Hai pagato 10 € presso
+  /// Ricarica Telefonica" must read as the payment it is. The body is cut at the
+  /// merchant marker AFTER the amount, never at the amount itself: "€100,00
+  /// ricevuti" keeps its verb.
+  String _type(String haystack, String title, String text) {
+    final body = _haystack('', text);
+    final amountEnd = _amountRe.firstMatch(body)?.end ?? 0;
+    final marker = _merchantMarkerRe.firstMatch(body.substring(amountEnd));
+    final sentence =
+        marker == null ? body : body.substring(0, amountEnd + marker.start);
+
+    for (final zone in [sentence, _haystack(title, '')]) {
+      if (_incomeVerbs.any(zone.contains)) return 'income';
+      if (_expenseVerbs.any(zone.contains)) return 'expense';
+    }
     if (_incomeHints.any(haystack.contains)) return 'income';
     if (_expenseHints.any(haystack.contains)) return 'expense';
     // ponytail: unmarked notifications are card spends in practice. If income
     // templates without an income verb show up, switch this to 'undecided'.
     return 'expense';
   }
+
+  /// Where the merchant begins: the same words the counterparty is read from.
+  static final _merchantMarkerRe = RegExp(r' (?:presso|at|from|da|to) ');
 
   /// The name after the amount ("… presso LO CHEF", "… at Tesco", "… · Amazon"),
   /// else the title when it carries something more specific than the app name.
