@@ -2678,6 +2678,12 @@ abstract class AppLocalizations {
   /// **'Enter description'**
   String get txEnterDescription;
 
+  /// No description provided for @txEditAndApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit and approve'**
+  String get txEditAndApprove;
+
   /// No description provided for @txError.
   ///
   /// In en, this message translates to:

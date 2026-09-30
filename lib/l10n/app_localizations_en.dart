@@ -1448,6 +1448,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get txEnterDescription => 'Enter description';
 
   @override
+  String get txEditAndApprove => 'Edit and approve';
+
+  @override
   String txError(String error) {
     return 'Error: $error';
   }

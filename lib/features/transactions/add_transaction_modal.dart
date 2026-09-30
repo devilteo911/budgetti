@@ -23,10 +23,22 @@ class AddTransactionModal extends ConsumerStatefulWidget {
   final Transaction? transaction;
   final bool triggerScan;
 
+  /// A new transaction that starts from these values (the inbox's edit-and-
+  /// approve). Not an edit: [transaction] stays the only thing that makes it one.
+  /// An empty wallet or category, or a zero amount, is left for the user or the
+  /// defaults to fill.
+  final Transaction? prefill;
+
+  /// Replaces the plain insert/update on save. Everything after it — budget
+  /// alerts, invalidations, sheets sync, closing, the snackbar — still runs.
+  final Future<void> Function(Transaction)? onSave;
+
   const AddTransactionModal({
     super.key,
     this.transaction,
     this.triggerScan = false,
+    this.prefill,
+    this.onSave,
   });
 
   @override
@@ -77,15 +89,17 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       );
     });
 
-    if (widget.transaction != null) {
-      final t = widget.transaction!;
-      _amountController.text = t.amount.abs().toString();
+    final t = widget.transaction ?? widget.prefill;
+    if (t != null) {
+      _amountController.text = widget.transaction != null
+          ? t.amount.abs().toString()
+          : (t.amount == 0 ? '' : t.amount.abs().toStringAsFixed(2));
       _descriptionController.text = t.description;
-      _selectedCategory = t.category;
+      _selectedCategory = t.category.isEmpty ? null : t.category;
       _selectedDate = t.date;
       _type = t.type;
       _selectedTags = List.from(t.tags);
-      _selectedAccountId = t.accountId;
+      _selectedAccountId = t.accountId.isEmpty ? null : t.accountId;
       _selectedToAccountId = t.toAccountId;
       _selectedInstallmentId = t.installmentId;
     }
@@ -105,10 +119,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
         setState(() {});
       }
 
-      if (_type != 'transfer' && _selectedCategory == null) {
+      if (_type != 'transfer') {
         final categories = ref.read(categoriesProvider).value ?? [];
         final filtered = categories.where((c) => c.type == _type).toList();
-        if (filtered.isNotEmpty) {
+        // Also when the category is no longer live (a draft's suggestion deleted
+        // since capture): the row shows the first live one, so save that rather
+        // than a dead name the row never displayed.
+        if (filtered.isNotEmpty &&
+            !filtered.any((c) => c.name == _selectedCategory)) {
           _selectedCategory = filtered.first.name;
           setState(() {});
         }
@@ -195,7 +213,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     // each inserting its own row.
     setState(() => _saving = true);
     try {
-      if (widget.transaction != null) {
+      if (widget.onSave != null) {
+        await widget.onSave!(transaction);
+      } else if (widget.transaction != null) {
         await service.updateTransaction(transaction);
       } else {
         await service.addTransaction(transaction);

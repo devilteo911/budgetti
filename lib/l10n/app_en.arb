@@ -430,6 +430,7 @@
   "txEmail": "Email",
   "txEnterAmount": "Enter amount",
   "txEnterDescription": "Enter description",
+  "txEditAndApprove": "Edit and approve",
   "txError": "Error: {error}",
   "txErrorLoadingAccounts": "Error loading accounts: {error}",
   "txErrorLoadingCategories": "Error loading categories: {error}",

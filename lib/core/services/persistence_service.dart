@@ -74,6 +74,17 @@ class PersistenceService {
   Future<void> setRevolutSyncEnabled(bool enabled) =>
       _prefs.setBool(_revolutSyncEnabledKey, enabled);
 
+  // Bank-capture source -> wallet the owner books it into, when the wallet's
+  // name can't say so. Only written when the owner chose against the name match
+  // (see PendingTransactionService.resolveAccountIdForSource); null clears it.
+  static const _sourceWalletKeyPrefix = 'bank_source_wallet_';
+
+  String? getSourceWalletId(String source) =>
+      _prefs.getString('$_sourceWalletKeyPrefix$source');
+  Future<void> setSourceWalletId(String source, String? id) => id == null
+      ? _prefs.remove('$_sourceWalletKeyPrefix$source')
+      : _prefs.setString('$_sourceWalletKeyPrefix$source', id);
+
   /// First line of why the last auto-backup failed; null after a success.
   String? getLastAutoBackupError() => _prefs.getString(_lastAutoBackupErrorKey);
   Future<void> setLastAutoBackupError(String? error) => error == null

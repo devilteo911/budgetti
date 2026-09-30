@@ -5,10 +5,12 @@ import 'package:budgetti/core/services/bank_sync_service.dart'
     show duplicateThreshold;
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart';
+import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart' as sqlite3open;
 
 // `flutter test` runs in the VM without sqlite3_flutter_libs' bundled native,
@@ -32,6 +34,9 @@ Future<void> _insertDraft(
   double amount = -10,
   String description = 'Coffee',
   String type = 'expense',
+  String status = 'pending',
+  String source = 'widiba',
+  String? suggestedCategory,
   String? duplicateOfId,
   double? duplicateScore,
 }) =>
@@ -46,6 +51,9 @@ Future<void> _insertDraft(
             parsedDate: _day,
             createdAt: _day,
             suggestedType: Value(type),
+            status: Value(status),
+            source: Value(source),
+            suggestedCategory: Value(suggestedCategory),
             duplicateOfId: Value(duplicateOfId),
             duplicateScore: Value(duplicateScore),
           ),
@@ -96,6 +104,45 @@ Future<void> _insertCategory(AppDatabase db, String name,
   addTearDown(db.close);
   return (db, PendingTransactionService(db, FinanceService(db, 'user-a')));
 }
+
+Future<void> _insertAccount(AppDatabase db, String id, String name,
+        {bool deleted = false}) =>
+    db.into(db.accounts).insert(AccountsCompanion.insert(
+          id: id,
+          userId: const Value('user-a'),
+          name: name,
+          isDeleted: Value(deleted),
+        ));
+
+/// Same as [_setup] plus the prefs the wallet memory lives in.
+Future<(AppDatabase, PendingTransactionService, PersistenceService)>
+    _setupWithPrefs() async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = PersistenceService(await SharedPreferences.getInstance());
+  final db = AppDatabase.forExecutor(NativeDatabase.memory());
+  addTearDown(db.close);
+  return (
+    db,
+    PendingTransactionService(db, FinanceService(db, 'user-a'), prefs),
+    prefs,
+  );
+}
+
+model.Transaction _edited({
+  String accountId = 'wallet',
+  double amount = -12.5,
+  String description = 'Edited by hand',
+  String type = 'expense',
+}) =>
+    model.Transaction(
+      id: 'edited-tx',
+      accountId: accountId,
+      amount: amount,
+      date: _day,
+      description: description,
+      category: 'Treats',
+      type: type,
+    );
 
 void main() {
   setUpAll(_ensureSqlite);
@@ -313,6 +360,208 @@ void main() {
       await service.setSuggestedCategory('pending_x', 'Treats');
 
       expect((await _draft(db)).suggestedCategory, 'Treats');
+    });
+  });
+
+  // B2: "modifica e approva" — the owner finishes a draft by hand (or a raw
+  // unrecognised message) and the result is booked in one step.
+  group('approveWith (edit and approve)', () {
+    test('books the edited transaction and marks the draft approved', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db);
+
+      final ok = await service.approveWith('pending_x', _edited());
+
+      expect(ok, isTrue);
+      final booked = await db.select(db.transactions).getSingle();
+      expect(booked.id, 'edited-tx');
+      expect(booked.description, 'Edited by hand');
+      expect(booked.amount, -12.5);
+      expect((await _draft(db)).status, 'approved');
+    });
+
+    test('twice books one transaction, the second call reports false', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db);
+
+      final first = await service.approveWith('pending_x', _edited());
+      final second = await service.approveWith('pending_x', _edited());
+
+      expect([first, second], [true, false]);
+      expect(await db.select(db.transactions).get(), hasLength(1));
+    });
+
+    test('an unrecognised message (skipped) can be finished by hand', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db, status: 'skipped', amount: 0, type: 'undecided');
+
+      expect(await service.approveWith('pending_x', _edited()), isTrue);
+
+      // Approved, so a later sync pass stops retrying the raw message.
+      expect((await _draft(db)).status, 'approved');
+      expect(await db.select(db.transactions).get(), hasLength(1));
+    });
+
+    test('a rejected or already approved draft is not booked', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db, id: 'rej', status: 'rejected');
+      await _insertDraft(db, id: 'app', status: 'approved');
+      await _insertDraft(db, id: 'ign', status: 'ignored');
+
+      expect(await service.approveWith('rej', _edited()), isFalse);
+      expect(await service.approveWith('app', _edited()), isFalse);
+      expect(await service.approveWith('ign', _edited()), isFalse);
+      expect(await db.select(db.transactions).get(), isEmpty);
+    });
+
+    test('an explicit choice is not second-guessed by the duplicate recheck',
+        () async {
+      final (db, service) = _setup();
+      await _insertDraft(db);
+      await _insertTx(db); // a twin: approve() would stop here
+
+      expect(await service.approveWith('pending_x', _edited()), isTrue);
+      expect(await db.select(db.transactions).get(), hasLength(2));
+    });
+  });
+
+  group('draftPrefill', () {
+    Future<PendingTransaction> draft(AppDatabase db, {String id = 'pending_x'}) =>
+        _draft(db, id);
+
+    test('an expense draft opens as a negative expense with its own fields',
+        () async {
+      final (db, _) = _setup();
+      await _insertDraft(db, suggestedCategory: 'Dining');
+
+      final t = draftPrefill(await draft(db), accountId: 'w1');
+
+      expect(
+          (t.type, t.amount, t.description, t.date, t.accountId, t.category),
+          ('expense', -10.0, 'Coffee', _day, 'w1', 'Dining'));
+    });
+
+    test('an income draft opens positive', () async {
+      final (db, _) = _setup();
+      await _insertDraft(db, type: 'income', amount: 42.5);
+
+      final t = draftPrefill(await draft(db));
+
+      expect((t.type, t.amount), ('income', 42.5));
+    });
+
+    test('an undecided draft (Widiba SEPA out) opens as an expense', () async {
+      final (db, _) = _setup();
+      await _insertDraft(db, type: 'undecided', amount: -80);
+
+      final t = draftPrefill(await draft(db));
+
+      expect((t.type, t.amount), ('expense', -80.0));
+    });
+
+    test('an unrecognised message opens with an empty amount, its receipt date '
+        'and subject', () async {
+      final (db, _) = _setup();
+      await _insertDraft(db,
+          status: 'skipped', amount: 0, type: 'undecided', description: 'Weird');
+      final row = await draft(db);
+
+      final t = draftPrefill(row);
+
+      expect(t.amount, 0); // the sheet renders 0 as an empty field
+      expect(t.date, row.emailReceivedAt);
+      expect(t.description, 'Weird');
+    });
+
+    test('an unknown wallet or category is empty, for the sheet to default',
+        () async {
+      final (db, _) = _setup();
+      await _insertDraft(db);
+
+      final t = draftPrefill(await draft(db));
+
+      expect((t.accountId, t.category), ('', ''));
+    });
+  });
+
+  // B2 wallet memory: a source whose wallet can't be deduced from its name is
+  // asked once, not on every draft — but only what the owner chose against the
+  // deduction is remembered, so one mis-tap can't stick.
+  group('source wallet memory', () {
+    test('the remembered wallet wins over the name match', () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertAccount(db, 'other', 'Pocket');
+      await prefs.setSourceWalletId('revolut', 'other');
+
+      expect(await service.resolveAccountIdForSource('revolut'), 'other');
+    });
+
+    test('a remembered wallet that was deleted is ignored', () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertAccount(db, 'gone', 'Old', deleted: true);
+      await prefs.setSourceWalletId('revolut', 'gone');
+
+      expect(await service.resolveAccountIdForSource('revolut'), 'rev');
+    });
+
+    test('a wallet the owner picked against the deduction is remembered',
+        () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertAccount(db, 'other', 'Pocket');
+      await _insertDraft(db, source: 'revolut');
+
+      await service.approveWith('pending_x', _edited(accountId: 'other'));
+
+      expect(prefs.getSourceWalletId('revolut'), 'other');
+    });
+
+    test('picking the deduced wallet again clears the memory', () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertAccount(db, 'other', 'Pocket');
+      await prefs.setSourceWalletId('revolut', 'other');
+      await _insertDraft(db, source: 'revolut');
+
+      await service.approveWith('pending_x', _edited(accountId: 'rev'));
+
+      expect(prefs.getSourceWalletId('revolut'), isNull);
+      expect(await service.resolveAccountIdForSource('revolut'), 'rev');
+    });
+
+    test('the deduced wallet is never written down', () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertDraft(db, source: 'revolut');
+
+      await service.approveWith('pending_x', _edited(accountId: 'rev'));
+
+      expect(prefs.getSourceWalletId('revolut'), isNull);
+    });
+
+    test('the plain Approva picker (no wallet matches the source) remembers '
+        'its pick', () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'other', 'Pocket');
+      await _insertDraft(db, source: 'revolut');
+      expect(await service.resolveAccountIdForSource('revolut'), isNull);
+
+      await service.approve(await _draft(db),
+          type: 'expense', accountId: 'other');
+
+      expect(prefs.getSourceWalletId('revolut'), 'other');
+      expect(await service.resolveAccountIdForSource('revolut'), 'other');
+    });
+
+    test('a memory of another source is not consulted', () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertAccount(db, 'other', 'Pocket');
+      await prefs.setSourceWalletId('widiba', 'other');
+
+      expect(await service.resolveAccountIdForSource('revolut'), 'rev');
     });
   });
 

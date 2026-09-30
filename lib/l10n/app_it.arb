@@ -430,6 +430,7 @@
   "txEmail": "Email",
   "txEnterAmount": "Inserisci l'importo",
   "txEnterDescription": "Inserisci una descrizione",
+  "txEditAndApprove": "Modifica e approva",
   "txError": "Errore: {error}",
   "txErrorLoadingAccounts": "Errore nel caricamento dei conti: {error}",
   "txErrorLoadingCategories": "Errore nel caricamento delle categorie: {error}",

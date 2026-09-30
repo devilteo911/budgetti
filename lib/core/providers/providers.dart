@@ -222,7 +222,11 @@ final pendingTransactionServiceProvider = Provider<PendingTransactionService>((
 ) {
   final db = ref.watch(databaseProvider);
   final finance = ref.watch(financeServiceProvider);
-  return PendingTransactionService(db, finance);
+  return PendingTransactionService(
+    db,
+    finance,
+    ref.watch(persistenceServiceProvider),
+  );
 });
 
 /// Live list of email-derived drafts awaiting review.

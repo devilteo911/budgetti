@@ -4,9 +4,12 @@ import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
+import 'package:budgetti/core/services/pending_transaction_service.dart'
+    show draftPrefill;
 import 'package:budgetti/core/widgets/app_sheet.dart';
 import 'package:budgetti/core/widgets/category_picker_sheet.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
+import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -70,6 +73,34 @@ class EmailInboxScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Opens the add-transaction sheet on a draft's values; saving books what the
+/// owner finished there instead of the parsed draft ("modifica e approva"). The
+/// same door for a parsed draft and for a raw unrecognised message.
+Future<void> _editAndApprove(
+  BuildContext context,
+  WidgetRef ref,
+  PendingTransaction draft,
+) async {
+  // Captured before any await: the card may be gone once the draft is booked.
+  final service = ref.read(pendingTransactionServiceProvider);
+  final accountId = await service.resolveAccountIdForSource(draft.source);
+  if (!context.mounted) return;
+  await showAppSheet<void>(
+    context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => AddTransactionModal(
+      prefill: draftPrefill(draft, accountId: accountId),
+      onSave: (tx) async {
+        // False = handled meanwhile: fail loudly rather than pretend it booked.
+        if (!await service.approveWith(draft.id, tx)) {
+          throw StateError('draft ${draft.id} was already handled');
+        }
+      },
+    ),
+  );
 }
 
 /// Human name of a draft's capture source, shown so the user can tell which
@@ -196,7 +227,13 @@ class _DraftCard extends ConsumerWidget {
                   child: Text(context.l10n.txIgnore),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                tooltip: context.l10n.txEditAndApprove,
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => _editAndApprove(context, ref, draft),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: FilledButton(
                   onPressed: () => _approve(context, ref),
@@ -437,7 +474,13 @@ class _SkippedCard extends ConsumerWidget {
                   child: Text(context.l10n.txIgnore),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                tooltip: context.l10n.txEditAndApprove,
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => _editAndApprove(context, ref, item),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: FilledButton.tonal(
                   onPressed: () => _showSnippet(context),
