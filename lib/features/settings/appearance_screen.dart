@@ -2,6 +2,7 @@ import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:budgetti/features/settings/widgets/appearance_selectors.dart';
 import 'package:budgetti/features/settings/widgets/settings_scaffold.dart';
 import 'package:budgetti/features/settings/widgets/settings_section.dart';
 import 'package:flutter/material.dart';
@@ -24,22 +25,10 @@ class AppearanceScreen extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<String>(
-                  segments: [
-                    ButtonSegment(
-                      value: 'system',
-                      label: Text(context.l10n.commonSystem),
-                      icon: const Icon(Icons.language),
-                    ),
-                    ButtonSegment(value: 'it', label: Text('Italiano')),
-                    ButtonSegment(value: 'en', label: Text('English')),
-                  ],
-                  selected: {ref.watch(localeSettingsProvider).language},
-                  onSelectionChanged: (s) =>
-                      ref.read(localeSettingsProvider.notifier).setLanguage(s.first),
-                ),
+              child: LanguageSelector(
+                value: ref.watch(localeSettingsProvider).language,
+                onChanged: (l) =>
+                    ref.read(localeSettingsProvider.notifier).setLanguage(l),
               ),
             ),
           ],
@@ -113,29 +102,9 @@ class AppearanceScreen extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<ThemeMode>(
-                  segments: [
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      label: Text(context.l10n.commonSystem),
-                      icon: const Icon(Icons.brightness_auto),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      label: Text(context.l10n.setThemeLight),
-                      icon: const Icon(Icons.light_mode),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      label: Text(context.l10n.setThemeDark),
-                      icon: const Icon(Icons.dark_mode),
-                    ),
-                  ],
-                  selected: {settings.mode},
-                  onSelectionChanged: (s) => notifier.setMode(s.first),
-                ),
+              child: ThemeModeSelector(
+                value: settings.mode,
+                onChanged: notifier.setMode,
               ),
             ),
           ],
