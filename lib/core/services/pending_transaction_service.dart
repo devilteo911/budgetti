@@ -130,7 +130,10 @@ class PendingTransactionService {
 
   /// The existing transaction a draft was flagged against, for the compare UI.
   Future<Transaction?> getTransactionById(String id) {
-    return (_db.select(_db.transactions)..where((t) => t.id.equals(id)))
+    // A deleted twin is no evidence of a duplicate: the notice must not point
+    // at a row the owner already removed.
+    return (_db.select(_db.transactions)
+          ..where((t) => t.id.equals(id) & t.isDeleted.equals(false)))
         .getSingleOrNull();
   }
 

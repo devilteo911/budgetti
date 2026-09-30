@@ -213,4 +213,11 @@ void main() {
       expect(await db.select(db.transactions).get(), hasLength(1));
     });
   });
+
+  test('the compare sheet never resolves to a deleted transaction', () async {
+    final (db, service) = _setup();
+    await _insertTx(db, isDeleted: true);
+
+    expect(await service.getTransactionById('tx-existing'), isNull);
+  });
 }
