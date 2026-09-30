@@ -1,3 +1,4 @@
+import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/l10n/app_localizations_en.dart';
 import 'package:budgetti/l10n/app_localizations_it.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,5 +20,13 @@ void main() {
     expect(en.notifEmailExpense, 'Payment to review');
     expect(en.notifEmailIncome, 'Credit to review');
     expect(en.notifEmailReview, 'Transfer to review');
+  });
+
+  // A busy morning of captures should collapse into one stack in the shade, not
+  // a column of separate cards.
+  test('every capture notification joins one group', () {
+    expect(bankDraftNotificationDetails.android!.groupKey, bankDraftsGroupKey);
+    expect(bankDraftNotificationDetails.iOS!.threadIdentifier, bankDraftsGroupKey);
+    expect(bankDraftsGroupKey, 'bank_drafts');
   });
 }

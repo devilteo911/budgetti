@@ -4,6 +4,33 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/foundation.dart';
 
+/// Every capture notification joins this group, so a busy morning collapses into
+/// one stack in the shade instead of a column of separate cards.
+///
+/// ponytail: no explicit summary notification — Android synthesises one for a
+/// group of four or more. If a device shows them unstacked, post one more
+/// notification with `groupKey: bankDraftsGroupKey, setAsGroupSummary: true`
+/// after the last capture.
+const bankDraftsGroupKey = 'bank_drafts';
+
+/// How a captured bank movement is announced.
+const bankDraftNotificationDetails = NotificationDetails(
+  android: AndroidNotificationDetails(
+    'email_transactions',
+    'Bank Email Transactions',
+    channelDescription: 'New transactions detected from bank emails',
+    importance: Importance.max,
+    priority: Priority.high,
+    groupKey: bankDraftsGroupKey,
+  ),
+  iOS: DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+    threadIdentifier: bankDraftsGroupKey,
+  ),
+);
+
 class NotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
@@ -224,25 +251,6 @@ class NotificationService {
     required String description,
     required String type,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'email_transactions',
-      'Bank Email Transactions',
-      channelDescription: 'New transactions detected from bank emails',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const NotificationDetails details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
     final l10n = await backgroundL10n();
     final String title = switch (type) {
       'income' => l10n.notifEmailIncome,
@@ -257,7 +265,7 @@ class NotificationService {
       pendingId.hashCode & 0x7fffffff,
       title,
       '$formattedAmount · $description',
-      details,
+      bankDraftNotificationDetails,
       payload: pendingId,
     );
   }
