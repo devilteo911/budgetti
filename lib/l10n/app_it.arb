@@ -236,6 +236,7 @@
   "setRestore": "Ripristina",
   "setCategoriesRestored": "Categorie predefinite ripristinate",
   "setTagsRestored": "Tag predefiniti ripristinati",
+  "setNothingToRestore": "Niente da ripristinare",
   "setDeleteCategoryTitle": "Eliminare la categoria?",
   "setDeleteTagTitle": "Elimina tag",
   "setDeleteWalletTitle": "Elimina portafoglio",

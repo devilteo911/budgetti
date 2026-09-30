@@ -58,11 +58,16 @@ class TagsScreen extends ConsumerWidget {
                 ),
               );
               if (confirm == true) {
-                await ref.read(financeServiceProvider).restoreDefaultTags();
+                final revived =
+                    await ref.read(financeServiceProvider).restoreDefaultTags();
                 ref.invalidate(tagsProvider);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.l10n.setTagsRestored)),
+                    SnackBar(
+                      content: Text(revived == 0
+                          ? context.l10n.setNothingToRestore
+                          : context.l10n.setTagsRestored),
+                    ),
                   );
                 }
               }

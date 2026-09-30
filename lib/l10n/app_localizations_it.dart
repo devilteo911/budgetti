@@ -804,6 +804,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get setTagsRestored => 'Tag predefiniti ripristinati';
 
   @override
+  String get setNothingToRestore => 'Niente da ripristinare';
+
+  @override
   String get setDeleteCategoryTitle => 'Eliminare la categoria?';
 
   @override

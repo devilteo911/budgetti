@@ -794,6 +794,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setTagsRestored => 'Default tags restored';
 
   @override
+  String get setNothingToRestore => 'Nothing to restore';
+
+  @override
   String get setDeleteCategoryTitle => 'Delete Category?';
 
   @override

@@ -1514,6 +1514,12 @@ abstract class AppLocalizations {
   /// **'Default tags restored'**
   String get setTagsRestored;
 
+  /// No description provided for @setNothingToRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to restore'**
+  String get setNothingToRestore;
+
   /// No description provided for @setDeleteCategoryTitle.
   ///
   /// In en, this message translates to:

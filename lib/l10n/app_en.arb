@@ -236,6 +236,7 @@
   "setRestore": "Restore",
   "setCategoriesRestored": "Default categories restored",
   "setTagsRestored": "Default tags restored",
+  "setNothingToRestore": "Nothing to restore",
   "setDeleteCategoryTitle": "Delete Category?",
   "setDeleteTagTitle": "Delete Tag",
   "setDeleteWalletTitle": "Delete Account",

@@ -77,14 +77,16 @@ class CategoriesScreen extends ConsumerWidget {
                 ),
               );
               if (confirm == true) {
-                await ref
+                final revived = await ref
                     .read(financeServiceProvider)
                     .restoreDefaultCategories();
                 ref.invalidate(categoriesProvider);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(context.l10n.setCategoriesRestored),
+                      content: Text(revived == 0
+                          ? context.l10n.setNothingToRestore
+                          : context.l10n.setCategoriesRestored),
                     ),
                   );
                 }
