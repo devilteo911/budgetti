@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/models/transaction.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 class ImportService {
-  Future<List<Transaction>> parseQifFile(File file) async {
-    final lines = await file.readAsLines();
+  Future<List<Transaction>> parseQifFile(File file) async =>
+      parseQif(await file.readAsLines());
+
+  List<Transaction> parseQif(List<String> lines) {
     final List<Transaction> transactions = [];
 
     DateTime? date;
@@ -28,6 +32,9 @@ class ImportService {
             id: const Uuid().v4(),
             accountId: '', // To be filled by user selection
             amount: amount,
+            // The sign decides; the model defaults to 'expense', which booked
+            // every incoming row as an expense.
+            type: amount < 0 ? 'expense' : 'income',
               date: _determineDate(memo, date) ?? DateTime.now(),
               description: _determineDescription(memo, payee),
             category: category ?? 'Uncategorized',
@@ -59,18 +66,13 @@ class ImportService {
              // We'll try a few common patterns.
              date = _parseDate(value);
            } catch (e) {
-             print('Error parsing date: $value - $e');
+             debugPrint('Error parsing date: $value - $e');
            }
           break;
         case 'T': // Amount
-          try {
-             // Remove commas for thousands, keeping dot/comma for decimal?
-             // Usually QIF uses English format (dot for decimal), but let's be safe.
-             // Standard QIF is typically -1,234.50
-             amount = double.tryParse(value.replaceAll(',', ''));
-          } catch (e) {
-             print('Error parsing amount: $value - $e');
-          }
+          // Comma or dot decimals, either thousands style; unreadable stays
+          // null and the record is skipped.
+          amount = parseAmount(value);
           break;
         case 'P': // Payee
           payee = value;
