@@ -5,10 +5,10 @@ import 'package:budgetti/core/constants/category_icons.dart';
 /// every surface that renders it, and money reads the same way everywhere.
 ///
 /// Category colours mirror `web/src/finance.ts categoryColorMap` +
-/// `web/src/theme.css --cat-1..8` — expense categories take a palette slot by
-/// stable name order, income categories are always the positive green. The
-/// per-category `colorHex` in the database is deliberately NOT used for
-/// rendering: it holds raw Material 500 swatches (`#4CAF50`, `#2196F3`,
+/// `web/src/theme.css --cat-1..8` — an expense category takes the palette slot
+/// its id hashes to ([categorySlot]), income categories are always the positive
+/// green. The per-category `colorHex` in the database is deliberately NOT used
+/// for rendering: it holds raw Material 500 swatches (`#4CAF50`, `#2196F3`,
 /// `#FF9800`, …) picked one per category, which on a dark surface read as eight
 /// unrelated hues shouting at each other. `colorHex` stays authoritative for the
 /// category editor's own swatch, and stays synced, so nothing is lost.
@@ -16,15 +16,11 @@ import 'package:budgetti/core/constants/category_icons.dart';
 /// CVD-validated categorical ramp, re-stepped per brightness. Values come from
 /// `web/src/theme.css` so a category is the same hue on phone and dashboard.
 ///
-/// ponytail: slots 2 and 4 are both greens, so with more than ~8 expense
-/// categories two of them can read alike in a scanning list. The ramp is shared
-/// with the web and validated there, so it is not worth forking one side of it;
-/// re-step both files together if the collision starts costing reading time.
-///
-/// ponytail: a slot is an index into the *sorted* category list, so adding a
-/// category re-colours the ones after it. Same rule as the web, and it buys
-/// guaranteed-distinct colours for the first eight — a name hash would be stable
-/// but would collide inside those eight, which is the worse trade.
+/// ponytail: slots 2 and 4 are both greens, and the hash sends more than eight
+/// categories to shared slots, so two categories can read alike in a scanning
+/// list. The owner accepted that over a colour that moves when a neighbour is
+/// added; the ramp is shared with the web and validated there, so re-step both
+/// files together if the collisions start costing reading time.
 const List<Color> _catLight = [
   Color(0xFF2A78D6),
   Color(0xFF1BAF7A),
@@ -72,26 +68,42 @@ Color amountInk(
   return isIncome ? incomeInk(scheme.brightness) : scheme.onSurface;
 }
 
-/// name → colour for every category, expense slots assigned by stable name
-/// order exactly as the web does it.
+/// The palette slot (0–7) a category's id maps to: FNV-1a over the id's UTF-16
+/// code units, its high half folded into the low one, modulo 8. Stable across
+/// adds, removes and renames, because it reads nothing but the id.
 ///
-/// Ordering uses a case-folded compare rather than Dart's raw codepoint order,
-/// to stay in step with the web's `localeCompare`. The two can still disagree on
-/// accented names — a wrong-by-one slot is cosmetic, so it does not earn an
-/// ICU dependency here.
+/// MIRROR of `web/src/finance.ts categorySlot`, with the same test vectors
+/// (`test/ledger_style_test.dart`, `web/src/finance.test.ts`) — change one,
+/// change both, or a category is one colour on the phone and another on the
+/// dashboard. Ids are ASCII in practice; both sides hash code units so a
+/// non-ASCII id still agrees.
+int categorySlot(String id) {
+  var h = 0x811c9dc5;
+  for (final unit in id.codeUnits) {
+    h ^= unit;
+    h = (h * 0x01000193) & 0xFFFFFFFF;
+  }
+  return (h ^ (h >> 16)) % 8;
+}
+
+/// name → colour for every category. An expense takes the ramp slot its id
+/// hashes to; income is [incomeInk]. Transactions carry the category *name*, so
+/// twins under one name resolve to the first entry — the one the lists show.
 Map<String, Color> buildCategoryColors(
-  List<({String name, String type})> categories,
+  List<({String id, String name, String type})> categories,
   Brightness brightness,
 ) {
   final ramp = brightness == Brightness.dark ? _catDark : _catLight;
-  final expenses = categories.where((c) => c.type != 'income').toList()
-    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-
-  return {
-    for (final (i, c) in expenses.indexed) c.name: ramp[i % ramp.length],
-    for (final c in categories.where((c) => c.type == 'income'))
-      c.name: incomeInk(brightness),
-  };
+  final colors = <String, Color>{};
+  for (final c in categories) {
+    colors.putIfAbsent(
+      c.name,
+      () => c.type == 'income'
+          ? incomeInk(brightness)
+          : ramp[categorySlot(c.id)],
+    );
+  }
+  return colors;
 }
 
 /// Fallback for a category that is not in the list (deleted, or a transaction

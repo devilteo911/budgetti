@@ -688,7 +688,7 @@ final categoryColorCacheProvider =
     Provider.family<Map<String, Color>, Brightness>((ref, brightness) {
       final categories = ref.watch(categoriesProvider).value ?? [];
       return buildCategoryColors([
-        for (final c in categories) (name: c.name, type: c.type),
+        for (final c in categories) (id: c.id, name: c.name, type: c.type),
       ], brightness);
     });
 
