@@ -264,6 +264,17 @@ class _DraftCard extends ConsumerWidget {
       category: draft.suggestedCategory,
     );
 
+    if (tx == null) {
+      // A twin appeared since capture, or the draft was already handled. The
+      // card re-renders with the amber notice via the watchPending stream.
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.txNowLooksDuplicate)),
+        );
+      }
+      return;
+    }
+
     ref.invalidate(accountsProvider);
     ref.invalidate(transactionsProvider(null));
     if (type != 'transfer') {

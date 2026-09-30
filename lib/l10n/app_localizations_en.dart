@@ -1557,6 +1557,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get txNotification => 'Notification';
 
   @override
+  String get txNowLooksDuplicate =>
+      'It looks like a duplicate of a transaction already recorded — check it';
+
+  @override
   String txOcrError(String error) {
     return 'OCR Error: $error';
   }

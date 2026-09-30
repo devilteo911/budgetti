@@ -117,7 +117,12 @@ class BankSyncService {
         continue;
       }
 
-      final duplicate = await _findDuplicate(parsed);
+      final duplicate = await findDuplicate(
+        _db,
+        amount: parsed.amount,
+        description: parsed.description,
+        date: parsed.date,
+      );
 
       await _db.into(_db.pendingTransactions).insert(
             PendingTransactionsCompanion.insert(
@@ -200,7 +205,12 @@ class BankSyncService {
         continue;
       }
 
-      final duplicate = await _findDuplicate(parsed);
+      final duplicate = await findDuplicate(
+        _db,
+        amount: parsed.amount,
+        description: parsed.description,
+        date: parsed.date,
+      );
 
       await _db.into(_db.pendingTransactions).insert(
             PendingTransactionsCompanion.insert(
@@ -268,7 +278,12 @@ class BankSyncService {
       }
       existingIds.add(externalId);
 
-      final duplicate = await _findDuplicate(draft);
+      final duplicate = await findDuplicate(
+        _db,
+        amount: draft.amount,
+        description: draft.description,
+        date: draft.date,
+      );
 
       await _db.into(_db.pendingTransactions).insert(
             PendingTransactionsCompanion.insert(
@@ -409,43 +424,6 @@ class BankSyncService {
         .get();
     return rows.map((r) => r.read(col)!).toSet();
   }
-
-  /// Looks for an existing transaction the draft may be repeating: same
-  /// amount, within ±3 days, with date proximity and description similarity
-  /// combined into a confidence score. Returns the best match above threshold.
-  Future<DuplicateMatch?> _findDuplicate(ParsedBankDraft parsed) async {
-    final day =
-        DateTime(parsed.date.year, parsed.date.month, parsed.date.day);
-    final candidates = await (_db.select(_db.transactions)
-          ..where((t) =>
-              t.isDeleted.equals(false) &
-              t.date.isBetweenValues(
-                day.subtract(const Duration(days: 3)),
-                day.add(const Duration(days: 4)),
-              )))
-        .get();
-
-    DuplicateMatch? best;
-    for (final tx in candidates) {
-      if ((tx.amount.abs() - parsed.amount.abs()).abs() > 0.005) continue;
-      // Transfers carry no sign convention, everything else must agree.
-      if (tx.type != 'transfer' && tx.amount.sign != parsed.amount.sign) {
-        continue;
-      }
-
-      final score = duplicateConfidence(
-        draftDate: parsed.date,
-        draftDescription: parsed.description,
-        txDate: tx.date,
-        txDescription: tx.description,
-      );
-      if (score < duplicateThreshold) continue;
-      if (best == null || score > best.score) {
-        best = DuplicateMatch(tx.id, score);
-      }
-    }
-    return best;
-  }
 }
 
 /// What one statement import produced: the drafts to review, how many rows were
@@ -459,6 +437,47 @@ class RevolutImportResult {
     required this.duplicates,
     required this.unreadable,
   });
+}
+
+/// Looks for an existing transaction a draft may be repeating: same amount,
+/// within ±3 days, with date proximity and description similarity combined into
+/// a confidence score. Returns the best match above threshold. Top-level so the
+/// approve-time recheck ([PendingTransactionService.approve]) shares it with the
+/// three capture paths.
+Future<DuplicateMatch?> findDuplicate(
+  AppDatabase db, {
+  required double amount,
+  required String description,
+  required DateTime date,
+}) async {
+  final day = DateTime(date.year, date.month, date.day);
+  final candidates = await (db.select(db.transactions)
+        ..where((t) =>
+            t.isDeleted.equals(false) &
+            t.date.isBetweenValues(
+              day.subtract(const Duration(days: 3)),
+              day.add(const Duration(days: 4)),
+            )))
+      .get();
+
+  DuplicateMatch? best;
+  for (final tx in candidates) {
+    if ((tx.amount.abs() - amount.abs()).abs() > 0.005) continue;
+    // Transfers carry no sign convention, everything else must agree.
+    if (tx.type != 'transfer' && tx.amount.sign != amount.sign) continue;
+
+    final score = duplicateConfidence(
+      draftDate: date,
+      draftDescription: description,
+      txDate: tx.date,
+      txDescription: tx.description,
+    );
+    if (score < duplicateThreshold) continue;
+    if (best == null || score > best.score) {
+      best = DuplicateMatch(tx.id, score);
+    }
+  }
+  return best;
 }
 
 class DuplicateMatch {

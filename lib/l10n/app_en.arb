@@ -463,6 +463,7 @@
   "txNote": "Note",
   "txNoteHint": "What was this for?",
   "txNotification": "Notification",
+  "txNowLooksDuplicate": "It looks like a duplicate of a transaction already recorded — check it",
   "txOcrError": "OCR Error: {error}",
   "txPayment": "Payment",
   "txPossiblyAlreadyRecorded": "Possibly already recorded",

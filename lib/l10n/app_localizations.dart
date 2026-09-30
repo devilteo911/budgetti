@@ -2876,6 +2876,12 @@ abstract class AppLocalizations {
   /// **'Notification'**
   String get txNotification;
 
+  /// No description provided for @txNowLooksDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'It looks like a duplicate of a transaction already recorded — check it'**
+  String get txNowLooksDuplicate;
+
   /// No description provided for @txOcrError.
   ///
   /// In en, this message translates to:
