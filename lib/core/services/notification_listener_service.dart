@@ -45,31 +45,62 @@ class NotificationListenerService {
 
   Future<List<RawNotification>> pull() async {
     final dir = await getApplicationSupportDirectory();
-    final file = File('${dir.path}/$_bufferFile');
-    if (!await file.exists()) return const [];
-    final contents = await file.readAsString();
-    // Delete only after a successful decode: the buffer is the only copy of
-    // the captured pushes, and the listener's next write replaces the file
-    // wholesale — so a corrupt buffer left in place self-heals instead of
-    // being silently discarded.
-    if (contents.isEmpty) {
-      try {
-        await file.delete();
-      } catch (_) {}
-      return const [];
-    }
+    return drain(File('${dir.path}/$_bufferFile'));
+  }
+
+  /// Takes everything out of the listener's [buffer] file, exactly once.
+  ///
+  /// The buffer is the only copy of a captured push, and launch, resume,
+  /// pull-to-refresh and the background task all drain it. Reading it in place
+  /// and deleting it afterwards let a push the listener appended in between be
+  /// deleted unread, and let two drains both read the same file. So the buffer
+  /// is claimed first by renaming it to `<buffer>.draining` — atomic, so only
+  /// one caller wins and the listener's next push starts a fresh buffer — and
+  /// only then read and deleted.
+  ///
+  /// A claim that is still there was left by a drain that died before deleting
+  /// it: those pushes exist nowhere else, so it is finished first. A corrupt
+  /// claim or buffer cannot be recovered and is dropped rather than retried
+  /// forever (the listener writes atomically, so this is not expected).
+  ///
+  /// ponytail: drains inside one isolate are queued, which makes "exactly one
+  /// gets the pushes" deterministic there. Across isolates only the rename
+  /// protects, and a drain that starts while another isolate's claim is still
+  /// in flight may read it too: harmless, capture dedups by content hash.
+  static Future<List<RawNotification>> drain(File buffer) {
+    final run = _lane.then((_) => _drain(buffer));
+    _lane = run.then((_) {}, onError: (_) {});
+    return run;
+  }
+
+  static Future<void> _lane = Future.value();
+
+  static Future<List<RawNotification>> _drain(File buffer) async {
+    final claim = File('${buffer.path}.draining');
+    final out = await _takeClaim(claim);
     try {
-      final list = jsonDecode(contents) as List<dynamic>;
-      final parsed = list
+      await buffer.rename(claim.path);
+    } on FileSystemException {
+      return out; // no buffer, or another drain claimed it first
+    }
+    return [...out, ...await _takeClaim(claim)];
+  }
+
+  static Future<List<RawNotification>> _takeClaim(File claim) async {
+    if (!await claim.exists()) return const [];
+    try {
+      final contents = await claim.readAsString();
+      if (contents.isEmpty) return const [];
+      return (jsonDecode(contents) as List<dynamic>)
           .cast<Map<String, dynamic>>()
           .map(RawNotification.fromJson)
           .toList();
-      try {
-        await file.delete();
-      } catch (_) {}
-      return parsed;
     } catch (_) {
-      return const [];
+      return const []; // corrupt: dropped with the file below
+    } finally {
+      try {
+        await claim.delete();
+      } catch (_) {}
     }
   }
 
