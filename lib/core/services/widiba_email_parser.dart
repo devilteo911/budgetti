@@ -128,12 +128,22 @@ class WidibaEmailParser {
             ?.trim() ??
         _labelValue(text, 'Ordinante');
 
-    final causale =
+    // The prose form's "euro per Bonifico a tuo favore" is the transfer's kind,
+    // not a reason: it only stands in when there is nothing better to say.
+    final kind =
         RegExp(r'euro per (.+?)(?:\s+FILIALE|\s+ORD:|$)', caseSensitive: false)
-                .firstMatch(text)
-                ?.group(1)
-                ?.trim() ??
-            _labelValue(text, 'Causale');
+            .firstMatch(text)
+            ?.group(1)
+            ?.trim();
+
+    // Why the money came: the Causale label (label/value form), else the free
+    // text after INF: (prose form: "… BIC: ICRAITRRROM INF:RI: PAGAMENTO FATTURA
+    // 3/26"), minus its INF:/RI: tags.
+    final reason = _labelValue(text, 'Causale') ??
+        RegExp(r'\bINF:\s*(?:RI:\s*)?(.+?)(?:\s+A presto\b|\s*$)')
+            .firstMatch(text)
+            ?.group(1)
+            ?.trim();
 
     // Value date like "04.06.26", or a labeled dd/MM/yyyy; else received date.
     final dateStr =
@@ -144,7 +154,9 @@ class WidibaEmailParser {
                 ?.group(1);
     final date = (dateStr != null ? _parseDate(dateStr) : null) ?? receivedAt;
 
-    final description = ordinante ?? causale ?? 'Accredito';
+    // "who · why"; either alone when only one is known.
+    final who = [ordinante, reason].whereType<String>().where((p) => p.isNotEmpty);
+    final description = who.isNotEmpty ? who.join(' · ') : kind ?? 'Accredito';
 
     return ParsedBankDraft(
       amount: amount,

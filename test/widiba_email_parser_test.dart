@@ -201,7 +201,9 @@ il giorno 25/05/2026 alle ore 21:36 hai effettuato un pagamento di 3,50 euro con
       expect(r, isNotNull);
       expect(r!.type, 'income');
       expect(r.amount, 250.00);
-      expect(r.description, 'Mario Rossi');
+      // Who paid, and why (the Causale label) — not just who.
+      expect(r.description, 'Mario Rossi · Regalo compleanno');
+      expect(r.counterparty, 'Mario Rossi');
       expect(r.date, DateTime(2026, 6, 3));
     });
 
@@ -275,9 +277,37 @@ FILIALE DISPONENTE 00102 BON. SEPA 0832700202672025486296062730IT DEL 20.05.26 O
       expect(r, isNotNull);
       expect(r!.type, 'income');
       expect(r.amount, 2777.58);
-      expect(r.description, 'LABOTICS ITALIA SRL');
+      // The INF: tail after the BIC is the reason; its INF:/RI: tags are not.
+      expect(r.description, 'LABOTICS ITALIA SRL · PAGAMENTO FATTURA 3/26');
       expect(r.counterparty, 'LABOTICS ITALIA SRL');
       expect(r.date, DateTime(2026, 5, 20));
+    });
+
+    test('an accredito with a reason but no ordinante is described by the reason',
+        () {
+      const body = 'Bonifico SEPA istantaneo a tuo favore inserito il '
+          '03/06/2026 Importo 250,00 € Causale Regalo compleanno '
+          'Categoria My Money Altro';
+      final r = parser.parse(
+        subject: 'Bonifico SEPA istantaneo a tuo favore',
+        body: body,
+        receivedAt: received,
+      );
+      expect(r!.description, 'Regalo compleanno');
+      expect(r.counterparty, isNull);
+    });
+
+    test('the prose kind ("Bonifico a tuo favore") is never the reason', () {
+      const body = 'Ciao Matteo, hai ricevuto sul conto 6003/656696 un '
+          'accredito di 7,00 euro per Bonifico a tuo favore FILIALE '
+          'DISPONENTE 00102 ORD: Giada Lagetti BIC: REVOITM2XXX '
+          'IND:Via Madonna A presto, il tuo team Widiba';
+      final r = parser.parse(
+        subject: 'Hai ricevuto un accredito',
+        body: body,
+        receivedAt: received,
+      );
+      expect(r!.description, 'Giada Lagetti');
     });
 
     test('conferma ricezione is skipped on purpose', () {
