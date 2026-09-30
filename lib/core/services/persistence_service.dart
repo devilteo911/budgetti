@@ -185,6 +185,14 @@ class PersistenceService {
   String getUiLanguage() => _prefs.getString(_uiLanguageKey) ?? 'system';
   Future<void> setUiLanguage(String l) => _prefs.setString(_uiLanguageKey, l);
 
+  /// The language code the phone last reported to the UI isolate. The
+  /// background isolate has no locale, so it reads this when the UI language is
+  /// 'system'.
+  static const _systemLanguageKey = 'system_language';
+  String? getSystemLanguage() => _prefs.getString(_systemLanguageKey);
+  Future<void> setSystemLanguage(String code) =>
+      _prefs.setString(_systemLanguageKey, code);
+
   // PocketBase sync
   static const _pbServerUrlKey = 'pb_server_url';
   static const _pbLastSyncAtKey = 'pb_last_sync_at'; // millis since epoch

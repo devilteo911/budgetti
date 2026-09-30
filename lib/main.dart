@@ -1,3 +1,6 @@
+import 'dart:async' show unawaited;
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/router/app_router.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
@@ -48,7 +51,8 @@ void callbackDispatcher() {
         );
       } catch (e) {
         debugPrint('Error in background backup task: $e');
-        await notificationService.showBackupNotification(success: false, message: "Error: $e");
+        // No message: the localized generic failure text, not the exception.
+        await notificationService.showBackupNotification(success: false);
       } finally {
         await db.close();
       }
@@ -190,6 +194,8 @@ Future<void> main() async {
   final db = AppDatabase();
   final persistence = PersistenceService(prefs);
   await _resolveLocalUserId(db, persistence);
+  // Background notifications have no locale of their own (see backgroundL10n).
+  await persistence.setSystemLanguage(PlatformDispatcher.instance.locale.languageCode);
 
   final container = ProviderContainer(
     overrides: [
@@ -212,6 +218,8 @@ Future<void> main() async {
   // pass joins one already in flight (see BankSyncService.syncNotifications).
   AppLifecycleListener(onResume: () async {
     db.markTablesUpdated(db.allTables);
+    unawaited(persistence.setSystemLanguage(
+        PlatformDispatcher.instance.locale.languageCode));
     if (!persistence.getRevolutSyncEnabled()) return;
     try {
       await container.read(bankSyncServiceProvider).syncNotifications();
