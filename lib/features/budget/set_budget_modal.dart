@@ -87,9 +87,8 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
   Future<void> _clearBudget() async {
     setState(() => _isLoading = true);
     try {
-      // Delete the row: saving a limit of 0 left a budget that read as set.
-      final id = ref.read(budgetMapProvider)[widget.categoryName]?.id;
-      if (id != null) await ref.read(financeServiceProvider).deleteBudget(id);
+      // Delete the rows: saving a limit of 0 left a budget that read as set.
+      await ref.read(financeServiceProvider).deleteBudget(widget.categoryName);
       ref.invalidate(budgetsProvider);
       if (mounted) {
         context.pop();

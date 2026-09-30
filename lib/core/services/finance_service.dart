@@ -765,8 +765,17 @@ class FinanceService {
     });
   }
 
-  Future<void> deleteBudget(String id) async {
-    await (_db.update(_db.budgets)..where((t) => t.id.equals(id))).write(BudgetsCompanion(
+  /// Clears the budget for [category]: soft-deletes every live row for it, not
+  /// one — duplicates (two devices creating it offline) would otherwise leave
+  /// the budget on screen after Clear. Stamped so the delete syncs.
+  Future<void> deleteBudget(String category, {String period = 'monthly'}) async {
+    await (_db.update(_db.budgets)
+          ..where((t) =>
+              t.category.equals(category) &
+              t.period.equals(period) &
+              t.userId.equals(_userId) &
+              t.isDeleted.equals(false)))
+        .write(BudgetsCompanion(
       isDeleted: const Value(true),
       lastUpdated: Value(DateTime.now()),
     ));

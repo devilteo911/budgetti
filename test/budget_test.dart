@@ -68,7 +68,7 @@ void main() {
 
   test('clearing a budget deletes the row and stamps it for sync', () async {
     await seed('b-food', 'Food', 200);
-    await service.deleteBudget('b-food');
+    await service.deleteBudget('Food');
 
     expect(await service.getBudgets(), isEmpty);
     final row = await db.select(db.budgets).getSingle();
@@ -79,7 +79,7 @@ void main() {
 
   test('setting a limit again after clearing makes a live budget', () async {
     await seed('b-food', 'Food', 200);
-    await service.deleteBudget('b-food');
+    await service.deleteBudget('Food');
 
     await service.upsertBudget(
         model.Budget(id: '', userId: '', category: 'Food', limit: 150));
@@ -132,5 +132,29 @@ void main() {
         model.Budget(id: '', userId: '', category: 'Food', limit: 150));
 
     expect((await live()).map((r) => r.id), unorderedEquals(['b-food', 'b-fuel']));
+  });
+
+  // Clear went through budgetMapProvider, which holds one row per category, so
+  // with two live duplicates it retired one and the budget stayed on screen.
+  test('clearing retires every live row for the category and period', () async {
+    await seed('b-old', 'Food', 200, updated: DateTime(2026, 1, 1));
+    await seed('b-new', 'Food', 300, updated: DateTime(2026, 3, 1));
+    await seed('b-fuel', 'Fuel', 80, updated: DateTime(2026, 1, 1));
+
+    await service.deleteBudget('Food');
+
+    expect((await service.getBudgets()).map((b) => b.category), ['Fuel']);
+    for (final id in ['b-old', 'b-new']) {
+      final row = await (db.select(db.budgets)..where((t) => t.id.equals(id)))
+          .getSingle();
+      expect(row.isDeleted, isTrue, reason: id);
+      expect(row.lastUpdated!.isAfter(DateTime(2026, 3, 1)), isTrue,
+          reason: '$id must be stamped or the delete never syncs');
+    }
+    final fuel = await (db.select(db.budgets)
+          ..where((t) => t.id.equals('b-fuel')))
+        .getSingle();
+    expect(fuel.isDeleted, isFalse);
+    expect(fuel.lastUpdated, DateTime(2026, 1, 1));
   });
 }
