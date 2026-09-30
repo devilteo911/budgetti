@@ -466,7 +466,9 @@ class FinanceService {
           'SELECT '
           'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount > 0 THEN amount ELSE 0 END), 0) AS income, '
           'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount < 0 THEN -amount ELSE 0 END), 0) AS expense, '
-          'SUM(CASE WHEN type != \'transfer\' THEN 1 ELSE 0 END) AS count '
+          // COALESCE all three: SUM over no rows is NULL, and an unwrapped
+          // count threw on an empty filter, leaving the UI on stale totals.
+          'COALESCE(SUM(CASE WHEN type != \'transfer\' THEN 1 ELSE 0 END), 0) AS count '
           'FROM transactions WHERE ${where.join(' AND ')}',
           variables: vars,
           readsFrom: {_db.transactions},
