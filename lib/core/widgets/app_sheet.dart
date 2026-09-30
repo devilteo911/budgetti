@@ -11,7 +11,9 @@ Future<T?> showAppSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
 
-  /// Let the sheet grow past half the screen — forms and long lists.
+  /// Let the sheet grow past half the screen — forms and long lists. A sheet
+  /// that can grow that far also stays clear of the status bar: left alone it
+  /// extends under the clock and draws its drag handle in that row.
   bool isScrollControlled = false,
 
   /// The theme's drag pill. Sheets that draw their own must leave this off.
@@ -25,6 +27,6 @@ Future<T?> showAppSheet<T>(
       isScrollControlled: isScrollControlled,
       showDragHandle: showDragHandle,
       constraints: constraints,
-      useSafeArea: useSafeArea,
+      useSafeArea: useSafeArea || isScrollControlled,
       builder: builder,
     );
