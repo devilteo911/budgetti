@@ -360,6 +360,8 @@
   "setAutoBackup": "Auto Backup",
   "setAutoBackupToggle": "Automatic backup",
   "setAutoBackupToggleSubtitle": "Daily local backup (cloud if connected)",
+  "setLastBackup": "Last backup",
+  "setNeverBackedUp": "No backup yet",
   "setBackupTime": "Backup time",
   "setBackupFolder": "Backup folder",
   "setDefaultBackupFolder": "Default (Internal)",

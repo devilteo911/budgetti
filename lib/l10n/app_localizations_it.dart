@@ -1223,6 +1223,12 @@ class AppLocalizationsIt extends AppLocalizations {
       'Backup locale giornaliero (cloud se connesso)';
 
   @override
+  String get setLastBackup => 'Ultimo backup';
+
+  @override
+  String get setNeverBackedUp => 'Nessun backup finora';
+
+  @override
   String get setBackupTime => 'Orario backup';
 
   @override

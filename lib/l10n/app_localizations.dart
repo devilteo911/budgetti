@@ -2258,6 +2258,18 @@ abstract class AppLocalizations {
   /// **'Daily local backup (cloud if connected)'**
   String get setAutoBackupToggleSubtitle;
 
+  /// No description provided for @setLastBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Last backup'**
+  String get setLastBackup;
+
+  /// No description provided for @setNeverBackedUp.
+  ///
+  /// In en, this message translates to:
+  /// **'No backup yet'**
+  String get setNeverBackedUp;
+
   /// No description provided for @setBackupTime.
   ///
   /// In en, this message translates to:

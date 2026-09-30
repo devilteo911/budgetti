@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -24,13 +25,13 @@ class BackupService {
 
   Future<void> backupToDrive() async {
     try {
-      print('Starting backup to Google Drive...');
+      debugPrint('Starting backup to Google Drive...');
       final file = await _createBackupFile(isAutoBackup: false);
-      print('Local backup file created: ${file.path}');
+      debugPrint('Local backup file created: ${file.path}');
       await _driveService.uploadBackup(file);
-      print('Backup to Google Drive completed successfully.');
+      debugPrint('Backup to Google Drive completed successfully.');
     } catch (e, s) {
-      print('Error during backupToDrive: $e\n$s');
+      debugPrint('Error during backupToDrive: $e\n$s');
       rethrow;
     }
   }
@@ -44,15 +45,15 @@ class BackupService {
       final todayAtMidnight = DateTime(now.year, now.month, now.day);
 
       if (lastBackup >= todayAtMidnight.millisecondsSinceEpoch) {
-        print('Auto-backup already performed today.');
+        debugPrint('Auto-backup already performed today.');
         return false;
       }
 
-      print('Starting automatic backup...');
+      debugPrint('Starting automatic backup...');
       
       // 1. Create local persistent backup (using custom path if set)
       final file = await _createBackupFile(isAutoBackup: true, persistence: persistence);
-      print('Local persistent auto-backup created: ${file.path}');
+      debugPrint('Local persistent auto-backup created: ${file.path}');
       
       // 2. Manage local backup rotation (keep last 5)
       await _rotateLocalBackups(persistence: persistence);
@@ -62,19 +63,23 @@ class BackupService {
         await _authService.signInSilently();
         if (_authService.currentUser != null) {
           await _driveService.uploadBackup(file);
-          print('Auto-backup uploaded to Google Drive.');
+          debugPrint('Auto-backup uploaded to Google Drive.');
         } else {
-          print('Auto-backup skipped cloud upload: User not signed in to Google Drive');
+          debugPrint('Auto-backup skipped cloud upload: User not signed in to Google Drive');
         }
       } catch (e) {
-        print('Cloud auto-backup failed (local backup persists): $e');
+        debugPrint('Cloud auto-backup failed (local backup persists): $e');
       }
 
       await persistence.setLastAutoBackupTimestamp(now.millisecondsSinceEpoch);
-      print('Auto-backup routine completed.');
+      await persistence.setLastAutoBackupError(null);
+      debugPrint('Auto-backup routine completed.');
       return true;
-    } catch (e) {
-      print('Error during auto-backup: $e');
+    } catch (e, s) {
+      debugPrint('Error during auto-backup: $e\n$s');
+      // Settings shows it next to the last-backup time; until then a broken
+      // backup looked exactly like a working one.
+      await persistence.setLastAutoBackupError(e.toString().split('\n').first);
       return false;
     }
   }
@@ -107,27 +112,27 @@ class BackupService {
         final toDelete = backupFiles.sublist(0, backupFiles.length - 5);
         for (var f in toDelete) {
           await f.delete();
-          print('Deleted old auto-backup: ${f.path}');
+          debugPrint('Deleted old auto-backup: ${f.path}');
         }
       }
     } catch (e) {
-      print('Error rotating backups: $e');
+      debugPrint('Error rotating backups: $e');
     }
   }
 
   Future<void> restoreFromDrive(String fileId) async {
     try {
-      print('Starting restore from Google Drive (fileId: $fileId)...');
+      debugPrint('Starting restore from Google Drive (fileId: $fileId)...');
       final tempDir = await getTemporaryDirectory();
       final file = await _driveService.downloadBackup(
         fileId,
         '${tempDir.path}/restore_${DateTime.now().millisecondsSinceEpoch}.json',
       );
-      print('Backup downloaded to: ${file.path}');
+      debugPrint('Backup downloaded to: ${file.path}');
       await importDatabase(file);
-      print('Restore from Google Drive completed successfully.');
+      debugPrint('Restore from Google Drive completed successfully.');
     } catch (e, s) {
-      print('Error during restoreFromDrive: $e\n$s');
+      debugPrint('Error during restoreFromDrive: $e\n$s');
       rethrow;
     }
   }
@@ -157,7 +162,7 @@ class BackupService {
     });
 
     // A full ledger is megabytes of JSON — encode off the UI isolate.
-    final jsonString = await Isolate.run(() => jsonEncode(data));
+    final jsonString = await _encodeOffThread(data);
 
     // 3. Write to file
     final String path;
@@ -187,10 +192,19 @@ class BackupService {
     return file;
   }
 
+  // Off-isolate JSON, kept out of the async methods on purpose: a closure made
+  // there shares the method's Context, which holds `this` (the sibling
+  // `_db.transaction(() async {...})` captures it) -> BackupService ->
+  // AppDatabase -> live Futures/finalizers, and Isolate.run then throws
+  // "object is unsendable". Static and non-async, the context holds only the arg.
+  static Future<String> _encodeOffThread(Object data) =>
+      Isolate.run(() => jsonEncode(data));
+  static Future<Map<String, dynamic>> _decodeOffThread(String json) =>
+      Isolate.run(() => jsonDecode(json) as Map<String, dynamic>);
+
   Future<void> importDatabase(File file) async {
     final jsonString = await file.readAsString();
-    final data = await Isolate.run(
-        () => jsonDecode(jsonString) as Map<String, dynamic>);
+    final data = await _decodeOffThread(jsonString);
 
     // 1. Validate keys
     final requiredKeys = [
@@ -225,7 +239,7 @@ class BackupService {
         }
         return Transaction.fromJson(map);
       } catch (e) {
-        print('Error parsing transaction: $e');
+        debugPrint('Error parsing transaction: $e');
         rethrow;
       }
     }).toList();

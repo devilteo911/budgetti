@@ -24,6 +24,7 @@ class PersistenceService {
   static const _autoBackupEnabledKey = 'auto_backup_enabled';
   static const _autoBackupTimeKey = 'auto_backup_time';
   static const _lastAutoBackupKey = 'last_auto_backup_timestamp';
+  static const _lastAutoBackupErrorKey = 'last_auto_backup_error';
   static const _emailSyncEnabledKey = 'email_sync_enabled';
   static const _emailSyncWindowDaysKey = 'email_sync_window_days';
   static const _revolutSyncEnabledKey = 'revolut_sync_enabled';
@@ -72,6 +73,16 @@ class PersistenceService {
       _prefs.getBool(_revolutSyncEnabledKey) ?? false;
   Future<void> setRevolutSyncEnabled(bool enabled) =>
       _prefs.setBool(_revolutSyncEnabledKey, enabled);
+
+  /// First line of why the last auto-backup failed; null after a success.
+  String? getLastAutoBackupError() => _prefs.getString(_lastAutoBackupErrorKey);
+  Future<void> setLastAutoBackupError(String? error) => error == null
+      ? _prefs.remove(_lastAutoBackupErrorKey)
+      : _prefs.setString(_lastAutoBackupErrorKey, error);
+
+  /// The auto-backup runs in the workmanager isolate, whose prefs writes this
+  /// isolate's cache never sees until it re-reads the file.
+  Future<void> reload() => _prefs.reload();
 
   int getLastAutoBackupTimestamp() => _prefs.getInt(_lastAutoBackupKey) ?? 0;
   Future<void> setLastAutoBackupTimestamp(int timestamp) =>

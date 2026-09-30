@@ -36,6 +36,10 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeGoogleDriveState();
     _refreshNotificationAccess();
+    // The auto-backup result is written by the background isolate.
+    ref.read(persistenceServiceProvider).reload().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   /// Notification access is granted on a system screen, so the only way to know
@@ -525,6 +529,12 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     setState(() => _isLoading = true);
     try {
       await ref.read(backupServiceProvider).exportDatabase();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.setBackupFailed(errorText(context, e)))),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -570,6 +580,12 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
         ref.invalidate(tagsProvider);
         ref.invalidate(accountsProvider);
         ref.invalidate(budgetsProvider);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.setRestoreFailed(errorText(context, e)))),
+          );
+        }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -623,6 +639,8 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final persistence = ref.watch(persistenceServiceProvider);
+    final backupError = persistence.getLastAutoBackupError();
+    final lastBackup = persistence.getLastAutoBackupTimestamp();
 
     return SettingsScaffold(
       title: context.l10n.setIntegrations,
@@ -833,6 +851,18 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
                     context.l10n.setDefaultBackupFolder,
                 onTap: _pickBackupFolder,
               ),
+              SettingsTile(
+                icon: backupError == null
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                iconColor: backupError == null ? null : scheme.error,
+                title: context.l10n.setLastBackup,
+                subtitle: backupError != null
+                    ? context.l10n.setBackupFailed(backupError)
+                    : lastBackup == 0
+                        ? context.l10n.setNeverBackedUp
+                        : _stamp(lastBackup),
+              ),
             ],
           ],
         ),
@@ -859,9 +889,12 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
 
   String _lastSyncLabel(int timestamp) {
     if (timestamp == 0) return context.l10n.setNeverSynced;
+    return context.l10n.setLastSync(_stamp(timestamp));
+  }
+
+  String _stamp(int timestamp) {
     final d = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    return context.l10n.setLastSync(
-        '${d.day}/${d.month}/${d.year} '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}');
+    return '${d.day}/${d.month}/${d.year} '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 }

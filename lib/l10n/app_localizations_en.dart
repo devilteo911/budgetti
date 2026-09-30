@@ -1212,6 +1212,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Daily local backup (cloud if connected)';
 
   @override
+  String get setLastBackup => 'Last backup';
+
+  @override
+  String get setNeverBackedUp => 'No backup yet';
+
+  @override
   String get setBackupTime => 'Backup time';
 
   @override
