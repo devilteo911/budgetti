@@ -35,6 +35,7 @@ Account acc(double balance) => Account(
 );
 
 void main() {
+  // Mirror of web/src/finance.test.ts parseAmount — change one, change both.
   group('parseAmount', () {
     test('reads both locales, the last separator is the decimal one', () {
       expect(parseAmount('1234,56'), 1234.56);
@@ -60,6 +61,38 @@ void main() {
       expect(parseAmount('abc'), isNull);
       expect(parseAmount('12,x'), isNull);
       expect(parseAmount('1,2,3x'), isNull);
+    });
+
+    // The shapes the web port derived by reading this function.
+    test('a bare separator is allowed at either end of the digits', () {
+      expect(parseAmount('.5'), 0.5);
+      expect(parseAmount('12,'), 12);
+    });
+
+    test('the sign may be followed by spaces', () {
+      expect(parseAmount('- 12,5'), -12.5);
+    });
+
+    test('several groups: the last separator still decides', () {
+      expect(parseAmount('1.234.567,89'), 1234567.89);
+      expect(parseAmount('1,234,567'), 1234567);
+      expect(parseAmount('1,2,3'), 12.3); // ceiling: not a valid grouping
+    });
+
+    test('the decimal count is whatever follows, except exactly three', () {
+      expect(parseAmount('1.2345'), 1.2345);
+      // Documented ceiling: three trailing digits are always thousands.
+      expect(parseAmount('0,125'), 125);
+    });
+
+    test('a sign alone, a doubled sign, exponents, inner spaces, NaN: null', () {
+      for (final raw in ['-', '+', '--5', '1e5', '1 234,56', 'NaN']) {
+        expect(parseAmount(raw), isNull, reason: raw);
+      }
+    });
+
+    test('a signed zero is zero', () {
+      expect(parseAmount('-0'), 0); // -0.0 == 0
     });
   });
 
