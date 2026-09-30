@@ -187,7 +187,6 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
       final result = await performSheetsSync(ref);
       if (mounted) {
         ref.invalidate(accountsProvider);
-        ref.invalidate(paginatedTransactionsProvider);
         ref.invalidate(transactionsProvider(null));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result.toString())),

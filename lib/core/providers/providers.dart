@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:budgetti/core/database/database.dart'
     hide Category, Tag, Account, Transaction, Budget, Installment;
@@ -787,14 +789,33 @@ class PaginatedTransactionsNotifier
     extends Notifier<PaginatedTransactionsState> {
   static const int _limit = 100;
 
+  /// Bumped by every fetch: an older one still in flight when a newer starts
+  /// (a filter change, a write mid-scroll) is dropped instead of overwriting.
+  int _gen = 0;
+  Timer? _debounce;
+
   @override
   PaginatedTransactionsState build() {
     // Watch filters and wallet - this triggers build() when they change
     ref.watch(transactionFiltersProvider);
     ref.watch(selectedWalletIdProvider);
+    final service = ref.watch(financeServiceProvider);
+    _gen++;
+
+    // The list is a snapshot of a query, so it has to hear about every write
+    // to the table itself — no caller has to remember to invalidate it.
+    // Debounced so an import of hundreds of rows refetches once at the end.
+    final sub = service.transactionUpdates().listen((_) {
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 100), refresh);
+    });
+    ref.onDispose(() {
+      _debounce?.cancel();
+      sub.cancel();
+    });
 
     // Use microtask to avoid side-effects during build
-    Future.microtask(() => refresh());
+    Future.microtask(refresh);
 
     return PaginatedTransactionsState(
       transactions: [],
@@ -804,53 +825,52 @@ class PaginatedTransactionsNotifier
     );
   }
 
-  Future<void> refresh() async {
-    state = state.copyWith(
-      isRefreshing: true,
-      isLoading: true,
-      hasMore: true,
-      // NOTE: We don't clear transactions here to avoid skeleton flickering
-    );
-    await _fetchBatch();
-  }
+  Future<void> refresh() => _fetch(append: false);
 
   Future<void> loadMore() async {
     if (state.isLoading || !state.hasMore) return;
-    await _fetchBatch();
+    await _fetch(append: true);
   }
 
-  Future<void> _fetchBatch() async {
+  Future<void> _fetch({required bool append}) async {
     // Claim the in-flight flag synchronously: loadMore's guard reads it, and
     // without this two rapid calls both fetched from the same offset and
     // appended the same page twice.
-    state = state.copyWith(isLoading: true);
+    final gen = ++_gen;
+    final loaded = state.transactions.length;
+    // A refresh re-reads everything already on screen, not just page one, so
+    // a write mid-scroll doesn't collapse the list back to 100 rows.
+    final want = append || loaded < _limit ? _limit : loaded;
+    // NOTE: We don't clear transactions here to avoid skeleton flickering
+    state = state.copyWith(isLoading: true, isRefreshing: !append);
     final filters = ref.read(transactionFiltersProvider);
     final walletId = ref.read(selectedWalletIdProvider);
     final service = ref.read(financeServiceProvider);
 
     try {
-      final newTxns = await service.getTransactions(
+      final rows = await service.getTransactions(
         accountId: walletId,
         startDate: filters.dateRange?.start,
         endDate: filters.dateRange?.end,
         categories: filters.categories,
         tags: filters.tags,
-        limit: _limit,
-        offset: state.isRefreshing ? 0 : state.offset,
+        limit: want,
+        offset: append ? loaded : 0,
       );
+      if (!ref.mounted || gen != _gen) return;
 
       state = state.copyWith(
-        transactions: state.isRefreshing
-            ? newTxns
-            : [...state.transactions, ...newTxns],
+        transactions: append ? [...state.transactions, ...rows] : rows,
         isLoading: false,
         isRefreshing: false,
-        offset: (state.isRefreshing ? 0 : state.offset) + newTxns.length,
-        hasMore: newTxns.length == _limit,
+        offset: (append ? loaded : 0) + rows.length,
+        hasMore: rows.length == want,
       );
     } catch (e) {
+      if (!ref.mounted || gen != _gen) return;
       state = state.copyWith(
         isLoading: false,
+        isRefreshing: false,
         hasMore: false,
         error: e.toString(),
       );

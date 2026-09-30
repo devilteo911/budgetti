@@ -266,7 +266,6 @@ class _DraftCard extends ConsumerWidget {
 
     ref.invalidate(accountsProvider);
     ref.invalidate(transactionsProvider(null));
-    ref.invalidate(paginatedTransactionsProvider);
     if (type != 'transfer') {
       ref.invalidate(budgetsProvider);
       ref.read(notificationLogicProvider).checkBudgetAlerts(tx);

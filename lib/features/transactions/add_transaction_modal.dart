@@ -211,7 +211,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     if (_type == 'transfer' && _selectedToAccountId != null) {
       ref.invalidate(transactionsProvider(_selectedToAccountId));
     }
-    ref.invalidate(paginatedTransactionsProvider);
     if (_type != 'transfer') ref.invalidate(budgetsProvider);
     performSheetsSync(ref);
 

@@ -91,7 +91,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         setState(() {
           _selectedIds.clear();
         });
-        ref.invalidate(paginatedTransactionsProvider);
         ref.invalidate(accountsProvider);
         ref.invalidate(transactionsProvider(null));
       } catch (e) {
@@ -224,7 +223,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           onRefresh: () async {
             final notifier = ref.read(paginatedTransactionsProvider.notifier);
             ref.invalidate(accountsProvider);
-            final tasks = <Future>[notifier.refresh(), performSheetsSync(ref)];
+            final tasks = <Future>[
+              notifier.refresh(),
+              performSheetsSync(ref),
+              // The pull is what brings in the other device's rows; the
+              // notifier hears about them through the table listener.
+              performPocketBaseSync(ref),
+            ];
             final persistence = ref.read(persistenceServiceProvider);
             if (persistence.getEmailSyncEnabled()) {
               tasks.add(

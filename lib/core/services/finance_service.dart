@@ -339,6 +339,12 @@ class FinanceService {
     return result.map(_toModelTx).toList();
   }
 
+  /// Fires after any write to the transactions table — this isolate's, a sync
+  /// pull's, an import's, and the resume-time `markTablesUpdated`. For a
+  /// snapshot list (pagination) that can't use [watchTransactions].
+  Stream<void> transactionUpdates() =>
+      _db.tableUpdates(TableUpdateQuery.onTable(_db.transactions));
+
   /// Drift row → domain model, shared by every transactions read.
   model_txn.Transaction _toModelTx(Transaction t) => model_txn.Transaction(
         id: t.id,
