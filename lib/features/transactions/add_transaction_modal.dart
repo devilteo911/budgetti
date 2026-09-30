@@ -910,6 +910,9 @@ class _DescriptionField extends StatelessWidget {
   }
 }
 
+/// FROM and TO, closed like every other row: a hairline under each (the one
+/// under TO is the wallet section's own). This used to be a one-sided stub
+/// between them, which read as a stray mark and left FROM without its line.
 class _TransferPair extends StatelessWidget {
   final Widget from;
   final Widget to;
@@ -918,25 +921,9 @@ class _TransferPair extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        from,
-        Padding(
-          padding: const EdgeInsets.only(left: 4, top: 2, bottom: 2),
-          child: Row(
-            children: [
-              Container(
-                width: 1,
-                height: 14,
-                color: scheme.outlineVariant.withValues(alpha: 0.5),
-              ),
-            ],
-          ),
-        ),
-        to,
-      ],
+      children: [from, const LedgerDivider(), to],
     );
   }
 }

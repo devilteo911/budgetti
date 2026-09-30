@@ -6,6 +6,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
+import 'package:budgetti/features/transactions/widgets/ledger_field_row.dart';
 import 'package:budgetti/features/transactions/widgets/type_selector.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/models/account.dart';
@@ -200,6 +201,37 @@ void main() {
       await pump(tester);
 
       expect(categoryRow('Dining'), findsOneWidget);
+    });
+  });
+
+  // Every field row is closed by a hairline. The transfer layout instead put a
+  // thin one-sided stub between FROM and TO and no line under FROM, so the pair
+  // looked unfinished next to every other row.
+  group('the transfer layout', () {
+    testWidgets('has a divider between its two wallet rows, like every other row',
+        (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('TRANSFER'));
+      await tester.pumpAndSettle();
+
+      final from = tester.getCenter(find.text('FROM')).dy;
+      final to = tester.getCenter(find.text('TO')).dy;
+      final between = [
+        for (final e in tester.elementList(find.byType(LedgerDivider)))
+          tester.getCenter(find.byWidget(e.widget)).dy,
+      ].where((y) => y > from && y < to);
+
+      expect(between, hasLength(1));
+    });
+
+    testWidgets('closes the note, both wallets and the date the same way',
+        (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('TRANSFER'));
+      await tester.pumpAndSettle();
+
+      // note | FROM | TO | date — one hairline under each.
+      expect(find.byType(LedgerDivider), findsNWidgets(4));
     });
   });
 
