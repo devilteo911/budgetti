@@ -118,6 +118,45 @@ void main() {
       expect(guess('Pineapple Studio'), isNull); // apple, mid-word
     });
 
+    test('a Bancomat Pay purchase is a purchase, only cash is not', () {
+      // "bancomat" alone means the ATM circuit; "Bancomat Pay" is a merchant
+      // payment whose text ends with the shop.
+      expect(
+        guess('Bancomat Pay - A1000000000 Pagamento Effettuato Con Bancomat '
+            'Pay Vs Amazon'),
+        'Shopping',
+      );
+      expect(guess('Prelievo Bancomat'), isNull);
+      expect(guess('Bancomat ATM Milano'), isNull);
+    });
+
+    test('a short keyword may be followed by digits (station codes)', () {
+      expect(guess('ENI80018 Cesena'), 'Transport');
+      expect(guess('Eni Station'), 'Transport');
+      expect(guess('Genius2000'), isNull);
+    });
+
+    test('"bar" may end a word but never start one', () {
+      expect(guess('Sportbar Gargazon'), 'Dining');
+      expect(guess('Bar Sport'), 'Dining');
+      expect(guess('Barilla'), isNull);
+      expect(guess('Barcelona Viaggi'), isNull);
+    });
+
+    test('glued merchant names the stems missed', () {
+      expect(guess('OCONAD Cesena'), 'Groceries');
+      expect(guess('Enimoov Ricarica'), 'Transport');
+    });
+
+    test('words that merely contain a keyword stay unguessed', () {
+      expect(guess('LA SERENISSIMA'), isNull); // eni
+      expect(guess('Mafaldina'), isNull); // aldi
+      expect(guess('Accessori Moda'), isNull); // esso
+      expect(guess('Gelato a Firenze'), isNull); // iren
+      expect(guess('Acqua Firenze'), isNull); // iren
+      expect(guess('Zenith'), isNull); // eni
+    });
+
     test('income keeps its own table', () {
       expect(guess('Stipendio agosto', type: 'income'), 'Salary');
     });

@@ -532,7 +532,10 @@ String? guessCategory(ParsedBankDraft parsed) {
 
   // Cash out is a transfer to a cash wallet, not a purchase — and "atm" would
   // otherwise read as the Milan transit company.
-  if (RegExp(r'prelievo|prelevament|bancomat').hasMatch(text)) return null;
+  // "Bancomat Pay" is a merchant payment, not the ATM circuit.
+  if (RegExp(r'prelievo|prelevament|bancomat(?! pay)').hasMatch(text)) {
+    return null;
+  }
 
   final table = parsed.type == 'income' ? _incomeKeywords : _expenseKeywords;
   for (final entry in table) {
@@ -546,10 +549,18 @@ String? guessCategory(ParsedBankDraft parsed) {
 /// Short keywords (<= 4 chars: eni, tim, esso, pam...) must be a whole word,
 /// or "Genius" is fuel and "espresso" a petrol station. Longer ones are stems
 /// (pizzer, supermerc, carburant) that only have to start a word.
+///
+/// Two loosenings, both from real merchants: a short keyword may be followed
+/// by digits (station code "eni80018"), and "bar" may end a word ("sportbar").
 bool _hasKeyword(String text, String kw) {
-  const w = 'a-zà-ù0-9';
-  final end = kw.length <= 4 ? '(?![$w])' : '';
-  return RegExp('(?<![$w])${RegExp.escape(kw)}$end').hasMatch(text);
+  const letters = 'a-zà-ù';
+  final start = kw == 'bar' ? '' : '(?<![${letters}0-9])';
+  final end = kw.length > 4
+      ? ''
+      : kw == 'bar'
+          ? '(?![${letters}0-9])'
+          : '(?![$letters])';
+  return RegExp('$start${RegExp.escape(kw)}$end').hasMatch(text);
 }
 
 class _CategoryRule {
@@ -560,7 +571,7 @@ class _CategoryRule {
 
 const _expenseKeywords = <_CategoryRule>[
   _CategoryRule('Groceries', [
-    'esselunga', 'conad', 'lidl', 'coop', 'carrefour', 'eurospin', 'pam',
+    'esselunga', 'conad', 'oconad', 'lidl', 'coop', 'carrefour', 'eurospin', 'pam',
     'penny', 'despar', 'supermerc', 'aldi', 'bennet', 'famila',
   ]),
   _CategoryRule('Dining', [
@@ -570,7 +581,7 @@ const _expenseKeywords = <_CategoryRule>[
   ]),
   _CategoryRule('Transport', [
     'trenitalia', 'italo', 'atm', 'gtt', 'autostrad', 'telepass', 'eni',
-    'q8', 'esso', 'tamoil', 'ip', 'benzin', 'carburant', 'uber', 'free now',
+    'q8', 'esso', 'enimoov', 'tamoil', 'ip', 'benzin', 'carburant', 'uber', 'free now',
     'taxi', 'parcheg', 'parking', 'flixbus',
   ]),
   _CategoryRule('Shopping', [
