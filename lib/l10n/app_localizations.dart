@@ -1241,7 +1241,7 @@ abstract class AppLocalizations {
   /// No description provided for @notifEmailIncome.
   ///
   /// In en, this message translates to:
-  /// **'Credit received'**
+  /// **'Credit to review'**
   String get notifEmailIncome;
 
   /// No description provided for @notifEmailReview.
@@ -1253,7 +1253,7 @@ abstract class AppLocalizations {
   /// No description provided for @notifEmailExpense.
   ///
   /// In en, this message translates to:
-  /// **'Payment recorded'**
+  /// **'Payment to review'**
   String get notifEmailExpense;
 
   /// No description provided for @setSettings.

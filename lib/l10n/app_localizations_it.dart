@@ -662,13 +662,13 @@ class AppLocalizationsIt extends AppLocalizations {
       'Si è verificato un errore durante il backup.';
 
   @override
-  String get notifEmailIncome => 'Accredito ricevuto';
+  String get notifEmailIncome => 'Accredito da rivedere';
 
   @override
   String get notifEmailReview => 'Bonifico da rivedere';
 
   @override
-  String get notifEmailExpense => 'Pagamento registrato';
+  String get notifEmailExpense => 'Pagamento da rivedere';
 
   @override
   String get setSettings => 'Impostazioni';

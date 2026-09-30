@@ -654,13 +654,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifBackupErrorBody => 'There was an error during backup.';
 
   @override
-  String get notifEmailIncome => 'Credit received';
+  String get notifEmailIncome => 'Credit to review';
 
   @override
   String get notifEmailReview => 'Transfer to review';
 
   @override
-  String get notifEmailExpense => 'Payment recorded';
+  String get notifEmailExpense => 'Payment to review';
 
   @override
   String get setSettings => 'Settings';
