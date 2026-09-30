@@ -81,45 +81,49 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
     final currentIndex = widget.navigationShell.currentIndex;
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
-    return Scaffold(
-      extendBody: true,
-      body: Stack(
-        children: [
-          // Body fills edge-to-edge behind the floating nav so glass has
-          // real content to blur. Screens that want their last scroll item
-          // fully visible above the pill should add ~120px bottom padding
-          // to their own scrollable (ListView/CustomScrollView).
-          Positioned.fill(child: widget.navigationShell),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: bottomInset + DockMetrics.bottomGap,
-            child: Center(
-              child: FloatingPillNav(
-                slots: buildNavSlots(
-                  context.l10n,
-                  reviewCount: ref.watch(reviewInboxCountProvider),
-                  onAdd: () {
-                    HapticFeedback.mediumImpact();
-                    _onAddTransaction();
-                  },
+    return DockSnackBarTheme(
+      child: Scaffold(
+        extendBody: true,
+        body: Stack(
+          children: [
+            // Body fills edge-to-edge behind the floating nav so glass has
+            // real content to blur. Screens that want their last scroll item
+            // fully visible above the pill should add ~120px bottom padding
+            // to their own scrollable (ListView/CustomScrollView).
+            Positioned.fill(child: widget.navigationShell),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottomInset + DockMetrics.bottomGap,
+              child: Center(
+                child: FloatingPillNav(
+                  slots: buildNavSlots(
+                    context.l10n,
+                    reviewCount: ref.watch(reviewInboxCountProvider),
+                    onAdd: () {
+                      HapticFeedback.mediumImpact();
+                      _onAddTransaction();
+                    },
+                  ),
+                  currentBranchIndex: currentIndex,
+                  onBranchSelected: _goBranch,
                 ),
-                currentBranchIndex: currentIndex,
-                onBranchSelected: _goBranch,
               ),
             ),
-          ),
-          // Live backend-sync indicator, top-right, above all screens.
-          Positioned(
-            top: MediaQuery.of(context).viewPadding.top + 12,
-            right: 16,
-            child: ValueListenableBuilder<bool>(
-              valueListenable: ref.watch(pocketBaseSyncServiceProvider).syncing,
-              builder: (context, syncing, _) =>
-                  syncing ? const _SyncSpinner() : const SizedBox.shrink(),
+            // Live backend-sync indicator, top-right, above all screens.
+            Positioned(
+              top: MediaQuery.of(context).viewPadding.top + 12,
+              right: 16,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: ref
+                    .watch(pocketBaseSyncServiceProvider)
+                    .syncing,
+                builder: (context, syncing, _) =>
+                    syncing ? const _SyncSpinner() : const SizedBox.shrink(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -227,6 +231,38 @@ abstract final class DockMetrics {
       MediaQuery.viewPaddingOf(context).bottom + bottomGap + height + 16;
 }
 
+/// Makes the snackbars of the scaffold below float above the dock instead of
+/// across it. Screens inside the shell have nested scaffolds, and the messenger
+/// shows a snackbar in the outermost one — ScaffoldWithNavBar's — which has no
+/// bottom bar of its own to lift it, so the lift is the theme's inset.
+class DockSnackBarTheme extends StatelessWidget {
+  const DockSnackBarTheme({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        snackBarTheme: theme.snackBarTheme.copyWith(
+          behavior: SnackBarBehavior.floating,
+          // The scaffold already keeps a floating snackbar out of the gesture
+          // inset, so only the dock itself is left to clear: its gap, its height,
+          // and 8 dp of air above the pill.
+          insetPadding: const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            DockMetrics.bottomGap + DockMetrics.height + 8,
+          ),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 /// GitHub-Store-inspired floating pill bottom nav.
 /// Glass capsule with an animated gradient indicator that slides behind
 /// the selected branch. Action slots (e.g. '+') don't move the indicator.
@@ -256,7 +292,9 @@ class FloatingPillNav extends StatelessWidget {
   /// one sits, and the count only overlays its corner.
   static Widget _badged(int count, Widget icon) => count > 0
       ? Center(
-          child: ExcludeSemantics(child: Badge.count(count: count, child: icon)),
+          child: ExcludeSemantics(
+            child: Badge.count(count: count, child: icon),
+          ),
         )
       : icon;
 
@@ -387,7 +425,12 @@ List<NavSlot> buildNavSlots(
     badgeLabel: l10n.txReviewBannerCount(reviewCount),
   ),
   NavSlot.action(Icons.add, l10n.commonAdd, onAdd),
-  NavSlot.branch(2, Icons.pie_chart_outline, Icons.pie_chart, l10n.authNavStats),
+  NavSlot.branch(
+    2,
+    Icons.pie_chart_outline,
+    Icons.pie_chart,
+    l10n.authNavStats,
+  ),
   NavSlot.branch(
     3,
     Icons.settings_outlined,
