@@ -142,8 +142,15 @@ class RevolutNotificationParser {
   /// else the title when it carries something more specific than the app name.
   String? _counterparty(String haystack, int amountEnd, String title) {
     final tail = haystack.substring(amountEnd);
-    final m = RegExp(r'^\s*(?:presso|at|from|da|to|per|in|a|[·•\-–—:])\s+(.{2,})$')
-        .firstMatch(tail);
+    // Right after the amount ("€12,50 presso LO CHEF"), else after a word or
+    // two of the sentence ("100,00 € ricevuti da Mario", "10 € con carta presso
+    // Bar"). At most three, and only the location words: further out a "da" or
+    // "to" is as likely part of something else as the start of the name.
+    final m = RegExp(
+              r'^\s*(?:presso|at|from|da|to|per|in|a|[·•\-–—:])\s+(.{2,})$',
+            ).firstMatch(tail) ??
+        RegExp(r'^\s*(?:\S+\s+){1,3}?(?:presso|at|from|da|to)\s+(.{2,})$')
+            .firstMatch(tail);
     final name = _merchantOnly(m?.group(1) ?? '');
     if (name.isNotEmpty) return _titleCase(name);
 

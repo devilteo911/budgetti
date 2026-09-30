@@ -140,6 +140,65 @@ void main() {
     });
   });
 
+  // The merchant is read from the presso/at/from/da/to tail. A verb between the
+  // amount and that word ("100,00 € ricevuti da …") used to hide it, so the
+  // counterparty was dropped and the draft read "Movimento Revolut".
+  group('the counterparty after a verb that follows the amount', () {
+    test('amount first, then the verb, then "da <name>"', () {
+      final r = run('Revolut', '100,00 € ricevuti da Mario Rossi');
+
+      expect(r!.type, 'income');
+      expect(r.amount, 100.0);
+      expect(r.description, 'Mario Rossi');
+      expect(r.counterparty, 'Mario Rossi');
+    });
+
+    test('the injected push from the device pass', () {
+      final r = run('Revolut', '100,00 € ricevuti da ZZ Mario');
+
+      expect(r!.description, 'Zz Mario');
+    });
+
+    test('english: amount, verb, from <name>', () {
+      final r = run('Revolut', '€20.00 received from Jane');
+
+      expect(r!.description, 'Jane');
+      expect(r.type, 'income');
+    });
+
+    test('a couple of words in between (card, channel) do not hide it', () {
+      final r = run('Revolut', 'Hai pagato €10,00 con carta presso Bar Sport');
+
+      expect(r!.description, 'Bar Sport');
+    });
+
+    test('the balance glued after the merchant is still cut off', () {
+      final r = run('Revolut', '€50,00 ricevuti da Mario Rossi Saldo: 24,53 €');
+
+      expect(r!.description, 'Mario Rossi');
+    });
+
+    test('no marker after the amount is still the fallback', () {
+      expect(run('Revolut', 'Ricarica di €100,00 completata')!.description,
+          'Movimento Revolut');
+      expect(run('Revolut', '€4.20')!.description, 'Movimento Revolut');
+    });
+
+    test('a marker too far from the amount is not guessed at', () {
+      final r = run('Revolut',
+          '€100,00 ricevuti sul tuo conto principale da Mario Rossi');
+
+      expect(r!.description, 'Movimento Revolut');
+    });
+
+    test('a marker right after the amount is unchanged', () {
+      expect(run('Revolut', 'Hai speso €12,50 presso LO CHEF')!.description,
+          'Lo Chef');
+      expect(run('Revolut', 'Prelievo di €50,00 da ATM Intesa')!.description,
+          'Atm Intesa');
+    });
+  });
+
   group('amount formats', () {
     test('italian thousands with cents', () {
       expect(run('Revolut', 'Hai speso €1.234,56 presso Ikea')!.amount,
