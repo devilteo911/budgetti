@@ -74,10 +74,6 @@ class NotificationService {
           _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       
       final bool? granted = await androidImplementation?.requestNotificationsPermission();
-      
-      // Also request exact alarm permission for Android 13+ if using exact alarms
-      await androidImplementation?.requestExactAlarmsPermission();
-      
       return (granted ?? false);
     }
     return true;
@@ -174,7 +170,9 @@ class NotificationService {
       l10n.notifDailyBody,
       scheduledTime,
       details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      // Inexact: a daily nudge doesn't need the minute, and exact alarms need
+      // the SCHEDULE_EXACT_ALARM grant, whose denial made zonedSchedule throw.
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
     );
 

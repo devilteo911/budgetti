@@ -86,11 +86,18 @@ class NotificationLogic {
     final hour = int.tryParse(bits[0]) ?? 20;
     final minute = int.tryParse(bits[1]) ?? 0;
 
-    await _notificationService.scheduleDailyReminder(
-      id: dailyReminderId,
-      hour: hour,
-      minute: minute,
-    );
+    // A reminder the OS refuses must not take the caller down with it: main()
+    // awaits this before starting backup, bank sync and PocketBase sync, and
+    // the Preferences toggles skip their setState after it.
+    try {
+      await _notificationService.scheduleDailyReminder(
+        id: dailyReminderId,
+        hour: hour,
+        minute: minute,
+      );
+    } catch (e, s) {
+      debugPrint('Daily reminder scheduling failed: $e\n$s');
+    }
   }
 
   Future<void> updateAutoBackupSchedule() async {
