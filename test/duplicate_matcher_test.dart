@@ -289,6 +289,9 @@ void main() {
       await tx(revolutFallbackDescription, 'Spesa');
 
       expect(await learn(revolutFallbackDescription), isNull);
+      // A foreign-currency cue appended to it does not make it a merchant.
+      await tx('$revolutFallbackDescription · 4.20 USD', 'Spesa');
+      expect(await learn('$revolutFallbackDescription · 9.99 USD'), isNull);
       expect(await learn(''), isNull);
       expect(await learn('   '), isNull);
     });

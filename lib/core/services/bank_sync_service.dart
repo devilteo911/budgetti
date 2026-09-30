@@ -559,8 +559,10 @@ Future<String?> learnedCategory(
   String description, {
   required bool income,
 }) async {
-  // Every push with no merchant shares the fallback text: not an identity.
-  if (description.trim().isEmpty || description == revolutFallbackDescription) {
+  // Every push with no merchant shares the fallback text (possibly with a
+  // foreign-currency cue after it): not an identity.
+  if (description.trim().isEmpty ||
+      description.startsWith(revolutFallbackDescription)) {
     return null;
   }
   final rows = await (db.select(db.transactions)

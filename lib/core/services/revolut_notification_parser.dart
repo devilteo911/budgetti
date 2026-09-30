@@ -43,16 +43,23 @@ class RevolutNotificationParser {
     // ponytail: first amount wins. On an FX card payment Revolut may show both
     // the foreign and the account amount, and this can take the foreign one —
     // visible and fixable in the review inbox before approval. Prefer-by-
-    // currency only if that turns out to be common.
-    final amount = parseAmount(match.group(2) ?? match.group(3)!);
+    // currency only if that turns out to be common. A non-euro amount is stored
+    // as if it were euros; the currency in the description ("Starbucks · 12,50
+    // USD") is the cue, and the owner fixes the figure via the edit pencil.
+    final rawAmount = match.group(2) ?? match.group(3)!;
+    final amount = parseAmount(rawAmount);
     if (amount == null || amount == 0) return null;
 
     final counterparty = _counterparty(haystack, match.end, title);
     final type = _type(haystack, title, text);
+    final currency = _currencyCode(match.group(1) ?? match.group(4)!);
 
     return ParsedBankDraft(
       amount: type == 'income' ? amount : -amount,
-      description: counterparty ?? revolutFallbackDescription,
+      description: [
+        counterparty ?? revolutFallbackDescription,
+        if (currency != 'EUR') '$rawAmount $currency',
+      ].join(' · '),
       date: when.toLocal(),
       type: type,
       counterparty: counterparty,
@@ -75,6 +82,12 @@ class RevolutNotificationParser {
       ..._expenseHints,
     ].any(haystack.contains);
   }
+
+  static String _currencyCode(String symbolOrCode) => switch (symbolOrCode.toLowerCase()) {
+        '\$' || 'usd' => 'USD',
+        '£' || 'gbp' => 'GBP',
+        _ => 'EUR',
+      };
 
   /// Lowercased title + text, space-padded so ' at '/' to ' markers can be
   /// matched with their delimiters instead of hitting substrings of words.

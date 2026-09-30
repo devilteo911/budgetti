@@ -167,6 +167,37 @@ void main() {
     });
   });
 
+  // The amount is stored as if it were euros (first amount wins, see the
+  // parser); the currency travels in the description as the cue to fix it.
+  group('a foreign currency is named in the description', () {
+    test('a code after the amount', () {
+      final r = run('Revolut', 'Hai speso 12,50 USD presso Starbucks');
+
+      expect(r!.description, 'Starbucks · 12,50 USD');
+      expect(r.counterparty, 'Starbucks'); // the merchant stays clean
+      expect(r.amount, -12.50);
+    });
+
+    test('a symbol before the amount', () {
+      final r = run('Revolut', 'You received £20.00 from Jane');
+
+      expect(r!.description, 'Jane · 20.00 GBP');
+      expect(r.type, 'income');
+    });
+
+    test('no merchant: the fallback text still carries the cue', () {
+      final r = run('Revolut', '\$4.20');
+
+      expect(r!.description, '$revolutFallbackDescription · 4.20 USD');
+      expect(r.counterparty, isNull);
+    });
+
+    test('euros add nothing', () {
+      expect(run('Revolut', 'Hai speso 12,50 EUR presso Bar')!.description, 'Bar');
+      expect(run('Revolut', 'Hai speso €12,50 presso Bar')!.description, 'Bar');
+    });
+  });
+
   group('non-transactional pushes', () {
     test('statement notice is neither parsed nor surfaced', () {
       expect(run('Revolut', 'Il tuo estratto conto è pronto'), isNull);
