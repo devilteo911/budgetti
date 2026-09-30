@@ -78,6 +78,17 @@ class $CategoriesTable extends Categories
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _colorSlotMeta = const VerificationMeta(
+    'colorSlot',
+  );
+  @override
+  late final GeneratedColumn<int> colorSlot = GeneratedColumn<int>(
+    'color_slot',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -113,6 +124,7 @@ class $CategoriesTable extends Categories
     colorHex,
     type,
     description,
+    colorSlot,
     isDeleted,
     lastUpdated,
   ];
@@ -180,6 +192,12 @@ class $CategoriesTable extends Categories
         ),
       );
     }
+    if (data.containsKey('color_slot')) {
+      context.handle(
+        _colorSlotMeta,
+        colorSlot.isAcceptableOrUnknown(data['color_slot']!, _colorSlotMeta),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -232,6 +250,10 @@ class $CategoriesTable extends Categories
         DriftSqlType.string,
         data['${effectivePrefix}description'],
       ),
+      colorSlot: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_slot'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -257,6 +279,13 @@ class Category extends DataClass implements Insertable<Category> {
   final int colorHex;
   final String type;
   final String? description;
+
+  /// The palette slot (0–7) the category was given once and keeps: its colour is
+  /// stored, not recomputed from its neighbours. NULL = not assigned (or not
+  /// synced) yet; rendering then falls back to the id hash. Only expense rows get
+  /// one. On the wire it is `colorSlot` = slot + 1, 0 meaning unset (PocketBase
+  /// number fields have no null).
+  final int? colorSlot;
   final bool isDeleted;
   final DateTime? lastUpdated;
   const Category({
@@ -267,6 +296,7 @@ class Category extends DataClass implements Insertable<Category> {
     required this.colorHex,
     required this.type,
     this.description,
+    this.colorSlot,
     required this.isDeleted,
     this.lastUpdated,
   });
@@ -283,6 +313,9 @@ class Category extends DataClass implements Insertable<Category> {
     map['type'] = Variable<String>(type);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || colorSlot != null) {
+      map['color_slot'] = Variable<int>(colorSlot);
     }
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || lastUpdated != null) {
@@ -304,6 +337,9 @@ class Category extends DataClass implements Insertable<Category> {
       description: description == null && nullToAbsent
           ? const Value.absent()
           : Value(description),
+      colorSlot: colorSlot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorSlot),
       isDeleted: Value(isDeleted),
       lastUpdated: lastUpdated == null && nullToAbsent
           ? const Value.absent()
@@ -324,6 +360,7 @@ class Category extends DataClass implements Insertable<Category> {
       colorHex: serializer.fromJson<int>(json['colorHex']),
       type: serializer.fromJson<String>(json['type']),
       description: serializer.fromJson<String?>(json['description']),
+      colorSlot: serializer.fromJson<int?>(json['colorSlot']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
     );
@@ -339,6 +376,7 @@ class Category extends DataClass implements Insertable<Category> {
       'colorHex': serializer.toJson<int>(colorHex),
       'type': serializer.toJson<String>(type),
       'description': serializer.toJson<String?>(description),
+      'colorSlot': serializer.toJson<int?>(colorSlot),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
     };
@@ -352,6 +390,7 @@ class Category extends DataClass implements Insertable<Category> {
     int? colorHex,
     String? type,
     Value<String?> description = const Value.absent(),
+    Value<int?> colorSlot = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> lastUpdated = const Value.absent(),
   }) => Category(
@@ -362,6 +401,7 @@ class Category extends DataClass implements Insertable<Category> {
     colorHex: colorHex ?? this.colorHex,
     type: type ?? this.type,
     description: description.present ? description.value : this.description,
+    colorSlot: colorSlot.present ? colorSlot.value : this.colorSlot,
     isDeleted: isDeleted ?? this.isDeleted,
     lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
   );
@@ -376,6 +416,7 @@ class Category extends DataClass implements Insertable<Category> {
       description: data.description.present
           ? data.description.value
           : this.description,
+      colorSlot: data.colorSlot.present ? data.colorSlot.value : this.colorSlot,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       lastUpdated: data.lastUpdated.present
           ? data.lastUpdated.value
@@ -393,6 +434,7 @@ class Category extends DataClass implements Insertable<Category> {
           ..write('colorHex: $colorHex, ')
           ..write('type: $type, ')
           ..write('description: $description, ')
+          ..write('colorSlot: $colorSlot, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated')
           ..write(')'))
@@ -408,6 +450,7 @@ class Category extends DataClass implements Insertable<Category> {
     colorHex,
     type,
     description,
+    colorSlot,
     isDeleted,
     lastUpdated,
   );
@@ -422,6 +465,7 @@ class Category extends DataClass implements Insertable<Category> {
           other.colorHex == this.colorHex &&
           other.type == this.type &&
           other.description == this.description &&
+          other.colorSlot == this.colorSlot &&
           other.isDeleted == this.isDeleted &&
           other.lastUpdated == this.lastUpdated);
 }
@@ -434,6 +478,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<int> colorHex;
   final Value<String> type;
   final Value<String?> description;
+  final Value<int?> colorSlot;
   final Value<bool> isDeleted;
   final Value<DateTime?> lastUpdated;
   final Value<int> rowid;
@@ -445,6 +490,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.colorHex = const Value.absent(),
     this.type = const Value.absent(),
     this.description = const Value.absent(),
+    this.colorSlot = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -457,6 +503,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     required int colorHex,
     required String type,
     this.description = const Value.absent(),
+    this.colorSlot = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -473,6 +520,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Expression<int>? colorHex,
     Expression<String>? type,
     Expression<String>? description,
+    Expression<int>? colorSlot,
     Expression<bool>? isDeleted,
     Expression<DateTime>? lastUpdated,
     Expression<int>? rowid,
@@ -485,6 +533,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       if (colorHex != null) 'color_hex': colorHex,
       if (type != null) 'type': type,
       if (description != null) 'description': description,
+      if (colorSlot != null) 'color_slot': colorSlot,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (lastUpdated != null) 'last_updated': lastUpdated,
       if (rowid != null) 'rowid': rowid,
@@ -499,6 +548,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Value<int>? colorHex,
     Value<String>? type,
     Value<String?>? description,
+    Value<int?>? colorSlot,
     Value<bool>? isDeleted,
     Value<DateTime?>? lastUpdated,
     Value<int>? rowid,
@@ -511,6 +561,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       colorHex: colorHex ?? this.colorHex,
       type: type ?? this.type,
       description: description ?? this.description,
+      colorSlot: colorSlot ?? this.colorSlot,
       isDeleted: isDeleted ?? this.isDeleted,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       rowid: rowid ?? this.rowid,
@@ -541,6 +592,9 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     if (description.present) {
       map['description'] = Variable<String>(description.value);
     }
+    if (colorSlot.present) {
+      map['color_slot'] = Variable<int>(colorSlot.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -563,6 +617,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('colorHex: $colorHex, ')
           ..write('type: $type, ')
           ..write('description: $description, ')
+          ..write('colorSlot: $colorSlot, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated, ')
           ..write('rowid: $rowid')
@@ -5278,6 +5333,7 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       required int colorHex,
       required String type,
       Value<String?> description,
+      Value<int?> colorSlot,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -5291,6 +5347,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<int> colorHex,
       Value<String> type,
       Value<String?> description,
+      Value<int?> colorSlot,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -5337,6 +5394,11 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<String> get description => $composableBuilder(
     column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorSlot => $composableBuilder(
+    column: $table.colorSlot,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5395,6 +5457,11 @@ class $$CategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get colorSlot => $composableBuilder(
+    column: $table.colorSlot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -5437,6 +5504,9 @@ class $$CategoriesTableAnnotationComposer
     column: $table.description,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get colorSlot =>
+      $composableBuilder(column: $table.colorSlot, builder: (column) => column);
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
@@ -5482,6 +5552,7 @@ class $$CategoriesTableTableManager
                 Value<int> colorHex = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String?> description = const Value.absent(),
+                Value<int?> colorSlot = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -5493,6 +5564,7 @@ class $$CategoriesTableTableManager
                 colorHex: colorHex,
                 type: type,
                 description: description,
+                colorSlot: colorSlot,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,
@@ -5506,6 +5578,7 @@ class $$CategoriesTableTableManager
                 required int colorHex,
                 required String type,
                 Value<String?> description = const Value.absent(),
+                Value<int?> colorSlot = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -5517,6 +5590,7 @@ class $$CategoriesTableTableManager
                 colorHex: colorHex,
                 type: type,
                 description: description,
+                colorSlot: colorSlot,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
+import 'package:budgetti/core/services/color_slots.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
@@ -142,8 +143,13 @@ void callbackDispatcher() {
         final client = PocketBaseSyncClient(
           pb.PocketBase(persistence.getServerUrl(), authStore: store),
         );
-        final service =
-            PocketBaseSyncService(client, db, persistence, client.userId);
+        final service = PocketBaseSyncService(
+          client,
+          db,
+          persistence,
+          client.userId,
+          afterCategoriesPull: () => backfillColorSlots(db, client.userId),
+        );
         final summary = await service.sync();
         debugPrint('PocketBase sync (bg): $summary');
         // Dead token: drop the persisted session so the next foreground

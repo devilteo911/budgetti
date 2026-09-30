@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/services/color_slots.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -451,7 +452,13 @@ class PocketBaseSyncService {
     _installments,
   ];
 
-  PocketBaseSyncService(this._client, this._db, this._persistence, this._userId);
+  /// Runs between the categories pull and push of a sync: the place to give
+  /// categories their palette slot, after any slot another device assigned has
+  /// been learned and before the result is pushed. Null in tests that do not care.
+  final Future<void> Function()? afterCategoriesPull;
+
+  PocketBaseSyncService(this._client, this._db, this._persistence, this._userId,
+      {this.afterCategoriesPull});
 
   bool get isSyncing => _isSyncing;
 
@@ -579,6 +586,8 @@ class PocketBaseSyncService {
               }
             }
           }
+
+          if (spec.collection == 'categories') await afterCategoriesPull?.call();
 
           // --- PUSH (skip rows just applied from remote) ---
           // Resilient: a row PB rejects (e.g. per-device seed ids that aren't
@@ -788,6 +797,9 @@ class PocketBaseSyncService {
               'colorHex': c.colorHex,
               'type': c.type,
               'description': c.description,
+              // Only when there is one: an omitted field keeps the server's value,
+              // while 0 ("unset") would wipe a slot another device stored.
+              if (c.colorSlot != null) 'colorSlot': slotToWire(c.colorSlot!),
               'isDeleted': c.isDeleted,
               'lastUpdated': _toIso(c.lastUpdated ?? now),
             });
@@ -798,24 +810,37 @@ class PocketBaseSyncService {
               .get();
           return {for (final r in rows) r.id: r.lastUpdated};
         },
-        (db, userId, rows) => db.batch((b) {
-              for (final r in rows) {
-                b.insert(
-                    db.categories,
-                    CategoriesCompanion.insert(
-                      id: r['id'] as String,
-                      userId: Value(userId),
-                      name: r['name'] as String? ?? '',
-                      iconCode: _toInt(r['iconCode']),
-                      colorHex: _toInt(r['colorHex']),
-                      type: r['type'] as String? ?? 'expense',
-                      description: Value(r['description'] as String?),
-                      isDeleted: Value(_toBool(r['isDeleted'])),
-                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
-                    ),
-                    mode: InsertMode.insertOrReplace);
-              }
-            }),
+        (db, userId, rows) async {
+          // The row is replaced whole, so a slot the server has no opinion on
+          // (unset, or a server without the column) must be carried over from
+          // the row being replaced, or every pull would null it.
+          final local = {
+            for (final c in await (db.select(db.categories)
+                  ..where((t) => t.id.isIn([for (final r in rows) r['id'] as String])))
+                .get())
+              c.id: c.colorSlot
+          };
+          await db.batch((b) {
+            for (final r in rows) {
+              final id = r['id'] as String;
+              b.insert(
+                  db.categories,
+                  CategoriesCompanion.insert(
+                    id: id,
+                    userId: Value(userId),
+                    name: r['name'] as String? ?? '',
+                    iconCode: _toInt(r['iconCode']),
+                    colorHex: _toInt(r['colorHex']),
+                    type: r['type'] as String? ?? 'expense',
+                    description: Value(r['description'] as String?),
+                    colorSlot: Value(slotFromWire(r['colorSlot']) ?? local[id]),
+                    isDeleted: Value(_toBool(r['isDeleted'])),
+                    lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                  ),
+                  mode: InsertMode.insertOrReplace);
+            }
+          });
+        },
         (db, ids, now) => (db.update(db.categories)
               ..where((t) => t.id.isIn(ids)))
             .write(CategoriesCompanion(lastUpdated: Value(now))),

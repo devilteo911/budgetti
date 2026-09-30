@@ -37,6 +37,7 @@ import 'package:budgetti/core/services/import_service.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
 import 'package:budgetti/core/services/bank_sync_service.dart';
 import 'package:budgetti/core/services/notification_listener_service.dart';
+import 'package:budgetti/core/services/color_slots.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -122,7 +123,13 @@ final pocketBaseSyncServiceProvider = Provider<PocketBaseSyncService>((ref) {
   // currentUserIdProvider (not client.userId captured once): a service built
   // before login held userId '' and stamped every pulled row invisible.
   final userId = ref.watch(currentUserIdProvider);
-  return PocketBaseSyncService(client, db, persistence, userId);
+  return PocketBaseSyncService(
+    client,
+    db,
+    persistence,
+    userId,
+    afterCategoriesPull: () => backfillColorSlots(db, userId),
+  );
 });
 
 /// Runs a PocketBase sync. No-ops (returns null) when no server is configured.
@@ -688,7 +695,8 @@ final categoryColorCacheProvider =
     Provider.family<Map<String, Color>, Brightness>((ref, brightness) {
       final categories = ref.watch(categoriesProvider).value ?? [];
       return buildCategoryColors([
-        for (final c in categories) (id: c.id, name: c.name, type: c.type),
+        for (final c in categories)
+          (id: c.id, name: c.name, type: c.type, slot: c.colorSlot),
       ], brightness);
     });
 

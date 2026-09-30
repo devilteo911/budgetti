@@ -37,11 +37,18 @@ class Categories extends Table {
   IntColumn get colorHex => integer()();
   TextColumn get type => text()(); // 'income' or 'expense'
   TextColumn get description => text().nullable()();
-  
+
+  /// The palette slot (0–7) the category was given once and keeps: its colour is
+  /// stored, not recomputed from its neighbours. NULL = not assigned (or not
+  /// synced) yet; rendering then falls back to the id hash. Only expense rows get
+  /// one. On the wire it is `colorSlot` = slot + 1, 0 meaning unset (PocketBase
+  /// number fields have no null).
+  IntColumn get colorSlot => integer().nullable()();
+
   // Sync fields
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastUpdated => dateTime().nullable()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -245,7 +252,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 17; // v17: pending_transactions.duplicate_dismissed
+  int get schemaVersion => 18; // v18: categories.color_slot
 
   /// Every index the schema declares, as full CREATE statements. Drift's
   /// codegen only picks up `@TableIndex` annotations — the plain
@@ -367,6 +374,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 17) {
         await _addColumnIfMissing(
             m, pendingTransactions, pendingTransactions.duplicateDismissed);
+      }
+      if (from < 18) {
+        await _addColumnIfMissing(m, categories, categories.colorSlot);
       }
     },
   );

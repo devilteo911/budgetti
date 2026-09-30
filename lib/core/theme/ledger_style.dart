@@ -86,11 +86,13 @@ int categorySlot(String id) {
   return (h ^ (h >> 16)) % 8;
 }
 
-/// name → colour for every category. An expense takes the ramp slot its id
-/// hashes to; income is [incomeInk]. Transactions carry the category *name*, so
-/// twins under one name resolve to the first entry — the one the lists show.
+/// name → colour for every category. An expense takes the ramp slot it was given
+/// when created (`slot`, stored and synced), or — while it has none yet — the slot
+/// its id hashes to ([categorySlot]); income is [incomeInk]. Transactions carry
+/// the category *name*, so twins under one name resolve to the first entry — the
+/// one the lists show.
 Map<String, Color> buildCategoryColors(
-  List<({String id, String name, String type})> categories,
+  List<({String id, String name, String type, int? slot})> categories,
   Brightness brightness,
 ) {
   final ramp = brightness == Brightness.dark ? _catDark : _catLight;
@@ -100,7 +102,7 @@ Map<String, Color> buildCategoryColors(
       c.name,
       () => c.type == 'income'
           ? incomeInk(brightness)
-          : ramp[categorySlot(c.id)],
+          : ramp[(c.slot ?? categorySlot(c.id)) % ramp.length],
     );
   }
   return colors;

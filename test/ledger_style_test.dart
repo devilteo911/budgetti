@@ -25,18 +25,18 @@ void main() {
 
   group('buildCategoryColors', () {
     const cats = [
-      (id: 'c-transport', name: 'Transport', type: 'expense'),
-      (id: 'c-eating', name: 'Eating out', type: 'expense'),
-      (id: 'c-shopping', name: 'Shopping', type: 'expense'),
-      (id: 'c-salary', name: 'Salary', type: 'income'),
+      (id: 'c-transport', name: 'Transport', type: 'expense', slot: null),
+      (id: 'c-eating', name: 'Eating out', type: 'expense', slot: null),
+      (id: 'c-shopping', name: 'Shopping', type: 'expense', slot: null),
+      (id: 'c-salary', name: 'Salary', type: 'income', slot: null),
     ];
 
     test('an expense takes the palette slot its id hashes to', () {
       final colors = buildCategoryColors(cats, Brightness.dark);
       final sameSlot = buildCategoryColors([
-        (id: 'uidA_cat_Groceries', name: 'A', type: 'expense'),
-        (id: '', name: 'B', type: 'expense'), // both hash to slot 1
-        (id: 'a', name: 'C', type: 'expense'), // slot 0
+        (id: 'uidA_cat_Groceries', name: 'A', type: 'expense', slot: null),
+        (id: '', name: 'B', type: 'expense', slot: null), // both hash to slot 1
+        (id: 'a', name: 'C', type: 'expense', slot: null), // slot 0
       ], Brightness.dark);
       expect(sameSlot['A'], sameSlot['B']);
       expect(sameSlot['A'], isNot(sameSlot['C']));
@@ -48,14 +48,14 @@ void main() {
       final before = buildCategoryColors(cats, Brightness.dark);
 
       final more = buildCategoryColors([
-        (id: 'aaa-first', name: 'Aardvark', type: 'expense'), // sorts before all
+        (id: 'aaa-first', name: 'Aardvark', type: 'expense', slot: null), // sorts before all
         ...cats,
-        (id: 'zzz-last', name: 'Zebra', type: 'expense'),
+        (id: 'zzz-last', name: 'Zebra', type: 'expense', slot: null),
       ], Brightness.dark);
       final fewer = buildCategoryColors(
           [cats.first, cats.last], Brightness.dark);
       final renamed = buildCategoryColors([
-        (id: 'c-transport', name: 'Commute', type: 'expense'),
+        (id: 'c-transport', name: 'Commute', type: 'expense', slot: null),
         ...cats.skip(1),
       ], Brightness.dark);
 
@@ -82,7 +82,7 @@ void main() {
     test('more than eight expenses share slots instead of running out', () {
       final many = [
         for (var i = 0; i < 20; i++)
-          (id: 'id-$i', name: 'Cat$i', type: 'expense'),
+          (id: 'id-$i', name: 'Cat$i', type: 'expense', slot: null),
       ];
       final colors = buildCategoryColors(many, Brightness.dark);
       expect(colors.length, 20);
@@ -91,11 +91,11 @@ void main() {
 
     test('twins under one name resolve to the first, the one the list shows', () {
       final colors = buildCategoryColors([
-        (id: 'a', name: 'Groceries', type: 'expense'), // slot 0
-        (id: '', name: 'Groceries', type: 'expense'), // slot 1
+        (id: 'a', name: 'Groceries', type: 'expense', slot: null), // slot 0
+        (id: '', name: 'Groceries', type: 'expense', slot: null), // slot 1
       ], Brightness.dark);
       final first = buildCategoryColors(
-          [(id: 'a', name: 'Groceries', type: 'expense')], Brightness.dark);
+          [(id: 'a', name: 'Groceries', type: 'expense', slot: null)], Brightness.dark);
       expect(colors['Groceries'], first['Groceries']);
     });
   });

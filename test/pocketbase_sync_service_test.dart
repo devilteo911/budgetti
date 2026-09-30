@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ffi';
 
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/services/color_slots.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/pocketbase_sync_service.dart';
 import 'package:drift/drift.dart' show Value;
@@ -87,9 +88,19 @@ class _FakeClient extends SyncClient {
   /// our push", the exact window the server guard exists for.
   void Function(String c, String id)? onBeforeUpsert;
 
+  /// Test seam: fields the server has no column for — a PocketBase that has not
+  /// run the migration that adds them. PB ignores unknown fields on write.
+  final Set<String> unknownFields = {};
+
   void _write(String c, String id, Map<String, dynamic> body) {
+    // An update only touches the fields it sends, as on PocketBase: a key the
+    // body omits keeps its stored value.
+    final merged = {...?_store[c]?[id], ...Map<String, dynamic>.from(body)};
+    for (final f in unknownFields) {
+      merged.remove(f);
+    }
     _store.putIfAbsent(c, () => {})[id] = {
-      ...Map<String, dynamic>.from(body),
+      ...merged,
       'updated': _tick().toUtc().toIso8601String(),
     };
   }
@@ -138,7 +149,11 @@ class _FakeClient extends SyncClient {
 }
 
 Future<(AppDatabase, PersistenceService, _FakeClient, PocketBaseSyncService)>
-    _harness({String userId = 'u1', Map<String, dynamic>? initialStore}) async {
+    _harness({
+  String userId = 'u1',
+  Map<String, dynamic>? initialStore,
+  bool backfillColors = false,
+}) async {
   _ensureSqlite();
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -159,8 +174,9 @@ Future<(AppDatabase, PersistenceService, _FakeClient, PocketBaseSyncService)>
           Map<String, Map<String, dynamic>>.from(entry.value);
     }
   }
-  final service =
-      PocketBaseSyncService(client, db, persistence, userId);
+  final service = PocketBaseSyncService(client, db, persistence, userId,
+      afterCategoriesPull:
+          backfillColors ? () => backfillColorSlots(db, userId) : null);
   return (db, persistence, client, service);
 }
 
@@ -870,5 +886,162 @@ void main() {
     final lit = pbDateLiteral(DateTime.utc(2026, 8, 20, 0, 0, 0));
     expect(lit, '2026-08-20 00:00:00.000Z');
     expect('2026-08-20 09:37:40.528Z'.compareTo(lit) > 0, isTrue);
+  });
+
+  // ── categories.colorSlot ─────────────────────────────────────────────────
+  // The slot rides the wire as slot + 1, 0 meaning unset (PocketBase number
+  // fields have no null); an unset local slot is simply not sent, because PB
+  // keeps a field an update omits and sending 0 would wipe another device's slot.
+  group('category colour slot', () {
+    Future<void> category(AppDatabase db, String id,
+        {int? slot, DateTime? at, String name = 'Food'}) =>
+        db.into(db.categories).insert(CategoriesCompanion.insert(
+              id: id,
+              name: name,
+              iconCode: 1,
+              colorHex: 2,
+              type: 'expense',
+              userId: const Value('u1'),
+              colorSlot: Value(slot),
+              lastUpdated: Value(at ?? DateTime(2026, 7, 1, 10)),
+            ));
+
+    Map<String, dynamic> remote(String name, {Object? slot, bool withSlot = true, DateTime? at}) {
+      final t = (at ?? DateTime(2026, 7, 3, 10)).toUtc().toIso8601String();
+      return {
+        'owner': 'u1',
+        'name': name,
+        'iconCode': 1,
+        'colorHex': 2,
+        'type': 'expense',
+        'isDeleted': false,
+        'lastUpdated': t,
+        'updated': t,
+        if (withSlot) 'colorSlot': slot,
+      };
+    }
+
+    test('a stored slot is pushed as slot + 1', () async {
+      final (db, _, client, service) = await _harness();
+      await category(db, 'c1', slot: 3);
+
+      await service.sync();
+
+      expect(client._store['categories']!['c1']!['colorSlot'], 4);
+    });
+
+    test('slot 0 is pushed as 1, never as the "unset" 0', () async {
+      final (db, _, client, service) = await _harness();
+      await category(db, 'c1', slot: 0);
+
+      await service.sync();
+
+      expect(client._store['categories']!['c1']!['colorSlot'], 1);
+    });
+
+    test('a category with no slot sends no colorSlot at all', () async {
+      final (db, _, client, service) = await _harness();
+      await category(db, 'c1');
+
+      await service.sync();
+
+      expect(client._store['categories']!['c1']!.containsKey('colorSlot'), isFalse);
+    });
+
+    test('an unset local slot does not wipe the slot another device stored',
+        () async {
+      final (db, _, client, service) = await _harness(initialStore: {
+        'categories': {'c1': remote('Food', slot: 6, at: DateTime(2026, 7, 1, 9))},
+      });
+      // Local edit, newer than the stored row, made before the slot was learned.
+      await category(db, 'c1', at: DateTime(2026, 7, 1, 11));
+
+      await service.sync(pull: false); // push only: the pull has not happened yet
+
+      expect(client._store['categories']!['c1']!['colorSlot'], 6);
+    });
+
+    test('pull decodes the wire form', () async {
+      final (db, _, client, service) = await _harness(initialStore: {
+        'categories': {'c1': remote('Food', slot: 5)},
+      });
+
+      await service.sync();
+
+      expect((await _category(db, 'c1'))!.colorSlot, 4);
+    });
+
+    test('pull: unset (0) or absent keeps the slot this device has', () async {
+      final (db, _, client, service) = await _harness();
+      await category(db, 'c1', slot: 2);
+      await category(db, 'c2', slot: 7, name: 'Other');
+      await service.sync();
+
+      // Newer remote edits that carry no opinion about the slot.
+      client.edit('categories', 'c1', {
+        'name': 'Renamed',
+        'colorSlot': 0,
+        'lastUpdated': DateTime(2026, 7, 5, 10).toUtc().toIso8601String(),
+      });
+      client._store['categories']!['c2']!
+        ..['name'] = 'Renamed2'
+        ..['lastUpdated'] = DateTime(2026, 7, 5, 10).toUtc().toIso8601String()
+        ..['updated'] = client._tick().toUtc().toIso8601String()
+        ..remove('colorSlot');
+      await service.sync();
+
+      final c1 = (await _category(db, 'c1'))!, c2 = (await _category(db, 'c2'))!;
+      expect((c1.name, c1.colorSlot), ('Renamed', 2));
+      expect((c2.name, c2.colorSlot), ('Renamed2', 7));
+    });
+
+    test('a server that has not run the migration ignores the field, and our '
+        'own rows coming back do not lose their slot', () async {
+      final (db, persistence, client, service) = await _harness();
+      client.unknownFields.add('colorSlot'); // the old server
+      await category(db, 'c1', slot: 3);
+
+      final first = await service.sync();
+      expect(first.skipped, 0, reason: 'an unknown field must not break the push');
+      expect(client._store['categories']!['c1']!.containsKey('colorSlot'), isFalse);
+
+      // The server now returns the row without the field: a full pull must not
+      // null the local slot.
+      await service.sync(full: true);
+      expect((await _category(db, 'c1'))!.colorSlot, 3);
+    });
+
+    test('a slot round-trips from one device to another', () async {
+      final (dbA, _, clientA, serviceA) = await _harness();
+      await category(dbA, 'c1', slot: 5);
+      await serviceA.sync();
+
+      final (dbB, _, _, serviceB) =
+          await _harness(initialStore: {'categories': clientA._store['categories']!});
+      await serviceB.sync();
+
+      expect((await _category(dbB, 'c1'))!.colorSlot, 5);
+    });
+
+    test('the backfill runs after the pull, so a slot another device gave is '
+        'learned first, and its result is pushed in the same sync', () async {
+      final (db, _, client, service) = await _harness(
+        backfillColors: true,
+        initialStore: {
+          'categories': {'c1': remote('Food', slot: 7, at: DateTime(2026, 7, 4))},
+        },
+      );
+      await category(db, 'c1', at: DateTime(2026, 7, 1)); // same row, no slot here
+      await category(db, 'c2', name: 'Other', at: DateTime(2026, 7, 1));
+
+      await service.sync();
+
+      expect((await _category(db, 'c1'))!.colorSlot, 6, reason: 'learned, not re-assigned');
+      final c2 = (await _category(db, 'c2'))!.colorSlot;
+      expect(c2, isNotNull);
+      expect(c2, isNot(6), reason: 'backfill counted the slot it learned');
+      expect(client._store['categories']!['c2']!['colorSlot'], c2! + 1,
+          reason: 'pushed in the same sync');
+    });
   });
 }

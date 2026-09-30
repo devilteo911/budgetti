@@ -74,6 +74,14 @@ void main() {
           "status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL, "
           'duplicate_of_id TEXT NULL, duplicate_score REAL NULL, '
           'PRIMARY KEY (id))');
+      // A real v16 database also has categories (v17 shape: no color_slot), which
+      // the v18 step alters.
+      raw.execute('CREATE TABLE categories ('
+          'id TEXT NOT NULL, user_id TEXT NULL, name TEXT NOT NULL, '
+          'icon_code INTEGER NOT NULL, color_hex INTEGER NOT NULL, '
+          'type TEXT NOT NULL, description TEXT NULL, '
+          'is_deleted INTEGER NOT NULL DEFAULT 0, last_updated INTEGER NULL, '
+          'PRIMARY KEY (id))');
       raw.execute('INSERT INTO pending_transactions (id, gmail_message_id, '
           'email_subject, email_received_at, parsed_amount, '
           'parsed_description, parsed_date, created_at, duplicate_of_id) '
@@ -93,13 +101,39 @@ void main() {
     expect(rows.single.read<bool>('duplicate_dismissed'), isFalse);
   });
 
+  // v18: a category keeps the palette slot it was given. The column is nullable
+  // and starts NULL, so every existing row renders through the id hash until the
+  // backfill assigns one.
+  test('v17 -> v18 adds color_slot, NULL for every existing row, rows intact',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory(setup: (raw) {
+      raw.execute('CREATE TABLE categories ('
+          'id TEXT NOT NULL, user_id TEXT NULL, name TEXT NOT NULL, '
+          'icon_code INTEGER NOT NULL, color_hex INTEGER NOT NULL, '
+          'type TEXT NOT NULL, description TEXT NULL, '
+          'is_deleted INTEGER NOT NULL DEFAULT 0, last_updated INTEGER NULL, '
+          'PRIMARY KEY (id))');
+      raw.execute('INSERT INTO categories (id, name, icon_code, color_hex, type) '
+          "VALUES ('c1', 'Groceries', 1, 2, 'expense')");
+      raw.execute('PRAGMA user_version = 17');
+    }));
+    addTearDown(db.close);
+
+    final rows =
+        await db.customSelect('SELECT id, name, color_slot FROM categories').get();
+
+    expect(rows, hasLength(1));
+    expect(rows.single.read<String>('name'), 'Groceries');
+    expect(rows.single.read<int?>('color_slot'), isNull);
+  });
+
   // An older build opens a NEWER database without complaint — it only rewrites
   // user_version — and leaves the newer schema in place. Installing the newer
   // build again then re-runs its upgrade steps over columns and tables that are
   // already there: "duplicate column name" and a database that never opens. Every
   // `from < N` step has to be safe to run twice.
   group('re-upgrading a database an older build had opened', () {
-    /// A current (v17) database file holding one row of everything the upgrade
+    /// A current (v18) database file holding one row of everything the upgrade
     /// steps touch, closed and ready to be tampered with.
     Future<File> currentDb() async {
       final dir = await Directory.systemTemp.createTemp('budgetti_downgrade_');
@@ -183,22 +217,22 @@ void main() {
       return v;
     }
 
-    test('v17 schema, user_version 16 (the QA-4 brick): opens, data intact',
+    test('v18 schema, user_version 16 (the QA-4 brick): opens, data intact',
         () async {
       final file = await currentDb();
       tamper(file, (raw) => raw.execute('PRAGMA user_version = 16'));
 
       expect(await reopen(file), intact);
-      expect(userVersion(file), 17);
+      expect(userVersion(file), 18);
     });
 
-    test('v17 schema, user_version 1: every step re-runs over what exists',
+    test('v18 schema, user_version 1: every step re-runs over what exists',
         () async {
       final file = await currentDb();
       tamper(file, (raw) => raw.execute('PRAGMA user_version = 1'));
 
       expect(await reopen(file), intact);
-      expect(userVersion(file), 17);
+      expect(userVersion(file), 18);
     });
 
     // The old steps wrapped their addColumn pairs in one swallow-all try: the

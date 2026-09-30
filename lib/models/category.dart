@@ -8,6 +8,9 @@ class Category {
   final String type; // 'income' or 'expense'
   final String? description;
 
+  /// The stored palette slot (0–7), null until one is assigned. Expense only.
+  final int? colorSlot;
+
   Category({
     required this.id,
     required this.userId,
@@ -16,6 +19,7 @@ class Category {
     required this.colorHex,
     required this.type,
     this.description,
+    this.colorSlot,
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {

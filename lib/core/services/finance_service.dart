@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/services/color_slots.dart';
 import 'package:budgetti/models/account.dart' as model_account;
 import 'package:budgetti/models/category.dart' as model;
 import 'package:budgetti/models/transaction.dart' as model_txn;
@@ -123,6 +124,11 @@ class FinanceService {
 
     // Rewrite default-category icons still holding a legacy (broken) codepoint.
     await _repairDefaultCategoryIcons();
+    // Give every expense category without a palette slot one, once. A sync runs
+    // it again after its pull (PocketBaseSyncService.afterCategoriesPull), which is
+    // where a slot another device assigned is learned first; see color_slots.dart
+    // for why two devices that backfill apart still converge.
+    await backfillColorSlots(_db, _userId);
   }
 
   static DateTime? _startOfDay(DateTime? d) =>
@@ -580,9 +586,14 @@ class FinanceService {
         colorHex: c.colorHex,
         type: c.type,
         description: c.description,
+        colorSlot: c.colorSlot,
       );
 
   Future<void> addCategory(model.Category category) async {
+    // An expense takes its palette slot now and keeps it (see color_slots.dart).
+    final slot = category.type == 'expense'
+        ? (category.colorSlot ?? await nextColorSlot(_db, _userId))
+        : category.colorSlot;
     await _db.into(_db.categories).insert(CategoriesCompanion.insert(
       id: category.id.isEmpty ? const Uuid().v4() : category.id,
       name: category.name,
@@ -590,6 +601,7 @@ class FinanceService {
       colorHex: category.colorHex,
       type: category.type,
       description: Value(category.description),
+      colorSlot: Value(slot),
             userId: Value(_userId), 
       lastUpdated: Value(DateTime.now()),
     ));
@@ -600,12 +612,20 @@ class FinanceService {
           ..where((t) => t.id.equals(category.id)))
         .getSingle();
     await _db.transaction(() async {
+      // A category turned into an expense gets a slot on the spot; one turned into
+      // income keeps its slot (unused while income, back if the type flips back).
+      final slot = category.colorSlot ??
+          old.colorSlot ??
+          (category.type == 'expense' && old.type != 'expense'
+              ? await nextColorSlot(_db, _userId)
+              : null);
       await (_db.update(_db.categories)..where(_sameCategory(old))).write(CategoriesCompanion(
         name: Value(category.name),
         iconCode: Value(category.iconCode),
         colorHex: Value(category.colorHex),
         type: Value(category.type),
         description: Value(category.description),
+        colorSlot: slot == null ? const Value.absent() : Value(slot),
         lastUpdated: Value(DateTime.now()),
       ));
       // A rename follows into every row that stores the label by name —
