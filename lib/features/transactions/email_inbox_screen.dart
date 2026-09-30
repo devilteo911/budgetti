@@ -648,9 +648,18 @@ class _DuplicateNotice extends ConsumerWidget {
         .read(accountsProvider)
         .maybeWhen(data: (a) => a, orElse: () => null);
     if (accounts != null) {
-      for (final a in accounts) {
-        if (a.id == tx.accountId) walletName = a.name;
+      String? nameOf(String? id) {
+        for (final a in accounts) {
+          if (a.id == id) return a.name;
+        }
+        return null;
       }
+
+      walletName = nameOf(tx.accountId);
+      // A transfer twin (the owner's own Widiba -> Revolut move) belongs to two
+      // wallets: name both, so it does not read as an expense out of Widiba.
+      final to = tx.type == 'transfer' ? nameOf(tx.toAccountId) : null;
+      if (walletName != null && to != null) walletName = '$walletName → $to';
     }
 
     await showAppSheet<void>(

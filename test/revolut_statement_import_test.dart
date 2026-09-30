@@ -284,6 +284,92 @@ Totale,,,"150,00€",,"0,00€","0,00€","0,00€"
     expect(r.drafts, hasLength(2));
   });
 
+  // Widiba -> Revolut: the transfer is booked in the ledger, then the Revolut
+  // statement lists the top-up it caused, under a name that shares nothing.
+  group('a top-up that is the destination of a booked transfer', () {
+    Future<void> wallet(AppDatabase db, String id, String name) =>
+        db.into(db.accounts).insert(AccountsCompanion.insert(
+            id: id, userId: const Value('user-a'), name: name));
+
+    Future<void> transfer(AppDatabase db,
+        {required DateTime date,
+        double amount = 100,
+        String to = 'rev',
+        String id = 'tr'}) =>
+        db.into(db.transactions).insert(TransactionsCompanion.insert(
+              id: id,
+              userId: const Value('user-a'),
+              accountId: const Value('wid'),
+              toAccountId: Value(to),
+              amount: amount,
+              description: 'Giroconto verso conto secondario',
+              category: 'Transfer',
+              type: const Value('transfer'),
+              date: date,
+            ));
+
+    Future<AppDatabase> ledger(
+        {DateTime? date, double amount = 100, String to = 'rev'}) async {
+      final db = AppDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(db.close);
+      await wallet(db, 'wid', 'Widiba');
+      await wallet(db, 'rev', 'Revolut');
+      await wallet(db, 'other', 'Pocket');
+      // The statement's top-up is 23 giu 2026, 100,00.
+      await transfer(db,
+          date: date ?? DateTime(2026, 6, 21, 9), amount: amount, to: to);
+      return db;
+    }
+
+    PendingTransaction row(RevolutImportResult r, String description) =>
+        r.drafts.firstWhere((d) => d.parsedDescription == description);
+
+    test('is flagged against the transfer, two days before, whatever it says',
+        () async {
+      final db = await ledger();
+
+      final r = await _service(db).importStatement(_csv);
+
+      final topUp = row(r, 'Pagamento da ROSSI MARIO');
+      expect(topUp.duplicateOfId, 'tr');
+      expect(topUp.duplicateScore, greaterThanOrEqualTo(duplicateThreshold));
+    });
+
+    test('an expense of the same amount is not flagged by it', () async {
+      // The statement's Conad is -12,26 on 24 giu; a transfer of that amount into
+      // Revolut two days earlier.
+      final db = await ledger(amount: 12.26, date: DateTime(2026, 6, 22, 9));
+
+      final r = await _service(db).importStatement(_csv);
+
+      expect(row(r, 'Conad').duplicateOfId, isNull);
+    });
+
+    test('a top-up into another wallet is not flagged', () async {
+      final db = await ledger(to: 'other');
+
+      final r = await _service(db).importStatement(_csv);
+
+      expect(row(r, 'Pagamento da ROSSI MARIO').duplicateOfId, isNull);
+    });
+
+    test('a transfer of another amount is not', () async {
+      final db = await ledger(amount: 99);
+
+      final r = await _service(db).importStatement(_csv);
+
+      expect(row(r, 'Pagamento da ROSSI MARIO').duplicateOfId, isNull);
+    });
+
+    test('four days apart is not', () async {
+      final db = await ledger(date: DateTime(2026, 6, 19, 9));
+
+      final r = await _service(db).importStatement(_csv);
+
+      expect(row(r, 'Pagamento da ROSSI MARIO').duplicateOfId, isNull);
+    });
+  });
+
   test('a movement already approved comes through flagged as a duplicate',
       () async {
     final db = AppDatabase.forExecutor(NativeDatabase.memory());

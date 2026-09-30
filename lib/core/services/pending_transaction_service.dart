@@ -46,23 +46,17 @@ class PendingTransactionService {
   /// called "Revolut". Null when neither, in which case the inbox asks.
   Future<String?> resolveAccountIdForSource(String source) async {
     final accounts = await _finance.getAccounts();
-    final remembered = _persistence?.getSourceWalletId(source);
-    if (remembered != null && accounts.any((a) => a.id == remembered)) {
-      return remembered;
-    }
-    return _deducedAccountId(source, accounts);
+    return sourceWalletId(
+      source,
+      _wallets(accounts),
+      remembered: _persistence?.getSourceWalletId(source),
+    );
   }
 
-  String? _deducedAccountId(String source, List<wallet.Account> accounts) {
-    final needle = source.toLowerCase();
-    for (final a in accounts) {
-      if (a.name.toLowerCase().contains(needle) ||
-          a.providerName.toLowerCase().contains(needle)) {
-        return a.id;
-      }
-    }
-    return null;
-  }
+  Iterable<SourceWallet> _wallets(List<wallet.Account> accounts) => [
+        for (final a in accounts)
+          (id: a.id, name: a.name, providerName: a.providerName),
+      ];
 
   /// Remembers [accountId] for [source] only when it differs from what the name
   /// match alone would pick, and forgets it when the owner is back on that
@@ -70,7 +64,7 @@ class PendingTransactionService {
   Future<void> _rememberWallet(String source, String accountId) async {
     final prefs = _persistence;
     if (prefs == null) return;
-    final deduced = _deducedAccountId(source, await _finance.getAccounts());
+    final deduced = sourceWalletId(source, _wallets(await _finance.getAccounts()));
     await prefs.setSourceWalletId(
         source, accountId == deduced ? null : accountId);
   }
@@ -130,6 +124,10 @@ class PendingTransactionService {
           amount: still.parsedAmount,
           description: still.parsedDescription,
           date: still.parsedDate,
+          // The wallet the income is about to be booked into: a transfer INTO it
+          // is the same money.
+          incomeIntoAccountId:
+              still.parsedAmount > 0 && type == 'income' ? accountId : null,
         );
         if (twin != null) {
           await (_db.update(_db.pendingTransactions)

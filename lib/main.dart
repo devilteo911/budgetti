@@ -78,7 +78,12 @@ void callbackDispatcher() {
         // a hardcoded 'local' made bg-captured drafts invisible and broke
         // category matching post-login.
         final uid = persistence.getLocalUserId();
-        final sync = BankSyncService(db, gmail, uid.isEmpty ? 'local' : uid);
+        final sync = BankSyncService(
+          db,
+          gmail,
+          uid.isEmpty ? 'local' : uid,
+          persistence: persistence,
+        );
         final newDrafts = <PendingTransaction>[];
 
         // The two halves are independent: a Gmail auth failure must not stop

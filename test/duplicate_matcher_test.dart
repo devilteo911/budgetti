@@ -134,6 +134,133 @@ void main() {
     });
   });
 
+  // Widiba -> Revolut: the owner books the transfer, and the Revolut top-up that
+  // arrives as a push or a statement row is the SAME money. Its description
+  // ("Pagamento da ROSSI MARIO") shares nothing with the transfer's, so by name
+  // and date alone it scores under the threshold and is booked twice. A transfer
+  // whose DESTINATION is the wallet an INCOME draft lands in, for the same amount
+  // within the window, is a twin regardless of the wording — and only then, so an
+  // ordinary expense of the same amount is never flagged by it.
+  //
+  // Ceiling: this only works if the transfer is booked first. A top-up approved
+  // as income BEFORE the Widiba transfer is approved flags nothing, and the double
+  // count needs the owner's eye: approve the Widiba transfer first.
+  group('findDuplicate: a top-up against a wallet-to-wallet transfer', () {
+    late AppDatabase db;
+    var n = 0;
+    setUp(() {
+      db = AppDatabase.forExecutor(NativeDatabase.memory());
+      n = 0;
+    });
+    tearDown(() => db.close());
+
+    final day = DateTime(2026, 6, 23, 10);
+    Future<void> transfer({
+      double amount = 100,
+      DateTime? date,
+      String to = 'rev',
+      bool deleted = false,
+    }) =>
+        db.into(db.transactions).insert(TransactionsCompanion.insert(
+              id: 'tr${n++}',
+              accountId: const Value('wid'),
+              toAccountId: Value(to),
+              amount: amount,
+              description: 'Giroconto verso conto secondario',
+              category: 'Transfer',
+              type: const Value('transfer'),
+              date: date ?? day.subtract(const Duration(days: 2)),
+              isDeleted: Value(deleted),
+            ));
+
+    Future<DuplicateMatch?> topUp({
+      double amount = 100,
+      String? into = 'rev',
+      DateTime? date,
+    }) =>
+        findDuplicate(db,
+            amount: amount,
+            description: 'Pagamento da ROSSI MARIO',
+            date: date ?? day,
+            incomeIntoAccountId: into);
+
+    test('an income into the transfer\'s destination is flagged whatever it '
+        'is called', () async {
+      await transfer();
+
+      final m = await topUp();
+
+      expect(m?.transactionId, 'tr0');
+      expect(m?.score, greaterThanOrEqualTo(duplicateThreshold));
+    });
+
+    test('without the wallet context nothing changes', () async {
+      await transfer();
+
+      expect(await topUp(into: null), isNull);
+    });
+
+    test('an expense of the same amount near the transfer is not flagged',
+        () async {
+      await transfer();
+
+      // Same amount, negative, no income wallet: an ordinary purchase.
+      final m = await findDuplicate(db,
+          amount: -100,
+          description: 'Pagamento presso Conad',
+          date: day,
+          incomeIntoAccountId: null);
+
+      expect(m, isNull);
+    });
+
+    test('an income into another wallet is not flagged', () async {
+      await transfer(to: 'rev');
+
+      expect(await topUp(into: 'paypal'), isNull);
+    });
+
+    test('another amount is not flagged', () async {
+      await transfer(amount: 100);
+
+      expect(await topUp(amount: 99.5), isNull);
+    });
+
+    test('four days apart is outside the window', () async {
+      await transfer(date: day.subtract(const Duration(days: 4)));
+
+      expect(await topUp(), isNull);
+    });
+
+    test('three days apart is inside it', () async {
+      await transfer(date: day.subtract(const Duration(days: 3)));
+
+      expect((await topUp())?.transactionId, 'tr0');
+    });
+
+    test('a deleted transfer is no twin', () async {
+      await transfer(deleted: true);
+
+      expect(await topUp(), isNull);
+    });
+
+    test('a same-amount expense (not a transfer) still needs its usual score',
+        () async {
+      await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'exp',
+          accountId: const Value('rev'),
+          amount: 100,
+          description: 'Stipendio',
+          category: 'Salary',
+          type: const Value('income'),
+          date: day.subtract(const Duration(days: 2))));
+
+      // An ordinary income two days earlier with an unrelated name: today's
+      // scoring (0.3), not the transfer floor.
+      expect(await topUp(), isNull);
+    });
+  });
+
   group('guessCategory', () {
     String? guess(String description, {String type = 'expense'}) =>
         guessCategory(ParsedBankDraft(

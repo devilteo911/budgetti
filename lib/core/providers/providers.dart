@@ -214,7 +214,12 @@ final bankSyncServiceProvider = Provider<BankSyncService>((ref) {
   final db = ref.watch(databaseProvider);
   final gmail = ref.watch(gmailServiceProvider);
   final userId = ref.watch(currentUserIdProvider);
-  return BankSyncService(db, gmail, userId);
+  return BankSyncService(
+    db,
+    gmail,
+    userId,
+    persistence: ref.watch(persistenceServiceProvider),
+  );
 });
 
 final pendingTransactionServiceProvider = Provider<PendingTransactionService>((

@@ -72,6 +72,7 @@ Future<void> _insertTx(
   String description = 'Coffee',
   String category = 'Dining',
   String type = 'expense',
+  String? toAccountId,
   DateTime? date,
   bool isDeleted = false,
 }) =>
@@ -80,6 +81,7 @@ Future<void> _insertTx(
             id: id,
             userId: const Value('user-a'),
             accountId: const Value('wallet'),
+            toAccountId: Value(toAccountId),
             amount: amount,
             description: description,
             category: category,
@@ -682,6 +684,100 @@ void main() {
     );
     expect(await db.select(db.transactions).get(), isEmpty);
     expect((await _draft(db)).status, 'pending');
+  });
+
+  // Widiba -> Revolut, seen at approval: the top-up draft was captured before the
+  // owner booked the transfer, so it carries no flag; the recheck must catch it.
+  // (Ceiling: approve the Widiba transfer FIRST — a top-up approved before it
+  // flags nothing.)
+  group('a top-up against a wallet-to-wallet transfer, at approval', () {
+    Future<(AppDatabase, PendingTransactionService)> setup() async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wid', 'Widiba');
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertAccount(db, 'other', 'Pocket');
+      return (db, service);
+    }
+
+    Future<void> transferTwoDaysBefore(AppDatabase db, {double amount = 100}) =>
+        _insertTx(db,
+            id: 'tr',
+            amount: amount,
+            description: 'Giroconto verso conto secondario',
+            category: 'Transfer',
+            type: 'transfer',
+            toAccountId: 'rev',
+            date: _day.subtract(const Duration(days: 2)));
+
+    test('an income into the destination wallet is stopped and flagged',
+        () async {
+      final (db, service) = await setup();
+      await _insertDraft(db,
+          source: 'revolut',
+          type: 'income',
+          amount: 100,
+          description: 'Pagamento da ROSSI MARIO'); // captured with no twin around
+      await transferTwoDaysBefore(db); // booked afterwards
+
+      final tx = await service.approve(await _draft(db),
+          type: 'income', accountId: 'rev');
+
+      expect(tx, isNull);
+      expect(await db.select(db.transactions).get(), hasLength(1));
+      final d = await _draft(db);
+      expect(d.status, 'pending');
+      expect(d.duplicateOfId, 'tr');
+      expect(d.duplicateScore, greaterThanOrEqualTo(duplicateThreshold));
+    });
+
+    test('"Sì, è la stessa" rejects it and books nothing', () async {
+      final (db, service) = await setup();
+      await _insertDraft(db,
+          source: 'revolut', type: 'income', amount: 100, description: 'Ricarica');
+      await transferTwoDaysBefore(db);
+      await service.approve(await _draft(db), type: 'income', accountId: 'rev');
+
+      await service.reject('pending_x'); // what the compare sheet's button does
+
+      expect((await _draft(db)).status, 'rejected');
+      expect(await db.select(db.transactions).get(), hasLength(1));
+    });
+
+    test('an income into another wallet books', () async {
+      final (db, service) = await setup();
+      await _insertDraft(db,
+          source: 'revolut', type: 'income', amount: 100, description: 'Ricarica');
+      await transferTwoDaysBefore(db);
+
+      final tx = await service.approve(await _draft(db),
+          type: 'income', accountId: 'other');
+
+      expect(tx, isNotNull);
+    });
+
+    test('an expense of the same amount books', () async {
+      final (db, service) = await setup();
+      await _insertDraft(db,
+          source: 'revolut', type: 'expense', amount: -100, description: 'Conad');
+      await transferTwoDaysBefore(db);
+
+      final tx = await service.approve(await _draft(db),
+          type: 'expense', accountId: 'rev');
+
+      expect(tx, isNotNull);
+    });
+
+    test('a transfer of another amount does not stop it', () async {
+      final (db, service) = await setup();
+      await _insertDraft(db,
+          source: 'revolut', type: 'income', amount: 100, description: 'Ricarica');
+      await transferTwoDaysBefore(db, amount: 250);
+
+      final tx = await service.approve(await _draft(db),
+          type: 'income', accountId: 'rev');
+
+      expect(tx, isNotNull);
+    });
   });
 
   test('the compare sheet never resolves to a deleted transaction', () async {

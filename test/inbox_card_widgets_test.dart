@@ -1,7 +1,11 @@
 import 'dart:ffi' show DynamicLibrary;
 
 import 'package:budgetti/core/database/database.dart'
-    show AppDatabase, PendingTransaction, PendingTransactionsCompanion;
+    show
+        AppDatabase,
+        PendingTransaction,
+        PendingTransactionsCompanion,
+        TransactionsCompanion;
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart';
@@ -68,9 +72,13 @@ void main() {
     String gmailMessageId = 'x',
     String rawSnippet = '',
     String description = 'Coffee',
+    String? duplicateOfId,
+    List<Account> accounts = const [],
+    Future<void> Function(AppDatabase db)? seed,
   }) async {
     final db = AppDatabase.forExecutor(NativeDatabase.memory());
     addTearDown(db.close);
+    if (seed != null) await tester.runAsync(() => seed(db));
     await tester.runAsync(() => db.into(db.pendingTransactions).insert(
           PendingTransactionsCompanion.insert(
             id: 'pending_x',
@@ -86,6 +94,8 @@ void main() {
             status: Value(status),
             suggestedType: Value(type),
             suggestedCategory: Value(suggestedCategory),
+            duplicateOfId: Value(duplicateOfId),
+            duplicateScore: Value(duplicateOfId == null ? null : 0.45),
           ),
         ));
     final row = (await tester.runAsync(
@@ -102,7 +112,7 @@ void main() {
             Stream.value(status == 'skipped' ? [row] : <PendingTransaction>[])),
         categoriesProvider.overrideWith((ref) =>
             Stream.value([category('Spesa'), category('Treats')])),
-        accountsProvider.overrideWith((ref) => Stream.value(<Account>[])),
+        accountsProvider.overrideWith((ref) => Stream.value(accounts)),
         // What the add sheet opened by the pencil reads.
         financeServiceProvider.overrideWithValue(FinanceService(db, 'u')),
         transactionsProvider(null)
@@ -113,7 +123,12 @@ void main() {
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const EmailInboxScreen(),
+        // The compare sheet reads the wallets without watching them, as in the
+        // app, where the dashboard keeps them warm.
+        home: Consumer(builder: (context, ref, _) {
+          ref.watch(accountsProvider);
+          return const EmailInboxScreen();
+        }),
       ),
     ));
     await tester.pumpAndSettle();
@@ -259,6 +274,70 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(amountField(tester), isEmpty);
+    });
+  });
+
+  // The twin of a Revolut top-up can be the owner's own Widiba -> Revolut
+  // transfer: its amount is positive, its wallet is the SOURCE, and it names two
+  // wallets. The notice and the compare sheet must read sensibly for it.
+  group('a draft flagged against a transfer', () {
+    Account wallet(String id, String name) => Account(
+        id: id, name: name, balance: 0, currency: 'EUR', providerName: '');
+
+    Future<AppDatabase> pumpFlagged(WidgetTester tester) => pumpInbox(
+          tester,
+          amount: 100,
+          type: 'income',
+          description: 'Pagamento da ROSSI MARIO',
+          duplicateOfId: 'tr',
+          accounts: [wallet('wid', 'Widiba'), wallet('rev', 'Revolut')],
+          seed: (db) => db.into(db.transactions).insert(
+                TransactionsCompanion.insert(
+                  id: 'tr',
+                  accountId: const Value('wid'),
+                  toAccountId: const Value('rev'),
+                  amount: 100,
+                  description: 'Giroconto verso conto secondario',
+                  category: 'Transfer',
+                  type: const Value('transfer'),
+                  date: DateTime(2026, 6, 21, 9),
+                ),
+              ),
+        );
+
+    testWidgets('shows the notice with the transfer, unsigned', (tester) async {
+      await pumpFlagged(tester);
+
+      expect(find.text('Possibly already recorded'), findsOneWidget);
+      expect(find.textContaining('"Giroconto verso conto secondario"'),
+          findsOneWidget);
+      expect(find.textContaining('€100.00'), findsWidgets);
+    });
+
+    testWidgets('the compare sheet names both wallets of the transfer',
+        (tester) async {
+      await pumpFlagged(tester);
+
+      await tester.tap(find.text('Possibly already recorded'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Already in the account'), findsOneWidget);
+      expect(find.textContaining('Widiba → Revolut'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('"Yes, it\'s the same" rejects the draft', (tester) async {
+      final db = await pumpFlagged(tester);
+      await tester.tap(find.text('Possibly already recorded'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Yes, it\'s the same'));
+      await tester.pumpAndSettle();
+
+      final status = (await tester.runAsync(
+              () => db.select(db.pendingTransactions).getSingle()))!
+          .status;
+      expect(status, 'rejected');
     });
   });
 

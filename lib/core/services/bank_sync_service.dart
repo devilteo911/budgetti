@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
 import 'package:budgetti/core/services/notification_listener_service.dart';
+import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/revolut_notification_parser.dart';
 import 'package:budgetti/core/services/revolut_statement_parser.dart';
 import 'package:budgetti/core/services/widiba_email_parser.dart';
@@ -32,6 +33,7 @@ class BankSyncService {
   final RevolutNotificationParser _revolutParser;
   final NotificationListenerService _notifications;
   final String _userId;
+  final PersistenceService? _persistence;
 
   BankSyncService(
     this._db,
@@ -40,9 +42,29 @@ class BankSyncService {
     WidibaEmailParser parser = const WidibaEmailParser(),
     RevolutNotificationParser revolutParser = const RevolutNotificationParser(),
     NotificationListenerService notifications = const NotificationListenerService(),
+    PersistenceService? persistence,
   })  : _parser = parser,
         _revolutParser = revolutParser,
-        _notifications = notifications;
+        _notifications = notifications,
+        _persistence = persistence;
+
+  /// The wallet an income draft from [source] will land in, for the transfer-twin
+  /// check in [findDuplicate]; null for anything that is not income. Same rule as
+  /// the inbox's (the remembered wallet, else the name match).
+  Future<String?> _incomeWallet(double amount, String source) async {
+    if (amount <= 0) return null;
+    final rows = await (_db.select(_db.accounts)
+          ..where((a) => a.isDeleted.equals(false) & a.userId.equals(_userId)))
+        .get();
+    return sourceWalletId(
+      source,
+      [
+        for (final a in rows)
+          (id: a.id, name: a.name, providerName: a.providerName ?? ''),
+      ],
+      remembered: _persistence?.getSourceWalletId(source),
+    );
+  }
 
   /// Keyword rules name the app's *default* categories, but the user may have
   /// renamed or deleted them ("Dining" → "Eating out"). Resolve the rule's
@@ -138,6 +160,7 @@ class BankSyncService {
         amount: parsed.amount,
         description: parsed.description,
         date: parsed.date,
+        incomeIntoAccountId: await _incomeWallet(parsed.amount, 'widiba'),
       );
 
       await _db.into(_db.pendingTransactions).insert(
@@ -239,6 +262,7 @@ class BankSyncService {
         amount: parsed.amount,
         description: parsed.description,
         date: parsed.date,
+        incomeIntoAccountId: await _incomeWallet(parsed.amount, 'revolut'),
       );
 
       await _db.into(_db.pendingTransactions).insert(
@@ -312,6 +336,7 @@ class BankSyncService {
         amount: draft.amount,
         description: draft.description,
         date: draft.date,
+        incomeIntoAccountId: await _incomeWallet(draft.amount, 'revolut'),
       );
 
       await _db.into(_db.pendingTransactions).insert(
@@ -468,16 +493,54 @@ class RevolutImportResult {
   });
 }
 
+/// A wallet, as far as choosing one for a bank source is concerned.
+typedef SourceWallet = ({String id, String name, String providerName});
+
+/// The wallet a bank source books into: the one the owner chose for it
+/// ([remembered], if it still exists among [wallets]), else the first whose name
+/// or provider mentions the bank (source 'revolut' -> a wallet called
+/// "Revolut"), else null. One rule for the inbox (which asks the owner when it is
+/// null) and for capture's transfer-twin check.
+String? sourceWalletId(
+  String source,
+  Iterable<SourceWallet> wallets, {
+  String? remembered,
+}) {
+  if (remembered != null && wallets.any((w) => w.id == remembered)) {
+    return remembered;
+  }
+  final needle = source.toLowerCase();
+  for (final w in wallets) {
+    if (w.name.toLowerCase().contains(needle) ||
+        w.providerName.toLowerCase().contains(needle)) {
+      return w.id;
+    }
+  }
+  return null;
+}
+
 /// Looks for an existing transaction a draft may be repeating: same amount,
 /// within ±3 days, with date proximity and description similarity combined into
 /// a confidence score. Returns the best match above threshold. Top-level so the
 /// approve-time recheck ([PendingTransactionService.approve]) shares it with the
 /// three capture paths.
+///
+/// [incomeIntoAccountId] is the wallet an INCOME draft will land in (null for
+/// anything else). A wallet-to-wallet transfer whose destination is that wallet
+/// scores at least the threshold whatever its wording: the Widiba transfer and
+/// the Revolut top-up it caused are the same money and share no words. Only for
+/// an income into the destination wallet, so an ordinary expense of the same
+/// amount is never flagged by it.
+///
+/// ceiling: this only works if the transfer is booked first. A top-up approved as
+/// income BEFORE the Widiba transfer is approved flags nothing, and the double
+/// count needs the owner's eye: approve the Widiba transfer first.
 Future<DuplicateMatch?> findDuplicate(
   AppDatabase db, {
   required double amount,
   required String description,
   required DateTime date,
+  String? incomeIntoAccountId,
 }) async {
   final day = DateTime(date.year, date.month, date.day);
   final candidates = await (db.select(db.transactions)
@@ -495,12 +558,19 @@ Future<DuplicateMatch?> findDuplicate(
     // Transfers carry no sign convention, everything else must agree.
     if (tx.type != 'transfer' && tx.amount.sign != amount.sign) continue;
 
-    final score = duplicateConfidence(
+    var score = duplicateConfidence(
       draftDate: date,
       draftDescription: description,
       txDate: tx.date,
       txDescription: tx.description,
     );
+    if (tx.type == 'transfer' &&
+        incomeIntoAccountId != null &&
+        amount > 0 &&
+        tx.toAccountId == incomeIntoAccountId &&
+        score < duplicateThreshold) {
+      score = duplicateThreshold;
+    }
     if (score < duplicateThreshold) continue;
     if (best == null || score > best.score) {
       best = DuplicateMatch(tx.id, score);
