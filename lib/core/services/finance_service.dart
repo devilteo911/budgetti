@@ -685,8 +685,13 @@ class FinanceService {
     ));
   }
 
+  // A zero limit is "no budget": the old Clear saved one, and the web app can
+  // still sync them in, and either made the overview card look populated.
   MultiSelectable<Budget> _budgetsQuery() => _db.select(_db.budgets)
-    ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
+    ..where((tbl) =>
+        tbl.isDeleted.equals(false) &
+        tbl.userId.equals(_userId) &
+        tbl.limitAmount.isBiggerThanValue(0));
 
   Future<List<model_budget.Budget>> getBudgets() async =>
       (await _budgetsQuery().get()).map(_toBudget).toList();

@@ -1,3 +1,4 @@
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/budget.dart';
@@ -75,7 +76,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.budgetSaveError('$e'))),
+          SnackBar(content: Text(context.l10n.budgetSaveError(errorText(context, e)))),
         );
       }
     } finally {
@@ -86,13 +87,9 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
   Future<void> _clearBudget() async {
     setState(() => _isLoading = true);
     try {
-      final service = ref.read(financeServiceProvider);
-      await service.upsertBudget(Budget(
-        id: '',
-        userId: '',
-        category: widget.categoryName,
-        limit: 0,
-      ));
+      // Delete the row: saving a limit of 0 left a budget that read as set.
+      final id = ref.read(budgetMapProvider)[widget.categoryName]?.id;
+      if (id != null) await ref.read(financeServiceProvider).deleteBudget(id);
       ref.invalidate(budgetsProvider);
       if (mounted) {
         context.pop();
@@ -103,7 +100,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(context.l10n.budgetSaveError(errorText(context, e)))),
         );
       }
     } finally {
@@ -223,7 +220,7 @@ class _SetBudgetModalState extends ConsumerState<SetBudgetModal> {
                         final sanitized = value.replaceAll(',', '.');
                         final parsed = double.tryParse(sanitized);
                         if (parsed == null) return context.l10n.budgetInvalid;
-                        if (parsed < 0) {
+                        if (parsed <= 0) {
                           return context.l10n.budgetMustBePositive;
                         }
                         return null;
