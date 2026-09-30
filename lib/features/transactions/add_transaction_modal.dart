@@ -89,17 +89,20 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       );
     });
 
+    final isPrefill = widget.transaction == null && widget.prefill != null;
     final t = widget.transaction ?? widget.prefill;
     if (t != null) {
-      _amountController.text = widget.transaction != null
+      _amountController.text = !isPrefill
           ? t.amount.abs().toString()
           : (t.amount == 0 ? '' : t.amount.abs().toStringAsFixed(2));
       _descriptionController.text = t.description;
-      _selectedCategory = t.category.isEmpty ? null : t.category;
+      // A prefill leaves what it doesn't know empty, for the defaults below to
+      // fill. An existing row keeps exactly what it has, empty or not.
+      _selectedCategory = isPrefill && t.category.isEmpty ? null : t.category;
       _selectedDate = t.date;
       _type = t.type;
       _selectedTags = List.from(t.tags);
-      _selectedAccountId = t.accountId.isEmpty ? null : t.accountId;
+      _selectedAccountId = isPrefill && t.accountId.isEmpty ? null : t.accountId;
       _selectedToAccountId = t.toAccountId;
       _selectedInstallmentId = t.installmentId;
     }
@@ -122,11 +125,14 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       if (_type != 'transfer') {
         final categories = ref.read(categoriesProvider).value ?? [];
         final filtered = categories.where((c) => c.type == _type).toList();
-        // Also when the category is no longer live (a draft's suggestion deleted
-        // since capture): the row shows the first live one, so save that rather
-        // than a dead name the row never displayed.
-        if (filtered.isNotEmpty &&
-            !filtered.any((c) => c.name == _selectedCategory)) {
+        // A prefill's category may be gone by now (suggested at capture): default
+        // it like an unset one, so the owner never saves a name the row doesn't
+        // show. Never for an existing row — saving it untouched must not rewrite
+        // its category, whatever kind or state that category is in (legacy rows
+        // hold income categories on expenses, deleted names, or none).
+        final stale = isPrefill &&
+            !filtered.any((c) => c.name == _selectedCategory);
+        if (filtered.isNotEmpty && (_selectedCategory == null || stale)) {
           _selectedCategory = filtered.first.name;
           setState(() {});
         }
