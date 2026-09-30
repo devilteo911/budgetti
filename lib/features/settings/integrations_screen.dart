@@ -367,12 +367,19 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     if (mounted) setState(() => _notificationAccess = granted);
   }
 
-  /// Turning the switch on is useless without Android's notification access, so
-  /// send the user straight to the system screen that grants it. The switch
-  /// itself is still stored — [didChangeAppLifecycleState] re-reads the real
-  /// permission when they come back.
+  /// The switch shows whether capture is actually working — switched on AND
+  /// allowed — so it never reads ON while the row below says access is missing.
+  ///
+  /// Turning it on without Android's notification access stores the wish, sends
+  /// the user to the system screen that grants it, and leaves the switch off;
+  /// [didChangeAppLifecycleState] re-reads the real permission when they come
+  /// back and the switch follows. A tap on a switch that shows off but is still
+  /// waiting for access cancels the wait instead of re-arming it (the "not
+  /// granted" row is the way back to the system screen).
   Future<void> _toggleRevolutSync(bool enabled) async {
     final persistence = ref.read(persistenceServiceProvider);
+    final waiting = persistence.getRevolutSyncEnabled() && !_notificationAccess;
+    if (waiting) enabled = false;
     await persistence.setRevolutSyncEnabled(enabled);
     await ref.read(notificationLogicProvider).updateBankSyncSchedule();
     if (mounted) setState(() {});
@@ -783,7 +790,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
               title: context.l10n.setSyncRevolutNotifications,
               subtitle: context.l10n.setSyncRevolutNotificationsSubtitle,
               trailing: Switch(
-                value: persistence.getRevolutSyncEnabled(),
+                value: persistence.getRevolutSyncEnabled() && _notificationAccess,
                 onChanged: _toggleRevolutSync,
               ),
             ),
