@@ -303,10 +303,14 @@ class FinanceService {
       ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
 
     // A transfer belongs to both wallets: filtering on the source alone hid
-    // the incoming leg from the destination's own history.
+    // the incoming leg from the destination's own history. Only a real
+    // transfer counts as incoming, the same rule getAccounts() uses for the
+    // balance, so a row retyped away from 'transfer' (the old category chip)
+    // that still carries toAccountId doesn't show up where it moved no money.
     if (accountId != null) {
       query.where((tbl) =>
-          tbl.accountId.equals(accountId) | tbl.toAccountId.equals(accountId));
+          tbl.accountId.equals(accountId) |
+          (tbl.toAccountId.equals(accountId) & tbl.type.equals('transfer')));
     }
 
     if (startDate != null || endDate != null) {
@@ -373,10 +377,14 @@ class FinanceService {
       ..where((tbl) => tbl.isDeleted.equals(false) & tbl.userId.equals(_userId));
 
     // A transfer belongs to both wallets: filtering on the source alone hid
-    // the incoming leg from the destination's own history.
+    // the incoming leg from the destination's own history. Only a real
+    // transfer counts as incoming, the same rule getAccounts() uses for the
+    // balance, so a row retyped away from 'transfer' (the old category chip)
+    // that still carries toAccountId doesn't show up where it moved no money.
     if (accountId != null) {
       query.where((tbl) =>
-          tbl.accountId.equals(accountId) | tbl.toAccountId.equals(accountId));
+          tbl.accountId.equals(accountId) |
+          (tbl.toAccountId.equals(accountId) & tbl.type.equals('transfer')));
     }
 
     if (startDate != null || endDate != null) {

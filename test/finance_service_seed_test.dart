@@ -334,6 +334,8 @@ void _migrationTests() {
               date: DateTime(2026, 6, 23),
             ));
     await insert('topup', 'widiba', 'revolut', 'transfer');
+    // Moved no money into Revolut: retyped by the old category chip.
+    await insert('retyped', 'widiba', 'revolut', 'income');
     await insert('conad', 'revolut', null, 'expense');
     await insert('rent', 'widiba', null, 'expense');
     final service = FinanceService(db, 'user-a');
@@ -342,7 +344,8 @@ void _migrationTests() {
     expect(revolut.map((t) => t.id), unorderedEquals(['topup', 'conad']));
 
     final widiba = await service.getTransactions(accountId: 'widiba');
-    expect(widiba.map((t) => t.id), unorderedEquals(['topup', 'rent']));
+    expect(widiba.map((t) => t.id),
+        unorderedEquals(['topup', 'retyped', 'rent']));
 
     final live = await service.watchTransactions(accountId: 'revolut').first;
     expect(live.map((t) => t.id), unorderedEquals(['topup', 'conad']));
