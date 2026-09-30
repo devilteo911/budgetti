@@ -72,6 +72,7 @@
   "dashSetUpBudgetsSubtitle": "Track category spending each month",
   "dashMonthlyBudgetLabel": "Monthly budget",
   "dashCategoriesLabel": "Categories",
+  "dashNoSpendYet": "Nothing spent yet",
   "dashTotalBalance": "Total Balance",
   "dashTrend30d": "30d",
   "dashWalletsLabel": "Wallets",

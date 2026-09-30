@@ -244,6 +244,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashCategoriesLabel => 'Categories';
 
   @override
+  String get dashNoSpendYet => 'Nothing spent yet';
+
+  @override
   String get dashTotalBalance => 'Total Balance';
 
   @override

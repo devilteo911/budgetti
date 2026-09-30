@@ -67,8 +67,10 @@ class BudgetOverviewCard extends ConsumerWidget {
     final pctClamped = pct.clamp(0.0, 1.5);
     final over = pct > 1.0;
 
-    // Top 3 categories by spend for the segmented bar.
-    final sorted = budgets.toList()
+    // Top 3 categories by spend for the segmented bar — only ones with spend: on
+    // the 1st of a month the first three budgets alphabetically, each at 0,00 €,
+    // said nothing. The percentage on the left stays (0 of the budget is true).
+    final sorted = budgets.where((b) => (spending[b.category] ?? 0) > 0).toList()
       ..sort((a, b) =>
           (spending[b.category] ?? 0).compareTo(spending[a.category] ?? 0));
     final top = sorted.take(3).toList();
@@ -163,6 +165,15 @@ class BudgetOverviewCard extends ConsumerWidget {
                   emptyColor: scheme.surfaceContainerHighest,
                 ),
                 const SizedBox(height: 10),
+                if (top.isEmpty)
+                  Text(
+                    context.l10n.dashNoSpendYet,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 11,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
                 ...top.map((b) {
                   final spent = spending[b.category] ?? 0;
                   final color = catColors[b.category] ?? scheme.primary;
@@ -239,7 +250,8 @@ class _SegmentedBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 14,
-      child: Row(
+      // Nothing spent yet: an empty track, so the bar still has its place.
+      child: segments.isEmpty ? Container(color: emptyColor) : Row(
         children: [
           for (int i = 0; i < segments.length; i++) ...[
             Expanded(

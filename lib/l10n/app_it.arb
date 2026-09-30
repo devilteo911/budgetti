@@ -72,6 +72,7 @@
   "dashSetUpBudgetsSubtitle": "Traccia le spese per categoria ogni mese",
   "dashMonthlyBudgetLabel": "Budget mensile",
   "dashCategoriesLabel": "Categorie",
+  "dashNoSpendYet": "Ancora nessuna spesa",
   "dashTotalBalance": "Saldo totale",
   "dashTrend30d": "30g",
   "dashWalletsLabel": "Portafogli",

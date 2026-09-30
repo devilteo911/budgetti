@@ -530,6 +530,12 @@ abstract class AppLocalizations {
   /// **'Categories'**
   String get dashCategoriesLabel;
 
+  /// No description provided for @dashNoSpendYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing spent yet'**
+  String get dashNoSpendYet;
+
   /// No description provided for @dashTotalBalance.
   ///
   /// In en, this message translates to:
