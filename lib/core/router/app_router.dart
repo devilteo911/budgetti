@@ -23,6 +23,18 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
 
+const reviewInboxPath = '/review-inbox';
+
+/// Opens the review inbox from a notification tap — unless it is already the
+/// screen on top, so a second tap does not stack another copy over it.
+void openReviewInbox(GoRouter router) {
+  // The last match, not `.uri`: an imperative push leaves `.uri` on the route
+  // underneath it.
+  final top = router.routerDelegate.currentConfiguration.matches.lastOrNull;
+  if (top?.matchedLocation == reviewInboxPath) return;
+  router.push(reviewInboxPath);
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/dashboard',
@@ -40,7 +52,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const InstallmentsScreen(),
       ),
       GoRoute(
-        path: '/review-inbox',
+        path: reviewInboxPath,
         builder: (context, state) => const EmailInboxScreen(),
       ),
       GoRoute(

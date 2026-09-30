@@ -257,9 +257,9 @@ Future<void> main() async {
 
     // Deep-link notification taps to the review inbox.
     final router = container.read(routerProvider);
-    notificationService.onNotificationTap = (_) => router.push('/review-inbox');
+    notificationService.onNotificationTap = (_) => openReviewInbox(router);
     final launchPayload = await notificationService.getLaunchPayload();
-    if (launchPayload != null) router.push('/review-inbox');
+    if (launchPayload != null) openReviewInbox(router);
 
     // Foreground sync on launch: silently refresh the review inbox (the
     // background task is what fires notifications when the app is closed).
