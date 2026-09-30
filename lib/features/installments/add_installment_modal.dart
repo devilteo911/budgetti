@@ -339,7 +339,7 @@ class _LinkedPayments extends ConsumerWidget {
     final service = ref.read(financeServiceProvider);
 
     final candidates = txns
-        .where((t) => t.type == 'expense' && t.installmentId == null)
+        .where((t) => t.isExpense && t.installmentId == null)
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
 

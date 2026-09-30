@@ -415,12 +415,16 @@ class FinanceService {
   /// The rows the installment screens filter client-side: charges linked to
   /// any plan, plus unlinked expenses (attach-a-payment candidates). Replaces
   /// their full-ledger watch — unlinked income and transfers are noise there.
+  /// An expense is a non-transfer with a negative amount (the model's rule),
+  /// not whatever `type` says.
   Stream<List<model_txn.Transaction>> watchInstallmentRelevant() {
     final query = _db.select(_db.transactions)
       ..where((tbl) =>
           tbl.isDeleted.equals(false) &
           tbl.userId.equals(_userId) &
-          (tbl.installmentId.isNotNull() | tbl.type.equals('expense')))
+          (tbl.installmentId.isNotNull() |
+              (tbl.type.equals('transfer').not() &
+                  tbl.amount.isSmallerThanValue(0))))
       ..orderBy([
         (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
         (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),

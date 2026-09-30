@@ -307,6 +307,43 @@ void _migrationTests() {
         unorderedEquals(['linked', 'unlinked-expense']));
   });
 
+  // The candidate list classified by stored type ('expense'), so the legacy
+  // +11.95 booked as an expense showed up as a payment to attach, and a real
+  // outgoing row typed 'income' never did. The sign decides, transfers never.
+  test('watchInstallmentRelevant classifies unlinked rows by sign, not type',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    Future<void> add(String id, double amount, String type,
+            {String? plan}) =>
+        service.addTransaction(model.Transaction(
+          id: id,
+          accountId: 'user-a_main',
+          amount: amount,
+          date: DateTime(2026, 3, 1),
+          description: id,
+          category: 'x',
+          type: type,
+          installmentId: plan,
+        ));
+    await add('real-expense', -10, 'expense');
+    await add('income-typed-outgoing', -5, 'income');
+    await add('positive-expense', 11.95, 'expense');
+    await add('transfer', 500, 'transfer');
+    await add('linked-income-typed', 30, 'income', plan: 'plan1');
+
+    final rows = await service.watchInstallmentRelevant().first;
+
+    expect(
+      rows.map((t) => t.id),
+      unorderedEquals(
+          ['real-expense', 'income-typed-outgoing', 'linked-income-typed']),
+    );
+  });
+
   // A wallet's view filtered on accountId only, so the top-up that arrived in
   // Revolut (accountId = Widiba, toAccountId = Revolut) was missing from its
   // own history while still counting in its balance.

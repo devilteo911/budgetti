@@ -184,7 +184,9 @@ class SheetsRowMapper {
       ];
     }
 
-    final transizione = tx.type == 'expense' ? 'debit' : 'credit';
+    // The sign decides, not the stored type (a legacy positive 'expense' row
+    // is money in); transfers were handled above.
+    final transizione = tx.amount < 0 ? 'debit' : 'credit';
     final hash = computeHash(tx.date, tx.description, tx.amount);
 
     return [

@@ -121,9 +121,16 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isIncome = t.type == 'income';
-    final amtColor = isIncome ? scheme.primary : scheme.onSurface;
-    final sign = isIncome ? '+' : '−';
+    // Sign decides (the model's rule), and a transfer is neither: like the
+    // ledger row it shows unsigned in the muted ink, not as a '−' expense.
+    final isTransfer = t.type == 'transfer';
+    final isIncome = t.isIncome;
+    final amtColor = isTransfer
+        ? scheme.onSurfaceVariant
+        : isIncome
+            ? scheme.primary
+            : scheme.onSurface;
+    final sign = isTransfer ? '' : (isIncome ? '+' : '−');
 
     return Container(
       decoration: BoxDecoration(
