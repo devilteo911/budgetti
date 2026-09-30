@@ -530,13 +530,26 @@ Set<String> _tokens(String s) {
 String? guessCategory(ParsedBankDraft parsed) {
   final text = '${parsed.description} ${parsed.counterparty ?? ''}'.toLowerCase();
 
+  // Cash out is a transfer to a cash wallet, not a purchase — and "atm" would
+  // otherwise read as the Milan transit company.
+  if (RegExp(r'prelievo|prelevament|bancomat').hasMatch(text)) return null;
+
   final table = parsed.type == 'income' ? _incomeKeywords : _expenseKeywords;
   for (final entry in table) {
     for (final kw in entry.keywords) {
-      if (text.contains(kw)) return entry.category;
+      if (_hasKeyword(text, kw)) return entry.category;
     }
   }
   return null;
+}
+
+/// Short keywords (<= 4 chars: eni, tim, esso, pam...) must be a whole word,
+/// or "Genius" is fuel and "espresso" a petrol station. Longer ones are stems
+/// (pizzer, supermerc, carburant) that only have to start a word.
+bool _hasKeyword(String text, String kw) {
+  const w = 'a-zà-ù0-9';
+  final end = kw.length <= 4 ? '(?![$w])' : '';
+  return RegExp('(?<![$w])${RegExp.escape(kw)}$end').hasMatch(text);
 }
 
 class _CategoryRule {
@@ -551,13 +564,13 @@ const _expenseKeywords = <_CategoryRule>[
     'penny', 'despar', 'supermerc', 'aldi', 'bennet', 'famila',
   ]),
   _CategoryRule('Dining', [
-    'ristorante', 'pizzer', 'trattoria', 'osteria', 'lo chef', 'bar ',
+    'ristorante', 'pizzer', 'trattoria', 'osteria', 'lo chef', 'bar',
     'caffe', 'mcdonald', 'burger', 'sushi', 'kebab', 'deliveroo', 'glovo',
     'just eat', 'gelater', 'pasticc',
   ]),
   _CategoryRule('Transport', [
     'trenitalia', 'italo', 'atm', 'gtt', 'autostrad', 'telepass', 'eni',
-    'q8', 'esso', 'tamoil', 'ip ', 'benzin', 'carburant', 'uber', 'free now',
+    'q8', 'esso', 'tamoil', 'ip', 'benzin', 'carburant', 'uber', 'free now',
     'taxi', 'parcheg', 'parking', 'flixbus',
   ]),
   _CategoryRule('Shopping', [

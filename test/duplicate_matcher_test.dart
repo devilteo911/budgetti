@@ -1,3 +1,4 @@
+import 'package:budgetti/core/services/bank_draft.dart';
 import 'package:budgetti/core/services/bank_sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -73,6 +74,52 @@ void main() {
         txDescription: 'Esselunga',
       );
       expect(score, greaterThanOrEqualTo(duplicateThreshold));
+    });
+  });
+
+  group('guessCategory', () {
+    String? guess(String description, {String type = 'expense'}) =>
+        guessCategory(ParsedBankDraft(
+          amount: type == 'income' ? 10 : -10,
+          description: description,
+          date: DateTime(2026, 8, 20),
+          type: type,
+          counterparty: null,
+          rawSnippet: description,
+        ));
+
+    test('a cash withdrawal is never a tram ticket', () {
+      // "atm" is a Transport keyword (the Milan transit company).
+      expect(guess('Prelievo ATM Intesa'), isNull);
+      expect(guess('Prelievo Bancomat'), isNull);
+    });
+
+    test('short keywords are whole words, not substrings', () {
+      expect(guess('Genius'), isNull); // eni
+      expect(guess('Timberland'), isNull); // tim
+      expect(guess('Intimissimi'), isNull); // tim
+      expect(guess('Espresso House'), isNull); // esso
+      expect(guess('Cooperativa Sociale'), isNull); // coop
+      expect(guess('Barilla'), isNull); // bar
+    });
+
+    test('a short keyword still matches as a word', () {
+      expect(guess('Conad'), 'Groceries');
+      expect(guess('PAGAMENTO POS COOP LOMBARDIA'), 'Groceries');
+      expect(guess('ENI STATION 1234'), 'Transport');
+      expect(guess('TIM SPA'), 'Bills');
+      expect(guess('Bar Sport'), 'Dining');
+    });
+
+    test('long stems still match as a word prefix', () {
+      expect(guess('Pizzeria Da Mario'), 'Dining');
+      expect(guess('SUPERMERCATI ROSSI'), 'Groceries');
+      expect(guess('Carburanti Vega'), 'Transport');
+      expect(guess('Pineapple Studio'), isNull); // apple, mid-word
+    });
+
+    test('income keeps its own table', () {
+      expect(guess('Stipendio agosto', type: 'income'), 'Salary');
     });
   });
 }
