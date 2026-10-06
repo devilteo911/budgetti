@@ -6,6 +6,7 @@ import 'package:budgetti/core/router/app_router.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -361,6 +362,17 @@ class BudgettiApp extends ConsumerWidget {
           ),
           themeMode: settings.mode,
           routerConfig: router,
+          // Every Navigator reports whether it can pop, and the last report
+          // wins. Closing a root-navigator overlay (a bottom sheet, the date
+          // picker) over a page pushed on a tab's own navigator reported "can't
+          // pop", so the next back key left the app instead of closing the
+          // page. The router sees all of its navigators; ask it as well.
+          onNavigationNotification: (n) {
+            SystemNavigator.setFrameworkHandlesBack(
+              n.canHandlePop || router.canPop(),
+            );
+            return true;
+          },
           debugShowCheckedModeBanner: false,
         );
       },
