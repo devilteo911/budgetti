@@ -504,6 +504,7 @@
   "txUnrecognizedCount": "{count, plural, =1 {1 messaggio non riconosciuto} other {{count} messaggi non riconosciuti}}",
   "txUnrecognizedMessages": "Messaggi non riconosciuti",
   "txUnreadableMessage": "{kind} {source} del {date} — non sono riuscito a leggerla",
+  "txTitleLabel": "Titolo",
   "txUpdate": "Aggiorna",
   "txWhatKindOfTransfer": "Che tipo di bonifico è?",
   "txYesSame": "Sì, è la stessa",

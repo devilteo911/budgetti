@@ -3122,6 +3122,12 @@ abstract class AppLocalizations {
   /// **'{kind} from {source} on {date} — couldn\'t read it'**
   String txUnreadableMessage(String kind, String source, String date);
 
+  /// No description provided for @txTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get txTitleLabel;
+
   /// No description provided for @txUpdate.
   ///
   /// In en, this message translates to:

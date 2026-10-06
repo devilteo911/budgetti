@@ -504,6 +504,7 @@
   "txUnrecognizedCount": "{count, plural, =1 {1 unrecognized message} other {{count} unrecognized messages}}",
   "txUnrecognizedMessages": "Unrecognized messages",
   "txUnreadableMessage": "{kind} from {source} on {date} — couldn't read it",
+  "txTitleLabel": "Title",
   "txUpdate": "Update",
   "txWhatKindOfTransfer": "What kind of transfer is this?",
   "txYesSame": "Yes, it's the same",

@@ -1722,6 +1722,9 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String get txTitleLabel => 'Titolo';
+
+  @override
   String get txUpdate => 'Aggiorna';
 
   @override

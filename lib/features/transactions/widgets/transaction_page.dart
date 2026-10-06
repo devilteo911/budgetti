@@ -8,15 +8,9 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
+import 'package:budgetti/features/home/scaffold_with_nav_bar.dart';
+import 'package:budgetti/features/transactions/widgets/quick_edit_sheet.dart';
 import 'package:budgetti/features/transactions/widgets/wallet_selector_chip.dart';
-
-String _titleCase(String s) {
-  if (s.isEmpty) return s;
-  return s.split(' ').map((w) {
-    if (w.isEmpty) return w;
-    return w[0].toUpperCase() + w.substring(1).toLowerCase();
-  }).join(' ');
-}
 
 class TransactionPage extends ConsumerStatefulWidget {
   final Transaction transaction;
@@ -59,6 +53,21 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
     }
   }
 
+  /// Title and amount, from whichever of the two was tapped.
+  Future<void> _edit({required bool focusAmount}) async {
+    final edited = await showAppSheet<Transaction>(
+      context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => QuickEditSheet(transaction: _tx, focusAmount: focusAmount),
+    );
+    if (edited == null || !mounted) return;
+    if (edited.description == _tx.description && edited.amount == _tx.amount) {
+      return;
+    }
+    await _save(edited, balancesChanged: edited.amount != _tx.amount);
+  }
+
   void _showAccountPicker(
       BuildContext context, List<dynamic> accounts, bool isFrom) {
     showAppSheet(
@@ -85,38 +94,45 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
     final isTransfer = _tx.type == 'transfer';
 
     return SafeArea(
-      child: Stack(
+      // The dock floats over the bottom edge; DockMetrics.clearance already
+      // counts the gesture-bar inset the SafeArea would take twice.
+      bottom: false,
+      child: Column(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _header(cs, isTransfer),
-                const SizedBox(height: 32),
-                if (isTransfer) ...[
-                  _sectionTitle(cs, context.l10n.txTransferDetails),
-                  const SizedBox(height: 16),
-                  _transferAccounts(cs),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _header(cs, isTransfer),
                   const SizedBox(height: 32),
-                ],
-                // A category chip rewrites `type`, which would turn a transfer
-                // into a plain expense while still carrying toAccountId.
-                if (!isTransfer) ...[
-                  _sectionTitle(cs, context.l10n.commonCategory),
+                  if (isTransfer) ...[
+                    _sectionTitle(cs, context.l10n.txTransferDetails),
+                    const SizedBox(height: 16),
+                    _transferAccounts(cs),
+                    const SizedBox(height: 32),
+                  ],
+                  // A category chip rewrites `type`, which would turn a transfer
+                  // into a plain expense while still carrying toAccountId.
+                  if (!isTransfer) ...[
+                    _sectionTitle(cs, context.l10n.commonCategory),
+                    const SizedBox(height: 16),
+                    _categoryChips(cs),
+                    const SizedBox(height: 32),
+                  ],
+                  _sectionTitle(cs, context.l10n.commonTags),
                   const SizedBox(height: 16),
-                  _categoryChips(cs),
-                  const SizedBox(height: 32),
+                  _tagChips(cs),
                 ],
-                _sectionTitle(cs, context.l10n.commonTags),
-                const SizedBox(height: 16),
-                _tagChips(cs),
-                // Room for the swipe hint floating over the scroll view.
-                const SizedBox(height: 100),
-              ],
+              ),
             ),
           ),
-          _swipeHint(cs),
+          // Below the scroll view, not floating over it, and clear of the dock.
+          Padding(
+            padding: EdgeInsets.only(bottom: DockMetrics.clearance(context)),
+            child: _swipeHint(cs),
+          ),
         ],
       ),
     );
@@ -140,12 +156,33 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _titleCase(_tx.description),
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: cs.onSurface,
+              InkWell(
+                onTap: () => _edit(focusAmount: false),
+                borderRadius: BorderRadius.circular(4),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: _tx.description),
+                      // The pencil says the header is editable; the date below
+                      // already reads as tappable by its underline.
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Icon(
+                            Icons.edit_outlined,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurface,
+                  ),
                 ),
               ),
               InkWell(
@@ -167,17 +204,21 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
             ],
           ),
         ),
-        Text(
-          isTransfer
-              ? formatter.format(_tx.amount.abs())
-              : _tx.amount > 0
-                  ? "+${formatter.format(_tx.amount)}"
-                  : formatter.format(_tx.amount),
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: amountInk(cs,
-                isTransfer: isTransfer, isIncome: _tx.isIncome),
+        InkWell(
+          onTap: () => _edit(focusAmount: true),
+          borderRadius: BorderRadius.circular(4),
+          child: Text(
+            isTransfer
+                ? formatter.format(_tx.amount.abs())
+                : _tx.amount > 0
+                    ? "+${formatter.format(_tx.amount)}"
+                    : formatter.format(_tx.amount),
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: amountInk(cs,
+                  isTransfer: isTransfer, isIncome: _tx.isIncome),
+            ),
           ),
         ),
       ],
@@ -335,29 +376,22 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
         );
   }
 
-  Widget _swipeHint(ColorScheme cs) => Positioned(
-        bottom: 16,
-        left: 0,
-        right: 0,
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainer.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(20),
+  Widget _swipeHint(ColorScheme cs) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainer,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.swipe, color: cs.onSurfaceVariant, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              context.l10n.txSwipeNext,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.swipe, color: cs.onSurfaceVariant, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  context.l10n.txSwipeNext,
-                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       );
 }

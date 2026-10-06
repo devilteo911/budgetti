@@ -8,6 +8,7 @@ import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/widgets/category_picker_sheet.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
+import 'package:budgetti/features/transactions/widgets/sheet_parts.dart';
 import 'package:budgetti/features/transactions/widgets/ledger_field_row.dart';
 import 'package:budgetti/features/transactions/widgets/type_selector.dart';
 import 'package:budgetti/models/installment.dart';
@@ -475,7 +476,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                 Row(
                   children: [
                     Expanded(
-                      child: _SaveButton(
+                      child: SaveButton(
                         label: isEdit
                             ? context.l10n.txUpdate.toUpperCase()
                             : context.l10n.commonSave.toUpperCase(),
@@ -492,7 +493,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                   ],
                 ),
                 const SizedBox(height: 20),
-                const _KeyboardSpacer(),
+                const KeyboardSpacer(),
               ],
             ),
           ),
@@ -974,47 +975,6 @@ class _TagPill extends StatelessWidget {
   }
 }
 
-class _SaveButton extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Color onColor;
-
-  /// Null while a save is in flight — the tap guard against double-booking.
-  final VoidCallback? onTap;
-
-  const _SaveButton({
-    required this.label,
-    required this.color,
-    required this.onColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: color,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 56,
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: GoogleFonts.jetBrainsMono(
-              color: onColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _LoadingLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1033,12 +993,3 @@ class _LoadingLine extends StatelessWidget {
   }
 }
 
-class _KeyboardSpacer extends StatelessWidget {
-  const _KeyboardSpacer();
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    return SizedBox(height: bottomInset > 0 ? bottomInset : 32);
-  }
-}
