@@ -3545,6 +3545,1586 @@ class InstallmentsCompanion extends UpdateCompanion<Installment> {
   }
 }
 
+class $PivaProfilesTable extends PivaProfiles
+    with TableInfo<$PivaProfilesTable, PivaProfile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PivaProfilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _atecoCodeMeta = const VerificationMeta(
+    'atecoCode',
+  );
+  @override
+  late final GeneratedColumn<String> atecoCode = GeneratedColumn<String>(
+    'ateco_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _coefficientMeta = const VerificationMeta(
+    'coefficient',
+  );
+  @override
+  late final GeneratedColumn<double> coefficient = GeneratedColumn<double>(
+    'coefficient',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _startYearMeta = const VerificationMeta(
+    'startYear',
+  );
+  @override
+  late final GeneratedColumn<int> startYear = GeneratedColumn<int>(
+    'start_year',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _startupRateMeta = const VerificationMeta(
+    'startupRate',
+  );
+  @override
+  late final GeneratedColumn<bool> startupRate = GeneratedColumn<bool>(
+    'startup_rate',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("startup_rate" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _fundTypeMeta = const VerificationMeta(
+    'fundType',
+  );
+  @override
+  late final GeneratedColumn<String> fundType = GeneratedColumn<String>(
+    'fund_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _fundNameMeta = const VerificationMeta(
+    'fundName',
+  );
+  @override
+  late final GeneratedColumn<String> fundName = GeneratedColumn<String>(
+    'fund_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _subjectiveRateMeta = const VerificationMeta(
+    'subjectiveRate',
+  );
+  @override
+  late final GeneratedColumn<double> subjectiveRate = GeneratedColumn<double>(
+    'subjective_rate',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _integrativeRateMeta = const VerificationMeta(
+    'integrativeRate',
+  );
+  @override
+  late final GeneratedColumn<double> integrativeRate = GeneratedColumn<double>(
+    'integrative_rate',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _minSubjectiveMeta = const VerificationMeta(
+    'minSubjective',
+  );
+  @override
+  late final GeneratedColumn<double> minSubjective = GeneratedColumn<double>(
+    'min_subjective',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _minIntegrativeMeta = const VerificationMeta(
+    'minIntegrative',
+  );
+  @override
+  late final GeneratedColumn<double> minIntegrative = GeneratedColumn<double>(
+    'min_integrative',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _inpsReductionMeta = const VerificationMeta(
+    'inpsReduction',
+  );
+  @override
+  late final GeneratedColumn<bool> inpsReduction = GeneratedColumn<bool>(
+    'inps_reduction',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("inps_reduction" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<List<String>?, String>
+  incomeCategories =
+      GeneratedColumn<String>(
+        'income_categories',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<List<String>?>(
+        $PivaProfilesTable.$converterincomeCategoriesn,
+      );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _lastUpdatedMeta = const VerificationMeta(
+    'lastUpdated',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastUpdated = GeneratedColumn<DateTime>(
+    'last_updated',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    atecoCode,
+    coefficient,
+    startYear,
+    startupRate,
+    fundType,
+    fundName,
+    subjectiveRate,
+    integrativeRate,
+    minSubjective,
+    minIntegrative,
+    inpsReduction,
+    incomeCategories,
+    isDeleted,
+    lastUpdated,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'piva_profiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PivaProfile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('ateco_code')) {
+      context.handle(
+        _atecoCodeMeta,
+        atecoCode.isAcceptableOrUnknown(data['ateco_code']!, _atecoCodeMeta),
+      );
+    }
+    if (data.containsKey('coefficient')) {
+      context.handle(
+        _coefficientMeta,
+        coefficient.isAcceptableOrUnknown(
+          data['coefficient']!,
+          _coefficientMeta,
+        ),
+      );
+    }
+    if (data.containsKey('start_year')) {
+      context.handle(
+        _startYearMeta,
+        startYear.isAcceptableOrUnknown(data['start_year']!, _startYearMeta),
+      );
+    }
+    if (data.containsKey('startup_rate')) {
+      context.handle(
+        _startupRateMeta,
+        startupRate.isAcceptableOrUnknown(
+          data['startup_rate']!,
+          _startupRateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fund_type')) {
+      context.handle(
+        _fundTypeMeta,
+        fundType.isAcceptableOrUnknown(data['fund_type']!, _fundTypeMeta),
+      );
+    }
+    if (data.containsKey('fund_name')) {
+      context.handle(
+        _fundNameMeta,
+        fundName.isAcceptableOrUnknown(data['fund_name']!, _fundNameMeta),
+      );
+    }
+    if (data.containsKey('subjective_rate')) {
+      context.handle(
+        _subjectiveRateMeta,
+        subjectiveRate.isAcceptableOrUnknown(
+          data['subjective_rate']!,
+          _subjectiveRateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('integrative_rate')) {
+      context.handle(
+        _integrativeRateMeta,
+        integrativeRate.isAcceptableOrUnknown(
+          data['integrative_rate']!,
+          _integrativeRateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('min_subjective')) {
+      context.handle(
+        _minSubjectiveMeta,
+        minSubjective.isAcceptableOrUnknown(
+          data['min_subjective']!,
+          _minSubjectiveMeta,
+        ),
+      );
+    }
+    if (data.containsKey('min_integrative')) {
+      context.handle(
+        _minIntegrativeMeta,
+        minIntegrative.isAcceptableOrUnknown(
+          data['min_integrative']!,
+          _minIntegrativeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('inps_reduction')) {
+      context.handle(
+        _inpsReductionMeta,
+        inpsReduction.isAcceptableOrUnknown(
+          data['inps_reduction']!,
+          _inpsReductionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('last_updated')) {
+      context.handle(
+        _lastUpdatedMeta,
+        lastUpdated.isAcceptableOrUnknown(
+          data['last_updated']!,
+          _lastUpdatedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PivaProfile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PivaProfile(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      atecoCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ateco_code'],
+      )!,
+      coefficient: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}coefficient'],
+      )!,
+      startYear: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_year'],
+      )!,
+      startupRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}startup_rate'],
+      )!,
+      fundType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fund_type'],
+      )!,
+      fundName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fund_name'],
+      )!,
+      subjectiveRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}subjective_rate'],
+      )!,
+      integrativeRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}integrative_rate'],
+      )!,
+      minSubjective: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}min_subjective'],
+      )!,
+      minIntegrative: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}min_integrative'],
+      )!,
+      inpsReduction: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}inps_reduction'],
+      )!,
+      incomeCategories: $PivaProfilesTable.$converterincomeCategoriesn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}income_categories'],
+        ),
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      lastUpdated: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_updated'],
+      ),
+    );
+  }
+
+  @override
+  $PivaProfilesTable createAlias(String alias) {
+    return $PivaProfilesTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<List<String>, String> $converterincomeCategories =
+      const ListStringConverter();
+  static TypeConverter<List<String>?, String?> $converterincomeCategoriesn =
+      NullAwareTypeConverter.wrap($converterincomeCategories);
+}
+
+class PivaProfile extends DataClass implements Insertable<PivaProfile> {
+  final String id;
+  final String? userId;
+  final String atecoCode;
+  final double coefficient;
+  final int startYear;
+  final bool startupRate;
+  final String fundType;
+  final String fundName;
+  final double subjectiveRate;
+  final double integrativeRate;
+  final double minSubjective;
+  final double minIntegrative;
+  final bool inpsReduction;
+  final List<String>? incomeCategories;
+  final bool isDeleted;
+  final DateTime? lastUpdated;
+  const PivaProfile({
+    required this.id,
+    this.userId,
+    required this.atecoCode,
+    required this.coefficient,
+    required this.startYear,
+    required this.startupRate,
+    required this.fundType,
+    required this.fundName,
+    required this.subjectiveRate,
+    required this.integrativeRate,
+    required this.minSubjective,
+    required this.minIntegrative,
+    required this.inpsReduction,
+    this.incomeCategories,
+    required this.isDeleted,
+    this.lastUpdated,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    map['ateco_code'] = Variable<String>(atecoCode);
+    map['coefficient'] = Variable<double>(coefficient);
+    map['start_year'] = Variable<int>(startYear);
+    map['startup_rate'] = Variable<bool>(startupRate);
+    map['fund_type'] = Variable<String>(fundType);
+    map['fund_name'] = Variable<String>(fundName);
+    map['subjective_rate'] = Variable<double>(subjectiveRate);
+    map['integrative_rate'] = Variable<double>(integrativeRate);
+    map['min_subjective'] = Variable<double>(minSubjective);
+    map['min_integrative'] = Variable<double>(minIntegrative);
+    map['inps_reduction'] = Variable<bool>(inpsReduction);
+    if (!nullToAbsent || incomeCategories != null) {
+      map['income_categories'] = Variable<String>(
+        $PivaProfilesTable.$converterincomeCategoriesn.toSql(incomeCategories),
+      );
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || lastUpdated != null) {
+      map['last_updated'] = Variable<DateTime>(lastUpdated);
+    }
+    return map;
+  }
+
+  PivaProfilesCompanion toCompanion(bool nullToAbsent) {
+    return PivaProfilesCompanion(
+      id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      atecoCode: Value(atecoCode),
+      coefficient: Value(coefficient),
+      startYear: Value(startYear),
+      startupRate: Value(startupRate),
+      fundType: Value(fundType),
+      fundName: Value(fundName),
+      subjectiveRate: Value(subjectiveRate),
+      integrativeRate: Value(integrativeRate),
+      minSubjective: Value(minSubjective),
+      minIntegrative: Value(minIntegrative),
+      inpsReduction: Value(inpsReduction),
+      incomeCategories: incomeCategories == null && nullToAbsent
+          ? const Value.absent()
+          : Value(incomeCategories),
+      isDeleted: Value(isDeleted),
+      lastUpdated: lastUpdated == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastUpdated),
+    );
+  }
+
+  factory PivaProfile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PivaProfile(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      atecoCode: serializer.fromJson<String>(json['atecoCode']),
+      coefficient: serializer.fromJson<double>(json['coefficient']),
+      startYear: serializer.fromJson<int>(json['startYear']),
+      startupRate: serializer.fromJson<bool>(json['startupRate']),
+      fundType: serializer.fromJson<String>(json['fundType']),
+      fundName: serializer.fromJson<String>(json['fundName']),
+      subjectiveRate: serializer.fromJson<double>(json['subjectiveRate']),
+      integrativeRate: serializer.fromJson<double>(json['integrativeRate']),
+      minSubjective: serializer.fromJson<double>(json['minSubjective']),
+      minIntegrative: serializer.fromJson<double>(json['minIntegrative']),
+      inpsReduction: serializer.fromJson<bool>(json['inpsReduction']),
+      incomeCategories: serializer.fromJson<List<String>?>(
+        json['incomeCategories'],
+      ),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
+      'atecoCode': serializer.toJson<String>(atecoCode),
+      'coefficient': serializer.toJson<double>(coefficient),
+      'startYear': serializer.toJson<int>(startYear),
+      'startupRate': serializer.toJson<bool>(startupRate),
+      'fundType': serializer.toJson<String>(fundType),
+      'fundName': serializer.toJson<String>(fundName),
+      'subjectiveRate': serializer.toJson<double>(subjectiveRate),
+      'integrativeRate': serializer.toJson<double>(integrativeRate),
+      'minSubjective': serializer.toJson<double>(minSubjective),
+      'minIntegrative': serializer.toJson<double>(minIntegrative),
+      'inpsReduction': serializer.toJson<bool>(inpsReduction),
+      'incomeCategories': serializer.toJson<List<String>?>(incomeCategories),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
+    };
+  }
+
+  PivaProfile copyWith({
+    String? id,
+    Value<String?> userId = const Value.absent(),
+    String? atecoCode,
+    double? coefficient,
+    int? startYear,
+    bool? startupRate,
+    String? fundType,
+    String? fundName,
+    double? subjectiveRate,
+    double? integrativeRate,
+    double? minSubjective,
+    double? minIntegrative,
+    bool? inpsReduction,
+    Value<List<String>?> incomeCategories = const Value.absent(),
+    bool? isDeleted,
+    Value<DateTime?> lastUpdated = const Value.absent(),
+  }) => PivaProfile(
+    id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
+    atecoCode: atecoCode ?? this.atecoCode,
+    coefficient: coefficient ?? this.coefficient,
+    startYear: startYear ?? this.startYear,
+    startupRate: startupRate ?? this.startupRate,
+    fundType: fundType ?? this.fundType,
+    fundName: fundName ?? this.fundName,
+    subjectiveRate: subjectiveRate ?? this.subjectiveRate,
+    integrativeRate: integrativeRate ?? this.integrativeRate,
+    minSubjective: minSubjective ?? this.minSubjective,
+    minIntegrative: minIntegrative ?? this.minIntegrative,
+    inpsReduction: inpsReduction ?? this.inpsReduction,
+    incomeCategories: incomeCategories.present
+        ? incomeCategories.value
+        : this.incomeCategories,
+    isDeleted: isDeleted ?? this.isDeleted,
+    lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
+  );
+  PivaProfile copyWithCompanion(PivaProfilesCompanion data) {
+    return PivaProfile(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      atecoCode: data.atecoCode.present ? data.atecoCode.value : this.atecoCode,
+      coefficient: data.coefficient.present
+          ? data.coefficient.value
+          : this.coefficient,
+      startYear: data.startYear.present ? data.startYear.value : this.startYear,
+      startupRate: data.startupRate.present
+          ? data.startupRate.value
+          : this.startupRate,
+      fundType: data.fundType.present ? data.fundType.value : this.fundType,
+      fundName: data.fundName.present ? data.fundName.value : this.fundName,
+      subjectiveRate: data.subjectiveRate.present
+          ? data.subjectiveRate.value
+          : this.subjectiveRate,
+      integrativeRate: data.integrativeRate.present
+          ? data.integrativeRate.value
+          : this.integrativeRate,
+      minSubjective: data.minSubjective.present
+          ? data.minSubjective.value
+          : this.minSubjective,
+      minIntegrative: data.minIntegrative.present
+          ? data.minIntegrative.value
+          : this.minIntegrative,
+      inpsReduction: data.inpsReduction.present
+          ? data.inpsReduction.value
+          : this.inpsReduction,
+      incomeCategories: data.incomeCategories.present
+          ? data.incomeCategories.value
+          : this.incomeCategories,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      lastUpdated: data.lastUpdated.present
+          ? data.lastUpdated.value
+          : this.lastUpdated,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PivaProfile(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('atecoCode: $atecoCode, ')
+          ..write('coefficient: $coefficient, ')
+          ..write('startYear: $startYear, ')
+          ..write('startupRate: $startupRate, ')
+          ..write('fundType: $fundType, ')
+          ..write('fundName: $fundName, ')
+          ..write('subjectiveRate: $subjectiveRate, ')
+          ..write('integrativeRate: $integrativeRate, ')
+          ..write('minSubjective: $minSubjective, ')
+          ..write('minIntegrative: $minIntegrative, ')
+          ..write('inpsReduction: $inpsReduction, ')
+          ..write('incomeCategories: $incomeCategories, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('lastUpdated: $lastUpdated')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    atecoCode,
+    coefficient,
+    startYear,
+    startupRate,
+    fundType,
+    fundName,
+    subjectiveRate,
+    integrativeRate,
+    minSubjective,
+    minIntegrative,
+    inpsReduction,
+    incomeCategories,
+    isDeleted,
+    lastUpdated,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PivaProfile &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.atecoCode == this.atecoCode &&
+          other.coefficient == this.coefficient &&
+          other.startYear == this.startYear &&
+          other.startupRate == this.startupRate &&
+          other.fundType == this.fundType &&
+          other.fundName == this.fundName &&
+          other.subjectiveRate == this.subjectiveRate &&
+          other.integrativeRate == this.integrativeRate &&
+          other.minSubjective == this.minSubjective &&
+          other.minIntegrative == this.minIntegrative &&
+          other.inpsReduction == this.inpsReduction &&
+          other.incomeCategories == this.incomeCategories &&
+          other.isDeleted == this.isDeleted &&
+          other.lastUpdated == this.lastUpdated);
+}
+
+class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
+  final Value<String> id;
+  final Value<String?> userId;
+  final Value<String> atecoCode;
+  final Value<double> coefficient;
+  final Value<int> startYear;
+  final Value<bool> startupRate;
+  final Value<String> fundType;
+  final Value<String> fundName;
+  final Value<double> subjectiveRate;
+  final Value<double> integrativeRate;
+  final Value<double> minSubjective;
+  final Value<double> minIntegrative;
+  final Value<bool> inpsReduction;
+  final Value<List<String>?> incomeCategories;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> lastUpdated;
+  final Value<int> rowid;
+  const PivaProfilesCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.atecoCode = const Value.absent(),
+    this.coefficient = const Value.absent(),
+    this.startYear = const Value.absent(),
+    this.startupRate = const Value.absent(),
+    this.fundType = const Value.absent(),
+    this.fundName = const Value.absent(),
+    this.subjectiveRate = const Value.absent(),
+    this.integrativeRate = const Value.absent(),
+    this.minSubjective = const Value.absent(),
+    this.minIntegrative = const Value.absent(),
+    this.inpsReduction = const Value.absent(),
+    this.incomeCategories = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PivaProfilesCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    this.atecoCode = const Value.absent(),
+    this.coefficient = const Value.absent(),
+    this.startYear = const Value.absent(),
+    this.startupRate = const Value.absent(),
+    this.fundType = const Value.absent(),
+    this.fundName = const Value.absent(),
+    this.subjectiveRate = const Value.absent(),
+    this.integrativeRate = const Value.absent(),
+    this.minSubjective = const Value.absent(),
+    this.minIntegrative = const Value.absent(),
+    this.inpsReduction = const Value.absent(),
+    this.incomeCategories = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<PivaProfile> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? atecoCode,
+    Expression<double>? coefficient,
+    Expression<int>? startYear,
+    Expression<bool>? startupRate,
+    Expression<String>? fundType,
+    Expression<String>? fundName,
+    Expression<double>? subjectiveRate,
+    Expression<double>? integrativeRate,
+    Expression<double>? minSubjective,
+    Expression<double>? minIntegrative,
+    Expression<bool>? inpsReduction,
+    Expression<String>? incomeCategories,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? lastUpdated,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (atecoCode != null) 'ateco_code': atecoCode,
+      if (coefficient != null) 'coefficient': coefficient,
+      if (startYear != null) 'start_year': startYear,
+      if (startupRate != null) 'startup_rate': startupRate,
+      if (fundType != null) 'fund_type': fundType,
+      if (fundName != null) 'fund_name': fundName,
+      if (subjectiveRate != null) 'subjective_rate': subjectiveRate,
+      if (integrativeRate != null) 'integrative_rate': integrativeRate,
+      if (minSubjective != null) 'min_subjective': minSubjective,
+      if (minIntegrative != null) 'min_integrative': minIntegrative,
+      if (inpsReduction != null) 'inps_reduction': inpsReduction,
+      if (incomeCategories != null) 'income_categories': incomeCategories,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (lastUpdated != null) 'last_updated': lastUpdated,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PivaProfilesCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? userId,
+    Value<String>? atecoCode,
+    Value<double>? coefficient,
+    Value<int>? startYear,
+    Value<bool>? startupRate,
+    Value<String>? fundType,
+    Value<String>? fundName,
+    Value<double>? subjectiveRate,
+    Value<double>? integrativeRate,
+    Value<double>? minSubjective,
+    Value<double>? minIntegrative,
+    Value<bool>? inpsReduction,
+    Value<List<String>?>? incomeCategories,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? lastUpdated,
+    Value<int>? rowid,
+  }) {
+    return PivaProfilesCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      atecoCode: atecoCode ?? this.atecoCode,
+      coefficient: coefficient ?? this.coefficient,
+      startYear: startYear ?? this.startYear,
+      startupRate: startupRate ?? this.startupRate,
+      fundType: fundType ?? this.fundType,
+      fundName: fundName ?? this.fundName,
+      subjectiveRate: subjectiveRate ?? this.subjectiveRate,
+      integrativeRate: integrativeRate ?? this.integrativeRate,
+      minSubjective: minSubjective ?? this.minSubjective,
+      minIntegrative: minIntegrative ?? this.minIntegrative,
+      inpsReduction: inpsReduction ?? this.inpsReduction,
+      incomeCategories: incomeCategories ?? this.incomeCategories,
+      isDeleted: isDeleted ?? this.isDeleted,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (atecoCode.present) {
+      map['ateco_code'] = Variable<String>(atecoCode.value);
+    }
+    if (coefficient.present) {
+      map['coefficient'] = Variable<double>(coefficient.value);
+    }
+    if (startYear.present) {
+      map['start_year'] = Variable<int>(startYear.value);
+    }
+    if (startupRate.present) {
+      map['startup_rate'] = Variable<bool>(startupRate.value);
+    }
+    if (fundType.present) {
+      map['fund_type'] = Variable<String>(fundType.value);
+    }
+    if (fundName.present) {
+      map['fund_name'] = Variable<String>(fundName.value);
+    }
+    if (subjectiveRate.present) {
+      map['subjective_rate'] = Variable<double>(subjectiveRate.value);
+    }
+    if (integrativeRate.present) {
+      map['integrative_rate'] = Variable<double>(integrativeRate.value);
+    }
+    if (minSubjective.present) {
+      map['min_subjective'] = Variable<double>(minSubjective.value);
+    }
+    if (minIntegrative.present) {
+      map['min_integrative'] = Variable<double>(minIntegrative.value);
+    }
+    if (inpsReduction.present) {
+      map['inps_reduction'] = Variable<bool>(inpsReduction.value);
+    }
+    if (incomeCategories.present) {
+      map['income_categories'] = Variable<String>(
+        $PivaProfilesTable.$converterincomeCategoriesn.toSql(
+          incomeCategories.value,
+        ),
+      );
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (lastUpdated.present) {
+      map['last_updated'] = Variable<DateTime>(lastUpdated.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PivaProfilesCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('atecoCode: $atecoCode, ')
+          ..write('coefficient: $coefficient, ')
+          ..write('startYear: $startYear, ')
+          ..write('startupRate: $startupRate, ')
+          ..write('fundType: $fundType, ')
+          ..write('fundName: $fundName, ')
+          ..write('subjectiveRate: $subjectiveRate, ')
+          ..write('integrativeRate: $integrativeRate, ')
+          ..write('minSubjective: $minSubjective, ')
+          ..write('minIntegrative: $minIntegrative, ')
+          ..write('inpsReduction: $inpsReduction, ')
+          ..write('incomeCategories: $incomeCategories, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('lastUpdated: $lastUpdated, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PivaPaymentsTable extends PivaPayments
+    with TableInfo<$PivaPaymentsTable, PivaPayment> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PivaPaymentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _labelMeta = const VerificationMeta('label');
+  @override
+  late final GeneratedColumn<String> label = GeneratedColumn<String>(
+    'label',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _dueDateMeta = const VerificationMeta(
+    'dueDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> dueDate = GeneratedColumn<DateTime>(
+    'due_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _amountMeta = const VerificationMeta('amount');
+  @override
+  late final GeneratedColumn<double> amount = GeneratedColumn<double>(
+    'amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _paidDateMeta = const VerificationMeta(
+    'paidDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> paidDate = GeneratedColumn<DateTime>(
+    'paid_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _lastUpdatedMeta = const VerificationMeta(
+    'lastUpdated',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastUpdated = GeneratedColumn<DateTime>(
+    'last_updated',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    key,
+    kind,
+    label,
+    dueDate,
+    amount,
+    paidDate,
+    note,
+    isDeleted,
+    lastUpdated,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'piva_payments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PivaPayment> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
+    if (data.containsKey('label')) {
+      context.handle(
+        _labelMeta,
+        label.isAcceptableOrUnknown(data['label']!, _labelMeta),
+      );
+    }
+    if (data.containsKey('due_date')) {
+      context.handle(
+        _dueDateMeta,
+        dueDate.isAcceptableOrUnknown(data['due_date']!, _dueDateMeta),
+      );
+    }
+    if (data.containsKey('amount')) {
+      context.handle(
+        _amountMeta,
+        amount.isAcceptableOrUnknown(data['amount']!, _amountMeta),
+      );
+    }
+    if (data.containsKey('paid_date')) {
+      context.handle(
+        _paidDateMeta,
+        paidDate.isAcceptableOrUnknown(data['paid_date']!, _paidDateMeta),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('last_updated')) {
+      context.handle(
+        _lastUpdatedMeta,
+        lastUpdated.isAcceptableOrUnknown(
+          data['last_updated']!,
+          _lastUpdatedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PivaPayment map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PivaPayment(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      label: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}label'],
+      )!,
+      dueDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}due_date'],
+      ),
+      amount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}amount'],
+      )!,
+      paidDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}paid_date'],
+      ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      lastUpdated: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_updated'],
+      ),
+    );
+  }
+
+  @override
+  $PivaPaymentsTable createAlias(String alias) {
+    return $PivaPaymentsTable(attachedDatabase, alias);
+  }
+}
+
+class PivaPayment extends DataClass implements Insertable<PivaPayment> {
+  final String id;
+  final String? userId;
+  final String key;
+  final String kind;
+  final String label;
+  final DateTime? dueDate;
+  final double amount;
+  final DateTime? paidDate;
+  final String note;
+  final bool isDeleted;
+  final DateTime? lastUpdated;
+  const PivaPayment({
+    required this.id,
+    this.userId,
+    required this.key,
+    required this.kind,
+    required this.label,
+    this.dueDate,
+    required this.amount,
+    this.paidDate,
+    required this.note,
+    required this.isDeleted,
+    this.lastUpdated,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    map['key'] = Variable<String>(key);
+    map['kind'] = Variable<String>(kind);
+    map['label'] = Variable<String>(label);
+    if (!nullToAbsent || dueDate != null) {
+      map['due_date'] = Variable<DateTime>(dueDate);
+    }
+    map['amount'] = Variable<double>(amount);
+    if (!nullToAbsent || paidDate != null) {
+      map['paid_date'] = Variable<DateTime>(paidDate);
+    }
+    map['note'] = Variable<String>(note);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || lastUpdated != null) {
+      map['last_updated'] = Variable<DateTime>(lastUpdated);
+    }
+    return map;
+  }
+
+  PivaPaymentsCompanion toCompanion(bool nullToAbsent) {
+    return PivaPaymentsCompanion(
+      id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      key: Value(key),
+      kind: Value(kind),
+      label: Value(label),
+      dueDate: dueDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dueDate),
+      amount: Value(amount),
+      paidDate: paidDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paidDate),
+      note: Value(note),
+      isDeleted: Value(isDeleted),
+      lastUpdated: lastUpdated == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastUpdated),
+    );
+  }
+
+  factory PivaPayment.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PivaPayment(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      key: serializer.fromJson<String>(json['key']),
+      kind: serializer.fromJson<String>(json['kind']),
+      label: serializer.fromJson<String>(json['label']),
+      dueDate: serializer.fromJson<DateTime?>(json['dueDate']),
+      amount: serializer.fromJson<double>(json['amount']),
+      paidDate: serializer.fromJson<DateTime?>(json['paidDate']),
+      note: serializer.fromJson<String>(json['note']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
+      'key': serializer.toJson<String>(key),
+      'kind': serializer.toJson<String>(kind),
+      'label': serializer.toJson<String>(label),
+      'dueDate': serializer.toJson<DateTime?>(dueDate),
+      'amount': serializer.toJson<double>(amount),
+      'paidDate': serializer.toJson<DateTime?>(paidDate),
+      'note': serializer.toJson<String>(note),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
+    };
+  }
+
+  PivaPayment copyWith({
+    String? id,
+    Value<String?> userId = const Value.absent(),
+    String? key,
+    String? kind,
+    String? label,
+    Value<DateTime?> dueDate = const Value.absent(),
+    double? amount,
+    Value<DateTime?> paidDate = const Value.absent(),
+    String? note,
+    bool? isDeleted,
+    Value<DateTime?> lastUpdated = const Value.absent(),
+  }) => PivaPayment(
+    id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
+    key: key ?? this.key,
+    kind: kind ?? this.kind,
+    label: label ?? this.label,
+    dueDate: dueDate.present ? dueDate.value : this.dueDate,
+    amount: amount ?? this.amount,
+    paidDate: paidDate.present ? paidDate.value : this.paidDate,
+    note: note ?? this.note,
+    isDeleted: isDeleted ?? this.isDeleted,
+    lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
+  );
+  PivaPayment copyWithCompanion(PivaPaymentsCompanion data) {
+    return PivaPayment(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      key: data.key.present ? data.key.value : this.key,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      label: data.label.present ? data.label.value : this.label,
+      dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
+      amount: data.amount.present ? data.amount.value : this.amount,
+      paidDate: data.paidDate.present ? data.paidDate.value : this.paidDate,
+      note: data.note.present ? data.note.value : this.note,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      lastUpdated: data.lastUpdated.present
+          ? data.lastUpdated.value
+          : this.lastUpdated,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PivaPayment(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('key: $key, ')
+          ..write('kind: $kind, ')
+          ..write('label: $label, ')
+          ..write('dueDate: $dueDate, ')
+          ..write('amount: $amount, ')
+          ..write('paidDate: $paidDate, ')
+          ..write('note: $note, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('lastUpdated: $lastUpdated')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    key,
+    kind,
+    label,
+    dueDate,
+    amount,
+    paidDate,
+    note,
+    isDeleted,
+    lastUpdated,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PivaPayment &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.key == this.key &&
+          other.kind == this.kind &&
+          other.label == this.label &&
+          other.dueDate == this.dueDate &&
+          other.amount == this.amount &&
+          other.paidDate == this.paidDate &&
+          other.note == this.note &&
+          other.isDeleted == this.isDeleted &&
+          other.lastUpdated == this.lastUpdated);
+}
+
+class PivaPaymentsCompanion extends UpdateCompanion<PivaPayment> {
+  final Value<String> id;
+  final Value<String?> userId;
+  final Value<String> key;
+  final Value<String> kind;
+  final Value<String> label;
+  final Value<DateTime?> dueDate;
+  final Value<double> amount;
+  final Value<DateTime?> paidDate;
+  final Value<String> note;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> lastUpdated;
+  final Value<int> rowid;
+  const PivaPaymentsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.key = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.label = const Value.absent(),
+    this.dueDate = const Value.absent(),
+    this.amount = const Value.absent(),
+    this.paidDate = const Value.absent(),
+    this.note = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PivaPaymentsCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    this.key = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.label = const Value.absent(),
+    this.dueDate = const Value.absent(),
+    this.amount = const Value.absent(),
+    this.paidDate = const Value.absent(),
+    this.note = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<PivaPayment> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? key,
+    Expression<String>? kind,
+    Expression<String>? label,
+    Expression<DateTime>? dueDate,
+    Expression<double>? amount,
+    Expression<DateTime>? paidDate,
+    Expression<String>? note,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? lastUpdated,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (key != null) 'key': key,
+      if (kind != null) 'kind': kind,
+      if (label != null) 'label': label,
+      if (dueDate != null) 'due_date': dueDate,
+      if (amount != null) 'amount': amount,
+      if (paidDate != null) 'paid_date': paidDate,
+      if (note != null) 'note': note,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (lastUpdated != null) 'last_updated': lastUpdated,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PivaPaymentsCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? userId,
+    Value<String>? key,
+    Value<String>? kind,
+    Value<String>? label,
+    Value<DateTime?>? dueDate,
+    Value<double>? amount,
+    Value<DateTime?>? paidDate,
+    Value<String>? note,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? lastUpdated,
+    Value<int>? rowid,
+  }) {
+    return PivaPaymentsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      key: key ?? this.key,
+      kind: kind ?? this.kind,
+      label: label ?? this.label,
+      dueDate: dueDate ?? this.dueDate,
+      amount: amount ?? this.amount,
+      paidDate: paidDate ?? this.paidDate,
+      note: note ?? this.note,
+      isDeleted: isDeleted ?? this.isDeleted,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (label.present) {
+      map['label'] = Variable<String>(label.value);
+    }
+    if (dueDate.present) {
+      map['due_date'] = Variable<DateTime>(dueDate.value);
+    }
+    if (amount.present) {
+      map['amount'] = Variable<double>(amount.value);
+    }
+    if (paidDate.present) {
+      map['paid_date'] = Variable<DateTime>(paidDate.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (lastUpdated.present) {
+      map['last_updated'] = Variable<DateTime>(lastUpdated.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PivaPaymentsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('key: $key, ')
+          ..write('kind: $kind, ')
+          ..write('label: $label, ')
+          ..write('dueDate: $dueDate, ')
+          ..write('amount: $amount, ')
+          ..write('paidDate: $paidDate, ')
+          ..write('note: $note, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('lastUpdated: $lastUpdated, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $PendingTransactionsTable extends PendingTransactions
     with TableInfo<$PendingTransactionsTable, PendingTransaction> {
   @override
@@ -5303,6 +6883,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $BudgetsTable budgets = $BudgetsTable(this);
   late final $InstallmentsTable installments = $InstallmentsTable(this);
+  late final $PivaProfilesTable pivaProfiles = $PivaProfilesTable(this);
+  late final $PivaPaymentsTable pivaPayments = $PivaPaymentsTable(this);
   late final $PendingTransactionsTable pendingTransactions =
       $PendingTransactionsTable(this);
   late final $SyncLocksTable syncLocks = $SyncLocksTable(this);
@@ -5318,6 +6900,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     transactions,
     budgets,
     installments,
+    pivaProfiles,
+    pivaPayments,
     pendingTransactions,
     syncLocks,
     syncFailures,
@@ -7025,6 +8609,751 @@ typedef $$InstallmentsTableProcessedTableManager =
       Installment,
       PrefetchHooks Function()
     >;
+typedef $$PivaProfilesTableCreateCompanionBuilder =
+    PivaProfilesCompanion Function({
+      required String id,
+      Value<String?> userId,
+      Value<String> atecoCode,
+      Value<double> coefficient,
+      Value<int> startYear,
+      Value<bool> startupRate,
+      Value<String> fundType,
+      Value<String> fundName,
+      Value<double> subjectiveRate,
+      Value<double> integrativeRate,
+      Value<double> minSubjective,
+      Value<double> minIntegrative,
+      Value<bool> inpsReduction,
+      Value<List<String>?> incomeCategories,
+      Value<bool> isDeleted,
+      Value<DateTime?> lastUpdated,
+      Value<int> rowid,
+    });
+typedef $$PivaProfilesTableUpdateCompanionBuilder =
+    PivaProfilesCompanion Function({
+      Value<String> id,
+      Value<String?> userId,
+      Value<String> atecoCode,
+      Value<double> coefficient,
+      Value<int> startYear,
+      Value<bool> startupRate,
+      Value<String> fundType,
+      Value<String> fundName,
+      Value<double> subjectiveRate,
+      Value<double> integrativeRate,
+      Value<double> minSubjective,
+      Value<double> minIntegrative,
+      Value<bool> inpsReduction,
+      Value<List<String>?> incomeCategories,
+      Value<bool> isDeleted,
+      Value<DateTime?> lastUpdated,
+      Value<int> rowid,
+    });
+
+class $$PivaProfilesTableFilterComposer
+    extends Composer<_$AppDatabase, $PivaProfilesTable> {
+  $$PivaProfilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get atecoCode => $composableBuilder(
+    column: $table.atecoCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get coefficient => $composableBuilder(
+    column: $table.coefficient,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startYear => $composableBuilder(
+    column: $table.startYear,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get startupRate => $composableBuilder(
+    column: $table.startupRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fundType => $composableBuilder(
+    column: $table.fundType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fundName => $composableBuilder(
+    column: $table.fundName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get subjectiveRate => $composableBuilder(
+    column: $table.subjectiveRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get integrativeRate => $composableBuilder(
+    column: $table.integrativeRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get minSubjective => $composableBuilder(
+    column: $table.minSubjective,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get minIntegrative => $composableBuilder(
+    column: $table.minIntegrative,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get inpsReduction => $composableBuilder(
+    column: $table.inpsReduction,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<List<String>?, List<String>, String>
+  get incomeCategories => $composableBuilder(
+    column: $table.incomeCategories,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PivaProfilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PivaProfilesTable> {
+  $$PivaProfilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get atecoCode => $composableBuilder(
+    column: $table.atecoCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get coefficient => $composableBuilder(
+    column: $table.coefficient,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startYear => $composableBuilder(
+    column: $table.startYear,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get startupRate => $composableBuilder(
+    column: $table.startupRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fundType => $composableBuilder(
+    column: $table.fundType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fundName => $composableBuilder(
+    column: $table.fundName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get subjectiveRate => $composableBuilder(
+    column: $table.subjectiveRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get integrativeRate => $composableBuilder(
+    column: $table.integrativeRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get minSubjective => $composableBuilder(
+    column: $table.minSubjective,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get minIntegrative => $composableBuilder(
+    column: $table.minIntegrative,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get inpsReduction => $composableBuilder(
+    column: $table.inpsReduction,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get incomeCategories => $composableBuilder(
+    column: $table.incomeCategories,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PivaProfilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PivaProfilesTable> {
+  $$PivaProfilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get atecoCode =>
+      $composableBuilder(column: $table.atecoCode, builder: (column) => column);
+
+  GeneratedColumn<double> get coefficient => $composableBuilder(
+    column: $table.coefficient,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get startYear =>
+      $composableBuilder(column: $table.startYear, builder: (column) => column);
+
+  GeneratedColumn<bool> get startupRate => $composableBuilder(
+    column: $table.startupRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fundType =>
+      $composableBuilder(column: $table.fundType, builder: (column) => column);
+
+  GeneratedColumn<String> get fundName =>
+      $composableBuilder(column: $table.fundName, builder: (column) => column);
+
+  GeneratedColumn<double> get subjectiveRate => $composableBuilder(
+    column: $table.subjectiveRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get integrativeRate => $composableBuilder(
+    column: $table.integrativeRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get minSubjective => $composableBuilder(
+    column: $table.minSubjective,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get minIntegrative => $composableBuilder(
+    column: $table.minIntegrative,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get inpsReduction => $composableBuilder(
+    column: $table.inpsReduction,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<List<String>?, String>
+  get incomeCategories => $composableBuilder(
+    column: $table.incomeCategories,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => column,
+  );
+}
+
+class $$PivaProfilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PivaProfilesTable,
+          PivaProfile,
+          $$PivaProfilesTableFilterComposer,
+          $$PivaProfilesTableOrderingComposer,
+          $$PivaProfilesTableAnnotationComposer,
+          $$PivaProfilesTableCreateCompanionBuilder,
+          $$PivaProfilesTableUpdateCompanionBuilder,
+          (
+            PivaProfile,
+            BaseReferences<_$AppDatabase, $PivaProfilesTable, PivaProfile>,
+          ),
+          PivaProfile,
+          PrefetchHooks Function()
+        > {
+  $$PivaProfilesTableTableManager(_$AppDatabase db, $PivaProfilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PivaProfilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PivaProfilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PivaProfilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<String> atecoCode = const Value.absent(),
+                Value<double> coefficient = const Value.absent(),
+                Value<int> startYear = const Value.absent(),
+                Value<bool> startupRate = const Value.absent(),
+                Value<String> fundType = const Value.absent(),
+                Value<String> fundName = const Value.absent(),
+                Value<double> subjectiveRate = const Value.absent(),
+                Value<double> integrativeRate = const Value.absent(),
+                Value<double> minSubjective = const Value.absent(),
+                Value<double> minIntegrative = const Value.absent(),
+                Value<bool> inpsReduction = const Value.absent(),
+                Value<List<String>?> incomeCategories = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> lastUpdated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PivaProfilesCompanion(
+                id: id,
+                userId: userId,
+                atecoCode: atecoCode,
+                coefficient: coefficient,
+                startYear: startYear,
+                startupRate: startupRate,
+                fundType: fundType,
+                fundName: fundName,
+                subjectiveRate: subjectiveRate,
+                integrativeRate: integrativeRate,
+                minSubjective: minSubjective,
+                minIntegrative: minIntegrative,
+                inpsReduction: inpsReduction,
+                incomeCategories: incomeCategories,
+                isDeleted: isDeleted,
+                lastUpdated: lastUpdated,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> userId = const Value.absent(),
+                Value<String> atecoCode = const Value.absent(),
+                Value<double> coefficient = const Value.absent(),
+                Value<int> startYear = const Value.absent(),
+                Value<bool> startupRate = const Value.absent(),
+                Value<String> fundType = const Value.absent(),
+                Value<String> fundName = const Value.absent(),
+                Value<double> subjectiveRate = const Value.absent(),
+                Value<double> integrativeRate = const Value.absent(),
+                Value<double> minSubjective = const Value.absent(),
+                Value<double> minIntegrative = const Value.absent(),
+                Value<bool> inpsReduction = const Value.absent(),
+                Value<List<String>?> incomeCategories = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> lastUpdated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PivaProfilesCompanion.insert(
+                id: id,
+                userId: userId,
+                atecoCode: atecoCode,
+                coefficient: coefficient,
+                startYear: startYear,
+                startupRate: startupRate,
+                fundType: fundType,
+                fundName: fundName,
+                subjectiveRate: subjectiveRate,
+                integrativeRate: integrativeRate,
+                minSubjective: minSubjective,
+                minIntegrative: minIntegrative,
+                inpsReduction: inpsReduction,
+                incomeCategories: incomeCategories,
+                isDeleted: isDeleted,
+                lastUpdated: lastUpdated,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PivaProfilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PivaProfilesTable,
+      PivaProfile,
+      $$PivaProfilesTableFilterComposer,
+      $$PivaProfilesTableOrderingComposer,
+      $$PivaProfilesTableAnnotationComposer,
+      $$PivaProfilesTableCreateCompanionBuilder,
+      $$PivaProfilesTableUpdateCompanionBuilder,
+      (
+        PivaProfile,
+        BaseReferences<_$AppDatabase, $PivaProfilesTable, PivaProfile>,
+      ),
+      PivaProfile,
+      PrefetchHooks Function()
+    >;
+typedef $$PivaPaymentsTableCreateCompanionBuilder =
+    PivaPaymentsCompanion Function({
+      required String id,
+      Value<String?> userId,
+      Value<String> key,
+      Value<String> kind,
+      Value<String> label,
+      Value<DateTime?> dueDate,
+      Value<double> amount,
+      Value<DateTime?> paidDate,
+      Value<String> note,
+      Value<bool> isDeleted,
+      Value<DateTime?> lastUpdated,
+      Value<int> rowid,
+    });
+typedef $$PivaPaymentsTableUpdateCompanionBuilder =
+    PivaPaymentsCompanion Function({
+      Value<String> id,
+      Value<String?> userId,
+      Value<String> key,
+      Value<String> kind,
+      Value<String> label,
+      Value<DateTime?> dueDate,
+      Value<double> amount,
+      Value<DateTime?> paidDate,
+      Value<String> note,
+      Value<bool> isDeleted,
+      Value<DateTime?> lastUpdated,
+      Value<int> rowid,
+    });
+
+class $$PivaPaymentsTableFilterComposer
+    extends Composer<_$AppDatabase, $PivaPaymentsTable> {
+  $$PivaPaymentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get dueDate => $composableBuilder(
+    column: $table.dueDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get paidDate => $composableBuilder(
+    column: $table.paidDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PivaPaymentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PivaPaymentsTable> {
+  $$PivaPaymentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get dueDate => $composableBuilder(
+    column: $table.dueDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get paidDate => $composableBuilder(
+    column: $table.paidDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PivaPaymentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PivaPaymentsTable> {
+  $$PivaPaymentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get label =>
+      $composableBuilder(column: $table.label, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dueDate =>
+      $composableBuilder(column: $table.dueDate, builder: (column) => column);
+
+  GeneratedColumn<double> get amount =>
+      $composableBuilder(column: $table.amount, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get paidDate =>
+      $composableBuilder(column: $table.paidDate, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => column,
+  );
+}
+
+class $$PivaPaymentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PivaPaymentsTable,
+          PivaPayment,
+          $$PivaPaymentsTableFilterComposer,
+          $$PivaPaymentsTableOrderingComposer,
+          $$PivaPaymentsTableAnnotationComposer,
+          $$PivaPaymentsTableCreateCompanionBuilder,
+          $$PivaPaymentsTableUpdateCompanionBuilder,
+          (
+            PivaPayment,
+            BaseReferences<_$AppDatabase, $PivaPaymentsTable, PivaPayment>,
+          ),
+          PivaPayment,
+          PrefetchHooks Function()
+        > {
+  $$PivaPaymentsTableTableManager(_$AppDatabase db, $PivaPaymentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PivaPaymentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PivaPaymentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PivaPaymentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<String> key = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String> label = const Value.absent(),
+                Value<DateTime?> dueDate = const Value.absent(),
+                Value<double> amount = const Value.absent(),
+                Value<DateTime?> paidDate = const Value.absent(),
+                Value<String> note = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> lastUpdated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PivaPaymentsCompanion(
+                id: id,
+                userId: userId,
+                key: key,
+                kind: kind,
+                label: label,
+                dueDate: dueDate,
+                amount: amount,
+                paidDate: paidDate,
+                note: note,
+                isDeleted: isDeleted,
+                lastUpdated: lastUpdated,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> userId = const Value.absent(),
+                Value<String> key = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String> label = const Value.absent(),
+                Value<DateTime?> dueDate = const Value.absent(),
+                Value<double> amount = const Value.absent(),
+                Value<DateTime?> paidDate = const Value.absent(),
+                Value<String> note = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> lastUpdated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PivaPaymentsCompanion.insert(
+                id: id,
+                userId: userId,
+                key: key,
+                kind: kind,
+                label: label,
+                dueDate: dueDate,
+                amount: amount,
+                paidDate: paidDate,
+                note: note,
+                isDeleted: isDeleted,
+                lastUpdated: lastUpdated,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PivaPaymentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PivaPaymentsTable,
+      PivaPayment,
+      $$PivaPaymentsTableFilterComposer,
+      $$PivaPaymentsTableOrderingComposer,
+      $$PivaPaymentsTableAnnotationComposer,
+      $$PivaPaymentsTableCreateCompanionBuilder,
+      $$PivaPaymentsTableUpdateCompanionBuilder,
+      (
+        PivaPayment,
+        BaseReferences<_$AppDatabase, $PivaPaymentsTable, PivaPayment>,
+      ),
+      PivaPayment,
+      PrefetchHooks Function()
+    >;
 typedef $$PendingTransactionsTableCreateCompanionBuilder =
     PendingTransactionsCompanion Function({
       required String id,
@@ -7912,6 +10241,10 @@ class $AppDatabaseManager {
       $$BudgetsTableTableManager(_db, _db.budgets);
   $$InstallmentsTableTableManager get installments =>
       $$InstallmentsTableTableManager(_db, _db.installments);
+  $$PivaProfilesTableTableManager get pivaProfiles =>
+      $$PivaProfilesTableTableManager(_db, _db.pivaProfiles);
+  $$PivaPaymentsTableTableManager get pivaPayments =>
+      $$PivaPaymentsTableTableManager(_db, _db.pivaPayments);
   $$PendingTransactionsTableTableManager get pendingTransactions =>
       $$PendingTransactionsTableTableManager(_db, _db.pendingTransactions);
   $$SyncLocksTableTableManager get syncLocks =>

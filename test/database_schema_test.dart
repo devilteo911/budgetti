@@ -127,13 +127,82 @@ void main() {
     expect(rows.single.read<int?>('color_slot'), isNull);
   });
 
+  // v19: the Partita IVA profile and its payments live in two tables of their
+  // own. Both start empty; every column but the id has a default, because the
+  // server sends zeros and empty strings for what was never set.
+  test('v18 -> v19 crea piva_profiles e piva_payments, righe esistenti intatte',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory(setup: (raw) {
+      raw.execute('CREATE TABLE categories ('
+          'id TEXT NOT NULL, user_id TEXT NULL, name TEXT NOT NULL, '
+          'icon_code INTEGER NOT NULL, color_hex INTEGER NOT NULL, '
+          'type TEXT NOT NULL, description TEXT NULL, '
+          'is_deleted INTEGER NOT NULL DEFAULT 0, last_updated INTEGER NULL, '
+          'color_slot INTEGER NULL, PRIMARY KEY (id))');
+      raw.execute('INSERT INTO categories (id, name, icon_code, color_hex, type, '
+          "color_slot) VALUES ('c1', 'Groceries', 1, 2, 'expense', 3)");
+      raw.execute('PRAGMA user_version = 18');
+    }));
+    addTearDown(db.close);
+
+    final cats =
+        await db.customSelect('SELECT id, name, color_slot FROM categories').get();
+    final tables = (await db
+            .customSelect("SELECT name FROM sqlite_master WHERE type = 'table'")
+            .get())
+        .map((r) => r.read<String>('name'))
+        .toSet();
+
+    expect(tables, containsAll(['piva_profiles', 'piva_payments']));
+    expect(await db.select(db.pivaProfiles).get(), isEmpty);
+    expect(await db.select(db.pivaPayments).get(), isEmpty);
+    expect(cats, hasLength(1));
+    expect(cats.single.read<String>('name'), 'Groceries');
+    expect(cats.single.read<int?>('color_slot'), 3);
+
+    // The id alone is a valid row: every other column falls back to its default.
+    await db.customStatement("INSERT INTO piva_profiles (id) VALUES ('p')");
+    await db.customStatement("INSERT INTO piva_payments (id) VALUES ('y')");
+    final profile = (await db.select(db.pivaProfiles).get()).single;
+    final payment = (await db.select(db.pivaPayments).get()).single;
+    expect((
+      profile.userId,
+      profile.atecoCode,
+      profile.coefficient,
+      profile.startYear,
+      profile.startupRate,
+      profile.fundType,
+      profile.fundName,
+      profile.subjectiveRate,
+      profile.integrativeRate,
+      profile.minSubjective,
+      profile.minIntegrative,
+      profile.inpsReduction,
+      profile.incomeCategories,
+      profile.isDeleted,
+      profile.lastUpdated,
+    ), (null, '', 0.0, 0, false, '', '', 0.0, 0.0, 0.0, 0.0, false, null, false, null));
+    expect((
+      payment.userId,
+      payment.key,
+      payment.kind,
+      payment.label,
+      payment.dueDate,
+      payment.amount,
+      payment.paidDate,
+      payment.note,
+      payment.isDeleted,
+      payment.lastUpdated,
+    ), (null, '', '', '', null, 0.0, null, '', false, null));
+  });
+
   // An older build opens a NEWER database without complaint — it only rewrites
   // user_version — and leaves the newer schema in place. Installing the newer
   // build again then re-runs its upgrade steps over columns and tables that are
   // already there: "duplicate column name" and a database that never opens. Every
   // `from < N` step has to be safe to run twice.
   group('re-upgrading a database an older build had opened', () {
-    /// A current (v18) database file holding one row of everything the upgrade
+    /// A current (v19) database file holding one row of everything the upgrade
     /// steps touch, closed and ready to be tampered with.
     Future<File> currentDb() async {
       final dir = await Directory.systemTemp.createTemp('budgetti_downgrade_');
@@ -171,6 +240,16 @@ void main() {
               ),
             );
       }
+      await db.into(db.pivaProfiles).insert(PivaProfilesCompanion.insert(
+          id: 'prof',
+          userId: const Value('u'),
+          incomeCategories: Value(['Consulting', 'Services'])));
+      await db.into(db.pivaPayments).insert(PivaPaymentsCompanion.insert(
+          id: 'pay',
+          userId: const Value('u'),
+          key: const Value('imposta_saldo'),
+          dueDate: Value(DateTime(2026, 6, 30, 12)),
+          paidDate: const Value(null)));
       await db.close();
       return file;
     }
@@ -197,17 +276,37 @@ void main() {
           for (final p in await db.select(db.pendingTransactions).get())
             p.id: (p.duplicateOfId, p.duplicateScore, p.duplicateDismissed),
         },
+        'pivaProfiles': [
+          for (final p in await db.select(db.pivaProfiles).get()) p.id
+        ],
+        // Apart from the profile record: a list inside a record compares by
+        // identity, a list in a list is compared by `expect` element by element.
+        'incomeCategories': [
+          for (final p in await db.select(db.pivaProfiles).get())
+            p.incomeCategories
+        ],
+        'pivaPayments': [
+          for (final p in await db.select(db.pivaPayments).get())
+            (p.id, p.key, p.dueDate, p.paidDate)
+        ],
       };
       await db.close();
       return out;
     }
 
-    const intact = {
+    final intact = {
       'accounts': ['Widiba'],
       'categories': ['Dining'],
       'tags': ['Trip'],
       'transactions': [('Coffee', -12.5)],
       'pending': {'kept': ('tx', 0.8, true), 'plain': ('tx', 0.8, false)},
+      'pivaProfiles': ['prof'],
+      'incomeCategories': [
+        ['Consulting', 'Services']
+      ],
+      'pivaPayments': [
+        ('pay', 'imposta_saldo', DateTime(2026, 6, 30, 12), null)
+      ],
     };
 
     int userVersion(File file) {
@@ -217,22 +316,22 @@ void main() {
       return v;
     }
 
-    test('v18 schema, user_version 16 (the QA-4 brick): opens, data intact',
+    test('v19 schema, user_version 16 (the QA-4 brick): opens, data intact',
         () async {
       final file = await currentDb();
       tamper(file, (raw) => raw.execute('PRAGMA user_version = 16'));
 
       expect(await reopen(file), intact);
-      expect(userVersion(file), 18);
+      expect(userVersion(file), 19);
     });
 
-    test('v18 schema, user_version 1: every step re-runs over what exists',
+    test('v19 schema, user_version 1: every step re-runs over what exists',
         () async {
       final file = await currentDb();
       tamper(file, (raw) => raw.execute('PRAGMA user_version = 1'));
 
       expect(await reopen(file), intact);
-      expect(userVersion(file), 18);
+      expect(userVersion(file), 19);
     });
 
     // The old steps wrapped their addColumn pairs in one swallow-all try: the
@@ -320,6 +419,7 @@ void main() {
       expect(names, containsAll([
         'tags', 'accounts', 'transactions', 'budgets', 'pending_transactions',
         'installments', 'sync_locks', 'sync_failures',
+        'piva_profiles', 'piva_payments',
         'idx_transactions_date', 'idx_pending_status',
       ]));
     });
