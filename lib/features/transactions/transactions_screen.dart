@@ -146,7 +146,16 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+    // Back closes an open search before it leaves the tab.
+    canPop: ref.watch(transactionSearchProvider) == null,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) ref.read(transactionSearchProvider.notifier).close();
+    },
+    child: _buildScreen(context),
+  );
+
+  Widget _buildScreen(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
     final paginatedState = ref.watch(paginatedTransactionsProvider);
     final transactions = paginatedState.transactions;

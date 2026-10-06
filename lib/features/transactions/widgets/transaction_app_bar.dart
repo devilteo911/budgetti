@@ -75,6 +75,18 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
       );
     }
 
+    if (ref.watch(transactionSearchProvider) != null) {
+      return AppBar(
+        titleSpacing: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: context.l10n.txSearchClose,
+          onPressed: ref.read(transactionSearchProvider.notifier).close,
+        ),
+        title: const _SearchField(),
+      );
+    }
+
     final selectedWalletId = ref.watch(selectedWalletIdProvider);
     final selectedAccount =
         accounts.where((a) => a.id == selectedWalletId).firstOrNull;
@@ -133,6 +145,11 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
       ),
       actions: [
         IconButton(
+          icon: Icon(Icons.search, color: scheme.onSurface),
+          tooltip: context.l10n.txSearch,
+          onPressed: ref.read(transactionSearchProvider.notifier).open,
+        ),
+        IconButton(
           icon: Icon(
             Icons.filter_list,
             color: filtersActive ? scheme.primary : scheme.onSurface,
@@ -145,4 +162,68 @@ class TransactionAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(72);
+}
+
+/// The title-bar search box. Owns its controller so closing the search (which
+/// removes this widget) also drops the text; the provider holds the live query.
+class _SearchField extends ConsumerStatefulWidget {
+  const _SearchField();
+
+  @override
+  ConsumerState<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends ConsumerState<_SearchField> {
+  late final _controller = TextEditingController(
+    text: ref.read(transactionSearchProvider),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TextField(
+      controller: _controller,
+      autofocus: true,
+      textInputAction: TextInputAction.search,
+      cursorColor: scheme.primary,
+      style: TextStyle(
+        color: scheme.onSurface,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+      ),
+      onChanged: ref.read(transactionSearchProvider.notifier).set,
+      decoration: InputDecoration(
+        // The theme's pill fill is for forms; in the bar the field is bare.
+        filled: false,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        hintText: context.l10n.txSearchHint,
+        hintStyle: TextStyle(
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+        ),
+        suffixIcon: ValueListenableBuilder(
+          valueListenable: _controller,
+          builder: (context, value, _) => value.text.isEmpty
+              ? const SizedBox.shrink()
+              : IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: context.l10n.txSearchClear,
+                  onPressed: () {
+                    _controller.clear();
+                    ref.read(transactionSearchProvider.notifier).set('');
+                  },
+                ),
+        ),
+      ),
+    );
+  }
 }

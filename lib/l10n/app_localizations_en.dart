@@ -1548,6 +1548,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get txNoDifferent => 'No, it\'s different';
 
   @override
+  String get txNoResults => 'No results';
+
+  @override
+  String get txNoResultsHint =>
+      'Try another word, or widen the filters and period';
+
+  @override
   String get txNoTransactionsPeriod => 'No transactions in this period';
 
   @override
@@ -1639,6 +1646,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get txSelectWallet => 'Select wallet';
+
+  @override
+  String get txSearch => 'Search';
+
+  @override
+  String get txSearchHint => 'Search name or amount';
+
+  @override
+  String get txSearchClear => 'Clear';
+
+  @override
+  String get txSearchClose => 'Close search';
 
   @override
   String txSelected(int count) {

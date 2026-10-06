@@ -1559,6 +1559,13 @@ class AppLocalizationsIt extends AppLocalizations {
   String get txNoDifferent => 'No, è diversa';
 
   @override
+  String get txNoResults => 'Nessun risultato';
+
+  @override
+  String get txNoResultsHint =>
+      'Prova un\'altra parola, o allarga filtri e periodo';
+
+  @override
   String get txNoTransactionsPeriod => 'Nessuna transazione in questo periodo';
 
   @override
@@ -1650,6 +1657,18 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get txSelectWallet => 'Seleziona portafoglio';
+
+  @override
+  String get txSearch => 'Cerca';
+
+  @override
+  String get txSearchHint => 'Cerca nome o importo';
+
+  @override
+  String get txSearchClear => 'Cancella';
+
+  @override
+  String get txSearchClose => 'Chiudi ricerca';
 
   @override
   String txSelected(int count) {

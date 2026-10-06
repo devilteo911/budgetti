@@ -80,6 +80,9 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
   Widget build(BuildContext context) {
     final currentIndex = widget.navigationShell.currentIndex;
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    // The body resizes for the keyboard, which would carry the pill up with it
+    // and park it over whatever the user is typing against (the ledger search).
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return DockSnackBarTheme(
       child: Scaffold(
@@ -91,25 +94,26 @@ class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar>
             // fully visible above the pill should add ~120px bottom padding
             // to their own scrollable (ListView/CustomScrollView).
             Positioned.fill(child: widget.navigationShell),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomInset + DockMetrics.bottomGap,
-              child: Center(
-                child: FloatingPillNav(
-                  slots: buildNavSlots(
-                    context.l10n,
-                    reviewCount: ref.watch(reviewInboxCountProvider),
-                    onAdd: () {
-                      HapticFeedback.mediumImpact();
-                      _onAddTransaction();
-                    },
+            if (!keyboardOpen)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomInset + DockMetrics.bottomGap,
+                child: Center(
+                  child: FloatingPillNav(
+                    slots: buildNavSlots(
+                      context.l10n,
+                      reviewCount: ref.watch(reviewInboxCountProvider),
+                      onAdd: () {
+                        HapticFeedback.mediumImpact();
+                        _onAddTransaction();
+                      },
+                    ),
+                    currentBranchIndex: currentIndex,
+                    onBranchSelected: _goBranch,
                   ),
-                  currentBranchIndex: currentIndex,
-                  onBranchSelected: _goBranch,
                 ),
               ),
-            ),
             // Live backend-sync indicator, top-right, above all screens.
             Positioned(
               top: MediaQuery.of(context).viewPadding.top + 12,

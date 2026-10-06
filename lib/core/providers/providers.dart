@@ -583,6 +583,22 @@ final transactionFiltersProvider =
       TransactionFiltersNotifier.new,
     );
 
+/// The ledger's search box: null = closed, '' = open and empty. One source of
+/// truth, so the field in the app bar and the list it filters can't disagree.
+class TransactionSearchNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void open() => state ??= '';
+  void set(String query) => state = query;
+  void close() => state = null;
+}
+
+final transactionSearchProvider =
+    NotifierProvider<TransactionSearchNotifier, String?>(
+      TransactionSearchNotifier.new,
+    );
+
 final paginatedTransactionsProvider =
     NotifierProvider<PaginatedTransactionsNotifier, PaginatedTransactionsState>(
       PaginatedTransactionsNotifier.new,
@@ -661,6 +677,9 @@ class FilteredTotals {
 final filteredTotalsProvider = StreamProvider<FilteredTotals>((ref) {
   final filters = ref.watch(transactionFiltersProvider);
   final walletId = ref.watch(selectedWalletIdProvider);
+  final search = ref.watch(
+    transactionSearchProvider.select((q) => (q ?? '').trim()),
+  );
   return ref
       .watch(financeServiceProvider)
       .watchTotals(
@@ -669,6 +688,7 @@ final filteredTotalsProvider = StreamProvider<FilteredTotals>((ref) {
         endDate: filters.dateRange?.end,
         categories: filters.categories,
         tags: filters.tags,
+        search: search,
       )
       .map((t) => FilteredTotals(income: t.$1, expense: t.$2, count: t.$3));
 });
@@ -828,6 +848,12 @@ class PaginatedTransactionsNotifier
     final service = ref.watch(financeServiceProvider);
     _gen++;
 
+    // Listen, don't watch: typing refetches in place instead of rebuilding to
+    // the empty loading state, so the list doesn't flash a skeleton per key.
+    ref.listen(transactionSearchProvider, (prev, next) {
+      if ((prev ?? '').trim() != (next ?? '').trim()) refresh();
+    });
+
     // The list is a snapshot of a query, so it has to hear about every write
     // to the table itself — no caller has to remember to invalidate it.
     // Debounced so an import of hundreds of rows refetches once at the end.
@@ -871,6 +897,7 @@ class PaginatedTransactionsNotifier
     state = state.copyWith(isLoading: true, isRefreshing: !append);
     final filters = ref.read(transactionFiltersProvider);
     final walletId = ref.read(selectedWalletIdProvider);
+    final search = ref.read(transactionSearchProvider);
     final service = ref.read(financeServiceProvider);
 
     try {
@@ -880,6 +907,7 @@ class PaginatedTransactionsNotifier
         endDate: filters.dateRange?.end,
         categories: filters.categories,
         tags: filters.tags,
+        search: search,
         limit: want,
         offset: append ? loaded : 0,
       );

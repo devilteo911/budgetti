@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/core/services/color_slots.dart';
 import 'package:budgetti/models/account.dart' as model_account;
 import 'package:budgetti/models/category.dart' as model;
@@ -302,6 +303,7 @@ class FinanceService {
     DateTime? endDate,
     List<String>? categories,
     List<String>? tags,
+    String? search,
     int? limit,
     int? offset,
   }) async {
@@ -337,6 +339,11 @@ class FinanceService {
     // matching rows beyond the first short page go missing.
     if (tags != null && tags.isNotEmpty) {
       query.where((tbl) => _hasAnyTag(tags));
+    }
+
+    final searchSql = _searchSql(search);
+    if (searchSql != null) {
+      query.where((tbl) => CustomExpression<bool>(searchSql));
     }
 
     query.orderBy([
@@ -448,6 +455,7 @@ class FinanceService {
     DateTime? endDate,
     List<String>? categories,
     List<String>? tags,
+    String? search,
   }) {
     final where = <String>['is_deleted = 0', 'user_id = ?'];
     final vars = <Variable>[Variable(_userId)];
@@ -471,6 +479,8 @@ class FinanceService {
       where.add(
           'json_valid(tags) AND EXISTS (SELECT 1 FROM json_each(transactions.tags) WHERE value IN (${literals.join(', ')}))');
     }
+    final searchSql = _searchSql(search);
+    if (searchSql != null) where.add(searchSql);
     return _db
         .customSelect(
           'SELECT '
@@ -506,6 +516,34 @@ class FinanceService {
       'json_valid(tags) AND EXISTS (SELECT 1 FROM json_each(transactions.tags) '
       'WHERE value IN (${literals.join(', ')}))',
     );
+  }
+
+  /// The ledger search as one SQL predicate, or null for a blank query. Every
+  /// whitespace-separated term must hit the description or the category, or —
+  /// when it reads as a number — equal the amount to the cent (sign ignored,
+  /// "12,5" and "12.50" alike). Same escaped-literal embedding as [_hasAnyTag],
+  /// and shared by the page query and the totals so the hero can't disagree
+  /// with the list. ponytail: LIKE folds ASCII case only ("è" vs "È" differ),
+  /// and an amount must be typed whole — swap in FTS/prefix matching if either
+  /// proves annoying.
+  String? _searchSql(String? query) {
+    final terms = (query ?? '').split(RegExp(r'\s+')).where((t) => t.isNotEmpty);
+    if (terms.isEmpty) return null;
+    final clauses = <String>[];
+    for (final term in terms) {
+      final escaped = term
+          .replaceAllMapped(RegExp(r'[\\%_]'), (m) => '\\${m[0]}')
+          .replaceAll("'", "''");
+      final like = "LIKE '%$escaped%' ESCAPE '\\'";
+      final amount = parseAmount(term)?.abs();
+      final byAmount = amount != null && amount.isFinite
+          ? ' OR ROUND(ABS(transactions.amount), 2) = ${amount.toStringAsFixed(2)}'
+          : '';
+      clauses.add(
+        '(transactions.description $like OR transactions.category $like$byAmount)',
+      );
+    }
+    return clauses.join(' AND ');
   }
 
   Future<void> addTransaction(model_txn.Transaction transaction) async {

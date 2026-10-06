@@ -2858,6 +2858,18 @@ abstract class AppLocalizations {
   /// **'No, it\'s different'**
   String get txNoDifferent;
 
+  /// No description provided for @txNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results'**
+  String get txNoResults;
+
+  /// No description provided for @txNoResultsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another word, or widen the filters and period'**
+  String get txNoResultsHint;
+
   /// No description provided for @txNoTransactionsPeriod.
   ///
   /// In en, this message translates to:
@@ -3019,6 +3031,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select wallet'**
   String get txSelectWallet;
+
+  /// No description provided for @txSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get txSearch;
+
+  /// No description provided for @txSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search name or amount'**
+  String get txSearchHint;
+
+  /// No description provided for @txSearchClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get txSearchClear;
+
+  /// No description provided for @txSearchClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close search'**
+  String get txSearchClose;
 
   /// No description provided for @txSelected.
   ///

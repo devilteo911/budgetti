@@ -186,16 +186,19 @@ class _TransactionListState extends ConsumerState<TransactionList>
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final searching =
+        (ref.watch(transactionSearchProvider) ?? '').trim().isNotEmpty;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            context.l10n.txNoActivity.toUpperCase(),
+            (searching ? context.l10n.txNoResults : context.l10n.txNoActivity)
+                .toUpperCase(),
             style: GoogleFonts.jetBrainsMono(
               color: scheme.onSurfaceVariant,
               fontSize: 11,
@@ -205,7 +208,9 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            context.l10n.txNoTransactionsPeriod,
+            searching
+                ? context.l10n.txNoResultsHint
+                : context.l10n.txNoTransactionsPeriod,
             style: TextStyle(
               color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
               fontSize: 13,
