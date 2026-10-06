@@ -82,7 +82,7 @@ class LwwStaleWrite implements Exception {
 }
 
 /// A PB request came back 401: the token is expired or revoked. Aborts the
-/// whole sync (all six collections would fail identically).
+/// whole sync (every collection would fail identically).
 class SyncAuthExpired implements Exception {
   const SyncAuthExpired();
 }
@@ -333,6 +333,8 @@ const syncedCollections = [
   'transactions',
   'budgets',
   'installments',
+  'piva_profile',
+  'piva_payments',
 ];
 
 /// One synced Drift table → one PocketBase collection. The generic
@@ -410,7 +412,15 @@ String pbDateLiteral(DateTime t) =>
 List<String> _toStringList(dynamic v) =>
     (v as List?)?.map((e) => e.toString()).toList() ?? const [];
 
-/// Syncs the five LWW tables between Drift and PocketBase.
+/// Never throws, unlike [_toStringList]: a PocketBase `json` field holds
+/// anything, and an exception inside `applyRemotes` marks the collection as
+/// failed, which freezes both sync cursors for good. A non-list (`null`
+/// included) stays `null` — it is not turned into `[]`, so a row that was only
+/// read does not differ from the server's.
+List<String>? _toStringListOrNull(dynamic v) =>
+    v is List ? v.map((e) => e.toString()).toList() : null;
+
+/// Syncs every LWW-synced table between Drift and PocketBase.
 ///
 /// Protocol (single user, last-write-wins per row):
 ///   1. cursor = stored lastSyncAt (epoch on first sync).
@@ -450,6 +460,8 @@ class PocketBaseSyncService {
     _transactions,
     _budgets,
     _installments,
+    _pivaProfile,
+    _pivaPayments,
   ];
 
   /// Runs between the categories pull and push of a sync: the place to give
@@ -1106,6 +1118,128 @@ class PocketBaseSyncService {
             .write(InstallmentsCompanion(lastUpdated: Value(now))),
       );
 
+  // ── piva_profile ─────────────────────────────────────────────────────────
+  // Table `piva_profiles`, collection `piva_profile` (singular).
+  _Spec get _pivaProfile => _Spec(
+        'piva_profile',
+        (db, cursor, now) async {
+          final rows = await (db.select(db.pivaProfiles)
+                ..where((t) =>
+                    t.lastUpdated.isBiggerThanValue(cursor) |
+                    t.lastUpdated.isNull()))
+              .get();
+          return _mapRows(rows, now,
+              idOf: (p) => p.id,
+              lastUpdatedOf: (p) => p.lastUpdated,
+            toBody: (p) => {
+              'atecoCode': p.atecoCode,
+              'coefficient': p.coefficient,
+              'startYear': p.startYear,
+              'startupRate': p.startupRate,
+              'fundType': p.fundType,
+              'fundName': p.fundName,
+              'subjectiveRate': p.subjectiveRate,
+              'integrativeRate': p.integrativeRate,
+              'minSubjective': p.minSubjective,
+              'minIntegrative': p.minIntegrative,
+              'inpsReduction': p.inpsReduction,
+              'incomeCategories': p.incomeCategories,
+              'isDeleted': p.isDeleted,
+              'lastUpdated': _toIso(p.lastUpdated ?? now),
+            });
+        },
+        (db, ids) async {
+          final rows =
+              await (db.select(db.pivaProfiles)..where((t) => t.id.isIn(ids)))
+                  .get();
+          return {for (final r in rows) r.id: r.lastUpdated};
+        },
+        (db, userId, rows) => db.batch((b) {
+              for (final r in rows) {
+                b.insert(
+                    db.pivaProfiles,
+                    PivaProfilesCompanion.insert(
+                      id: r['id'] as String,
+                      userId: Value(userId),
+                      atecoCode: Value(r['atecoCode'] as String? ?? ''),
+                      coefficient: Value(_toDouble(r['coefficient'])),
+                      startYear: Value(_toInt(r['startYear'])),
+                      startupRate: Value(_toBool(r['startupRate'])),
+                      fundType: Value(r['fundType'] as String? ?? ''),
+                      fundName: Value(r['fundName'] as String? ?? ''),
+                      subjectiveRate: Value(_toDouble(r['subjectiveRate'])),
+                      integrativeRate: Value(_toDouble(r['integrativeRate'])),
+                      minSubjective: Value(_toDouble(r['minSubjective'])),
+                      minIntegrative: Value(_toDouble(r['minIntegrative'])),
+                      inpsReduction: Value(_toBool(r['inpsReduction'])),
+                      incomeCategories:
+                          Value(_toStringListOrNull(r['incomeCategories'])),
+                      isDeleted: Value(_toBool(r['isDeleted'])),
+                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                    ),
+                    mode: InsertMode.insertOrReplace);
+              }
+            }),
+        (db, ids, now) => (db.update(db.pivaProfiles)
+              ..where((t) => t.id.isIn(ids)))
+            .write(PivaProfilesCompanion(lastUpdated: Value(now))),
+      );
+
+  // ── piva_payments ────────────────────────────────────────────────────────
+  _Spec get _pivaPayments => _Spec(
+        'piva_payments',
+        (db, cursor, now) async {
+          final rows = await (db.select(db.pivaPayments)
+                ..where((t) =>
+                    t.lastUpdated.isBiggerThanValue(cursor) |
+                    t.lastUpdated.isNull()))
+              .get();
+          return _mapRows(rows, now,
+              idOf: (p) => p.id,
+              lastUpdatedOf: (p) => p.lastUpdated,
+            toBody: (p) => {
+              'key': p.key,
+              'kind': p.kind,
+              'label': p.label,
+              'dueDate': _toIso(p.dueDate),
+              'amount': p.amount,
+              'paidDate': _toIso(p.paidDate),
+              'note': p.note,
+              'isDeleted': p.isDeleted,
+              'lastUpdated': _toIso(p.lastUpdated ?? now),
+            });
+        },
+        (db, ids) async {
+          final rows =
+              await (db.select(db.pivaPayments)..where((t) => t.id.isIn(ids)))
+                  .get();
+          return {for (final r in rows) r.id: r.lastUpdated};
+        },
+        (db, userId, rows) => db.batch((b) {
+              for (final r in rows) {
+                b.insert(
+                    db.pivaPayments,
+                    PivaPaymentsCompanion.insert(
+                      id: r['id'] as String,
+                      userId: Value(userId),
+                      key: Value(r['key'] as String? ?? ''),
+                      kind: Value(r['kind'] as String? ?? ''),
+                      label: Value(r['label'] as String? ?? ''),
+                      dueDate: Value(_fromIso(r['dueDate'])),
+                      amount: Value(_toDouble(r['amount'])),
+                      paidDate: Value(_fromIso(r['paidDate'])),
+                      note: Value(r['note'] as String? ?? ''),
+                      isDeleted: Value(_toBool(r['isDeleted'])),
+                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                    ),
+                    mode: InsertMode.insertOrReplace);
+              }
+            }),
+        (db, ids, now) => (db.update(db.pivaPayments)
+              ..where((t) => t.id.isIn(ids)))
+            .write(PivaPaymentsCompanion(lastUpdated: Value(now))),
+      );
+
   /// Maps rows to [_Row] bodies for push, flagging NULL-`lastUpdated` rows
   /// (seeds / restored backups) as needing a stamp. The stamp itself is
   /// written by the push loop, and only for rows the server accepted.
@@ -1152,6 +1286,8 @@ class PocketBaseAutoSync {
           _db.categories,
           _db.tags,
           _db.installments,
+          _db.pivaProfiles,
+          _db.pivaPayments,
         ]))
         .listen((_) => _schedule());
   }
