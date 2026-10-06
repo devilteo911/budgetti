@@ -780,6 +780,102 @@ void main() {
     });
   });
 
+  // The other order: the Revolut push was approved as income BEFORE the Widiba
+  // bonifico was approved as a transfer. Booking the transfer then used to leave
+  // both, a debit and a credit for one recharge, and the owner deleted the income
+  // by hand (19 Aug, 7 Sep, 4 Oct). The transfer now takes the credit leg over.
+  group('a transfer adopts the credit leg already booked as income', () {
+    Future<(AppDatabase, PendingTransactionService)> setup() async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wid', 'Widiba');
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertDraft(db,
+          amount: -100, description: 'Ricarica', type: 'undecided');
+      return (db, service);
+    }
+
+    Future<void> credit(
+      AppDatabase db, {
+      String id = 'credit',
+      String account = 'rev',
+      double amount = 100,
+      int daysBefore = 1,
+      bool deleted = false,
+    }) =>
+        db.into(db.transactions).insert(TransactionsCompanion.insert(
+              id: id,
+              userId: const Value('user-a'),
+              accountId: Value(account),
+              amount: amount,
+              description: 'Pagamento ricevuto',
+              category: 'Uncategorized',
+              type: Value(amount > 0 ? 'income' : 'expense'),
+              date: _day.subtract(Duration(days: daysBefore)),
+              isDeleted: Value(deleted),
+            ));
+
+    Future<List<Transaction>> live(AppDatabase db) => (db.select(db.transactions)
+          ..where((t) => t.isDeleted.equals(false)))
+        .get();
+
+    Future<model.Transaction?> book(PendingTransactionService s, AppDatabase db) async =>
+        s.approve(await _draft(db),
+            type: 'transfer', accountId: 'wid', toAccountId: 'rev');
+
+    test('the income becomes the transfer: one row, not a debit and a credit',
+        () async {
+      final (db, service) = await setup();
+      await credit(db);
+
+      final tx = await book(service, db);
+
+      final rows = await live(db);
+      expect(rows, hasLength(1));
+      expect(tx?.id, 'credit');
+      expect((rows.single.id, rows.single.type, rows.single.accountId,
+              rows.single.toAccountId, rows.single.amount, rows.single.category),
+          ('credit', 'transfer', 'wid', 'rev', 100.0, 'Transfer'));
+      expect((await _draft(db)).status, 'approved');
+    });
+
+    test('without a credit leg it books a new transfer, as before', () async {
+      final (db, service) = await setup();
+
+      final tx = await book(service, db);
+
+      expect(await live(db), hasLength(1));
+      expect(tx?.type, 'transfer');
+    });
+
+    test('an income in another wallet, of another amount, four days away or '
+        'deleted is left alone', () async {
+      final (db, service) = await setup();
+      await credit(db, id: 'other-wallet', account: 'paypal');
+      await credit(db, id: 'other-amount', amount: 99.5);
+      await credit(db, id: 'too-far', daysBefore: 4);
+      await credit(db, id: 'gone', deleted: true);
+      await credit(db, id: 'spend', amount: -100);
+
+      await book(service, db);
+
+      final rows = await live(db);
+      expect(rows, hasLength(5), reason: 'four live untouched + the new transfer');
+      expect(rows.where((r) => r.type == 'transfer'), hasLength(1));
+      expect(rows.where((r) => r.type == 'transfer').single.id, isNot('credit'));
+    });
+
+    test('with two candidates the closer day is the one adopted', () async {
+      final (db, service) = await setup();
+      await credit(db, id: 'far', daysBefore: 3);
+      await credit(db, id: 'near', daysBefore: 1);
+
+      await book(service, db);
+
+      final rows = {for (final r in await live(db)) r.id: r.type};
+      expect(rows, {'far': 'income', 'near': 'transfer'});
+    });
+  });
+
   test('the compare sheet never resolves to a deleted transaction', () async {
     final (db, service) = _setup();
     await _insertTx(db, isDeleted: true);

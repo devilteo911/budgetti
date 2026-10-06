@@ -140,8 +140,7 @@ class PendingTransactionService {
         }
       }
 
-      await _book(still, tx);
-      return tx;
+      return _book(still, tx);
     });
     if (booked != null) await _rememberWallet(draft.source, accountId);
     return booked;
@@ -175,15 +174,55 @@ class PendingTransactionService {
 
   /// The one place both [approve] and [approveWith] book through. Throws inside
   /// the caller's DB transaction, so a refused booking leaves the draft pending.
-  Future<void> _book(PendingTransaction draft, model.Transaction tx) async {
+  /// Returns what is now in the ledger: [tx], or [tx] under the id of the income
+  /// it took over (see [_creditLeg]).
+  Future<model.Transaction> _book(
+      PendingTransaction draft, model.Transaction tx) async {
     // A transfer to itself moves nothing, and one with no destination loses the
     // money: the add sheet blocks both, this is the last line for every door.
     if (tx.type == 'transfer' &&
         (tx.toAccountId == null || tx.toAccountId == tx.accountId)) {
       throw ArgumentError('A transfer needs a destination other than its source');
     }
-    await _finance.addTransaction(tx);
+    // The Revolut push of a Widiba recharge may already be booked as income: the
+    // transfer replaces it instead of standing beside it as a debit and a credit.
+    final leg = tx.type == 'transfer' ? await _creditLeg(tx) : null;
+    if (leg == null) {
+      await _finance.addTransaction(tx);
+    } else {
+      tx = tx.copyWith(id: leg);
+      await _finance.updateTransaction(tx);
+    }
     await _markStatus(draft.id, 'approved');
+    return tx;
+  }
+
+  /// The id of the income that is the other half of the transfer [tx]: a live,
+  /// positive, non-transfer row in its destination wallet, for the same amount,
+  /// within the matcher's +-3 day window; the nearest day wins. Null when there is
+  /// none. The owner chose "transfer" for this exact movement, so the match is
+  /// taken without asking (the draft-side twin check, [findDuplicate], asks because
+  /// there nobody has said what the movement is).
+  ///
+  /// ponytail: a genuine second income of the same amount into the same wallet
+  /// inside those days would be merged too; ask first if that ever happens.
+  Future<String?> _creditLeg(model.Transaction tx) async {
+    final day = DateTime(tx.date.year, tx.date.month, tx.date.day);
+    final rows = await (_db.select(_db.transactions)
+          ..where((t) =>
+              t.isDeleted.equals(false) &
+              t.accountId.equals(tx.toAccountId!) &
+              t.type.equals('transfer').not() &
+              t.amount.isBetweenValues(
+                  tx.amount.abs() - 0.005, tx.amount.abs() + 0.005) &
+              t.date.isBetweenValues(
+                day.subtract(const Duration(days: 3)),
+                day.add(const Duration(days: 4)),
+              )))
+        .get();
+    int apart(Transaction r) => r.date.difference(tx.date).inMinutes.abs();
+    rows.sort((a, b) => apart(a).compareTo(apart(b)));
+    return rows.isEmpty ? null : rows.first.id;
   }
 
   Future<void> reject(String id) => _markStatus(id, 'rejected');

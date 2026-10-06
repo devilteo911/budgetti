@@ -142,9 +142,8 @@ void main() {
   // within the window, is a twin regardless of the wording — and only then, so an
   // ordinary expense of the same amount is never flagged by it.
   //
-  // Ceiling: this only works if the transfer is booked first. A top-up approved
-  // as income BEFORE the Widiba transfer is approved flags nothing, and the double
-  // count needs the owner's eye: approve the Widiba transfer first.
+  // The other order (top-up approved as income first) is the booking core's job:
+  // the transfer takes the income over (pending_transaction_service_test.dart).
   group('findDuplicate: a top-up against a wallet-to-wallet transfer', () {
     late AppDatabase db;
     var n = 0;

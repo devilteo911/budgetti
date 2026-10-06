@@ -532,9 +532,9 @@ String? sourceWalletId(
 /// an income into the destination wallet, so an ordinary expense of the same
 /// amount is never flagged by it.
 ///
-/// ceiling: this only works if the transfer is booked first. A top-up approved as
-/// income BEFORE the Widiba transfer is approved flags nothing, and the double
-/// count needs the owner's eye: approve the Widiba transfer first.
+/// The other order needs no flag: a top-up already approved as income is taken
+/// over by the Widiba transfer when that is approved ([PendingTransactionService]
+/// `_creditLeg`), so it never stands beside it.
 Future<DuplicateMatch?> findDuplicate(
   AppDatabase db, {
   required double amount,
