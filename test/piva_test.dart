@@ -30,6 +30,7 @@ PivaProfileData profile({
   double minIntegrative = 0,
   bool inpsReduction = false,
   List<String> incomeCategories = const ['Fatture'],
+  Map<String, double?> declaredIncome = const {},
 }) => PivaProfileData(
   atecoCode: atecoCode,
   coefficient: coefficient,
@@ -43,6 +44,7 @@ PivaProfileData profile({
   minIntegrative: minIntegrative,
   inpsReduction: inpsReduction,
   incomeCategories: incomeCategories,
+  declaredIncome: declaredIncome,
 );
 
 Transaction fattura(
@@ -662,6 +664,184 @@ void main() {
     expect(contributionsDeductible(rows, 2026), 5850.0, reason: 'soggettivo 2.000 + 3.850, integrativo fuori');
   });
 
+  // ── un anno dichiarato (il libro non lo copre) ──────────────────────────
+  // The owner declares the gross collected in a year the ledger lacks; the engine reads it as if
+  // the ledger had recorded it. Hand arithmetic below, never the implementation's output. The web's
+  // `declaredFromForm` case is not ported: the phone's previous-year field and its rule come later.
+
+  // Cassa 4%, 2025 declared 10.000 gross, with a 1.040 in the 2025 ledger and 2.080 in the 2026 one:
+  //   2025 declared 10.000 gross:  compensi = round2(10.000 / 1,04) = round2(9.615,3846…) = 9.615,38
+  //                                (the 1.040 in the 2025 ledger is not added: it would make 10.615,38)
+  //                                integrativo = round2(10.000 − 9.615,38) = 384,62
+  //   2026 not declared, ledger:   compensi = 2.080 / 1,04 = 2.000      integrativo = 2.080 − 2.000 = 80
+  test("compensiForYear: un anno dichiarato di una cassa al 4% si divide una volta, e il libro di quell'anno non conta", () {
+    final p = profile(fundType: 'cassa', integrativeRate: 4, declaredIncome: {'2025': 10000.0});
+    final txns = [fattura('f25', 1040, at(2025, 3, 10)), fattura('f26', 2080, at(2026, 2, 10))];
+    expect(compensiForYear(p, txns, 2025), 9615.38, reason: 'compensi 2025: una sola divisione');
+    expect(integrativeCollected(txns, p, 2025), 384.62, reason: 'integrativo 2025');
+    expect(compensiForYear(p, txns, 2026), 2000.0, reason: 'compensi 2026: dal libro');
+    expect(integrativeCollected(txns, p, 2026), 80.0, reason: 'integrativo 2026: dal libro');
+  });
+
+  // An INPS fund never divides, even with integrativeRate left set: 2025 declared 10.000 → compensi 10.000,
+  // integrativo 0. A declared 0 is an answer: compensi 0, and the 1.040 of the ledger is not read.
+  test('compensiForYear: un anno dichiarato della Gestione Separata è la cifra stessa, anche zero', () {
+    final txns = [fattura('f25', 1040, at(2025, 3, 10)), fattura('f26', 2080, at(2026, 2, 10))];
+    final gsDeclared = profile(fundType: 'gestione_separata', integrativeRate: 4, declaredIncome: {'2025': 10000.0});
+    expect(compensiForYear(gsDeclared, txns, 2025), 10000.0, reason: 'GS: la cifra stessa');
+    expect(integrativeCollected(txns, gsDeclared, 2025), 0.0, reason: 'GS: niente da riversare');
+    expect(
+      compensiForYear(profile(declaredIncome: {'2025': 0.0}), txns, 2025),
+      0.0,
+      reason: 'zero dichiarato: il libro non si legge',
+    );
+  });
+
+  // Not an answer for 2025 (null value, other year, null field, no key): the ledger counts,
+  // 1.040 / 1,04 = 1.000 compensi and 1.040 − 1.000 = 40 integrativo each time. The web's
+  // `declaredIncome: null` has no Dart twin: a NULL column reads as `{}`, the same as no key.
+  test('compensiForYear: null o chiave assente leggono il libro', () {
+    final txns = [fattura('f25', 1040, at(2025, 3, 10))];
+    PivaProfileData cassa(Map<String, double?> declaredIncome) =>
+        profile(fundType: 'cassa', integrativeRate: 4, declaredIncome: declaredIncome);
+    final variants = <(String, PivaProfileData)>[
+      ('valore null', cassa({'2025': null})),
+      ('un altro anno', cassa({'2024': 5000.0})),
+      ('campo null', cassa(const {})),
+      ('chiave assente', profile(fundType: 'cassa', integrativeRate: 4)),
+    ];
+    for (final (name, p) in variants) {
+      expect(compensiForYear(p, txns, 2025), 1000.0, reason: '$name: compensi');
+      expect(integrativeCollected(txns, p, 2025), 40.0, reason: '$name: integrativo');
+    }
+  });
+
+  // now = 6/10/2026, so the year asked is 2025 (now − 1). It is asked when the partita IVA was open,
+  // and the ledger does not reach back to 1 January of it, local: day of the start <= 1 January 2025.
+  test("askDeclaredIncome: chiede l'anno prima solo se il libro non lo copre", () {
+    final p = profile(); // startYear 2022, field absent
+    expect(askDeclaredIncome(p, null, now), 2025, reason: 'libro vuoto');
+    expect(askDeclaredIncome(p, at(2026, 1, 1, 9), now), 2025, reason: "il libro comincia quest'anno");
+    expect(askDeclaredIncome(p, at(2025, 1, 2, 0, 0), now), 2025, reason: 'il 2 gennaio: manca il 1°');
+    expect(askDeclaredIncome(p, at(2025, 1, 1, 0, 0), now), isNull, reason: 'coperto dal primo minuto');
+    expect(askDeclaredIncome(p, at(2025, 1, 1, 23, 59), now), isNull, reason: 'ancora il 1 gennaio, locale');
+    expect(askDeclaredIncome(p, at(2024, 6, 15, 12), now), isNull, reason: 'il libro parte prima');
+    expect(askDeclaredIncome(profile(startYear: 2026), null, now), isNull, reason: "now − 1 prima dell'apertura");
+    expect(askDeclaredIncome(profile(startYear: 2025), null, now), 2025, reason: "l'anno d'apertura si chiede");
+  });
+
+  // A number, 0 included, or a null value is an answer; another year's key or a null field is not.
+  test('askDeclaredIncome: una risposta già data, numero o null, non si richiede', () {
+    final start = at(2026, 1, 1, 9);
+    int? ask(Map<String, double?> declaredIncome) =>
+        askDeclaredIncome(profile(declaredIncome: declaredIncome), start, now);
+    expect(ask({'2025': 30000.0}), isNull, reason: 'numero');
+    expect(ask({'2025': null}), isNull, reason: 'null: da ricavare dal libro');
+    expect(ask({'2025': 0.0}), isNull, reason: 'zero');
+    expect(ask({'2024': 1000.0}), 2025, reason: 'un altro anno');
+    expect(ask(const {}), 2025, reason: 'campo null'); // the web's null field: a NULL column reads as {}
+  });
+
+  // Cassa 15% soggettivo / 4% integrativo, minimi 2.000 / 500, coefficient 78, 15% tax, opened 2022.
+  // The ledger starts in 2026 (one fattura of 4.160), now 6/10/2026; 2025 declared 52.000 gross.
+  //   Without a declaration: compensi 2025 = 0 (ledger) and 2024 = 0
+  //     2026:imposta_saldo / _acconto1 / _acconto2   none (imposta 2025 on 0)
+  //     2026:contributi_saldo                        none (max(2.000, 0) − 2.000 = 0)
+  //     2026:contributi_integrativo                  500  (the minimum)
+  //     2026:contributi_minimi                       2.000
+  //   declaredIncome { '2025': 52000 }:
+  //     compensi 2025 = 52.000 / 1,04 = 50.000;  reddito lordo = 50.000 × 78% = 39.000
+  //     deducted in 2025: minimi 2025 = 2.000  (conguaglio 2025 on compensi 2024 = 0: max(2.000, 0) − 2.000 = 0, no row;
+  //                                             integrativo 2025 = 500, a pass-through, not deducted)
+  //     imposta 2025 = (39.000 − 2.000) × 15% = 5.550
+  //     acconti 2025 = splitAcconto(imposta 2024 = 0) = 0  → 2026:imposta_saldo = 5.550        (2026-06-30, Tuesday)
+  //     splitAcconto(5.550) = [2.775, 2.775]               → 2026:imposta_acconto1 = 2.775     (2026-06-30)
+  //                                                           2026:imposta_acconto2 = 2.775     (2026-11-30, Monday)
+  //     2026:contributi_saldo = max(2.000, 39.000 × 15% = 5.850) − 2.000 = 3.850              (2026-12-31, no slide)
+  //     2026:contributi_integrativo = max(500, 4% × 50.000) = 2.000                             (2026-12-31)
+  //     2026:contributi_minimi = 2.000                                                          (2026-09-30)
+  // The same figures as 'schedule, cassa' above, which puts the 52.000 in the ledger: the whole calendar is the same.
+  test('deadlines, cassa: un 2025 dichiarato muove saldo, acconti, conguaglio e integrativo del 2026', () {
+    PivaProfileData cassa([Map<String, double?> declaredIncome = const {}]) => profile(
+      fundType: 'cassa',
+      coefficient: 78,
+      subjectiveRate: 15,
+      integrativeRate: 4,
+      minSubjective: 2000,
+      minIntegrative: 500,
+      startupRate: false,
+      startYear: 2022,
+      fundName: 'Inarcassa',
+      declaredIncome: declaredIncome,
+    );
+    final plain = cassa();
+    final declared = cassa({'2025': 52000.0});
+    final txns = [fattura('f26', 4160, at(2026, 3, 10))];
+
+    final before = schedule(plain, txns, now);
+    expectAbsent(before, ['2026:imposta_saldo', '2026:imposta_acconto1', '2026:imposta_acconto2', '2026:contributi_saldo']);
+    expectRows(before, [
+      ('2026:contributi_integrativo', '2026-12-31', 500.0), // integrativo: il minimo
+      ('2026:contributi_minimi', '2026-09-30', 2000.0), // minimi
+    ]);
+
+    final rows = schedule(declared, txns, now);
+    expectRows(rows, [
+      ('2026:imposta_saldo', '2026-06-30', 5550.0),
+      ('2026:imposta_acconto1', '2026-06-30', 2775.0),
+      ('2026:imposta_acconto2', '2026-11-30', 2775.0),
+      ('2026:contributi_saldo', '2026-12-31', 3850.0),
+      ('2026:contributi_integrativo', '2026-12-31', 2000.0),
+      ('2026:contributi_minimi', '2026-09-30', 2000.0),
+    ]);
+    expect(contributionsDeductible(rows, 2025), 2000.0, reason: 'deducibili 2025: i soli minimi');
+    expect(
+      estimateYear(declared, compensiForYear(declared, txns, 2025), 2025, contributionsDeductible(rows, 2025)).tax,
+      5550.0,
+      reason: 'il prospetto 2025 concorda col calendario',
+    );
+    expect(
+      rows.map(cells).toList(),
+      schedule(plain, [...txns, fattura('f25', 52000, at(2025, 6, 15))], now).map(cells).toList(),
+      reason: 'come se il libro avesse i 52.000',
+    );
+  });
+
+  // Gestione Separata 26,07%, coefficient 78, opened 2022 (5% tax until 2026: 2022 + 5 = 2027).
+  // The ledger starts in 2026 (3.500), now 6/10/2026; 2025 declared 30.000.
+  //   compensi 2025 = 30.000 (no division);  reddito lordo = 23.400;  compensi 2024 = 0
+  //   c(2025) = 23.400 × 26,07% = 6.100,38      c(2024) = 0
+  //   acconti contributi 2025 = 80% × c(2024) = 0     acconti 2026 = round2(80% × 6.100,38) = 4.880,30 → 2 × 2.440,15
+  //   deducted in 2025: 0 (no 2025 contributions row: saldo 2025 = 0 − 0, acconti 2025 = 0)
+  //   imposta 2025 = 23.400 × 5% = 1.170;  acconti imposta 2025 = splitAcconto(imposta 2024 = 0) = 0
+  //     2026:imposta_saldo       1.170      2026-06-30   (the full tax: 2024 is not declared — the roadmap's ceiling)
+  //     2026:imposta_acconto1    585        2026-06-30   splitAcconto(1.170) = [585, 585]
+  //     2026:imposta_acconto2    585        2026-11-30
+  //     2026:contributi_saldo    6.100,38   2026-06-30   quota 2025 − acconti 2025 = 6.100,38 − 0
+  //     2026:contributi_acconto1 2.440,15   2026-06-30
+  //     2026:contributi_acconto2 2.440,15   2026-11-30
+  test('deadlines, Gestione Separata: un 2025 dichiarato muove saldo e acconti del 2026', () {
+    final plain = profile(startYear: 2022);
+    final declared = profile(startYear: 2022, declaredIncome: {'2025': 30000.0});
+    final txns = [fattura('f26', 3500, at(2026, 3, 10))];
+    final expected = <(String, String, double)>[
+      ('2026:imposta_saldo', '2026-06-30', 1170.0),
+      ('2026:imposta_acconto1', '2026-06-30', 585.0),
+      ('2026:imposta_acconto2', '2026-11-30', 585.0),
+      ('2026:contributi_saldo', '2026-06-30', 6100.38),
+      ('2026:contributi_acconto1', '2026-06-30', 2440.15),
+      ('2026:contributi_acconto2', '2026-11-30', 2440.15),
+    ];
+    expectAbsent(schedule(plain, txns, now), [for (final (key, _, _) in expected) key]);
+    final rows = schedule(declared, txns, now);
+    expectRows(rows, expected);
+    expect(
+      rows.map(cells).toList(),
+      schedule(plain, [...txns, fattura('f25', 30000, at(2025, 6, 15))], now).map(cells).toList(),
+      reason: 'come se il libro avesse i 30.000',
+    );
+  });
+
   // ── calendario con gli importi della commercialista ─────────────────────
   test('deadlines: una riga con la stessa key sostituisce la stima', () {
     final pay = payment(
@@ -1121,6 +1301,65 @@ void main() {
           schedule(gs, gsTxns, local).map(cells).toList(),
           reason: 'schedule at $local');
     }
+  });
+
+  // ── un anno dichiarato: trappole di Dart (la suite del web non ha un gemello) ──
+  // now = 6/10/2026, so the year asked is 2025 and the ledger covers it when the local day of its first
+  // row is on or before 1 January 2025. The start is a stored instant that can arrive UTC-flagged: local
+  // 1 Jan 00:30 is 31 Dec in UTC east of Greenwich, local 2 Jan 00:30 is 1 Jan there (a UTC calendar read
+  // would call it covered), local 1 Jan 23:30 is 2 Jan in UTC west of it (a UTC read would call it not
+  // covered). In TZ=UTC local and UTC coincide and it can only pass, like the other UTC-flag traps.
+  test('trappola: askDeclaredIncome con un ledgerStart con flag UTC legge il giorno locale', () {
+    final p = profile();
+    for (final (local, asked) in <(DateTime, int?)>[
+      (at(2025, 1, 1, 0, 30), null),
+      (at(2025, 1, 1, 23, 30), null),
+      (at(2025, 1, 2, 0, 30), 2025),
+    ]) {
+      expect(askDeclaredIncome(p, local, now), asked, reason: 'locale $local');
+      expect(askDeclaredIncome(p, local.toUtc(), now), asked, reason: 'UTC $local');
+    }
+  });
+
+  // The same two instants as the UTC-flag tests above, as `now`: local 1 Jan 2027 00:30 is still 2026 in UTC
+  // east of Greenwich, local 31 Dec 2026 23:30 is already 2027 in UTC west of it. The year asked is the local
+  // year − 1 (2026 and 2025), UTC-flagged or not.
+  test("trappola: askDeclaredIncome con un now con flag UTC legge l'anno locale", () {
+    final p = profile();
+    for (final (local, asked) in <(DateTime, int)>[
+      (DateTime(2027, 1, 1, 0, 30), 2026),
+      (DateTime(2026, 12, 31, 23, 30), 2025),
+    ]) {
+      expect(askDeclaredIncome(p, null, local), asked, reason: 'locale $local');
+      expect(askDeclaredIncome(p, null, local.toUtc()), asked, reason: 'UTC $local');
+    }
+  });
+
+  // Cassa 4%, 2025 declared 41.600 gross (with a 1.040 in the 2025 ledger, which does not count):
+  //   compensi = 41.600 / 1,04 = 40.000        integrativo = 41.600 − 40.000 = 1.600
+  test('trappola: un dichiarato di 41600 su una cassa al 4% dà 40000 di compensi e 1600 di integrativo, esatti', () {
+    final p = profile(fundType: 'cassa', integrativeRate: 4, declaredIncome: {'2025': 41600.0});
+    final txns = [fattura('f25', 1040, at(2025, 3, 10))];
+    expect(compensiForYear(p, txns, 2025), 40000.0, reason: 'compensi');
+    expect(integrativeCollected(txns, p, 2025), 1600.0, reason: 'integrativo');
+  });
+
+  // The web's `declaredFor` has the same guards but no case of its own: only a finite number >= 0 is an
+  // answer. A negative, a NaN or an infinity reads the ledger (1.040 / 1,04 = 1.000), 0 is an answer.
+  test('trappola: declaredFor ignora ciò che non è un numero finito ≥ 0', () {
+    final txns = [fattura('f25', 1040, at(2025, 3, 10))];
+    for (final (name, v) in <(String, double?)>[
+      ('null', null),
+      ('negativo', -1.0),
+      ('NaN', double.nan),
+      ('infinito', double.infinity),
+    ]) {
+      final p = profile(fundType: 'cassa', integrativeRate: 4, declaredIncome: {'2025': v});
+      expect(declaredFor(p, 2025), isNull, reason: name);
+      expect(compensiForYear(p, txns, 2025), 1000.0, reason: '$name: il libro');
+    }
+    expect(declaredFor(profile(declaredIncome: {'2025': 0.0}), 2025), 0.0, reason: 'zero è una risposta');
+    expect(declaredFor(profile(declaredIncome: {'2025': 5.0}), 2024), isNull, reason: 'un altro anno');
   });
 
   test('fuso del run', () {
