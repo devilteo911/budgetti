@@ -487,6 +487,225 @@ double contributionsDeductible(List<PivaDeadline> rows, int year) => _round2(
   ),
 );
 
+// ── Calendario: righe stimate e importi salvati ───────────────────────────
+
+/// Compensi of [year] as the calendar sees them: the real total for a concluded
+/// year, the projection for the year of [now], 0 for later years and for those
+/// before the opening.
+double _compensiOf(PivaProfileData p, List<Transaction> txns, int year, DateTime now) {
+  if (year < p.startYear || year > now.year) return 0.0;
+  return year == now.year ? projectRevenue(txns, p, now) : _round2(_sum(incomeByMonth(txns, p, year)));
+}
+
+/// One slot of the calendar: the statutory date of each slot, the only place
+/// these dates are written. [slides] is false for the cassa's two 31/12
+/// deadlines: they must stay in their year, or the deduction would move by one.
+class _Slot {
+  const _Slot(this.slot, this.month, this.day, this.amount, this.item, {this.slides = true});
+
+  final String slot, item;
+  final int month, day;
+  final double amount;
+  final bool slides;
+}
+
+/// The estimated rows of [slots] with law year [year]; amounts ≤ 0 make no row.
+List<PivaDeadline> _estimatedRows(String kind, String prefix, int year, List<_Slot> slots) => [
+  for (final s in slots)
+    PivaDeadline(
+      key: '$year:${s.slot}',
+      kind: kind,
+      label: '$prefix · ${s.item}',
+      dueDate: s.slides ? dueDay(year, s.month, s.day) : DateTime(year, s.month, s.day),
+      amount: _round2(s.amount),
+      estimated: true,
+      paidDate: null,
+      paymentId: null,
+      note: '',
+    ),
+].where((d) => d.amount > 0).toList();
+
+/// Estimated contributions rows with law year [year] (the web's `Y`). Depends
+/// only on the compensi and the table, never on the tax. `c(y)` below is the
+/// contribution of competence of `y`, 0 before the opening.
+List<PivaDeadline> _contributionRows(PivaProfileData p, double Function(int) comp, int year) {
+  if (year < p.startYear) return [];
+  bool open(int y) => y >= p.startYear;
+  final prefix = switch (p.fundType) {
+    'gestione_separata' => 'Gestione Separata',
+    'artigiani' => 'INPS Artigiani',
+    'cassa' => p.fundName.isEmpty ? 'Cassa' : p.fundName,
+    // the web labels an unknown fund `undefined · …`: the one declared difference
+    _ => 'INPS Commercianti',
+  };
+
+  if (p.fundType == 'cassa') {
+    // Generic calendar — every cassa has its own, the accountant's row corrects it.
+    double subjective(int y) => open(y) ? _contributionsOf(p, comp(y), y).deductible : 0.0;
+    return _estimatedRows('contributi', prefix, year, [
+      _Slot('contributi_minimi', 9, 30, p.minSubjective, 'Contributi minimi $year'),
+      _Slot('contributi_saldo', 12, 31, subjective(year - 1) - p.minSubjective, 'Saldo ${year - 1}', slides: false),
+      _Slot(
+        'contributi_integrativo',
+        12,
+        31,
+        open(year - 1) ? max(p.minIntegrative, (p.integrativeRate * comp(year - 1)) / 100) : 0.0,
+        'Contributo integrativo ${year - 1}',
+        slides: false,
+      ),
+    ]);
+  }
+
+  double c(int y) => open(y) ? _round2(_contributionsOf(p, comp(y), y).total) : 0.0;
+  final fixed = p.fundType != 'gestione_separata';
+  // Contribution on the minimale (reduction and maternità included), 0 for the GS.
+  double fisso(int y) => fixed && open(y) ? _round2(_contributionsOf(p, 0, y).total) : 0.0;
+  // What saldo and acconti settle: all of it for the GS, the part above the fisso
+  // for artigiani/commercianti.
+  double quota(int y) => c(y) - fisso(y);
+  // Total acconti of `y`: GS 80% of the contribution of y−1 (already rounded);
+  // artigiani/commercianti the excess recomputed on the compensi of y−1 with the
+  // rules of y (fonte secondaria).
+  double acconti(int y) => !open(y)
+      ? 0.0
+      : fixed
+      ? _round2(_contributionsOf(p, comp(y - 1), y).total) - fisso(y)
+      : _round2((_rulesFor(y).gsAccontoPct * c(y - 1)) / 100);
+  final half = _round2(acconti(year) / 2);
+  _Slot rate(int n, int y, String slot, int month, int day) =>
+      _Slot(slot, month, day, fisso(y) / 4, 'Rata fissa $n/4 $y');
+
+  return _estimatedRows('contributi', prefix, year, [
+    if (fixed) ...[
+      rate(4, year - 1, 'contributi_fissi4', 2, 16),
+      rate(1, year, 'contributi_fissi1', 5, 16),
+      rate(2, year, 'contributi_fissi2', 8, 20),
+      rate(3, year, 'contributi_fissi3', 11, 16),
+    ],
+    _Slot('contributi_saldo', 6, 30, quota(year - 1) - acconti(year - 1), 'Saldo ${year - 1}'),
+    _Slot('contributi_acconto1', 6, 30, half, 'Primo acconto $year'),
+    _Slot('contributi_acconto2', 11, 30, half, 'Secondo acconto $year'),
+  ]);
+}
+
+/// Estimated imposta sostitutiva rows with law year [year]. `deducibili(y)` is
+/// what is deducted from the income of `y` (see [contributionsDeductible]).
+List<PivaDeadline> _taxRows(
+  PivaProfileData p,
+  double Function(int) comp,
+  int year,
+  double Function(int) deducibili,
+) {
+  double imposta(int y) => estimateYear(p, comp(y), y, deducibili(y)).tax;
+  final (first, second) = splitAcconto(imposta(year - 1));
+  final (a, b) = splitAcconto(imposta(year - 2));
+  return _estimatedRows('imposta', 'Imposta sostitutiva', year, [
+    _Slot('imposta_saldo', 6, 30, imposta(year - 1) - (a + b), 'Saldo ${year - 1}'),
+    _Slot('imposta_acconto1', 6, 30, first, 'Primo acconto $year'),
+    _Slot('imposta_acconto2', 11, 30, second, first > 0 ? 'Secondo acconto $year' : 'Acconto $year'),
+  ]);
+}
+
+/// The local day of a stored instant (UTC or local), `null` stays `null`.
+DateTime? _day(DateTime? d) {
+  if (d == null) return null;
+  final l = d.toLocal();
+  return DateTime(l.year, l.month, l.day);
+}
+
+/// The estimated rows with the saved `piva_payments` rows folded in. A live row
+/// whose non-empty `key` is that of an estimated row replaces it (amount, kind,
+/// dates, note from the row; label from the row if it has one, else the
+/// estimate's); any other live row is added as it is. Of several rows with the
+/// same key the last wins and the others are added, so no saved row vanishes.
+/// Deleted rows are ignored; neither input is mutated.
+List<PivaDeadline> _mergePayments(List<PivaDeadline> estimated, List<PivaPaymentData> payments) {
+  final live = payments.where((p) => !p.isDeleted).toList();
+  final winner = <String, int>{};
+  for (var i = 0; i < live.length; i++) {
+    if (live[i].key.isNotEmpty) winner[live[i].key] = i;
+  }
+  final keys = {for (final d in estimated) d.key};
+  // A row that replaces an estimate keeps the estimate's day when it has none of
+  // its own; one with nothing behind it has no day.
+  PivaDeadline fromRow(PivaPaymentData p, String label, DateTime? due) => PivaDeadline(
+    key: p.key,
+    kind: p.kind,
+    label: p.label.isEmpty ? label : p.label,
+    dueDate: _day(p.dueDate) ?? due,
+    amount: p.amount,
+    estimated: false,
+    paidDate: _day(p.paidDate),
+    paymentId: p.id,
+    note: p.note,
+  );
+  final replaced = [
+    for (final d in estimated)
+      if (winner[d.key] case final i?) fromRow(live[i], d.label, d.dueDate) else d,
+  ];
+  final added = [
+    for (var i = 0; i < live.length; i++)
+      if (!(keys.contains(live[i].key) && winner[live[i].key] == i)) fromRow(live[i], '', null),
+  ];
+  return [...replaced, ...added];
+}
+
+/// By day, a row with no day goes last. Ties are the caller's business: the
+/// order is only meaningful together with the generation index (see `deadlines`).
+int _byDueDate(PivaDeadline a, PivaDeadline b) {
+  final x = a.dueDate, y = b.dueDate;
+  if (x == null && y == null) return 0;
+  if (x == null) return 1;
+  if (y == null) return -1;
+  return _ord(x).compareTo(_ord(y));
+}
+
+/// The calendar: every deadline with law date in the years of `now` − 1, `now`
+/// and `now` + 1, plus every live row of [payments] (once), by `dueDate` (ties
+/// keep generation order: tax before contributions, saldo before acconti, saved
+/// rows without an estimate last; a row with no day goes after all the others).
+/// Contributions are generated for `now` − 3 … `now` + 1 because the tax of year
+/// y deducts what was paid in y.
+///
+/// Two rules on the accountant's amounts. An official amount of *contributions*
+/// enters the deduction ([contributionsDeductible]), so it moves the estimated
+/// tax of its year and, through the saldo and the acconti, of the next ones. An
+/// official amount of *tax* replaces its own row and nothing else: the other tax
+/// rows stay estimated on the estimates, each waiting for its own saved row.
+List<PivaDeadline> deadlines(
+  PivaProfileData profile,
+  List<Transaction> txns,
+  List<PivaPaymentData> payments,
+  DateTime now,
+) {
+  final year = now.year;
+  // Each year's compensi is a pass over the whole ledger and the generators ask
+  // for it dozens of times: compute it once per call (per call, not per module,
+  // so the module stays pure).
+  final memo = <int, double>{};
+  double comp(int y) => memo.putIfAbsent(y, () => _compensiOf(profile, txns, y, now));
+  final contributions = {for (var y = year - 3; y <= year + 1; y++) y: _contributionRows(profile, comp, y)};
+  final merged = _mergePayments([for (final part in contributions.values) ...part], payments);
+  double deducibili(int y) => contributionsDeductible(merged, y);
+  final estimated = [
+    for (final y in [year - 1, year, year + 1]) ...[..._taxRows(profile, comp, y, deducibili), ...contributions[y]!],
+  ];
+  final rows = _mergePayments(estimated, payments);
+  // The sort is on (generation index, row) pairs with the index as tiebreak:
+  // Dart's List.sort is not guaranteed stable (and short lists, which use an
+  // insertion sort, would hide it).
+  final indexed = [for (var i = 0; i < rows.length; i++) (i, rows[i])];
+  indexed.sort((a, b) {
+    final c = _byDueDate(a.$2, b.$2);
+    return c != 0 ? c : a.$1.compareTo(b.$1);
+  });
+  return [for (final (_, d) in indexed) d];
+}
+
+/// The all-estimated calendar: [deadlines] with no saved rows.
+List<PivaDeadline> schedule(PivaProfileData profile, List<Transaction> txns, DateTime now) =>
+    deadlines(profile, txns, const [], now);
+
 // ── Stato delle scadenze ──────────────────────────────────────────────────
 // Read-only helpers for the screen. "Today" comes in as a `DateTime` of which
 // only the local day counts, so they stay pure.
