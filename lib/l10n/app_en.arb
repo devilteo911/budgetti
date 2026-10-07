@@ -163,6 +163,7 @@
   "pivaTitle": "Partita IVA",
   "pivaSettingsSubtitle": "Regime forfettario: income, tax and contributions",
   "pivaEmptyKicker": "NO PROFILE",
+  "pivaEmptyHint": "Set up your flat-rate Partita IVA to see your compensi, the estimate of tax and contributions, and your deadlines.",
   "pivaProfileLabel": "PROFILE",
   "pivaSince": "since {year}",
   "pivaPrevYear": "Previous year",

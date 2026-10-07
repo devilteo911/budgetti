@@ -76,8 +76,8 @@ class PivaScreen extends ConsumerWidget {
   }
 }
 
-/// No profile yet. Same shape as the installments' empty state: a kicker and
-/// the button that opens the profile sheet (no hint line: the button says it).
+/// No profile yet. Same shape as the installments' empty state: a kicker, one
+/// line on what the section gives, and the button that opens the profile sheet.
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.onSetup});
 
@@ -108,6 +108,16 @@ class _EmptyState extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.pivaEmptyHint,
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
             ),
           ),
           const SizedBox(height: 20),

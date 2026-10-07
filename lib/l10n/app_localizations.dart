@@ -1076,6 +1076,12 @@ abstract class AppLocalizations {
   /// **'NO PROFILE'**
   String get pivaEmptyKicker;
 
+  /// No description provided for @pivaEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your flat-rate Partita IVA to see your compensi, the estimate of tax and contributions, and your deadlines.'**
+  String get pivaEmptyHint;
+
   /// No description provided for @pivaProfileLabel.
   ///
   /// In en, this message translates to:

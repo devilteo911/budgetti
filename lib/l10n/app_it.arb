@@ -163,6 +163,7 @@
   "pivaTitle": "Partita IVA",
   "pivaSettingsSubtitle": "Regime forfettario: compensi, imposta e contributi",
   "pivaEmptyKicker": "NESSUN PROFILO",
+  "pivaEmptyHint": "Imposta la tua partita IVA forfettaria per vedere compensi, stima di imposta e contributi, e scadenze.",
   "pivaProfileLabel": "PROFILO",
   "pivaSince": "dal {year}",
   "pivaPrevYear": "Anno precedente",

@@ -123,6 +123,8 @@ void main() {
     await pump(tester);
 
     expect(find.text('NO PROFILE'), findsOneWidget);
+    expect(find.text(en.pivaEmptyHint), findsOneWidget);
+    expect(en.pivaEmptyHint.split('. ').length, 1, reason: 'one sentence');
     expect(find.widgetWithText(OutlinedButton, en.pivaProfileSetUp), findsOneWidget);
     expect(find.byType(BarChart), findsNothing);
   });

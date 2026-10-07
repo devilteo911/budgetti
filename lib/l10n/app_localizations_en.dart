@@ -558,6 +558,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pivaEmptyKicker => 'NO PROFILE';
 
   @override
+  String get pivaEmptyHint =>
+      'Set up your flat-rate Partita IVA to see your compensi, the estimate of tax and contributions, and your deadlines.';
+
+  @override
   String get pivaProfileLabel => 'PROFILE';
 
   @override

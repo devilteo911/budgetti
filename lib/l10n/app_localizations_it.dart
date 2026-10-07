@@ -563,6 +563,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get pivaEmptyKicker => 'NESSUN PROFILO';
 
   @override
+  String get pivaEmptyHint =>
+      'Imposta la tua partita IVA forfettaria per vedere compensi, stima di imposta e contributi, e scadenze.';
+
+  @override
   String get pivaProfileLabel => 'PROFILO';
 
   @override
