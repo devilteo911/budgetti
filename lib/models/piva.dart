@@ -292,8 +292,12 @@ double integrativeCollected(List<Transaction> txns, PivaProfileData profile, int
 /// of the `m` concluded months × 12 if that is more. In January (no concluded
 /// month) just what came in. The project's only revenue projection.
 double projectRevenue(List<Transaction> txns, PivaProfileData profile, DateTime now) {
-  final months = incomeByMonth(txns, profile, now.year);
-  final m = now.month - 1;
+  // `now` may arrive UTC-flagged: year and month are read on the local calendar,
+  // like the web's getFullYear()/getMonth(), or 00:30 of 1 January in Rome would
+  // still be December of the year before.
+  final n = now.toLocal();
+  final months = incomeByMonth(txns, profile, n.year);
+  final m = n.month - 1;
   final sofar = _sum(months);
   return _round2(m == 0 ? sofar : max(sofar, (_sum(months.take(m)) / m) * 12));
 }
@@ -678,12 +682,13 @@ List<PivaDeadline> deadlines(
   List<PivaPaymentData> payments,
   DateTime now,
 ) {
-  final year = now.year;
+  final n = now.toLocal(); // local calendar, as in projectRevenue
+  final year = n.year;
   // Each year's compensi is a pass over the whole ledger and the generators ask
   // for it dozens of times: compute it once per call (per call, not per module,
   // so the module stays pure).
   final memo = <int, double>{};
-  double comp(int y) => memo.putIfAbsent(y, () => _compensiOf(profile, txns, y, now));
+  double comp(int y) => memo.putIfAbsent(y, () => _compensiOf(profile, txns, y, n));
   final contributions = {for (var y = year - 3; y <= year + 1; y++) y: _contributionRows(profile, comp, y)};
   final merged = _mergePayments([for (final part in contributions.values) ...part], payments);
   double deducibili(int y) => contributionsDeductible(merged, y);

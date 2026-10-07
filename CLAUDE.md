@@ -110,8 +110,8 @@ sostitutiva, contributions for the four fund types, the calendar of saldi and
 acconti, the merge with the accountant's saved amounts) — without the web's
 simulations, `writeFailure` and, until #19 ports it into the same file,
 `parseProfileForm`. `test/piva_test.dart` ports the web cases with the same
-names and the same figures to the cent (**change one, change both**), plus ten
-cases the web suite does not have yet: nine on the JavaScript-to-Dart traps
+names and the same figures to the cent (**change one, change both**), plus
+eleven cases the web suite does not have yet: ten on the JavaScript-to-Dart traps
 (`trappola: …`) and `estimateYear, cassa a zero`; the artigiani case with saldo
 and acconti above the minimale was also written for the web suite, so the two
 should be kept in step. Every fiscal figure lives in the one year-keyed table

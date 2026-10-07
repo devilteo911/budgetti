@@ -914,6 +914,24 @@ void main() {
   //   PIVA_EXPECT_OFFSET_MIN=60 TZ=Europe/Rome flutter test test/piva_test.dart
   // The offset is the one of 15 January, in minutes: 60 Europe/Rome, 0 UTC,
   // 780 Pacific/Auckland, -480 America/Los_Angeles.
+  test('trappola: un now con flag UTC legge lo stesso calendario locale', () {
+    // Local 1 Jan 00:30 is still 31 Dec in UTC for every zone east of Greenwich
+    // (Rome, Auckland); local 31 Dec 23:30 is already 1 Jan in UTC for every zone
+    // west of it (Los Angeles). Two instants, so the check bites on both sides. In
+    // TZ=UTC local and UTC coincide and it can only pass — like trap 9, it earns
+    // its keep in the other zones (see the TZ reruns in CLAUDE.md).
+    for (final local in [DateTime(2027, 1, 1, 0, 30), DateTime(2026, 12, 31, 23, 30)]) {
+      expect(projectRevenue(gsTxns, gs, local.toUtc()), projectRevenue(gsTxns, gs, local),
+          reason: 'projectRevenue at $local');
+      expect(deadlines(gs, gsTxns, const [], local.toUtc()).map(cells).toList(),
+          deadlines(gs, gsTxns, const [], local).map(cells).toList(),
+          reason: 'deadlines at $local');
+      expect(schedule(gs, gsTxns, local.toUtc()).map(cells).toList(),
+          schedule(gs, gsTxns, local).map(cells).toList(),
+          reason: 'schedule at $local');
+    }
+  });
+
   test('fuso del run', () {
     final expected = Platform.environment['PIVA_EXPECT_OFFSET_MIN'];
     if (expected == null) return; // not asked: nothing to check
