@@ -163,7 +163,7 @@
   "pivaTitle": "Partita IVA",
   "pivaSettingsSubtitle": "Regime forfettario: compensi, imposta e contributi",
   "pivaEmptyKicker": "NESSUN PROFILO",
-  "pivaEmptyHint": "Imposta la partita IVA dalla dashboard web: compare qui dopo la prossima sincronizzazione.",
+  "pivaEmptyHint": "Imposta la tua partita IVA forfettaria per vedere compensi, stima di imposta e contributi, e scadenze.",
   "pivaProfileLabel": "PROFILO",
   "pivaSince": "dal {year}",
   "pivaPrevYear": "Anno precedente",
@@ -189,6 +189,32 @@
   "pivaChartSemantics": "Compensi per mese nel {year}, {total} in totale, a confronto con il {prior}",
   "pivaCardNet": "netto stimato {amount}",
   "pivaCardSetAside": "Imposta e contributi",
+  "pivaProfileNew": "Imposta la partita IVA",
+  "pivaProfileEdit": "Modifica profilo",
+  "pivaProfileAtecoLabel": "Codice ATECO",
+  "pivaProfileAtecoNote": "Il codice è letto come ATECO 2007. Il coefficiente resta modificabile.",
+  "pivaProfileMinisterialGroup": "Gruppo ministeriale: {pct}%",
+  "pivaProfileUseIt": "Usalo",
+  "pivaProfileNoGroup": "Nessun gruppo ministeriale per questo codice: inserisci il coefficiente a mano.",
+  "pivaProfileStartYearLabel": "Anno di apertura",
+  "pivaProfileStartupRate": "Aliquota startup — ridotta per i primi cinque anni",
+  "pivaProfileFundLabel": "Cassa previdenziale",
+  "pivaProfileFundNameLabel": "Nome della cassa",
+  "pivaProfileOptional": "Facoltativo",
+  "pivaProfileIntegrativoNote": "Gli incassi sono considerati comprensivi del contributo integrativo: viene scorporato dai ricavi e mostrato come importo da riversare.",
+  "pivaProfileIncomeCategoriesLabel": "Categorie di entrata che contano come incassi",
+  "pivaProfileNoIncomeCategories": "Nessuna categoria di entrata: aggiungine una in Impostazioni.",
+  "pivaProfileSave": "Salva profilo",
+  "pivaProfileSaveError": "Errore nel salvataggio del profilo: {error}",
+  "pivaProfileSetUp": "Imposta il profilo",
+  "pivaProfileErrAteco": "Inserisci il codice ATECO con cifre e punti, come 62.01.00.",
+  "pivaProfileErrCoefficient": "Inserisci il coefficiente di redditività come percentuale, fino a 100.",
+  "pivaProfileErrStartYear": "Inserisci l'anno di apertura della partita IVA.",
+  "pivaProfileErrFund": "Scegli una cassa.",
+  "pivaProfileErrSubjective": "Inserisci il contributo soggettivo come percentuale, fino a 100.",
+  "pivaProfileErrIntegrative": "Inserisci il contributo integrativo come percentuale, fino a 100.",
+  "pivaProfileErrMinimums": "Inserisci i contributi minimi come importi, ad esempio 1234,56.",
+  "pivaProfileErrCategories": "Scegli almeno una categoria di entrata.",
   "importSelectWalletError": "Seleziona un portafoglio",
   "importSuccess": "Transazioni importate: {count}",
   "importError": "Errore durante l'importazione: {error}",
@@ -805,6 +831,20 @@
   "@pivaCardNet": {
     "placeholders": {
       "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaProfileMinisterialGroup": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaProfileSaveError": {
+    "placeholders": {
+      "error": {
         "type": "String"
       }
     }

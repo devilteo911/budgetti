@@ -1,7 +1,9 @@
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/widgets/app_sheet.dart';
 import 'package:budgetti/features/piva/piva_format.dart';
 import 'package:budgetti/features/piva/piva_income_section.dart';
+import 'package:budgetti/features/piva/piva_profile_sheet.dart';
 import 'package:budgetti/features/piva/piva_view.dart';
 import 'package:budgetti/features/stats/widgets/section_label.dart';
 import 'package:budgetti/models/piva.dart';
@@ -10,13 +12,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-/// Partita IVA, read-only: the profile, the compensi of the chosen year against
-/// the year before, and the estimate of its tax and contributions. The figures
-/// are the web's, to the cent — they come out of the same engine
-/// (`models/piva.dart`), derived once per change of the data in
-/// [pivaViewProvider].
+/// Partita IVA: the profile (set up and edited in [PivaProfileSheet]), the
+/// compensi of the chosen year against the year before, and the estimate of its
+/// tax and contributions. The figures are the web's, to the cent — they come out
+/// of the same engine (`models/piva.dart`), derived once per change of the data
+/// in [pivaViewProvider].
 class PivaScreen extends ConsumerWidget {
   const PivaScreen({super.key});
+
+  void _openProfileSheet(BuildContext context, {PivaProfileData? existing}) {
+    showAppSheet(
+      context,
+      isScrollControlled: true,
+      builder: (_) => PivaProfileSheet(existing: existing),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,16 +56,15 @@ class PivaScreen extends ConsumerWidget {
         data: (view) {
           final profile = ref.watch(pivaProfileProvider).value;
           if (view == null || profile == null) {
-            // #19: pass here the opening of `PivaProfileSheet` (and change the
-            // button's text); until then there is no button, and the hint sends
-            // the user to the web.
-            return const _EmptyState(onSetup: null);
+            return _EmptyState(onSetup: () => _openProfileSheet(context));
           }
           return ListView(
             padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom + 32),
             children: [
-              // #19: pass here the opening of `PivaProfileSheet` in edit mode.
-              _ProfileSummary(profile: profile, onEdit: null),
+              _ProfileSummary(
+                profile: profile,
+                onEdit: () => _openProfileSheet(context, existing: profile),
+              ),
               PivaIncomeSection(profile: profile, view: view),
               _Estimate(profile: profile, view: view, currency: ref.watch(currencyProvider)),
               // #20: PivaDeadlinesSection goes here, below the prospetto.
@@ -67,12 +76,12 @@ class PivaScreen extends ConsumerWidget {
   }
 }
 
-/// No profile yet. Same shape as the installments' empty state; the button
-/// exists only when [onSetup] does.
+/// No profile yet. Same shape as the installments' empty state: a kicker, one
+/// line on what the section gives, and the button that opens the profile sheet.
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.onSetup});
 
-  final VoidCallback? onSetup;
+  final VoidCallback onSetup;
 
   @override
   Widget build(BuildContext context) {
@@ -111,11 +120,8 @@ class _EmptyState extends StatelessWidget {
               height: 1.3,
             ),
           ),
-          if (onSetup != null) ...[
-            const SizedBox(height: 20),
-            // ponytail: borrows pivaTitle; #19 gives the button its own key.
-            OutlinedButton(onPressed: onSetup, child: Text(context.l10n.pivaTitle)),
-          ],
+          const SizedBox(height: 20),
+          OutlinedButton(onPressed: onSetup, child: Text(context.l10n.pivaProfileSetUp)),
         ],
       ),
     );
@@ -129,7 +135,7 @@ class _ProfileSummary extends StatelessWidget {
   const _ProfileSummary({required this.profile, required this.onEdit});
 
   final PivaProfileData profile;
-  final VoidCallback? onEdit;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +149,7 @@ class _ProfileSummary extends StatelessWidget {
     ].where((s) => s.isNotEmpty).join(' · ');
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, onEdit == null ? 20 : 8, 4),
+      padding: const EdgeInsets.fromLTRB(20, 16, 8, 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -175,9 +181,11 @@ class _ProfileSummary extends StatelessWidget {
               ],
             ),
           ),
-          // #19: the tooltip needs its own key.
-          if (onEdit != null)
-            IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined)),
+          IconButton(
+            onPressed: onEdit,
+            tooltip: context.l10n.pivaProfileEdit,
+            icon: const Icon(Icons.edit_outlined),
+          ),
         ],
       ),
     );

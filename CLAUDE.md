@@ -108,11 +108,11 @@ accountant's figures and a backup that never names it says nothing about it.
 `lib/models/piva.dart` is the pure Dart mirror of `web/src/piva.ts` (imposta
 sostitutiva, contributions for the four fund types, the calendar of saldi and
 acconti, the merge with the accountant's saved amounts) — without the web's
-simulations, `writeFailure` and, until #19 ports it into the same file,
-`parseProfileForm`. `test/piva_test.dart` ports the web cases with the same
+simulations and `writeFailure`; `parseProfileForm` (the profile form's rules)
+is in the same file. `test/piva_test.dart` ports the web cases with the same
 names and the same figures to the cent (**change one, change both**), plus
-eleven cases the web suite does not have yet: ten on the JavaScript-to-Dart traps
-(`trappola: …`) and `estimateYear, cassa a zero`; the artigiani case with saldo
+thirteen cases the web suite does not have yet: twelve on the JavaScript-to-Dart
+traps (`trappola: …`) and `estimateYear, cassa a zero`; the artigiani case with saldo
 and acconti above the minimale was also written for the web suite, so the two
 should be kept in step. Every fiscal figure lives in the one year-keyed table
 at the top of the file, with its source; a new year is one new row.
@@ -142,7 +142,7 @@ TZ=Europe/Rome PIVA_EXPECT_OFFSET_MIN=60 flutter test test/piva_test.dart
 
 ### Partita IVA screen
 
-Read-only for now: `/piva` (`lib/features/piva/`, a top-level route outside the
+`/piva` (`lib/features/piva/`, a top-level route outside the
 shell like `/installments`) is reached from the `PivaCard` on the dashboard —
 shown only when a live profile exists, always on the current year — and from the
 permanent "Partita IVA" entry in Settings, which is also how the empty state is
@@ -167,6 +167,23 @@ Fiscal terms ("Compensi", "Imposta sostitutiva", the fund names…) are plain Da
 constants in `piva_format.dart`, identical in both languages, not ARB keys.
 `pivaNumber` there is the only place a non-monetary number of this feature
 becomes text (`67`, not `67.0`; `26,07` in Italian).
+
+**The profile is created and edited on the phone** from `PivaProfileSheet`
+(`piva_profile_sheet.dart`): the "Imposta il profilo" button of the empty state
+and the edit action in the profile summary open it, with `existing` null to
+create. It validates nothing itself: `parseProfileForm` in `lib/models/piva.dart`
+is the mirror of the web's function of the same name and returns a
+`ProfileFormError` code that the sheet turns into its (translated) message — the
+rules and their order are the web's, change one, change both. A `cassa`'s own
+fields are saved blank/0 for any other fund, and the INPS reduction only counts
+for artigiani and commercianti. `FinanceService.savePivaProfile` keeps **one live
+row**: it updates the newest and logically deletes (stamped, so the deletion
+syncs) any other live row — two devices that each created a profile offline end
+with one. Numbers go back into the fields with `pivaNumber`, never fixed decimals:
+`parseAmount` reads a three-digit tail as thousands. The form's message and Save
+button sit outside the scroll view, so an error cannot push the button off the
+screen. Like every sheet guarded by `DiscardGuard`, closing with edits asks first
+on the back key; a downward drag on a dirty sheet just doesn't close it.
 
 ### Transaction types
 

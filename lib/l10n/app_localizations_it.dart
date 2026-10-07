@@ -564,7 +564,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get pivaEmptyHint =>
-      'Imposta la partita IVA dalla dashboard web: compare qui dopo la prossima sincronizzazione.';
+      'Imposta la tua partita IVA forfettaria per vedere compensi, stima di imposta e contributi, e scadenze.';
 
   @override
   String get pivaProfileLabel => 'PROFILO';
@@ -668,6 +668,101 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get pivaCardSetAside => 'Imposta e contributi';
+
+  @override
+  String get pivaProfileNew => 'Imposta la partita IVA';
+
+  @override
+  String get pivaProfileEdit => 'Modifica profilo';
+
+  @override
+  String get pivaProfileAtecoLabel => 'Codice ATECO';
+
+  @override
+  String get pivaProfileAtecoNote =>
+      'Il codice è letto come ATECO 2007. Il coefficiente resta modificabile.';
+
+  @override
+  String pivaProfileMinisterialGroup(String pct) {
+    return 'Gruppo ministeriale: $pct%';
+  }
+
+  @override
+  String get pivaProfileUseIt => 'Usalo';
+
+  @override
+  String get pivaProfileNoGroup =>
+      'Nessun gruppo ministeriale per questo codice: inserisci il coefficiente a mano.';
+
+  @override
+  String get pivaProfileStartYearLabel => 'Anno di apertura';
+
+  @override
+  String get pivaProfileStartupRate =>
+      'Aliquota startup — ridotta per i primi cinque anni';
+
+  @override
+  String get pivaProfileFundLabel => 'Cassa previdenziale';
+
+  @override
+  String get pivaProfileFundNameLabel => 'Nome della cassa';
+
+  @override
+  String get pivaProfileOptional => 'Facoltativo';
+
+  @override
+  String get pivaProfileIntegrativoNote =>
+      'Gli incassi sono considerati comprensivi del contributo integrativo: viene scorporato dai ricavi e mostrato come importo da riversare.';
+
+  @override
+  String get pivaProfileIncomeCategoriesLabel =>
+      'Categorie di entrata che contano come incassi';
+
+  @override
+  String get pivaProfileNoIncomeCategories =>
+      'Nessuna categoria di entrata: aggiungine una in Impostazioni.';
+
+  @override
+  String get pivaProfileSave => 'Salva profilo';
+
+  @override
+  String pivaProfileSaveError(String error) {
+    return 'Errore nel salvataggio del profilo: $error';
+  }
+
+  @override
+  String get pivaProfileSetUp => 'Imposta il profilo';
+
+  @override
+  String get pivaProfileErrAteco =>
+      'Inserisci il codice ATECO con cifre e punti, come 62.01.00.';
+
+  @override
+  String get pivaProfileErrCoefficient =>
+      'Inserisci il coefficiente di redditività come percentuale, fino a 100.';
+
+  @override
+  String get pivaProfileErrStartYear =>
+      'Inserisci l\'anno di apertura della partita IVA.';
+
+  @override
+  String get pivaProfileErrFund => 'Scegli una cassa.';
+
+  @override
+  String get pivaProfileErrSubjective =>
+      'Inserisci il contributo soggettivo come percentuale, fino a 100.';
+
+  @override
+  String get pivaProfileErrIntegrative =>
+      'Inserisci il contributo integrativo come percentuale, fino a 100.';
+
+  @override
+  String get pivaProfileErrMinimums =>
+      'Inserisci i contributi minimi come importi, ad esempio 1234,56.';
+
+  @override
+  String get pivaProfileErrCategories =>
+      'Scegli almeno una categoria di entrata.';
 
   @override
   String get importSelectWalletError => 'Seleziona un portafoglio';
