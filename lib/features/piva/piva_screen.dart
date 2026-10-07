@@ -18,8 +18,45 @@ import 'package:intl/intl.dart';
 /// and contributions, and the deadlines ([PivaDeadlinesSection]). The figures are
 /// the web's, to the cent — they come out of the same engine (`models/piva.dart`),
 /// derived once per change of the data in [pivaViewProvider].
-class PivaScreen extends ConsumerWidget {
-  const PivaScreen({super.key});
+class PivaScreen extends ConsumerStatefulWidget {
+  const PivaScreen({super.key, this.openDeadlines = false});
+
+  /// Scroll the deadlines into view, once, as soon as the data is on screen: set
+  /// when the screen is opened by a reminder's tap (`/piva?section=deadlines`).
+  final bool openDeadlines;
+
+  @override
+  ConsumerState<PivaScreen> createState() => _PivaScreenState();
+}
+
+class _PivaScreenState extends ConsumerState<PivaScreen> {
+  final _scroll = ScrollController();
+  final _deadlinesKey = GlobalKey();
+
+  /// The scroll is done (or given up) once per screen: the streams re-emit and
+  /// rebuild it, and the user must not be pulled back down every time.
+  bool _scrolled = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Brings the deadlines to the top of the list. The list is lazy, so the section
+  /// has no context until the scroll gets near it: jump to the foot to have it
+  /// built, then align it on the next frame. [tries] bounds the jumps.
+  void _revealDeadlines(int tries) {
+    if (!mounted || !_scroll.hasClients) return;
+    final target = _deadlinesKey.currentContext;
+    if (target != null) {
+      Scrollable.ensureVisible(target, alignment: 0);
+      return;
+    }
+    if (tries == 0) return;
+    _scroll.jumpTo(_scroll.position.maxScrollExtent);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _revealDeadlines(tries - 1));
+  }
 
   void _openProfileSheet(BuildContext context, {PivaProfileData? existing}) {
     showAppSheet(
@@ -30,7 +67,7 @@ class PivaScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final viewAsync = ref.watch(pivaViewProvider(ref.watch(pivaYearProvider)));
 
@@ -62,7 +99,12 @@ class PivaScreen extends ConsumerWidget {
           if (view == null || profile == null) {
             return _EmptyState(onSetup: () => _openProfileSheet(context));
           }
+          if (widget.openDeadlines && !_scrolled) {
+            _scrolled = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) => _revealDeadlines(3));
+          }
           return ListView(
+            controller: _scroll,
             padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom + 32),
             children: [
               _ProfileSummary(
@@ -73,6 +115,7 @@ class PivaScreen extends ConsumerWidget {
               _Estimate(profile: profile, view: view, currency: ref.watch(currencyProvider)),
               // The view is data, so all three sources have emitted: `value` is the list.
               PivaDeadlinesSection(
+                key: _deadlinesKey,
                 profile: profile,
                 payments: ref.watch(pivaPaymentsProvider).value ?? const [],
                 txns: ref.watch(pivaTransactionsProvider).value ?? const [],

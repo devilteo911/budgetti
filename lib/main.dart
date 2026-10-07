@@ -307,11 +307,12 @@ Future<void> main() async {
       },
     );
 
-    // Deep-link notification taps to the review inbox.
+    // Deep-link notification taps: a Partita IVA reminder to the deadlines,
+    // anything else to the review inbox.
     final router = container.read(routerProvider);
-    notificationService.onNotificationTap = (_) => openReviewInbox(router);
+    notificationService.onNotificationTap = (payload) => openFromNotification(router, payload);
     final launchPayload = await notificationService.getLaunchPayload();
-    if (launchPayload != null) openReviewInbox(router);
+    if (launchPayload != null) openFromNotification(router, launchPayload);
 
     // Foreground sync on launch: silently refresh the review inbox (the
     // background task is what fires notifications when the app is closed).
