@@ -183,6 +183,8 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
         minIntegrative: _minIntegrative.text,
         inpsReduction: _reduction,
         incomeCategories: _categories.toList(),
+        // Not edited here (#30 asks for it): passed through so a save keeps it.
+        declaredIncome: widget.existing?.declaredIncome ?? const {},
       ),
       DateTime.now(),
     );

@@ -37,6 +37,7 @@ void main() {
   PivaProfileInput input({
     String ateco = '62.01.00',
     List<String> categories = const ['Consulenze', 'Corsi'],
+    Map<String, double?> declaredIncome = const {},
   }) => PivaProfileInput(
         atecoCode: ateco,
         coefficient: 78.5,
@@ -50,6 +51,7 @@ void main() {
         minIntegrative: 250.75,
         inpsReduction: false,
         incomeCategories: categories,
+        declaredIncome: declaredIncome,
       );
 
   Future<void> row(
@@ -99,6 +101,20 @@ void main() {
     expect(r.minIntegrative, 250.75);
     expect(r.inpsReduction, isFalse);
     expect(r.incomeCategories, ['Consulenze', 'Corsi']);
+    // an empty map is written as given, not left NULL
+    expect(r.declaredIncome, <String, double?>{});
+  });
+
+  test('a declared income is saved as given, the null entry included',
+      () async {
+    await service.savePivaProfile(
+        input(declaredIncome: {'2025': 40000.0, '2024': null}));
+
+    final r = (await db.select(db.pivaProfiles).get()).single;
+    expect(r.declaredIncome, {'2025': 40000.0, '2024': null});
+    expect(r.declaredIncome!.containsKey('2024'), isTrue);
+    expect(r.declaredIncome!['2024'], isNull);
+    expect(r.declaredIncome!.containsKey('2023'), isFalse);
   });
 
   test('two saves in a row leave one row, the same id, the second values',

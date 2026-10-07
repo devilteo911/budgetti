@@ -381,7 +381,8 @@ class FinanceService {
       );
 
   /// Drift row → engine profile. The engine class has no `id`/`isDeleted`, and
-  /// its `incomeCategories` is never null (a NULL column means "no categories").
+  /// its `incomeCategories` is never null (a NULL column means "no categories"),
+  /// nor is its `declaredIncome` (a NULL column is `{}`, "never answered").
   model_piva.PivaProfileData _toPivaProfile(PivaProfile row) =>
       model_piva.PivaProfileData(
         atecoCode: row.atecoCode,
@@ -396,6 +397,7 @@ class FinanceService {
         minIntegrative: row.minIntegrative,
         inpsReduction: row.inpsReduction,
         incomeCategories: row.incomeCategories ?? const [],
+        declaredIncome: row.declaredIncome ?? const {},
       );
 
   /// Days pass through untouched: `DateTime?` local, `null` = no day.
@@ -502,6 +504,19 @@ class FinanceService {
   /// background isolate).
   Future<List<model_txn.Transaction>> getPivaIncome() async =>
       (await _pivaIncomeQuery().get()).map(_toModelTx).toList();
+
+  /// The day the ledger starts: the date of the first live transaction of the
+  /// user, any type (expenses and transfers too), or null when there is none.
+  /// `askDeclaredIncome` (models/piva.dart) takes it: the Partita IVA income
+  /// rows alone would put the start too late.
+  Selectable<DateTime> _ledgerStartQuery() => (_db.select(_db.transactions)
+        ..where((t) => t.isDeleted.equals(false) & t.userId.equals(_userId))
+        ..orderBy([(t) => OrderingTerm(expression: t.date)])
+        ..limit(1))
+      .map((t) => t.date);
+
+  Future<DateTime?> getLedgerStart() => _ledgerStartQuery().getSingleOrNull();
+  Stream<DateTime?> watchLedgerStart() => _ledgerStartQuery().watchSingleOrNull();
 
   /// Totals over exactly the filter the ledger page queries — a SQL
   /// aggregate watched on the transactions table, instead of re-watching and
@@ -1078,6 +1093,7 @@ class FinanceService {
       minIntegrative: Value(input.minIntegrative),
       inpsReduction: Value(input.inpsReduction),
       incomeCategories: Value(input.incomeCategories),
+      declaredIncome: Value(input.declaredIncome),
       lastUpdated: Value(now),
     );
 

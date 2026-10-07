@@ -176,6 +176,7 @@ class PivaProfileData {
     required this.minIntegrative,
     required this.inpsReduction,
     required this.incomeCategories,
+    this.declaredIncome = const {},
   });
 
   final String atecoCode;
@@ -203,6 +204,12 @@ class PivaProfileData {
   /// Category *names*. Never null: a database `null` or `''` is `[]` in the
   /// mapping.
   final List<String> incomeCategories;
+
+  /// The gross collected in a concluded year, as the accountant's figure, keyed
+  /// by four-digit year (`'2025'`). Never null: a database `NULL` is `{}`.
+  /// `containsKey` tells the two non-numbers apart: a `null` value means "derive
+  /// it from the ledger" (asked and answered), an absent key "not answered".
+  final Map<String, double?> declaredIncome;
 }
 
 /// A tax/contribution payment row. An official amount from the accountant
@@ -788,6 +795,7 @@ class ProfileFormValues {
     required this.minIntegrative,
     required this.inpsReduction,
     required this.incomeCategories,
+    required this.declaredIncome,
   });
 
   final String atecoCode, coefficient, startYear;
@@ -796,10 +804,15 @@ class ProfileFormValues {
   final String subjectiveRate, integrativeRate, minSubjective, minIntegrative;
   final bool inpsReduction;
   final List<String> incomeCategories;
+
+  /// Not a field of the form: the profile's declared income, carried to the save
+  /// untouched. Required so that no save can forget it and erase the figure.
+  final Map<String, double?> declaredIncome;
 }
 
-/// What the form saves: the twelve fields of the profile, typed, with neither
-/// `userId` nor `lastUpdated` — the write stamps those.
+/// What the form saves: the twelve fields of the profile plus the declared
+/// income, typed, with neither `userId` nor `lastUpdated` — the write stamps
+/// those.
 class PivaProfileInput {
   const PivaProfileInput({
     required this.atecoCode,
@@ -814,6 +827,7 @@ class PivaProfileInput {
     required this.minIntegrative,
     required this.inpsReduction,
     required this.incomeCategories,
+    required this.declaredIncome,
   });
 
   final String atecoCode;
@@ -824,6 +838,10 @@ class PivaProfileInput {
   final double subjectiveRate, integrativeRate, minSubjective, minIntegrative;
   final bool inpsReduction;
   final List<String> incomeCategories;
+
+  /// Written as given, `{}` included: a save that dropped it would erase the
+  /// figure the web (or an earlier answer) put there.
+  final Map<String, double?> declaredIncome;
 }
 
 /// The first rule the form broke, in the order the rules run.
@@ -860,7 +878,9 @@ double? _optionalAmount(String s) {
 /// can be rejected). Only a `cassa` keeps its own fields: for any other fund the
 /// hidden ones are saved as '' / 0 whatever they hold, and the INPS reduction
 /// only counts for artigiani and commercianti. Exactly one of the two fields of
-/// the result is set.
+/// the result is set. The declared income is not a field of the form: its map
+/// passes through untouched (copied, entry for entry, `null` values included);
+/// the previous year's field and its rule come with #30.
 ({PivaProfileInput? profile, ProfileFormError? error}) parseProfileForm(ProfileFormValues f, DateTime now) {
   final atecoCode = f.atecoCode.trim();
   if (!RegExp(r'^\d{2}(\.?\d{1,2}){0,2}$').hasMatch(atecoCode)) return _fail(ProfileFormError.atecoCode);
@@ -918,6 +938,7 @@ double? _optionalAmount(String s) {
       minIntegrative: cassa.minIntegrative,
       inpsReduction: f.inpsReduction && (fundType == 'artigiani' || fundType == 'commercianti'),
       incomeCategories: incomeCategories,
+      declaredIncome: Map.of(f.declaredIncome),
     ),
     error: null,
   );

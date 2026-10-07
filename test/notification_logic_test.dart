@@ -92,6 +92,7 @@ const _profileInput = PivaProfileInput(
   minIntegrative: 0,
   inpsReduction: false,
   incomeCategories: ['Freelance'],
+  declaredIncome: {},
 );
 
 /// A deadline added by hand (empty key), due on 19 February 2027.

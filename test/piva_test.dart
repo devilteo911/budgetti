@@ -234,6 +234,7 @@ ProfileFormValues form({
   String minIntegrative = '',
   bool inpsReduction = false,
   List<String> incomeCategories = const ['Fatture'],
+  Map<String, double?> declaredIncome = const {},
 }) => ProfileFormValues(
   atecoCode: atecoCode,
   coefficient: coefficient,
@@ -247,6 +248,7 @@ ProfileFormValues form({
   minIntegrative: minIntegrative,
   inpsReduction: inpsReduction,
   incomeCategories: incomeCategories,
+  declaredIncome: declaredIncome,
 );
 
 ProfileFormValues cassaForm({
@@ -269,7 +271,8 @@ ProfileFormValues cassaForm({
   inpsReduction: inpsReduction,
 );
 
-/// The twelve fields of a [PivaProfileInput] in declaration order (the class has no `==`).
+/// The twelve fields of a [PivaProfileInput] in declaration order (the class has no `==`),
+/// without `declaredIncome`, which the form does not edit and has its own case.
 List<Object> formCells(PivaProfileInput p) => [
   p.atecoCode,
   p.coefficient,
@@ -1064,6 +1067,15 @@ void main() {
 
     test('parseProfileForm: le categorie sono ripulite dagli spazi e senza doppioni', () {
       expect(parsed(form(incomeCategories: [' Fatture', 'Fatture'])).incomeCategories, ['Fatture'], reason: 'doppione');
+    });
+
+    // Not in the web suite: the Dart form carries the declared income to the save.
+    test('parseProfileForm: declaredIncome passa intatto', () {
+      final p = parsed(form(declaredIncome: {'2025': 40000.0, '2024': null}));
+      expect(p.declaredIncome, {'2025': 40000.0, '2024': null});
+      expect(p.declaredIncome.containsKey('2024'), isTrue, reason: 'null = dal registro, è una risposta');
+      expect(p.declaredIncome.keys.toSet(), {'2025', '2024'}, reason: 'nessun anno aggiunto');
+      expect(parsed(form()).declaredIncome, isEmpty, reason: 'mai risposto: resta vuoto');
     });
 
     // Not in the web suite: JavaScript prints -0 as 0, Dart prints -0.0.
