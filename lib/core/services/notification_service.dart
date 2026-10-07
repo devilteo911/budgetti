@@ -60,8 +60,10 @@ void routeNotificationTap(String? payload, void Function(String)? onTap) {
 /// because it is dynamic (one group per instant): reminders that fire together
 /// share it, and the stack's summary is posted explicitly with [summary] set,
 /// for the reason given at [bankDraftsSummaryDetails]. Alone, a reminder has no
-/// group.
-NotificationDetails pivaReminderDetails({String? groupKey, bool summary = false}) =>
+/// group. [body] is shown whole when the notification is expanded: left to
+/// itself the shade clips a plain body at two lines, and "(stima)" at the end of
+/// an estimate is exactly what it cut.
+NotificationDetails pivaReminderDetails({String? groupKey, bool summary = false, String? body}) =>
     NotificationDetails(
       android: AndroidNotificationDetails(
         'piva_deadlines',
@@ -71,6 +73,7 @@ NotificationDetails pivaReminderDetails({String? groupKey, bool summary = false}
         priority: Priority.high,
         groupKey: groupKey,
         setAsGroupSummary: summary,
+        styleInformation: body == null ? null : BigTextStyleInformation(body),
       ),
       iOS: DarwinNotificationDetails(
         presentAlert: true,
@@ -375,7 +378,7 @@ class NotificationService {
         wanted[r.id] = (
           item: (id: r.id, title: r.title, body: r.body, payload: r.payload),
           at: at,
-          details: pivaReminderDetails(groupKey: groupKey),
+          details: pivaReminderDetails(groupKey: groupKey, body: r.body),
         );
       }
       if (groupKey != null) {
