@@ -224,6 +224,20 @@ class PersistenceService {
   Future<void> setPullSyncAt(DateTime t) =>
       _prefs.setInt(_pbPullSyncAtKey, t.millisecondsSinceEpoch);
 
+  /// One-shot: has this install re-pulled `piva_profile` from epoch since
+  /// `declaredIncome` arrived (schema 20)? The server migration that adds the
+  /// field does not touch `updated` on existing rows, so a phone whose pull
+  /// cursor is already past the profile would never receive a figure the web
+  /// declared until the row changed again. While this is false the sync pulls
+  /// that one collection from epoch; only the sync sets it, once that pull ran.
+  /// It is a pref and not an `onUpgrade` step because the database cannot reach
+  /// the preferences; a fresh install pays one extra pull of a one-row collection.
+  static const _pbPivaProfileRepulledKey = 'pb_piva_profile_repulled';
+  bool getPivaProfileRepulled() =>
+      _prefs.getBool(_pbPivaProfileRepulledKey) ?? false;
+  Future<void> setPivaProfileRepulled(bool v) =>
+      _prefs.setBool(_pbPivaProfileRepulledKey, v);
+
   String getServerUrl() => _prefs.getString(_pbServerUrlKey) ?? '';
   Future<void> setServerUrl(String url) =>
       _prefs.setString(_pbServerUrlKey, url);

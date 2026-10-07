@@ -38,16 +38,18 @@ const _webExport = '''
 
 /// The same export once the web writes the two Partita IVA collections too (the
 /// shape agreed for budgetti-web: collection names as keys, dates in millis,
-/// `incomeCategories` a string array or null, every field present). The first
-/// profile has an integer `coefficient`, the second no categories and was
+/// `incomeCategories` a string array or null, `declaredIncome` an object of
+/// years (numbers or null, sorted keys, whole numbers as integers) or null,
+/// every field present). The first profile has an integer `coefficient` and a
+/// declared income, the second no categories, none declared, and was
 /// soft-deleted; the first payment is unpaid with a key, the second has neither
 /// a key nor a due date and a zero amount ("acconto non dovuto").
 final _webExportWithPiva = jsonEncode({
   ...jsonDecode(_webExport) as Map<String, dynamic>,
   'piva_profile': jsonDecode('''
 [
-  {"id": "e2e-piva-1", "userId": "u", "atecoCode": "62.01.00", "coefficient": 67, "startYear": 2024, "startupRate": true, "fundType": "gestione_separata", "fundName": "", "subjectiveRate": 26.07, "integrativeRate": 0, "minSubjective": 0, "minIntegrative": 0, "inpsReduction": false, "incomeCategories": ["Compensi"], "isDeleted": false, "lastUpdated": 1784673381901},
-  {"id": "e2e-piva-2", "userId": "u", "atecoCode": "", "coefficient": 78, "startYear": 0, "startupRate": false, "fundType": "cassa", "fundName": "Cassa di prova", "subjectiveRate": 10, "integrativeRate": 4, "minSubjective": 500, "minIntegrative": 50, "inpsReduction": false, "incomeCategories": null, "isDeleted": true, "lastUpdated": 1784673381901}
+  {"id": "e2e-piva-1", "userId": "u", "atecoCode": "62.01.00", "coefficient": 67, "startYear": 2024, "startupRate": true, "fundType": "gestione_separata", "fundName": "", "subjectiveRate": 26.07, "integrativeRate": 0, "minSubjective": 0, "minIntegrative": 0, "inpsReduction": false, "incomeCategories": ["Compensi"], "declaredIncome": {"2024": null, "2025": 40000}, "isDeleted": false, "lastUpdated": 1784673381901},
+  {"id": "e2e-piva-2", "userId": "u", "atecoCode": "", "coefficient": 78, "startYear": 0, "startupRate": false, "fundType": "cassa", "fundName": "Cassa di prova", "subjectiveRate": 10, "integrativeRate": 4, "minSubjective": 500, "minIntegrative": 50, "inpsReduction": false, "incomeCategories": null, "declaredIncome": null, "isDeleted": true, "lastUpdated": 1784673381901}
 ]'''),
   'piva_payments': jsonDecode('''
 [
@@ -117,6 +119,9 @@ void main() {
     expect(live.fundType, 'gestione_separata');
     expect(live.subjectiveRate, 26.07);
     expect(live.incomeCategories, ['Compensi']);
+    expect(live.declaredIncome, {'2025': 40000.0, '2024': null},
+        reason: 'the integer reads as a double, the null entry is kept');
+    expect(live.declaredIncome!.containsKey('2024'), isTrue);
     expect(live.isDeleted, isFalse);
     // Drift stores DateTime at second precision — sub-second millis truncate.
     expect(live.lastUpdated!.millisecondsSinceEpoch, 1784673381000);
@@ -125,6 +130,7 @@ void main() {
     expect(retired.fundType, 'cassa');
     expect(retired.integrativeRate, 4.0);
     expect(retired.incomeCategories, isNull);
+    expect(retired.declaredIncome, isNull);
     expect(retired.isDeleted, isTrue);
 
     final payments = await db.select(db.pivaPayments).get();
