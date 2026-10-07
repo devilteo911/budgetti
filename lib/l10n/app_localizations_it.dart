@@ -950,6 +950,22 @@ class AppLocalizationsIt extends AppLocalizations {
   String get pivaRemSummary => 'Scadenze partita IVA';
 
   @override
+  String get pivaRemSwitch => 'Scadenze partita IVA';
+
+  @override
+  String get pivaRemSwitchSubtitle =>
+      '30, 7 e 1 giorno prima e il giorno stesso, alle 9:00';
+
+  @override
+  String get pivaRemNoProfile => 'Imposta prima il profilo partita IVA';
+
+  @override
+  String get pivaRemMasterOff => 'Attiva prima le notifiche push';
+
+  @override
+  String get pivaRemBlocked => 'Notifiche bloccate dal sistema';
+
+  @override
   String get importSelectWalletError => 'Seleziona un portafoglio';
 
   @override

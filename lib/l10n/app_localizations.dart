@@ -1682,6 +1682,36 @@ abstract class AppLocalizations {
   /// **'Partita IVA deadlines'**
   String get pivaRemSummary;
 
+  /// No description provided for @pivaRemSwitch.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA deadlines'**
+  String get pivaRemSwitch;
+
+  /// No description provided for @pivaRemSwitchSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'30, 7 and 1 day before and on the day, at 9:00'**
+  String get pivaRemSwitchSubtitle;
+
+  /// No description provided for @pivaRemNoProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up the Partita IVA profile first'**
+  String get pivaRemNoProfile;
+
+  /// No description provided for @pivaRemMasterOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on push notifications first'**
+  String get pivaRemMasterOff;
+
+  /// No description provided for @pivaRemBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are blocked by the system'**
+  String get pivaRemBlocked;
+
   /// No description provided for @importSelectWalletError.
   ///
   /// In en, this message translates to:
