@@ -160,6 +160,35 @@
   "instUnlink": "Scollega",
   "instNoCandidates": "Nessuna spesa da collegare.",
   "instAttachPayment": "Collega un pagamento",
+  "pivaTitle": "Partita IVA",
+  "pivaSettingsSubtitle": "Regime forfettario: compensi, imposta e contributi",
+  "pivaEmptyKicker": "NESSUN PROFILO",
+  "pivaEmptyHint": "Imposta la partita IVA dalla dashboard web: compare qui dopo la prossima sincronizzazione.",
+  "pivaProfileLabel": "PROFILO",
+  "pivaSince": "dal {year}",
+  "pivaPrevYear": "Anno precedente",
+  "pivaNextYear": "Anno successivo",
+  "pivaTileAverage": "Media mensile",
+  "pivaTileAverageSub": "{count, plural, =1 {su 1 mese} other {su {count} mesi}}",
+  "pivaTileFirstMonth": "primo mese",
+  "pivaTilePayments": "Incassi contati",
+  "pivaTilePaymentsSub": "in media {amount} l'uno",
+  "pivaNoneYet": "ancora nessuno",
+  "pivaTileBest": "Mese migliore",
+  "pivaVsYear": "sul {year}",
+  "pivaNew": "nuovo",
+  "pivaNoIncome": "Nessun incasso nel {year}.",
+  "pivaNoIncomeHint": "Le entrate registrate in {categories} compaiono qui.",
+  "pivaNoIncomeNoCategories": "Scegli le categorie di entrata nel profilo e compaiono qui.",
+  "pivaReconIntegrativo": "contributo integrativo incassato · da versare",
+  "pivaReconBank": "incassi in banca",
+  "pivaEstimateLabel": "STIMA · ANNO D'IMPOSTA {year}",
+  "pivaNet": "Netto",
+  "pivaPassThroughNote": "partita di giro: non è reddito, non è deducibile",
+  "pivaEstimateFoot": "Una stima dalle entrate del tuo registro. Le cifre della commercialista la sostituiscono, scadenza per scadenza.",
+  "pivaChartSemantics": "Compensi per mese nel {year}, {total} in totale, a confronto con il {prior}",
+  "pivaCardNet": "netto stimato {amount}",
+  "pivaCardSetAside": "Imposta e contributi",
   "importSelectWalletError": "Seleziona un portafoglio",
   "importSuccess": "Transazioni importate: {count}",
   "importError": "Errore durante l'importazione: {error}",
@@ -708,6 +737,75 @@
       },
       "due": {
         "type": "int"
+      }
+    }
+  },
+  "@pivaSince": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaTileAverageSub": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@pivaTilePaymentsSub": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaVsYear": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaNoIncome": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaNoIncomeHint": {
+    "placeholders": {
+      "categories": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaEstimateLabel": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaChartSemantics": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "prior": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaCardNet": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
       }
     }
   },
