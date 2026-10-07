@@ -21,6 +21,10 @@
 /// run the same cases against the two engines.
 library;
 
+import 'dart:math';
+
+import 'package:budgetti/models/transaction.dart';
+
 // ── The fiscal table ──────────────────────────────────────────────────────
 // Every fiscal figure of the module lives here and nowhere else, each with the
 // source it was read from (verified 06/10/2026). Code below reads figures from
@@ -231,4 +235,166 @@ class PivaPaymentData {
   final DateTime? paidDate;
   final String note;
   final bool isDeleted;
+}
+
+// ── Compensi ──────────────────────────────────────────────────────────────
+
+/// Euro amounts are returned rounded to the cent. This is JavaScript's
+/// `Math.round(x * 100) / 100`: halves go towards +∞ (-12.5 → -12). Dart's own
+/// rounding helpers move them away from zero (-13), return an int, or round the
+/// exact decimal expansion instead, so this is the only rounding in the file.
+double _round2(double x) {
+  final v = x * 100;
+  final f = v.floorToDouble();
+  return (v - f >= 0.5 ? f + 1 : f) / 100;
+}
+
+/// Left to right, from 0, like the web's `reduce`: the order is part of the figure.
+double _sum(Iterable<double> xs) => xs.fold(0.0, (a, b) => a + b);
+
+/// What a bank amount is divided by to get the compensi: a `cassa` with an
+/// integrativo charges it to the client on top of the fee, so it is not income.
+/// The three INPS funds never split, even if `integrativeRate` is left set.
+double _compensiDivisor(PivaProfileData p) =>
+    p.fundType == 'cassa' && p.integrativeRate > 0 ? 1 + p.integrativeRate / 100 : 1.0;
+
+/// The ledger income of the profile's categories, as banked (integrativo
+/// included). The sign decides, like everywhere else: [Transaction.isIncome].
+/// The model has no `isDeleted`: deleted rows never reach it.
+List<Transaction> pivaIncome(List<Transaction> txns, PivaProfileData profile) =>
+    txns.where((t) => t.isIncome && profile.incomeCategories.contains(t.category)).toList();
+
+/// 12 monthly *compensi* of [year] (local calendar month of `t.date`): each
+/// month is summed as banked, then divided, then rounded.
+List<double> incomeByMonth(List<Transaction> txns, PivaProfileData profile, int year) {
+  final months = List<double>.filled(12, 0.0);
+  for (final t in pivaIncome(txns, profile)) {
+    final d = t.date.toLocal();
+    if (d.year == year) months[d.month - 1] += t.amount;
+  }
+  final div = _compensiDivisor(profile);
+  return [for (final m in months) _round2(m / div)];
+}
+
+/// Integrativo collected in [year] on behalf of the cassa: gross banked minus
+/// compensi. 0 when nothing is split.
+double integrativeCollected(List<Transaction> txns, PivaProfileData profile, int year) {
+  if (_compensiDivisor(profile) == 1) return 0.0;
+  final gross = _sum(
+    pivaIncome(txns, profile).where((t) => t.date.toLocal().year == year).map((t) => t.amount),
+  );
+  return _round2(gross - _sum(incomeByMonth(txns, profile, year)));
+}
+
+// ponytail: linear average, diluted when the activity started mid-year; add
+// seasonality from the previous year's months if that proves too rough.
+/// Compensi expected for the year of [now]: what came in so far, or the average
+/// of the `m` concluded months × 12 if that is more. In January (no concluded
+/// month) just what came in. The project's only revenue projection.
+double projectRevenue(List<Transaction> txns, PivaProfileData profile, DateTime now) {
+  final months = incomeByMonth(txns, profile, now.year);
+  final m = now.month - 1;
+  final sofar = _sum(months);
+  return _round2(m == 0 ? sofar : max(sofar, (_sum(months.take(m)) / m) * 12));
+}
+
+// ── Stima di un anno ──────────────────────────────────────────────────────
+
+class PivaYear {
+  const PivaYear({
+    required this.year,
+    required this.revenue,
+    required this.grossIncome,
+    required this.contributionsPaid,
+    required this.taxable,
+    required this.tax,
+    required this.contributions,
+    required this.net,
+  });
+
+  final int year;
+
+  /// Compensi.
+  final double revenue;
+
+  /// [revenue] × coefficient.
+  final double grossIncome;
+
+  /// Deducted from the income.
+  final double contributionsPaid;
+  final double taxable, tax;
+
+  /// Cost to the professional.
+  final double contributions;
+  final double net;
+}
+
+/// Contributions of competence of [year] on [revenue] (compensi): `total` is the
+/// cost to the professional, `deductible` what comes off the taxable income.
+({double total, double deductible}) _contributionsOf(
+  PivaProfileData p,
+  double revenue,
+  int year,
+) {
+  final r = _rulesFor(year);
+  final gross = (revenue * p.coefficient) / 100;
+  if (p.fundType == 'gestione_separata') {
+    final c = (min(gross, r.gsMax) * r.gsRate) / 100;
+    return (total: c, deductible: c);
+  }
+  if (p.fundType == 'cassa') {
+    // The integrativo charged to clients is a pass-through: only what is short
+    // of the minimum comes out of the professional's pocket, and not deductible.
+    final subjective = max(p.minSubjective, (gross * p.subjectiveRate) / 100);
+    final shortfall = max(0.0, p.minIntegrative - (revenue * p.integrativeRate) / 100);
+    return (total: subjective + shortfall, deductible: subjective);
+  }
+  final pct = p.fundType == 'artigiani' ? r.artRate : r.comRate;
+  final ivs =
+      (r.minimale * pct) / 100 +
+      (max(0.0, min(gross, r.band) - r.minimale) * pct) / 100 +
+      (max(0.0, gross - r.band) * (pct + r.overBandPoints)) / 100;
+  final c = (p.inpsReduction ? ivs * (1 - r.reductionPct / 100) : ivs) + r.maternity;
+  return (total: c, deductible: c);
+}
+
+/// Tax and contributions of [year] on [revenue] (compensi). [contributionsPaid]
+/// is what is deducted from the income (cash principle); omitted, the year's own
+/// deductible contributions stand in for it — the "at regime" approximation.
+/// The coefficient is the profile's, never [coefficientFor]'s suggestion. Every
+/// derived field starts from the already rounded ones, as in the web.
+PivaYear estimateYear(
+  PivaProfileData profile,
+  double revenue,
+  int year, [
+  double? contributionsPaid,
+]) {
+  if (year < profile.startYear) {
+    return PivaYear(
+      year: year,
+      revenue: 0,
+      grossIncome: 0,
+      contributionsPaid: 0,
+      taxable: 0,
+      tax: 0,
+      contributions: 0,
+      net: 0,
+    );
+  }
+  final c = _contributionsOf(profile, revenue, year);
+  final grossIncome = _round2((revenue * profile.coefficient) / 100);
+  final paid = _round2(contributionsPaid ?? c.deductible);
+  final taxable = _round2(max(0.0, grossIncome - paid));
+  final tax = _round2(taxable * taxRate(profile, year));
+  final contributions = _round2(c.total);
+  return PivaYear(
+    year: year,
+    revenue: _round2(revenue),
+    grossIncome: grossIncome,
+    contributionsPaid: paid,
+    taxable: taxable,
+    tax: tax,
+    contributions: contributions,
+    net: _round2(revenue - tax - contributions),
+  );
 }
