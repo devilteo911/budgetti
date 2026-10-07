@@ -16,6 +16,7 @@ export 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/models/budget.dart';
 import 'package:budgetti/models/installment.dart';
+import 'package:budgetti/models/piva.dart' show PivaPaymentData, PivaProfileData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
@@ -344,6 +345,25 @@ final installmentsProvider = StreamProvider<List<Installment>>((ref) {
 final installmentsOwedProvider = Provider<double>((ref) {
   final plans = ref.watch(installmentsProvider).value ?? const [];
   return plans.fold<double>(0, (s, p) => s + p.remainingAmount());
+});
+
+// The Partita IVA sources. Streams, never FutureProviders, for the reason in
+// the comment above [accountsProvider]: rows arrive from sync, and nobody
+// invalidates these by hand.
+
+/// The one live profile; `null` = none yet.
+final pivaProfileProvider = StreamProvider<PivaProfileData?>((ref) {
+  return ref.watch(financeServiceProvider).watchPivaProfile();
+});
+
+final pivaPaymentsProvider = StreamProvider<List<PivaPaymentData>>((ref) {
+  return ref.watch(financeServiceProvider).watchPivaPayments();
+});
+
+/// Every income row of the ledger, no date window (see
+/// [FinanceService.watchPivaIncome]).
+final pivaTransactionsProvider = StreamProvider<List<Transaction>>((ref) {
+  return ref.watch(financeServiceProvider).watchPivaIncome();
 });
 
 /// Local profile (username, currency, avatar, email). Single user — no cloud.
