@@ -926,6 +926,30 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String pivaRemTitleDays(int days) {
+    return 'Partita IVA · scade tra $days giorni';
+  }
+
+  @override
+  String get pivaRemTitleTomorrow => 'Partita IVA · scade domani';
+
+  @override
+  String get pivaRemTitleToday => 'Partita IVA · scade oggi';
+
+  @override
+  String pivaRemBody(String label, String date, String amount) {
+    return '$label · $date · $amount';
+  }
+
+  @override
+  String pivaRemBodyEstimate(String label, String date, String amount) {
+    return '$label · $date · circa $amount (stima)';
+  }
+
+  @override
+  String get pivaRemSummary => 'Scadenze partita IVA';
+
+  @override
   String get importSelectWalletError => 'Seleziona un portafoglio';
 
   @override

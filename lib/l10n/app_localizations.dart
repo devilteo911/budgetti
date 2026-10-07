@@ -1646,6 +1646,42 @@ abstract class AppLocalizations {
   /// **'Couldn\'t remove the deadline. {error}'**
   String pivaDlDeleteError(String error);
 
+  /// No description provided for @pivaRemTitleDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA · due in {days} days'**
+  String pivaRemTitleDays(int days);
+
+  /// No description provided for @pivaRemTitleTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA · due tomorrow'**
+  String get pivaRemTitleTomorrow;
+
+  /// No description provided for @pivaRemTitleToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA · due today'**
+  String get pivaRemTitleToday;
+
+  /// No description provided for @pivaRemBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} · {date} · {amount}'**
+  String pivaRemBody(String label, String date, String amount);
+
+  /// No description provided for @pivaRemBodyEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} · {date} · about {amount} (estimate)'**
+  String pivaRemBodyEstimate(String label, String date, String amount);
+
+  /// No description provided for @pivaRemSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA deadlines'**
+  String get pivaRemSummary;
+
   /// No description provided for @importSelectWalletError.
   ///
   /// In en, this message translates to:

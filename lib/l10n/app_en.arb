@@ -258,6 +258,12 @@
   "pivaDlDeleteBody": "\"{label}\" is removed from the calendar.",
   "pivaDlSaveError": "Couldn't save the deadline. {error}",
   "pivaDlDeleteError": "Couldn't remove the deadline. {error}",
+  "pivaRemTitleDays": "Partita IVA · due in {days} days",
+  "pivaRemTitleTomorrow": "Partita IVA · due tomorrow",
+  "pivaRemTitleToday": "Partita IVA · due today",
+  "pivaRemBody": "{label} · {date} · {amount}",
+  "pivaRemBodyEstimate": "{label} · {date} · about {amount} (estimate)",
+  "pivaRemSummary": "Partita IVA deadlines",
   "importSelectWalletError": "Please select a wallet",
   "importSuccess": "Successfully imported {count} transactions",
   "importError": "Error importing: {error}",
@@ -951,6 +957,39 @@
   "@pivaDlDeleteError": {
     "placeholders": {
       "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaRemTitleDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "@pivaRemBody": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaRemBodyEstimate": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "amount": {
         "type": "String"
       }
     }
