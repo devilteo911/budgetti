@@ -1,4 +1,5 @@
 import 'package:budgetti/core/l10n.dart';
+import 'package:budgetti/core/services/piva_reminders.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -54,6 +55,40 @@ const _bankDraftsSummaryId = 4001;
 void routeNotificationTap(String? payload, void Function(String)? onTap) {
   if (payload != null && payload.isNotEmpty) onTap?.call(payload);
 }
+
+/// How a Partita IVA reminder is announced. [groupKey] is passed by the caller
+/// because it is dynamic (one group per instant): reminders that fire together
+/// share it, and the stack's summary is posted explicitly with [summary] set,
+/// for the reason given at [bankDraftsSummaryDetails]. Alone, a reminder has no
+/// group. [body] is shown whole when the notification is expanded: left to
+/// itself the shade clips a plain body at two lines, and "(stima)" at the end of
+/// an estimate is exactly what it cut.
+NotificationDetails pivaReminderDetails({String? groupKey, bool summary = false, String? body}) =>
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        'piva_deadlines',
+        'Partita IVA deadlines',
+        channelDescription: 'Reminders before Partita IVA tax and contributions deadlines',
+        importance: Importance.max,
+        priority: Priority.high,
+        groupKey: groupKey,
+        setAsGroupSummary: summary,
+        styleInformation: body == null ? null : BigTextStyleInformation(body),
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        threadIdentifier: groupKey,
+      ),
+    );
+
+/// The instant a reminder fires: the year, month, day and hour of [wallClock]
+/// (a wall-clock time of Italy, whatever zone its `DateTime` carries) read in
+/// [location]. Built from the components rather than from an offset, so a clock
+/// change between today and the day cannot move it off 9:00.
+tz.TZDateTime pivaFireInstant(DateTime wallClock, tz.Location location) =>
+    tz.TZDateTime(location, wallClock.year, wallClock.month, wallClock.day, wallClock.hour);
 
 class NotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -302,6 +337,87 @@ class NotificationService {
       null,
       bankDraftsSummaryDetails,
       payload: bankDraftsSummaryPayload,
+    );
+  }
+
+  /// Brings the Partita IVA reminders scheduled on the device to [plan], and
+  /// nothing else: of the pending notifications only the negative ids are ours
+  /// (see [diffPivaReminders]), so one call with an empty plan clears them all
+  /// and leaves every other notification alone. Only the differences are
+  /// cancelled and scheduled, so calling it when nothing changed costs a read.
+  ///
+  /// Reminders that fire at the same instant are stacked in a group with a
+  /// summary of their own, scheduled for the same instant with the same payload,
+  /// so that tapping the closed stack opens the same screen. A reminder whose
+  /// instant is not after now is left out: the plugin refuses a past date, and
+  /// "in 7 days" shown late would be false.
+  ///
+  /// Inexact, as the daily reminder: the minute does not matter here, and an
+  /// exact alarm needs the SCHEDULE_EXACT_ALARM grant that made `zonedSchedule`
+  /// throw. It can still throw (the caller catches), and then the next call
+  /// starts again from what is pending.
+  Future<void> syncPivaReminders(List<PivaReminder> plan) async {
+    final l10n = await backgroundL10n();
+    final now = tz.TZDateTime.now(tz.local);
+
+    final byTime = <DateTime, List<PivaReminder>>{};
+    for (final r in plan) {
+      (byTime[r.fireAt] ??= []).add(r);
+    }
+    final wanted = <int, ({PivaPending item, tz.TZDateTime at, NotificationDetails details})>{};
+    for (final group in byTime.values) {
+      final fireAt = group.first.fireAt;
+      final at = pivaFireInstant(fireAt, tz.local);
+      if (!at.isAfter(now)) continue;
+      // ponytail: the diff compares id, title, body and payload, not the group, so
+      // a reminder already scheduled keeps the group it was scheduled with when
+      // a twin appears or goes away at its instant; put the group in the payload
+      // if that stack ever looks wrong.
+      final groupKey = group.length > 1 ? 'piva_${fireAt.toIso8601String()}' : null;
+      for (final r in group) {
+        wanted[r.id] = (
+          item: (id: r.id, title: r.title, body: r.body, payload: r.payload),
+          at: at,
+          details: pivaReminderDetails(groupKey: groupKey, body: r.body),
+        );
+      }
+      if (groupKey != null) {
+        final id = pivaReminderId('summary|${fireAt.toIso8601String()}', 0);
+        wanted[id] = (
+          item: (id: id, title: l10n.pivaRemSummary, body: null, payload: group.first.payload),
+          at: at,
+          details: pivaReminderDetails(groupKey: groupKey, summary: true),
+        );
+      }
+    }
+
+    final pending = [
+      for (final p in await _notificationsPlugin.pendingNotificationRequests())
+        (id: p.id, title: p.title, body: p.body, payload: p.payload),
+    ];
+    final diff = diffPivaReminders(pending, [for (final w in wanted.values) w.item]);
+    for (final id in diff.cancel) {
+      await _notificationsPlugin.cancel(id);
+    }
+    for (final item in diff.schedule) {
+      final w = wanted[item.id]!;
+      await _notificationsPlugin.zonedSchedule(
+        item.id,
+        item.title,
+        item.body,
+        w.at,
+        w.details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: item.payload,
+      );
+    }
+
+    // What the on-device proof reads with `adb logcat`: the counts of this round
+    // and every reminder the device now holds (not only the ones scheduled now).
+    debugPrint(
+      '🔔 PIVA reminders: pending=${pending.where((p) => p.id < 0).length} '
+      'cancelled=${diff.cancel.length} scheduled=${diff.schedule.length} '
+      '[${[for (final e in wanted.entries) '${e.key} @ ${e.value.at}'].join(', ')}]',
     );
   }
 

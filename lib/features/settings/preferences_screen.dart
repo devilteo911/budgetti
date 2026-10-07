@@ -130,6 +130,7 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
     final persistence = ref.watch(persistenceServiceProvider);
     final currency =
         ref.watch(userProfileProvider).value?['currency'] as String? ?? 'EUR';
+    final hasProfile = ref.watch(pivaProfileProvider).value != null;
 
     return SettingsScaffold(
       title: context.l10n.setPreferences,
@@ -185,6 +186,8 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
                 await ref
                     .read(notificationLogicProvider)
                     .updateDailyReminder();
+                // The Partita IVA reminders count only under this switch.
+                ref.invalidate(pivaRemindersSyncProvider);
                 if (mounted) setState(() {});
               },
             ),
@@ -225,24 +228,74 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
                 ),
                 onTap: _pickReminderTime,
               ),
+            _pivaRemindersTile(
+              hasProfile: hasProfile,
+              masterOn: persistence.getNotificationsEnabled(),
+              prefOn: persistence.getPivaRemindersEnabled(),
+            ),
           ],
         ),
       ],
     );
   }
 
+  /// The Partita IVA reminders row. The first of these that holds decides it: no
+  /// profile, the general switch off (neither can be turned on from here), the
+  /// system blocking notifications (shown off, and turning it on asks again),
+  /// else the preference itself.
+  Widget _pivaRemindersTile({
+    required bool hasProfile,
+    required bool masterOn,
+    required bool prefOn,
+  }) {
+    final l10n = context.l10n;
+    final (value, subtitle, tappable) = switch ((hasProfile, masterOn, _permissionMissing)) {
+      (false, _, _) => (false, l10n.pivaRemNoProfile, false),
+      (_, false, _) => (false, l10n.pivaRemMasterOff, false),
+      (_, _, true) => (false, l10n.pivaRemBlocked, true),
+      _ => (prefOn, l10n.pivaRemSwitchSubtitle, true),
+    };
+    return _toggleTile(
+      icon: Icons.account_balance_outlined,
+      title: l10n.pivaRemSwitch,
+      subtitle: subtitle,
+      value: value,
+      onChanged: tappable ? _setPivaReminders : null,
+    );
+  }
+
+  Future<void> _setPivaReminders(bool v) async {
+    if (v) {
+      final granted =
+          await ref.read(notificationServiceProvider).requestPermissions();
+      if (!granted) {
+        if (mounted) setState(() => _permissionMissing = true);
+        return;
+      }
+      if (mounted) setState(() => _permissionMissing = false);
+    }
+    await ref.read(persistenceServiceProvider).setPivaRemindersEnabled(v);
+    ref.invalidate(pivaRemindersSyncProvider);
+    if (mounted) setState(() {});
+  }
+
+  /// A null [onChanged] greys the switch out (the row is not tappable then).
   Widget _toggleTile({
     required IconData icon,
     required String title,
     required String subtitle,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    required ValueChanged<bool>? onChanged,
   }) {
-    return SettingsTile(
-      icon: icon,
-      title: title,
-      subtitle: subtitle,
-      trailing: Switch(value: value, onChanged: onChanged),
+    // One node for a screen reader: title, subtitle and the switch state together
+    // (the switch alone read "on" with no name).
+    return MergeSemantics(
+      child: SettingsTile(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        trailing: Switch(value: value, onChanged: onChanged),
+      ),
     );
   }
 }

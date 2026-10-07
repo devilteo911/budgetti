@@ -1646,6 +1646,72 @@ abstract class AppLocalizations {
   /// **'Couldn\'t remove the deadline. {error}'**
   String pivaDlDeleteError(String error);
 
+  /// No description provided for @pivaRemTitleDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA · due in {days} days'**
+  String pivaRemTitleDays(int days);
+
+  /// No description provided for @pivaRemTitleTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA · due tomorrow'**
+  String get pivaRemTitleTomorrow;
+
+  /// No description provided for @pivaRemTitleToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA · due today'**
+  String get pivaRemTitleToday;
+
+  /// No description provided for @pivaRemBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} · {date} · {amount}'**
+  String pivaRemBody(String label, String date, String amount);
+
+  /// No description provided for @pivaRemBodyEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} · {date} · about {amount} (estimate)'**
+  String pivaRemBodyEstimate(String label, String date, String amount);
+
+  /// No description provided for @pivaRemSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA deadlines'**
+  String get pivaRemSummary;
+
+  /// No description provided for @pivaRemSwitch.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA deadlines'**
+  String get pivaRemSwitch;
+
+  /// No description provided for @pivaRemSwitchSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'30, 7 and 1 day before and on the day, at 9:00'**
+  String get pivaRemSwitchSubtitle;
+
+  /// No description provided for @pivaRemNoProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up the Partita IVA profile first'**
+  String get pivaRemNoProfile;
+
+  /// No description provided for @pivaRemMasterOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on push notifications first'**
+  String get pivaRemMasterOff;
+
+  /// No description provided for @pivaRemBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are blocked by the system'**
+  String get pivaRemBlocked;
+
   /// No description provided for @importSelectWalletError.
   ///
   /// In en, this message translates to:

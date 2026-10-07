@@ -919,6 +919,46 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String pivaRemTitleDays(int days) {
+    return 'Partita IVA · due in $days days';
+  }
+
+  @override
+  String get pivaRemTitleTomorrow => 'Partita IVA · due tomorrow';
+
+  @override
+  String get pivaRemTitleToday => 'Partita IVA · due today';
+
+  @override
+  String pivaRemBody(String label, String date, String amount) {
+    return '$label · $date · $amount';
+  }
+
+  @override
+  String pivaRemBodyEstimate(String label, String date, String amount) {
+    return '$label · $date · about $amount (estimate)';
+  }
+
+  @override
+  String get pivaRemSummary => 'Partita IVA deadlines';
+
+  @override
+  String get pivaRemSwitch => 'Partita IVA deadlines';
+
+  @override
+  String get pivaRemSwitchSubtitle =>
+      '30, 7 and 1 day before and on the day, at 9:00';
+
+  @override
+  String get pivaRemNoProfile => 'Set up the Partita IVA profile first';
+
+  @override
+  String get pivaRemMasterOff => 'Turn on push notifications first';
+
+  @override
+  String get pivaRemBlocked => 'Notifications are blocked by the system';
+
+  @override
   String get importSelectWalletError => 'Please select a wallet';
 
   @override

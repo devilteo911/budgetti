@@ -70,6 +70,23 @@ Set it from the transaction editor's INSTALLMENT row or from the plan sheet's
 linked-payments list. The links are evidence, not arithmetic: they never change
 what the plan says you owe, they only expose a rate nobody recorded.
 
+### Partita IVA
+
+The phone side of the web Ledger's Partita IVA section (regime forfettario, one
+owner, one profile), built in small steps (#16–#21), in four pieces:
+
+- **Data** — `PivaProfiles` and `PivaPayments`, two more specs of the PocketBase
+  sync and two more keys of the backup JSON (below, "data layer").
+- **Engine** — `lib/models/piva.dart`, pure, a port of `web/src/piva.ts`: *change
+  one, change the other*, the same case with the same name in both suites
+  (`test/piva_test.dart`, `web/src/piva.test.ts`). The web's simulations are not
+  in the app, and **estimates are never stored**: tax, contributions and
+  deadlines are derived at every read; only what the accountant says is saved.
+- **Screens** — `/piva` (profile, compensi, prospetto, deadlines), the dashboard
+  `PivaCard`, `PivaProfileSheet` and `PivaDeadlineSheet`.
+- **Reminders** — a local notification before each unpaid deadline, planned by
+  the pure `lib/core/services/piva_reminders.dart` (below, "reminders").
+
 ### Partita IVA — data layer
 
 Two synced tables hold what the web Ledger's Partita IVA section writes:
@@ -212,6 +229,62 @@ underneath does not touch what is being typed, and the phone's save then wins wh
 sync and shows nothing on this screen, as for every other collection. A label that
 wraps keeps each `·` glued to the word before it (`pivaNoBreak`, display only).
 
+### Partita IVA reminders
+
+A local notification before every unpaid deadline: 30, 7 and 1 day before and on
+the day, at 9:00 **Europe/Rome** (`tz.local` is pinned there in
+`NotificationService.init`, wherever the phone is). Title "Partita IVA · scade tra N
+giorni" / "scade domani" / "scade oggi" (ARB keys `pivaRem*`); body `label · DD/MM/YYYY · amount`, "circa … (stima)"
+while the amount is an estimate and plain once it is the accountant's. A tap opens
+`/piva` on the deadlines.
+
+- **The plan is pure** — `lib/core/services/piva_reminders.dart`: `planPivaReminders`
+  and `diffPivaReminders` read no clock, database or `BuildContext` (`now` and the
+  language come in, so the same code runs in the UI isolate and the workmanager
+  one). Only `due` deadlines with a day and an amount above zero count — never a
+  paid or a past one — and a reminder whose instant is not after now is skipped,
+  never caught up ("in 7 days" shown late is false). At most 32 are kept (the
+  nearest, `pivaReminderCap`). `now` for the engine and the planner is a plain
+  wall-clock `DateTime` built from the Europe/Rome components, not a `TZDateTime`
+  (the engine calls `toLocal()`); `fireAt` is a UTC `DateTime` used as a carrier of
+  year-month-day-hour, so no instant is compared and DST never enters.
+- **Ids** are negative, from a SHA-256 of `paymentId ?? key` + days before (not
+  `hashCode`: stable across Dart versions and restarts). The other notifications of
+  the app use non-negative ids, and the diff only ever looks at the negative ones:
+  `NotificationService.syncPivaReminders(plan)` cancels and schedules just the
+  difference, and an empty plan clears the reminders without touching anything else.
+  Reminders that fire together stack in a group whose summary we post ourselves
+  (same payload, so tapping the closed stack opens the same screen). The body goes
+  in a big-text style (`pivaReminderDetails(body:)`), or the shade clips it at two
+  lines and cuts the "(stima)" off an estimate; the summary has none.
+- **Replan** — `pivaRemindersSyncProvider` (`notification_logic.dart`, kept alive by
+  `container.listen` in `main.dart`) listens to the profile, the payments, the
+  income ledger and the language; each change re-arms one 2 s debounce, and it is
+  armed at construction too (every launch). It plans only when all three sources
+  have a value (an empty plan would clear every reminder); a `null` profile is a
+  value and does clear. The tail of `pbSyncTask` replans from the database too,
+  for an official amount pulled while the app was closed.
+- **Switch** — pref `piva_reminders_enabled` (default on), a row in Settings →
+  Preferences. It only counts under the general notifications switch and with a
+  profile; the row says why when it is off ("no profile", "turn notifications on
+  first", "blocked by the system" with the permission fix row).
+- **Tap** — the payload starts with `piva:`; `openFromNotification` routes it to
+  `/piva?section=deadlines` (`PivaScreen.openDeadlines` scrolls to the deadlines),
+  every other payload (bank drafts) still opens the review inbox, and the daily
+  reminder, which has none, only brings the app up.
+- **Inexact, so late.** Scheduled with `inexactAllowWhileIdle`: an exact alarm needs
+  `SCHEDULE_EXACT_ALARM`, whose absence made `zonedSchedule` throw. Android delivers
+  an inexact alarm at the *end* of a window of 0.75 × the time left when it was
+  scheduled, at most 1 h. Measured on the test phone, idle: a 9:00 reminder planned
+  days ahead (`window=+1h0m0s`) appeared at **10:00:03**; one rescheduled ten minutes
+  before (`window=+7m26s`) at **9:07:35**; one rescheduled 3m47s before (`window=+2m50s`)
+  at 9:02:51. So "at 9:00" means "between 9:00 and 10:00". Left as is on purpose; an
+  exact or alarm-clock mode is the way out.
+- Ceilings: the diff compares id, title, body and payload, not the group, so a
+  reminder keeps the group it was scheduled with when a twin appears or goes
+  (`ponytail:` note in `syncPivaReminders`); the estimates move with `now`, so the
+  estimate reminders are rewritten as months pass.
+
 ### Transaction types
 
 Three types: income, expense, and transfer (moves money between accounts via `toAccountId`). Expenses are stored as negative amounts.
@@ -226,6 +299,47 @@ notification access granted to the app, and a debug APK signed with the same
 cert as the installed build with an equal versionCode (`flutter build apk --debug
 --build-number=2003`, then `adb install -r`). The hook is `BuildConfig.DEBUG`-gated
 in `RevolutNotificationListener.kt`: it is compiled out of release APKs.
+
+### E2E: the deadline reminders
+
+No root needed. **Read what is pending:** every replan of a debug build logs one
+line, `adb logcat -d | grep -F "PIVA reminders"` →
+`pending=N cancelled=N scheduled=N [id @ instant, …]` (a no-op round says `0 0`);
+`adb shell dumpsys alarm | grep -A2 "com.devilteo911.budgetti.budgetti}"` lists the
+alarms themselves (tag `…ScheduledNotificationReceiver`, `window=` is the inexact
+window, see "reminders"); `adb shell dumpsys notification --noredact` reads what
+was posted. `run-as` is blocked on this phone, and `BOOT_COMPLETED` cannot be sent
+from the shell, so a reboot is only provable by really rebooting.
+
+**Make one fire:** move the phone's clock, then give the alarm a short window by
+(re)scheduling it a few minutes before its time — a reminder scheduled days ahead
+keeps its 1 h window and shows up an hour late. The cheapest reschedule is the
+Preferences row itself: switch "Scadenze partita IVA" off and on (cancels all and
+schedules them again at the moved clock); changing the language does the same.
+
+```
+adb shell settings put global auto_time 0
+adb shell cmd alarm set-time $(( $(TZ=Europe/Rome date -d '2026-10-08 08:56' +%s) * 1000 ))
+# then the off/on above, before 9:00: the stack lands at 9:00 + 0.75 x the time left
+```
+
+`am force-stop` drops every alarm and opening the app brings them back within
+seconds; `adb install -r` keeps them. **Cold-start tap:** `adb shell am kill <pkg>`
+(it only works once the app has been in the background a while; `am crash` does
+not kill it), see that `pidof <pkg>` is empty, that `dumpsys alarm` and the shade
+still hold the reminders, and tap the stack: the app starts straight on the
+deadlines.
+
+**Put the clock back, always, and prove it:**
+
+```
+adb shell settings put global auto_time 1
+adb shell cmd time_detector set_auto_detection_enabled true
+adb shell date; date            # the two must agree to the second
+```
+
+An estimate's amount depends on `now`, so a moved clock also rewrites the estimate
+reminders.
 
 ## Style reference
 

@@ -23,8 +23,10 @@ import 'package:budgetti/features/settings/wallets_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/services/piva_reminders.dart';
 
 const reviewInboxPath = '/review-inbox';
+const pivaDeadlinesLocation = '/piva?section=deadlines';
 
 /// Opens the review inbox from a notification tap — unless it is already the
 /// screen on top, so a second tap does not stack another copy over it.
@@ -34,6 +36,29 @@ void openReviewInbox(GoRouter router) {
   final top = router.routerDelegate.currentConfiguration.matches.lastOrNull;
   if (top?.matchedLocation == reviewInboxPath) return;
   router.push(reviewInboxPath);
+}
+
+/// Opens the Partita IVA screen on its deadlines from a reminder's tap. Already
+/// on `/piva` it is replaced rather than stacked — and rebuilt, so it scrolls to
+/// the deadlines again even if the user had moved away from them. `matchedLocation`
+/// is the path without the query, so `/piva?section=deadlines` still matches.
+void openPivaDeadlines(GoRouter router) {
+  final top = router.routerDelegate.currentConfiguration.matches.lastOrNull;
+  if (top?.matchedLocation == '/piva') {
+    router.pushReplacement(pivaDeadlinesLocation);
+  } else {
+    router.push(pivaDeadlinesLocation);
+  }
+}
+
+/// What a notification tap opens: the deadlines for a Partita IVA reminder, the
+/// review inbox for every other notification.
+void openFromNotification(GoRouter router, String payload) {
+  if (payload.startsWith(pivaReminderPayloadPrefix)) {
+    openPivaDeadlines(router);
+  } else {
+    openReviewInbox(router);
+  }
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -54,7 +79,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/piva',
-        builder: (context, state) => const PivaScreen(),
+        builder: (context, state) => PivaScreen(
+          openDeadlines: state.uri.queryParameters['section'] == 'deadlines',
+        ),
       ),
       GoRoute(
         path: reviewInboxPath,

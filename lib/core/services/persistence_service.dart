@@ -21,6 +21,7 @@ class PersistenceService {
   static const _budgetAlertsEnabledKey = 'budget_alerts_enabled';
   static const _dailyReminderEnabledKey = 'daily_reminder_enabled';
   static const _dailyReminderTimeKey = 'daily_reminder_time';
+  static const _pivaRemindersEnabledKey = 'piva_reminders_enabled';
   static const _autoBackupEnabledKey = 'auto_backup_enabled';
   static const _autoBackupTimeKey = 'auto_backup_time';
   static const _lastAutoBackupKey = 'last_auto_backup_timestamp';
@@ -48,6 +49,13 @@ class PersistenceService {
       _prefs.getString(_dailyReminderTimeKey) ?? "20:00";
   Future<void> setDailyReminderTime(String time) =>
       _prefs.setString(_dailyReminderTimeKey, time);
+
+  /// Partita IVA deadline reminders. On unless switched off; they only count
+  /// under the general notifications switch and with a profile.
+  bool getPivaRemindersEnabled() =>
+      _prefs.getBool(_pivaRemindersEnabledKey) ?? true;
+  Future<void> setPivaRemindersEnabled(bool enabled) =>
+      _prefs.setBool(_pivaRemindersEnabledKey, enabled);
 
   // Auto Backup Settings
   bool getAutoBackupEnabled() => _prefs.getBool(_autoBackupEnabledKey) ?? false;

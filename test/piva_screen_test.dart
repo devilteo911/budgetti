@@ -77,6 +77,7 @@ void main() {
     Locale locale = const Locale('en'),
     Size size = const Size(390, 3000),
     double textScale = 1,
+    bool openDeadlines = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -99,7 +100,7 @@ void main() {
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
-        home: const PivaScreen(),
+        home: PivaScreen(openDeadlines: openDeadlines),
       ),
     ));
     // The streams emit on the next frames, and the sections are built — and ask
@@ -294,6 +295,37 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  /// How far the screen's list is scrolled: the first Scrollable under the app bar.
+  double scrolled(WidgetTester tester) =>
+      tester.state<ScrollableState>(find.byType(Scrollable).first).position.pixels;
+
+  // A short phone: the deadlines sit below the prospetto, outside the viewport
+  // (and outside the lazy list's cache), so the scroll has to build them first.
+  const shortPhone = Size(390, 600);
+
+  testWidgets('opened on the deadlines: they are scrolled into view', (tester) async {
+    await pump(
+      tester,
+      profile: profile(),
+      txns: [income(10000)],
+      size: shortPhone,
+      openDeadlines: true,
+    );
+
+    expect(scrolled(tester), greaterThan(0));
+    final top = tester.getTopLeft(find.byType(PivaDeadlinesSection)).dy;
+    expect(top, greaterThanOrEqualTo(0));
+    expect(top, lessThan(shortPhone.height));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('not asked to open the deadlines: the screen stays at the top', (tester) async {
+    await pump(tester, profile: profile(), txns: [income(10000)], size: shortPhone);
+
+    expect(scrolled(tester), 0);
+    expect(find.byType(PivaDeadlinesSection).hitTestable(), findsNothing);
+  });
 
   for (final (locale, net) in [(const Locale('it'), 'Netto'), (const Locale('en'), 'Net')]) {
     testWidgets('$locale: the net is "$net", the fiscal terms do not translate',
