@@ -189,6 +189,32 @@
   "pivaChartSemantics": "Compensi by month in {year}, {total} in total, against {prior}",
   "pivaCardNet": "estimated net {amount}",
   "pivaCardSetAside": "Tax and contributions",
+  "pivaProfileNew": "Set up your partita IVA",
+  "pivaProfileEdit": "Edit profile",
+  "pivaProfileAtecoLabel": "ATECO code",
+  "pivaProfileAtecoNote": "The code is read as ATECO 2007. The coefficient stays editable.",
+  "pivaProfileMinisterialGroup": "Ministerial group: {pct}%",
+  "pivaProfileUseIt": "Use it",
+  "pivaProfileNoGroup": "No ministerial group for this code — enter the coefficient by hand.",
+  "pivaProfileStartYearLabel": "Opened in",
+  "pivaProfileStartupRate": "Aliquota startup — reduced rate for the first five years",
+  "pivaProfileFundLabel": "Fund",
+  "pivaProfileFundNameLabel": "Fund name",
+  "pivaProfileOptional": "Optional",
+  "pivaProfileIntegrativoNote": "Your incassi are treated as including the contributo integrativo: it is carved out of revenue and shown as an amount to remit.",
+  "pivaProfileIncomeCategoriesLabel": "Income categories that count as incassi",
+  "pivaProfileNoIncomeCategories": "No income categories yet — add one in Settings.",
+  "pivaProfileSave": "Save profile",
+  "pivaProfileSaveError": "Error saving profile: {error}",
+  "pivaProfileSetUp": "Set up the profile",
+  "pivaProfileErrAteco": "Enter the ATECO code as digits and dots, like 62.01.00.",
+  "pivaProfileErrCoefficient": "Enter the coefficiente di redditività as a percentage, up to 100.",
+  "pivaProfileErrStartYear": "Enter the year the partita IVA was opened.",
+  "pivaProfileErrFund": "Pick a fund.",
+  "pivaProfileErrSubjective": "Enter the contributo soggettivo as a percentage, up to 100.",
+  "pivaProfileErrIntegrative": "Enter the contributo integrativo as a percentage, up to 100.",
+  "pivaProfileErrMinimums": "Enter the minimum contributions as amounts, like 1234.56.",
+  "pivaProfileErrCategories": "Pick at least one income category.",
   "importSelectWalletError": "Please select a wallet",
   "importSuccess": "Successfully imported {count} transactions",
   "importError": "Error importing: {error}",
@@ -805,6 +831,20 @@
   "@pivaCardNet": {
     "placeholders": {
       "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaProfileMinisterialGroup": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaProfileSaveError": {
+    "placeholders": {
+      "error": {
         "type": "String"
       }
     }

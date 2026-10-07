@@ -1232,6 +1232,162 @@ abstract class AppLocalizations {
   /// **'Tax and contributions'**
   String get pivaCardSetAside;
 
+  /// No description provided for @pivaProfileNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your partita IVA'**
+  String get pivaProfileNew;
+
+  /// No description provided for @pivaProfileEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit profile'**
+  String get pivaProfileEdit;
+
+  /// No description provided for @pivaProfileAtecoLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'ATECO code'**
+  String get pivaProfileAtecoLabel;
+
+  /// No description provided for @pivaProfileAtecoNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The code is read as ATECO 2007. The coefficient stays editable.'**
+  String get pivaProfileAtecoNote;
+
+  /// No description provided for @pivaProfileMinisterialGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Ministerial group: {pct}%'**
+  String pivaProfileMinisterialGroup(String pct);
+
+  /// No description provided for @pivaProfileUseIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Use it'**
+  String get pivaProfileUseIt;
+
+  /// No description provided for @pivaProfileNoGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'No ministerial group for this code — enter the coefficient by hand.'**
+  String get pivaProfileNoGroup;
+
+  /// No description provided for @pivaProfileStartYearLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Opened in'**
+  String get pivaProfileStartYearLabel;
+
+  /// No description provided for @pivaProfileStartupRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Aliquota startup — reduced rate for the first five years'**
+  String get pivaProfileStartupRate;
+
+  /// No description provided for @pivaProfileFundLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Fund'**
+  String get pivaProfileFundLabel;
+
+  /// No description provided for @pivaProfileFundNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Fund name'**
+  String get pivaProfileFundNameLabel;
+
+  /// No description provided for @pivaProfileOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get pivaProfileOptional;
+
+  /// No description provided for @pivaProfileIntegrativoNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Your incassi are treated as including the contributo integrativo: it is carved out of revenue and shown as an amount to remit.'**
+  String get pivaProfileIntegrativoNote;
+
+  /// No description provided for @pivaProfileIncomeCategoriesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Income categories that count as incassi'**
+  String get pivaProfileIncomeCategoriesLabel;
+
+  /// No description provided for @pivaProfileNoIncomeCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'No income categories yet — add one in Settings.'**
+  String get pivaProfileNoIncomeCategories;
+
+  /// No description provided for @pivaProfileSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save profile'**
+  String get pivaProfileSave;
+
+  /// No description provided for @pivaProfileSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving profile: {error}'**
+  String pivaProfileSaveError(String error);
+
+  /// No description provided for @pivaProfileSetUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up the profile'**
+  String get pivaProfileSetUp;
+
+  /// No description provided for @pivaProfileErrAteco.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the ATECO code as digits and dots, like 62.01.00.'**
+  String get pivaProfileErrAteco;
+
+  /// No description provided for @pivaProfileErrCoefficient.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the coefficiente di redditività as a percentage, up to 100.'**
+  String get pivaProfileErrCoefficient;
+
+  /// No description provided for @pivaProfileErrStartYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the year the partita IVA was opened.'**
+  String get pivaProfileErrStartYear;
+
+  /// No description provided for @pivaProfileErrFund.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a fund.'**
+  String get pivaProfileErrFund;
+
+  /// No description provided for @pivaProfileErrSubjective.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the contributo soggettivo as a percentage, up to 100.'**
+  String get pivaProfileErrSubjective;
+
+  /// No description provided for @pivaProfileErrIntegrative.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the contributo integrativo as a percentage, up to 100.'**
+  String get pivaProfileErrIntegrative;
+
+  /// No description provided for @pivaProfileErrMinimums.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the minimum contributions as amounts, like 1234.56.'**
+  String get pivaProfileErrMinimums;
+
+  /// No description provided for @pivaProfileErrCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick at least one income category.'**
+  String get pivaProfileErrCategories;
+
   /// No description provided for @importSelectWalletError.
   ///
   /// In en, this message translates to:

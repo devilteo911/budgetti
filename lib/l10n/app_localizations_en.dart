@@ -664,6 +664,100 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pivaCardSetAside => 'Tax and contributions';
 
   @override
+  String get pivaProfileNew => 'Set up your partita IVA';
+
+  @override
+  String get pivaProfileEdit => 'Edit profile';
+
+  @override
+  String get pivaProfileAtecoLabel => 'ATECO code';
+
+  @override
+  String get pivaProfileAtecoNote =>
+      'The code is read as ATECO 2007. The coefficient stays editable.';
+
+  @override
+  String pivaProfileMinisterialGroup(String pct) {
+    return 'Ministerial group: $pct%';
+  }
+
+  @override
+  String get pivaProfileUseIt => 'Use it';
+
+  @override
+  String get pivaProfileNoGroup =>
+      'No ministerial group for this code — enter the coefficient by hand.';
+
+  @override
+  String get pivaProfileStartYearLabel => 'Opened in';
+
+  @override
+  String get pivaProfileStartupRate =>
+      'Aliquota startup — reduced rate for the first five years';
+
+  @override
+  String get pivaProfileFundLabel => 'Fund';
+
+  @override
+  String get pivaProfileFundNameLabel => 'Fund name';
+
+  @override
+  String get pivaProfileOptional => 'Optional';
+
+  @override
+  String get pivaProfileIntegrativoNote =>
+      'Your incassi are treated as including the contributo integrativo: it is carved out of revenue and shown as an amount to remit.';
+
+  @override
+  String get pivaProfileIncomeCategoriesLabel =>
+      'Income categories that count as incassi';
+
+  @override
+  String get pivaProfileNoIncomeCategories =>
+      'No income categories yet — add one in Settings.';
+
+  @override
+  String get pivaProfileSave => 'Save profile';
+
+  @override
+  String pivaProfileSaveError(String error) {
+    return 'Error saving profile: $error';
+  }
+
+  @override
+  String get pivaProfileSetUp => 'Set up the profile';
+
+  @override
+  String get pivaProfileErrAteco =>
+      'Enter the ATECO code as digits and dots, like 62.01.00.';
+
+  @override
+  String get pivaProfileErrCoefficient =>
+      'Enter the coefficiente di redditività as a percentage, up to 100.';
+
+  @override
+  String get pivaProfileErrStartYear =>
+      'Enter the year the partita IVA was opened.';
+
+  @override
+  String get pivaProfileErrFund => 'Pick a fund.';
+
+  @override
+  String get pivaProfileErrSubjective =>
+      'Enter the contributo soggettivo as a percentage, up to 100.';
+
+  @override
+  String get pivaProfileErrIntegrative =>
+      'Enter the contributo integrativo as a percentage, up to 100.';
+
+  @override
+  String get pivaProfileErrMinimums =>
+      'Enter the minimum contributions as amounts, like 1234.56.';
+
+  @override
+  String get pivaProfileErrCategories => 'Pick at least one income category.';
+
+  @override
   String get importSelectWalletError => 'Please select a wallet';
 
   @override
