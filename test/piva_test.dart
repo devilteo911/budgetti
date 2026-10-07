@@ -219,6 +219,79 @@ final stray = [
   payment(id: 'd', key: '2026:imposta_saldo', amount: 999, isDeleted: true),
 ];
 
+// The profile form: `form()` is a valid gestione separata profile, `cassaForm()`
+// a complete cassa one written the way an Italian keyboard writes it.
+ProfileFormValues form({
+  String atecoCode = '62.01.00',
+  String coefficient = '67',
+  String startYear = '2022',
+  bool startupRate = true,
+  String fundType = 'gestione_separata',
+  String fundName = '',
+  String subjectiveRate = '',
+  String integrativeRate = '',
+  String minSubjective = '',
+  String minIntegrative = '',
+  bool inpsReduction = false,
+  List<String> incomeCategories = const ['Fatture'],
+}) => ProfileFormValues(
+  atecoCode: atecoCode,
+  coefficient: coefficient,
+  startYear: startYear,
+  startupRate: startupRate,
+  fundType: fundType,
+  fundName: fundName,
+  subjectiveRate: subjectiveRate,
+  integrativeRate: integrativeRate,
+  minSubjective: minSubjective,
+  minIntegrative: minIntegrative,
+  inpsReduction: inpsReduction,
+  incomeCategories: incomeCategories,
+);
+
+ProfileFormValues cassaForm({
+  String coefficient = '67',
+  bool startupRate = true,
+  String subjectiveRate = '24,5',
+  String integrativeRate = '4',
+  String minSubjective = '1234,56',
+  String minIntegrative = '600',
+  bool inpsReduction = false,
+}) => form(
+  coefficient: coefficient,
+  startupRate: startupRate,
+  fundType: 'cassa',
+  fundName: 'Inarcassa',
+  subjectiveRate: subjectiveRate,
+  integrativeRate: integrativeRate,
+  minSubjective: minSubjective,
+  minIntegrative: minIntegrative,
+  inpsReduction: inpsReduction,
+);
+
+/// The twelve fields of a [PivaProfileInput] in declaration order (the class has no `==`).
+List<Object> formCells(PivaProfileInput p) => [
+  p.atecoCode,
+  p.coefficient,
+  p.startYear,
+  p.startupRate,
+  p.fundType,
+  p.fundName,
+  p.subjectiveRate,
+  p.integrativeRate,
+  p.minSubjective,
+  p.minIntegrative,
+  p.inpsReduction,
+  p.incomeCategories,
+];
+
+/// The profile [f] parses to at [now]; the test fails, with the code, if it does not.
+PivaProfileInput parsed(ProfileFormValues f) {
+  final r = parseProfileForm(f, now);
+  expect(r.error, isNull);
+  return r.profile!;
+}
+
 void main() {
   // ── limits and tax rate ─────────────────────────────────────────────────
   test('forfettarioLimits: 85k/100k, e un anno fuori tabella usa il più vicino noto', () {
@@ -907,6 +980,112 @@ void main() {
     final r = byKey(deadlines(gs, gsTxns, [pay], now), '2026:imposta_acconto2')!;
     expect(r.dueDate, day('2026-11-30'), reason: 'dueDate');
     expect(r.paidDate, day('2026-11-27'), reason: 'paidDate');
+  });
+
+  // ── il form del profilo ─────────────────────────────────────────────────
+  // Same inputs and figures as the web's `parseProfileForm` cases; the web
+  // answers with a message, here each message is its `ProfileFormError`. `now`
+  // is 6 October 2026, so the latest opening year is 2026.
+  group('il form del profilo', () {
+    test('parseProfileForm: un profilo cassa completo, anche scritto con la virgola', () {
+      expect(
+        formCells(parsed(cassaForm(coefficient: '78,5', startupRate: false))),
+        ['62.01.00', 78.5, 2022, false, 'cassa', 'Inarcassa', 24.5, 4.0, 1234.56, 600.0, false, ['Fatture']],
+        reason: 'cassa con la virgola',
+      );
+      expect(
+        formCells(parsed(cassaForm(integrativeRate: '', minSubjective: '', minIntegrative: ''))),
+        ['62.01.00', 67.0, 2022, true, 'cassa', 'Inarcassa', 24.5, 0.0, 0.0, 0.0, false, ['Fatture']],
+        reason: 'integrativo e minimi vuoti valgono 0',
+      );
+    });
+
+    test('parseProfileForm: il codice ATECO passa con o senza punti, anche parziale, e si salva come scritto', () {
+      for (final code in ['62.01.00', '620100', '62']) {
+        expect(parsed(form(atecoCode: code)).atecoCode, code, reason: code);
+      }
+      expect(parsed(form(atecoCode: ' 62.01 ')).atecoCode, '62.01', reason: 'spazi attorno tolti');
+    });
+
+    final rules = <(String, ProfileFormValues, ProfileFormError)>[
+      ('ATECO malformato', form(atecoCode: 'abc'), ProfileFormError.atecoCode),
+      ('ATECO di una cifra', form(atecoCode: '6'), ProfileFormError.atecoCode),
+      ('ATECO con un quarto gruppo', form(atecoCode: '62.01.00.1'), ProfileFormError.atecoCode),
+      ('coefficiente 0', form(coefficient: '0'), ProfileFormError.coefficient),
+      ('coefficiente 101', form(coefficient: '101'), ProfileFormError.coefficient),
+      ('anno nel futuro', form(startYear: '2027'), ProfileFormError.startYear),
+      ('anno prima del 1950', form(startYear: '1949'), ProfileFormError.startYear),
+      ('anno di tre cifre', form(startYear: '202'), ProfileFormError.startYear),
+      ('fundType sconosciuto', form(fundType: 'inps'), ProfileFormError.fundType),
+      ('soggettivo 0 con cassa', cassaForm(subjectiveRate: '0'), ProfileFormError.subjectiveRate),
+      ('integrativo oltre 100', cassaForm(integrativeRate: '101'), ProfileFormError.integrativeRate),
+      ('minimo soggettivo negativo', cassaForm(minSubjective: '-1'), ProfileFormError.minimums),
+      ('minimo integrativo negativo', cassaForm(minIntegrative: '-1'), ProfileFormError.minimums),
+      ('nessuna categoria', form(incomeCategories: []), ProfileFormError.incomeCategories),
+      ('categorie solo spazi', form(incomeCategories: ['  ']), ProfileFormError.incomeCategories),
+    ];
+
+    test('parseProfileForm: ogni regola scatta col suo codice, e vince il primo errore', () {
+      for (final (name, f, error) in rules) {
+        final r = parseProfileForm(f, now);
+        expect((r.profile, r.error), (null, error), reason: name);
+      }
+      for (final startYear in ['1950', '2026']) {
+        expect(parseProfileForm(form(startYear: startYear), now).error, isNull, reason: '$startYear è valido');
+      }
+      expect(
+        parseProfileForm(form(atecoCode: 'x', coefficient: '0', fundType: 'inps', incomeCategories: []), now).error,
+        ProfileFormError.atecoCode,
+        reason: 'più errori: il primo',
+      );
+    });
+
+    test('parseProfileForm: una cassa diversa da cassa azzera i campi nascosti, e la riduzione INPS vale solo per artigiani e commercianti', () {
+      ProfileFormValues hidden(String fundType, {bool inpsReduction = true}) => form(
+        fundType: fundType,
+        fundName: 'Inarcassa',
+        subjectiveRate: '15',
+        integrativeRate: '4',
+        minSubjective: '2000',
+        minIntegrative: '500',
+        inpsReduction: inpsReduction,
+      );
+      List<Object> zeroed(String fundType, bool inpsReduction) =>
+          ['62.01.00', 67.0, 2022, true, fundType, '', 0.0, 0.0, 0.0, 0.0, inpsReduction, ['Fatture']];
+      expect(formCells(parsed(hidden('gestione_separata'))), zeroed('gestione_separata', false), reason: 'gestione separata');
+      expect(formCells(parsed(hidden('artigiani'))), zeroed('artigiani', true), reason: 'artigiani');
+      expect(
+        formCells(parsed(hidden('commercianti', inpsReduction: false))),
+        zeroed('commercianti', false),
+        reason: 'commercianti, non spuntata',
+      );
+      expect(parsed(cassaForm(inpsReduction: true)).inpsReduction, isFalse, reason: 'cassa: mai la riduzione');
+    });
+
+    test('parseProfileForm: le categorie sono ripulite dagli spazi e senza doppioni', () {
+      expect(parsed(form(incomeCategories: [' Fatture', 'Fatture'])).incomeCategories, ['Fatture'], reason: 'doppione');
+    });
+
+    // Not in the web suite: JavaScript prints -0 as 0, Dart prints -0.0.
+    test('trappola: un -0 si salva come 0, non come -0.0', () {
+      final p = parsed(cassaForm(integrativeRate: '-0', minSubjective: '-0', minIntegrative: '-0'));
+      final saved = [p.integrativeRate, p.minSubjective, p.minIntegrative];
+      expect(saved, [0.0, 0.0, 0.0]);
+      expect(saved.map((v) => v.isNegative), [false, false, false], reason: 'uguale a 0 non basta: -0.0 == 0.0');
+    });
+
+    // The same two instants as the UTC-flag test above: for every zone east of
+    // Greenwich the first is still 2026 in UTC, for every one west of it the
+    // second is already 2027.
+    test("trappola: un now con flag UTC legge l'anno locale", () {
+      for (final local in [DateTime(2027, 1, 1, 0, 30), DateTime(2026, 12, 31, 23, 30)]) {
+        expect(
+          parseProfileForm(form(startYear: '2027'), local.toUtc()).error,
+          parseProfileForm(form(startYear: '2027'), local).error,
+          reason: 'at $local',
+        );
+      }
+    });
   });
 
   // The suite is TZ-independent by construction and is rerun with

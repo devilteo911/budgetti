@@ -3,10 +3,11 @@
 ///
 /// This is the mirror of `web/src/piva.ts` minus the simulations
 /// (`netFromRevenue`, `rateSwitch`, `thresholdStatus`, `grossMonthlyIncassi`,
-/// `setAside`), minus `writeFailure`, and — until #19 ports it into this same
-/// file — minus `parseProfileForm`. Same names, same cases, same figures to the
-/// cent: the arithmetic follows the web's order of operations on purpose, since
-/// JavaScript and Dart share IEEE-754 doubles but not their rounding helpers.
+/// `setAside`) and minus `writeFailure`. `parseProfileForm` is here too, with a
+/// code (`ProfileFormError`) where the web has an English message. Same names,
+/// same cases, same figures to the cent: the arithmetic follows the web's order
+/// of operations on purpose, since JavaScript and Dart share IEEE-754 doubles
+/// but not their rounding helpers.
 ///
 /// "Ricavi" always means *compensi*: cash received, minus the integrativo a
 /// `cassa` profile charges its clients (not income).
@@ -23,6 +24,7 @@ library;
 
 import 'dart:math';
 
+import 'package:budgetti/core/finance_math.dart' show parseAmount;
 import 'package:budgetti/models/transaction.dart';
 
 // ── The fiscal table ──────────────────────────────────────────────────────
@@ -762,3 +764,161 @@ deadlineTotals(List<PivaDeadline> rows, DateTime today) {
 /// True for the integrativo slot only: money collected for the cassa, not a cost
 /// and not deductible. The screen asks it here and nowhere else.
 bool isPassThrough(PivaDeadline d) => d.key.endsWith(':contributi_integrativo');
+
+// ── Profile form ──────────────────────────────────────────────────────────
+// The validation of the profile form lives here, not in the sheet, so the unit
+// tests can reach it. Its bounds (100 %, the first plausible opening year) are
+// form sanity, not fiscal figures: those stay in the table at the top. The web
+// answers with an English message; here the answer is a code and the sheet
+// translates it — the rules and their order are the same.
+
+/// The profile form as its state holds it: text for the numbers, booleans for
+/// the checkboxes.
+class ProfileFormValues {
+  const ProfileFormValues({
+    required this.atecoCode,
+    required this.coefficient,
+    required this.startYear,
+    required this.startupRate,
+    required this.fundType,
+    required this.fundName,
+    required this.subjectiveRate,
+    required this.integrativeRate,
+    required this.minSubjective,
+    required this.minIntegrative,
+    required this.inpsReduction,
+    required this.incomeCategories,
+  });
+
+  final String atecoCode, coefficient, startYear;
+  final bool startupRate;
+  final String fundType, fundName;
+  final String subjectiveRate, integrativeRate, minSubjective, minIntegrative;
+  final bool inpsReduction;
+  final List<String> incomeCategories;
+}
+
+/// What the form saves: the twelve fields of the profile, typed, with neither
+/// `userId` nor `lastUpdated` — the write stamps those.
+class PivaProfileInput {
+  const PivaProfileInput({
+    required this.atecoCode,
+    required this.coefficient,
+    required this.startYear,
+    required this.startupRate,
+    required this.fundType,
+    required this.fundName,
+    required this.subjectiveRate,
+    required this.integrativeRate,
+    required this.minSubjective,
+    required this.minIntegrative,
+    required this.inpsReduction,
+    required this.incomeCategories,
+  });
+
+  final String atecoCode;
+  final double coefficient;
+  final int startYear;
+  final bool startupRate;
+  final String fundType, fundName;
+  final double subjectiveRate, integrativeRate, minSubjective, minIntegrative;
+  final bool inpsReduction;
+  final List<String> incomeCategories;
+}
+
+/// The first rule the form broke, in the order the rules run.
+enum ProfileFormError {
+  atecoCode,
+  coefficient,
+  startYear,
+  fundType,
+  subjectiveRate,
+  integrativeRate,
+  minimums,
+  incomeCategories,
+}
+
+const _fundTypes = ['gestione_separata', 'artigiani', 'commercianti', 'cassa'];
+const _firstYear = 1950;
+
+({PivaProfileInput? profile, ProfileFormError? error}) _fail(ProfileFormError e) => (profile: null, error: e);
+
+/// A percentage in (0, 100], or in [0, 100] with [zeroOk].
+bool _validPct(double n, {bool zeroOk = false}) => n <= 100 && (zeroOk ? n >= 0 : n > 0);
+
+/// An optional amount: blank reads as 0, anything else as [parseAmount].
+double? _optionalAmount(String s) {
+  if (s.trim().isEmpty) return 0.0;
+  final v = parseAmount(s);
+  // '-0' reads as -0.0, which Dart prints "-0.0" where JavaScript prints 0:
+  // adding 0.0 turns it into 0.0 and leaves every other value as it is.
+  return v == null ? null : v + 0.0;
+}
+
+/// The form's values as a profile to save, or the first error in field order.
+/// Numbers are read with [parseAmount] (comma or dot, a leading sign kept so it
+/// can be rejected). Only a `cassa` keeps its own fields: for any other fund the
+/// hidden ones are saved as '' / 0 whatever they hold, and the INPS reduction
+/// only counts for artigiani and commercianti. Exactly one of the two fields of
+/// the result is set.
+({PivaProfileInput? profile, ProfileFormError? error}) parseProfileForm(ProfileFormValues f, DateTime now) {
+  final atecoCode = f.atecoCode.trim();
+  if (!RegExp(r'^\d{2}(\.?\d{1,2}){0,2}$').hasMatch(atecoCode)) return _fail(ProfileFormError.atecoCode);
+
+  final coefficient = parseAmount(f.coefficient);
+  if (coefficient == null || !_validPct(coefficient)) return _fail(ProfileFormError.coefficient);
+
+  final year = f.startYear.trim();
+  final startYear = RegExp(r'^\d{4}$').hasMatch(year) ? int.parse(year) : null;
+  // `now` may arrive UTC-flagged: the year is the local one, like the web's getFullYear().
+  if (startYear == null || startYear < _firstYear || startYear > now.toLocal().year) {
+    return _fail(ProfileFormError.startYear);
+  }
+
+  final fundType = f.fundType;
+  if (!_fundTypes.contains(fundType)) return _fail(ProfileFormError.fundType);
+
+  var cassa = (fundName: '', subjectiveRate: 0.0, integrativeRate: 0.0, minSubjective: 0.0, minIntegrative: 0.0);
+  if (fundType == 'cassa') {
+    final subjectiveRate = parseAmount(f.subjectiveRate);
+    if (subjectiveRate == null || !_validPct(subjectiveRate)) return _fail(ProfileFormError.subjectiveRate);
+    final integrativeRate = _optionalAmount(f.integrativeRate);
+    if (integrativeRate == null || !_validPct(integrativeRate, zeroOk: true)) {
+      return _fail(ProfileFormError.integrativeRate);
+    }
+    final minSubjective = _optionalAmount(f.minSubjective);
+    final minIntegrative = _optionalAmount(f.minIntegrative);
+    if (minSubjective == null || minSubjective < 0 || minIntegrative == null || minIntegrative < 0) {
+      return _fail(ProfileFormError.minimums);
+    }
+    cassa = (
+      fundName: f.fundName.trim(),
+      subjectiveRate: subjectiveRate,
+      integrativeRate: integrativeRate,
+      minSubjective: minSubjective,
+      minIntegrative: minIntegrative,
+    );
+  }
+
+  // toSet() keeps insertion order: the duplicates go, the order stays.
+  final incomeCategories = f.incomeCategories.map((c) => c.trim()).where((c) => c.isNotEmpty).toSet().toList();
+  if (incomeCategories.isEmpty) return _fail(ProfileFormError.incomeCategories);
+
+  return (
+    profile: PivaProfileInput(
+      atecoCode: atecoCode,
+      coefficient: coefficient,
+      startYear: startYear,
+      startupRate: f.startupRate,
+      fundType: fundType,
+      fundName: cassa.fundName,
+      subjectiveRate: cassa.subjectiveRate,
+      integrativeRate: cassa.integrativeRate,
+      minSubjective: cassa.minSubjective,
+      minIntegrative: cassa.minIntegrative,
+      inpsReduction: f.inpsReduction && (fundType == 'artigiani' || fundType == 'commercianti'),
+      incomeCategories: incomeCategories,
+    ),
+    error: null,
+  );
+}
