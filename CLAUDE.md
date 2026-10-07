@@ -40,7 +40,7 @@ Drift SQLite + PocketBase (data layer)
 - `lib/core/services/` — FinanceService (main CRUD), BackupService, GoogleDriveService, OCRService, NotificationService, ImportService, PersistenceService
 - `lib/core/widgets/` — Shared UI components
 - `lib/features/` — Feature modules: auth, dashboard, transactions, budget, stats, settings, import, profile, home, splash
-- `lib/models/` — Data models (Transaction, Account, Category, Tag, Budget)
+- `lib/models/` — Data models (Transaction, Account, Category, Tag, Budget, Installment) and `piva.dart`, the pure Partita IVA engine
 
 ### Database schema (Drift)
 
@@ -102,6 +102,43 @@ accountant's figures and a backup that never names it says nothing about it.
 `_specs` (`pocketbase_sync_service.dart`), the `TableUpdateQuery` list in
 `PocketBaseAutoSync` (same file), `AuthService.adoptLocalData` (table names), and
 `BackupService` (export, import, clearing, inserting).
+
+### Partita IVA engine
+
+`lib/models/piva.dart` is the pure Dart mirror of `web/src/piva.ts` (imposta
+sostitutiva, contributions for the four fund types, the calendar of saldi and
+acconti, the merge with the accountant's saved amounts) — without the web's
+simulations, `writeFailure` and, until #19 ports it into the same file,
+`parseProfileForm`. `test/piva_test.dart` ports the web cases with the same
+names and the same figures to the cent (**change one, change both**), plus ten
+cases the web suite does not have yet: nine on the JavaScript-to-Dart traps
+(`trappola: …`) and `estimateYear, cassa a zero`; the artigiani case with saldo
+and acconti above the minimale was also written for the web suite, so the two
+should be kept in step. Every fiscal figure lives in the one year-keyed table
+at the top of the file, with its source; a new year is one new row.
+
+No Drift, no Flutter, no I/O, and no `DateTime.now()`: `now` and `today` are
+always injected. Days are local `DateTime?` of which only year, month and day
+count — compared as `year * 10000 + month * 100 + day`, never as instants — and
+`kind`, `fundType` and `key` stay strings, byte for byte as on the server.
+
+Three numeric rules not to break, each with a test that goes red: `_round2`
+redoes JavaScript's `Math.round` (halves go towards +infinity, so `-12.5` is
+`-12`; Dart's `round()` gives `-13`), and it is the only rounding in the file;
+sums and derived fields follow the web's order of operations (month sum, then
+divide, then round; every derived field from already-rounded values); and the
+final ordering of the calendar breaks ties by generation index, because Dart's
+`List.sort` is not guaranteed stable.
+
+The suite does not pin a time zone; rerun it under several (the `fuso del run`
+test checks the zone really reached the tester):
+
+```
+TZ=UTC PIVA_EXPECT_OFFSET_MIN=0 flutter test test/piva_test.dart
+TZ=Pacific/Auckland PIVA_EXPECT_OFFSET_MIN=780 flutter test test/piva_test.dart
+TZ=America/Los_Angeles PIVA_EXPECT_OFFSET_MIN=-480 flutter test test/piva_test.dart
+TZ=Europe/Rome PIVA_EXPECT_OFFSET_MIN=60 flutter test test/piva_test.dart
+```
 
 ### Transaction types
 
