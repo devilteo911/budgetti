@@ -1,5 +1,6 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/dashboard/widgets/piva_card.dart';
+import 'package:budgetti/features/piva/piva_format.dart' show pivaNoBreak;
 import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/l10n/app_localizations_en.dart';
 import 'package:budgetti/models/piva.dart';
@@ -216,7 +217,7 @@ void main() {
       await pump(tester, profile: opened, txns: lastYear, now: today);
 
       expect(find.text('Next deadline'), findsOneWidget);
-      expect(find.text(estimateLabel), findsOneWidget);
+      expect(find.text(pivaNoBreak(estimateLabel)), findsOneWidget);
       expect(find.text(estimateWhen), findsOneWidget);
       expect(find.text('estimate'), findsOneWidget);
     });
@@ -236,7 +237,7 @@ void main() {
       expect(find.text('Rottamazione'), findsOneWidget);
       expect(find.text('Apr 20, 2026 · €250.00'), findsOneWidget);
       expect(find.text('estimate'), findsNothing);
-      expect(find.text(estimateLabel), findsNothing);
+      expect(find.text(pivaNoBreak(estimateLabel)), findsNothing);
     });
 
     testWidgets('of two ahead, the nearer one', (tester) async {
@@ -323,7 +324,7 @@ void main() {
         );
 
         expect(tester.takeException(), isNull);
-        expect(tester.getRect(find.text(estimateLabel)).right, lessThanOrEqualTo(320));
+        expect(tester.getRect(find.text(pivaNoBreak(estimateLabel))).right, lessThanOrEqualTo(320));
         expect(tester.getRect(find.text(estimateWhen)).right, lessThanOrEqualTo(320));
         expect(tester.getRect(find.text('estimate')).right, lessThanOrEqualTo(320));
       });
@@ -341,10 +342,10 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      expect(tester.getRect(find.text(label)).right, lessThanOrEqualTo(320));
+      expect(tester.getRect(find.text(pivaNoBreak(label))).right, lessThanOrEqualTo(320));
       // The day and the amount are never what gets cut, and sit whole in the card.
       expect(tester.getRect(find.text('Apr 20, 2026 · €1,234.50')).right, lessThanOrEqualTo(320));
-      final text = tester.widget<Text>(find.text(label));
+      final text = tester.widget<Text>(find.text(pivaNoBreak(label)));
       expect(text.maxLines, 2);
       expect(text.overflow, TextOverflow.ellipsis);
     });

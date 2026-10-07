@@ -221,7 +221,7 @@ class PivaDeadlinesSection extends ConsumerWidget {
               value: next == null ? '—' : DateFormat.yMMMd().format(next.dueDate!),
               sub: next == null
                   ? l10n.pivaDlNothingUpcoming
-                  : '${next.label} · ${currency.format(next.amount)}',
+                  : pivaNoBreak('${next.label} · ${currency.format(next.amount)}'),
             ),
           ],
         ),
@@ -294,9 +294,10 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// The three tiles in the bordered grid of the compensi: side by side on a phone
-/// at least 360 wide with the font at most a third larger, one under the other
-/// otherwise (a tile's text then has the whole width).
+/// The three tiles in the bordered grid of the compensi: side by side only on a
+/// wide screen (a tablet), one under the other on a phone. At 390 dp each of three
+/// tiles has ~100 dp of text: "Da versare entro dic 2026" shrinks to ~7 sp and
+/// the hint under the middle one wraps to six lines.
 class _TileGrid extends StatelessWidget {
   const _TileGrid({required this.tiles});
 
@@ -304,7 +305,7 @@ class _TileGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 360 && _roomy(context);
+    final wide = MediaQuery.sizeOf(context).width >= 720 && _roomy(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Table(
@@ -362,7 +363,7 @@ class _DeadlineRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                row.label,
+                pivaNoBreak(row.label),
                 style: GoogleFonts.bricolageGrotesque(color: ink, fontSize: 15, fontWeight: FontWeight.w700),
               ),
             ),

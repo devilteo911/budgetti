@@ -351,7 +351,7 @@ void main() {
     final next = rows.first;
     final nextLabel = en.pivaDlNext.toUpperCase();
     expect(inTile(nextLabel, find.text(DateFormat.yMMMd().format(next.dueDate!))), findsOneWidget);
-    expect(inTile(nextLabel, find.text('${next.label} · ${currency.format(next.amount)}')), findsOneWidget);
+    expect(inTile(nextLabel, find.text(pivaNoBreak('${next.label} · ${currency.format(next.amount)}'))), findsOneWidget);
   });
 
   testWidgets('"Due by Dec" sums what is unpaid from today to 31 December; the next one can fall today', (tester) async {
@@ -370,7 +370,7 @@ void main() {
     // Today is not past: the third tile is that one, not the August estimate.
     final next = en.pivaDlNext.toUpperCase();
     expect(inTile(next, find.text('Jun 10, 2026')), findsOneWidget);
-    expect(inTile(next, find.text('Bollo di oggi · ${currency.format(60)}')), findsOneWidget);
+    expect(inTile(next, find.text(pivaNoBreak('Bollo di oggi · ${currency.format(60)}'))), findsOneWidget);
   });
 
   test('nextPivaDeadline: the nearest unpaid day from today on, never a past, undated or paid one', () {
@@ -554,7 +554,12 @@ void main() {
     handle.dispose();
   });
 
-  for (final (width, scale, wide) in [(390.0, 1.0, true), (320.0, 1.0, false), (390.0, 2.0, false), (320.0, 2.0, false)]) {
+  test('pivaNoBreak glues each dot to the word before it and changes nothing else', () {
+    expect(pivaNoBreak('Imposta sostitutiva · Saldo 2025'), 'Imposta sostitutiva\u00A0· Saldo 2025');
+    expect(pivaNoBreak('Bollo'), 'Bollo');
+  });
+
+  for (final (width, scale, wide) in [(800.0, 1.0, true), (390.0, 1.0, false), (320.0, 1.0, false), (390.0, 2.0, false), (320.0, 2.0, false)]) {
     testWidgets('$width wide at text scale $scale: nothing overflows, tiles ${wide ? 'in a row' : 'stacked'}, targets of 48',
         (tester) async {
       await pump(

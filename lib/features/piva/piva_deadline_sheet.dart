@@ -354,7 +354,7 @@ class _PivaDeadlineSheetState extends ConsumerState<PivaDeadlineSheet> {
                     ] else ...[
                       const SizedBox(height: 12),
                       Text(
-                        d.label,
+                        pivaNoBreak(d.label),
                         style: TextStyle(
                           color: scheme.onSurface,
                           fontSize: 17,

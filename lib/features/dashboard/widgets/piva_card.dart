@@ -170,7 +170,7 @@ class _NextLine extends StatelessWidget {
             runSpacing: 4,
             children: [
               Text(
-                next.label,
+                pivaNoBreak(next.label),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: ink,

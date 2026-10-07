@@ -5,6 +5,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/piva/piva_deadline_sheet.dart';
+import 'package:budgetti/features/piva/piva_format.dart' show pivaNoBreak;
 import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/l10n/app_localizations_en.dart';
 import 'package:budgetti/models/piva.dart' show PivaDeadline;
@@ -506,7 +507,7 @@ void main() {
 
     expect(textOf(tester, en.pivaDlAmount), '99');
     expect(textOf(tester, en.pivaDlNote), '');
-    expect(find.text('Imposta sostitutiva · Saldo 2025'), findsOneWidget);
+    expect(find.text(pivaNoBreak('Imposta sostitutiva · Saldo 2025')), findsOneWidget);
     expect(find.text('Another label'), findsNothing);
   });
 
