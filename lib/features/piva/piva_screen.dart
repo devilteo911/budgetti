@@ -162,7 +162,8 @@ class _ProfileSummary extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  '$pivaAteco ${profile.atecoCode} · $pivaCoefficient ${pivaNumber(profile.coefficient)}%',
+                  // U+00A0: on a narrow phone "67%" must not wrap alone under the title.
+                  '$pivaAteco ${profile.atecoCode} · $pivaCoefficient\u00A0${pivaNumber(profile.coefficient)}%',
                   style: GoogleFonts.bricolageGrotesque(
                     color: scheme.onSurface,
                     fontSize: 22,

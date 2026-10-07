@@ -127,7 +127,7 @@ void main() {
       (tester) async {
     await pump(tester, profile: profile(), txns: [income(10000)]);
 
-    expect(find.textContaining('coefficiente 67%'), findsOneWidget);
+    expect(find.textContaining('coefficiente\u00A067%'), findsOneWidget);
     expect(find.text('Imponibile'), findsOneWidget);
     expect(find.text('Imposta sostitutiva · 15%'), findsOneWidget);
     expect(find.text('Contributi · Gestione Separata INPS'), findsOneWidget);

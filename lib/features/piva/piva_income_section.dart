@@ -111,13 +111,21 @@ class PivaIncomeSection extends ConsumerWidget {
           // all income, so say how it splits.
           if (view.carved)
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Column(
-                children: [
-                  PivaLine(label: pivaCompensi.toLowerCase(), value: currency.format(view.total)),
-                  PivaLine(label: l10n.pivaReconIntegrativo, value: currency.format(view.toRemit)),
-                  PivaLine(label: l10n.pivaReconBank, value: currency.format(view.gross)),
-                ],
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              // The same bordered box as the prospetto below, so the rows share
+              // its left edge instead of floating between the tiles and the chart.
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: scheme.outline.withValues(alpha: 0.12)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                child: Column(
+                  children: [
+                    PivaLine(label: pivaCompensi.toLowerCase(), value: currency.format(view.total)),
+                    PivaLine(label: l10n.pivaReconIntegrativo, value: currency.format(view.toRemit)),
+                    PivaLine(label: l10n.pivaReconBank, value: currency.format(view.gross)),
+                  ],
+                ),
               ),
             ),
           _IncomeChart(view: view, currency: currency),

@@ -109,32 +109,35 @@ class _SetAsideRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: GoogleFonts.jetBrainsMono(
-              color: scheme.onSurfaceVariant,
-              fontSize: 11,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Text(
-                value,
-                style: GoogleFonts.jetBrainsMono(
-                  color: scheme.onSurface,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
+      // A Wrap, not a Row with a FittedBox: when label and amount no longer fit
+      // side by side (large system font), the amount drops to its own line at full
+      // size instead of shrinking next to its sibling's.
+      child: SizedBox(
+        width: double
+            .infinity, // spaceBetween needs the full column to push the amount right
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 6,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: GoogleFonts.jetBrainsMono(
+                color: scheme.onSurfaceVariant,
+                fontSize: 11,
+                letterSpacing: 0.6,
               ),
             ),
-          ),
-        ],
+            Text(
+              value,
+              style: GoogleFonts.jetBrainsMono(
+                color: scheme.onSurface,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
