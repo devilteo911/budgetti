@@ -563,10 +563,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get pivaEmptyKicker => 'NESSUN PROFILO';
 
   @override
-  String get pivaEmptyHint =>
-      'Imposta la partita IVA dalla dashboard web: compare qui dopo la prossima sincronizzazione.';
-
-  @override
   String get pivaProfileLabel => 'PROFILO';
 
   @override

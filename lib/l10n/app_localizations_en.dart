@@ -558,10 +558,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pivaEmptyKicker => 'NO PROFILE';
 
   @override
-  String get pivaEmptyHint =>
-      'Set up your partita IVA from the web dashboard: it shows up here after the next sync.';
-
-  @override
   String get pivaProfileLabel => 'PROFILE';
 
   @override

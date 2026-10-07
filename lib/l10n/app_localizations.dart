@@ -1076,12 +1076,6 @@ abstract class AppLocalizations {
   /// **'NO PROFILE'**
   String get pivaEmptyKicker;
 
-  /// No description provided for @pivaEmptyHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Set up your partita IVA from the web dashboard: it shows up here after the next sync.'**
-  String get pivaEmptyHint;
-
   /// No description provided for @pivaProfileLabel.
   ///
   /// In en, this message translates to:

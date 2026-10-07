@@ -1,9 +1,11 @@
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/features/piva/piva_format.dart';
+import 'package:budgetti/features/piva/piva_profile_sheet.dart';
 import 'package:budgetti/features/piva/piva_screen.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/l10n/app_localizations_en.dart';
 import 'package:budgetti/l10n/app_localizations_it.dart';
+import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/piva.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -82,6 +84,8 @@ void main() {
         pivaProfileProvider.overrideWith((ref) => Stream.value(profile)),
         pivaPaymentsProvider.overrideWith((ref) => Stream.value(const <PivaPaymentData>[])),
         pivaTransactionsProvider.overrideWith((ref) => Stream.value(txns)),
+        // What the profile sheet reads when the screen opens it.
+        categoriesProvider.overrideWith((ref) => Stream.value(const <Category>[])),
         currencyProvider.overrideWithValue(
             NumberFormat.simpleCurrency(locale: 'en_US', name: 'EUR')),
       ],
@@ -115,13 +119,33 @@ void main() {
     expect(pivaNumber(26.07), '26,07');
   });
 
-  testWidgets('no profile: the empty state, and no button to press', (tester) async {
+  testWidgets('no profile: the empty state, and the button that sets it up', (tester) async {
     await pump(tester);
 
     expect(find.text('NO PROFILE'), findsOneWidget);
-    expect(find.text(en.pivaEmptyHint), findsOneWidget);
-    expect(find.byType(OutlinedButton), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, en.pivaProfileSetUp), findsOneWidget);
     expect(find.byType(BarChart), findsNothing);
+  });
+
+  testWidgets('the setup button opens the profile sheet, empty', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text(en.pivaProfileSetUp));
+    await settle(tester);
+
+    expect(find.byType(PivaProfileSheet), findsOneWidget);
+    expect(tester.widget<PivaProfileSheet>(find.byType(PivaProfileSheet)).existing, isNull);
+  });
+
+  testWidgets('the edit action opens the sheet on the profile shown', (tester) async {
+    await pump(tester, profile: profile());
+
+    await tester.tap(find.byTooltip(en.pivaProfileEdit));
+    await settle(tester);
+
+    final sheet = tester.widget<PivaProfileSheet>(find.byType(PivaProfileSheet));
+    expect(sheet.existing?.atecoCode, '62.01');
+    expect(sheet.existing?.coefficient, 67.0);
   });
 
   testWidgets('gestione separata: the estimate to the cent, and no integrativo line',

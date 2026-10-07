@@ -163,7 +163,6 @@
   "pivaTitle": "Partita IVA",
   "pivaSettingsSubtitle": "Regime forfettario: income, tax and contributions",
   "pivaEmptyKicker": "NO PROFILE",
-  "pivaEmptyHint": "Set up your partita IVA from the web dashboard: it shows up here after the next sync.",
   "pivaProfileLabel": "PROFILE",
   "pivaSince": "since {year}",
   "pivaPrevYear": "Previous year",
