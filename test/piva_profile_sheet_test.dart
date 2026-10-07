@@ -120,11 +120,12 @@ void main() {
     Locale locale = const Locale('en'),
     bool fail = false,
     Completer<void>? gate,
+    Size size = const Size(390, 4000),
   }) async {
     final db = AppDatabase.forExecutor(NativeDatabase.memory());
     addTearDown(db.close);
     final finance = _Finance(db, 'u', fail: fail, gate: gate);
-    tester.view.physicalSize = const Size(390, 4000);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -227,6 +228,26 @@ void main() {
     await type(tester, en.pivaProfileAtecoLabel, '6');
 
     expect(find.text(_atecoError), findsNothing);
+  });
+
+  testWidgets('Save and the error stay on screen on a phone-sized sheet, whatever the form length',
+      (tester) async {
+    // 390 × 700, not 4000: the form scrolls, the button and the message must not.
+    await pump(tester, size: const Size(390, 700));
+    final screen = tester.view.physicalSize;
+
+    expect(tester.getRect(save).bottom, lessThanOrEqualTo(screen.height));
+    await tester.tap(save);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Enter the ATECO code as digits and dots, like 62.01.00.'), findsOneWidget);
+    final button = tester.getRect(save);
+    expect(button.bottom, lessThanOrEqualTo(screen.height));
+    // The message sits right above the button, in view.
+    final message = tester.getRect(find.text('Enter the ATECO code as digits and dots, like 62.01.00.'));
+    expect(message.bottom, lessThanOrEqualTo(button.top));
+    expect(message.top, greaterThan(0));
   });
 
   testWidgets('the same message in Italian', (tester) async {
