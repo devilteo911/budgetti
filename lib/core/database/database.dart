@@ -27,6 +27,52 @@ class ListStringConverter extends TypeConverter<List<String>, String> {
   }
 }
 
+/// The one reader of a `declaredIncome` json value, whatever hands it over: the
+/// column converter, the PocketBase pull and the backup import. It NEVER throws:
+/// an exception inside the pull's `applyRemotes` marks the collection failed and
+/// freezes both sync cursors for good, so a malformed value has to degrade to
+/// "nothing", not to an error.
+///
+/// A non-`Map` (`null`, a list, a string…) gives `null`. From a map every entry
+/// whose key is a `String` is kept when its value is a `num` — read through `num`
+/// because PocketBase hands a whole number back as an integer (`40000`, not
+/// `40000.0`) and a `jsonDecode`d map is not a `Map<String, double?>` — or `null`
+/// (an answer: "derive it from the ledger"); any other entry is dropped.
+Map<String, double?>? declaredIncomeFromJson(Object? v) {
+  if (v is! Map) return null;
+  final out = <String, double?>{};
+  for (final e in v.entries) {
+    final k = e.key, x = e.value;
+    if (k is! String) continue;
+    if (x == null) {
+      out[k] = null;
+    } else if (x is num) {
+      out[k] = x.toDouble();
+    }
+  }
+  return out;
+}
+
+/// `declaredIncome` as JSON text. Malformed text reads as `{}`, never an
+/// exception; [toSql] keeps the `null` values (`{"2025":null}`), which are answers.
+class DeclaredIncomeConverter
+    extends TypeConverter<Map<String, double?>, String> {
+  const DeclaredIncomeConverter();
+  @override
+  Map<String, double?> fromSql(String fromDb) {
+    try {
+      return declaredIncomeFromJson(json.decode(fromDb)) ?? const {};
+    } catch (e) {
+      return const {};
+    }
+  }
+
+  @override
+  String toSql(Map<String, double?> value) {
+    return json.encode(value);
+  }
+}
+
 // Tables
 
 class Categories extends Table {
@@ -179,6 +225,14 @@ class PivaProfiles extends Table {
   TextColumn get incomeCategories =>
       text().map(const ListStringConverter()).nullable()();
 
+  /// What the owner declared as the gross income collected in a concluded year:
+  /// `{ "<four-digit year>": number >= 0 | null }`. A number is the gross
+  /// collected that year (integrativo included for a `cassa`), `null` means
+  /// "derive it from the ledger" (asked and answered), an absent key means
+  /// "never asked". A NULL column reads as `{}`.
+  TextColumn get declaredIncome =>
+      text().map(const DeclaredIncomeConverter()).nullable()();
+
   // Sync fields
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastUpdated => dateTime().nullable()();
@@ -309,7 +363,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 19; // v19: piva_profiles, piva_payments
+  int get schemaVersion => 20; // v20: piva_profiles.declared_income
 
   /// Every index the schema declares, as full CREATE statements. Drift's
   /// codegen only picks up `@TableIndex` annotations — the plain
@@ -438,6 +492,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 19) {
         await m.createTable(pivaProfiles);
         await m.createTable(pivaPayments);
+      }
+      if (from < 20) {
+        await _addColumnIfMissing(m, pivaProfiles, pivaProfiles.declaredIncome);
       }
     },
   );

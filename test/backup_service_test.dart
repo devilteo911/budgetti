@@ -279,6 +279,7 @@ void main() {
           'minIntegrative',
           'inpsReduction',
           'incomeCategories',
+          'declaredIncome',
           'isDeleted',
           'lastUpdated',
         ]));
