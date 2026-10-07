@@ -185,6 +185,33 @@ button sit outside the scroll view, so an error cannot push the button off the
 screen. Like every sheet guarded by `DiscardGuard`, closing with edits asks first
 on the back key; a downward drag on a dirty sheet just doesn't close it.
 
+**Deadlines are managed on the phone** (`piva_deadlines_section.dart`, mounted under
+the prospetto, and `piva_deadline_sheet.dart`; the mirror is
+`web/src/components/PivaForecast.tsx`). The rows are the engine's `deadlines(...)`
+and nothing fiscal is computed in the widgets. The four states: `due`, `paid`,
+`overdue` (past, unpaid, **official**: the only red in the section) and
+`unrecorded` (past, unpaid, still an *estimate* — most likely paid and never
+entered, so neutral, never red, and not counted in "Da versare"). A tap on a row
+opens the sheet; "Segna pagata" on an estimate opens the sheet with the estimate
+prefilled (saving freezes it as the official amount, so it asks first), on an
+official row it writes at once, and "Annulla pagamento" takes the payment back
+leaving the row official. `FinanceService.savePivaPayment` / `deletePivaPayment`
+write the whole row (a delete is a stamped soft delete) with both days at **local
+noon**, as the web's `dayIso`, so the other client reads the same day; `dueDate`
+can be null (a row created through the API or the admin UI) and then reads "Senza
+data", never "next" and never past. An amount of 0 is a real answer. "Torna alla
+stima" is offered only if `canRevertToEstimate` — a recomputation of the engine
+without that row — still finds an estimate with the same `key` (an official
+contributions amount also moves the estimated tax rows); otherwise it is "Elimina".
+Destructive actions ask first. `nextPivaDeadline` is the one definition of the
+"next deadline" (first unpaid row from today on that has a day), used by the third
+tile and by the dashboard `PivaCard`, whose extra line is absent — not blank — when
+there is none. The sheet reads its form once, at open: a sync that changes the row
+underneath does not touch what is being typed, and the phone's save then wins whole
+(newer `lastUpdated`); a *rejected* LWW write (the web was newer) is applied by the
+sync and shows nothing on this screen, as for every other collection. A label that
+wraps keeps each `·` glued to the word before it (`pivaNoBreak`, display only).
+
 ### Transaction types
 
 Three types: income, expense, and transfer (moves money between accounts via `toAccountId`). Expenses are stored as negative amounts.
