@@ -1388,6 +1388,264 @@ abstract class AppLocalizations {
   /// **'Pick at least one income category.'**
   String get pivaProfileErrCategories;
 
+  /// No description provided for @pivaDlTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deadlines'**
+  String get pivaDlTitle;
+
+  /// No description provided for @pivaDlAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add deadline'**
+  String get pivaDlAdd;
+
+  /// No description provided for @pivaDlDueByDec.
+  ///
+  /// In en, this message translates to:
+  /// **'Due by Dec {year}'**
+  String pivaDlDueByDec(int year);
+
+  /// No description provided for @pivaDlCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1 {1 deadline} other {{count} deadlines}}'**
+  String pivaDlCount(int count);
+
+  /// No description provided for @pivaDlOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get pivaDlOverdue;
+
+  /// No description provided for @pivaDlOverdueCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} overdue'**
+  String pivaDlOverdueCount(int count);
+
+  /// No description provided for @pivaDlNothingOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'nothing overdue'**
+  String get pivaDlNothingOverdue;
+
+  /// No description provided for @pivaDlNotRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Not recorded'**
+  String get pivaDlNotRecorded;
+
+  /// No description provided for @pivaDlNotRecordedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1 {1 past deadline} other {{count} past deadlines}} · mark paid or set the amount'**
+  String pivaDlNotRecordedHint(int count);
+
+  /// No description provided for @pivaDlNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next deadline'**
+  String get pivaDlNext;
+
+  /// No description provided for @pivaDlNothingUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'nothing upcoming'**
+  String get pivaDlNothingUpcoming;
+
+  /// No description provided for @pivaDlGroupUnrecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'PAST · NOT RECORDED'**
+  String get pivaDlGroupUnrecorded;
+
+  /// No description provided for @pivaDlGroupPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'PAID'**
+  String get pivaDlGroupPaid;
+
+  /// No description provided for @pivaDlChipEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimate'**
+  String get pivaDlChipEstimate;
+
+  /// No description provided for @pivaDlChipOfficial.
+  ///
+  /// In en, this message translates to:
+  /// **'Official'**
+  String get pivaDlChipOfficial;
+
+  /// No description provided for @pivaDlChipNotRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Not recorded'**
+  String get pivaDlChipNotRecorded;
+
+  /// No description provided for @pivaDlPaidOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid {date}'**
+  String pivaDlPaidOn(String date);
+
+  /// No description provided for @pivaDlNoDate.
+  ///
+  /// In en, this message translates to:
+  /// **'No date'**
+  String get pivaDlNoDate;
+
+  /// No description provided for @pivaDlTypePassThrough.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrativo · pass-through, not deductible'**
+  String get pivaDlTypePassThrough;
+
+  /// No description provided for @pivaDlMarkPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark paid'**
+  String get pivaDlMarkPaid;
+
+  /// No description provided for @pivaDlUndoPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get pivaDlUndoPaid;
+
+  /// No description provided for @pivaDlEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No deadlines yet. They appear once your ledger has income in the categories of your profile.'**
+  String get pivaDlEmpty;
+
+  /// No description provided for @pivaDlNew.
+  ///
+  /// In en, this message translates to:
+  /// **'NEW DEADLINE'**
+  String get pivaDlNew;
+
+  /// No description provided for @pivaDlEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'EDIT DEADLINE'**
+  String get pivaDlEdit;
+
+  /// No description provided for @pivaDlKind.
+  ///
+  /// In en, this message translates to:
+  /// **'Kind'**
+  String get pivaDlKind;
+
+  /// No description provided for @pivaDlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Label'**
+  String get pivaDlLabel;
+
+  /// No description provided for @pivaDlLabelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Rata rottamazione, bollo…'**
+  String get pivaDlLabelHint;
+
+  /// No description provided for @pivaDlAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get pivaDlAmount;
+
+  /// No description provided for @pivaDlDueOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Due on'**
+  String get pivaDlDueOn;
+
+  /// No description provided for @pivaDlPickDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a date'**
+  String get pivaDlPickDate;
+
+  /// No description provided for @pivaDlNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note (optional)'**
+  String get pivaDlNote;
+
+  /// No description provided for @pivaDlPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get pivaDlPaid;
+
+  /// No description provided for @pivaDlPaidOnLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid on'**
+  String get pivaDlPaidOnLabel;
+
+  /// No description provided for @pivaDlErrAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an amount, zero or more.'**
+  String get pivaDlErrAmount;
+
+  /// No description provided for @pivaDlErrDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the due date.'**
+  String get pivaDlErrDue;
+
+  /// No description provided for @pivaDlErrLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Say what this deadline is.'**
+  String get pivaDlErrLabel;
+
+  /// No description provided for @pivaDlBackToEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to estimate'**
+  String get pivaDlBackToEstimate;
+
+  /// No description provided for @pivaDlRevertTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the estimate?'**
+  String get pivaDlRevertTitle;
+
+  /// No description provided for @pivaDlRevertBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The amount and payment saved for \"{label}\" are removed and the estimate takes their place.'**
+  String pivaDlRevertBody(String label);
+
+  /// No description provided for @pivaDlDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this deadline?'**
+  String get pivaDlDeleteTitle;
+
+  /// No description provided for @pivaDlDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{label}\" is removed from the calendar.'**
+  String pivaDlDeleteBody(String label);
+
+  /// No description provided for @pivaDlSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save the deadline. {error}'**
+  String pivaDlSaveError(String error);
+
+  /// No description provided for @pivaDlDeleteError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t remove the deadline. {error}'**
+  String pivaDlDeleteError(String error);
+
   /// No description provided for @importSelectWalletError.
   ///
   /// In en, this message translates to:

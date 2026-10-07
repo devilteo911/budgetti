@@ -215,6 +215,49 @@
   "pivaProfileErrIntegrative": "Enter the contributo integrativo as a percentage, up to 100.",
   "pivaProfileErrMinimums": "Enter the minimum contributions as amounts, like 1234.56.",
   "pivaProfileErrCategories": "Pick at least one income category.",
+  "pivaDlTitle": "Deadlines",
+  "pivaDlAdd": "Add deadline",
+  "pivaDlDueByDec": "Due by Dec {year}",
+  "pivaDlCount": "{count, plural, =1 {1 deadline} other {{count} deadlines}}",
+  "pivaDlOverdue": "Overdue",
+  "pivaDlOverdueCount": "{count} overdue",
+  "pivaDlNothingOverdue": "nothing overdue",
+  "pivaDlNotRecorded": "Not recorded",
+  "pivaDlNotRecordedHint": "{count, plural, =1 {1 past deadline} other {{count} past deadlines}} · mark paid or set the amount",
+  "pivaDlNext": "Next deadline",
+  "pivaDlNothingUpcoming": "nothing upcoming",
+  "pivaDlGroupUnrecorded": "PAST · NOT RECORDED",
+  "pivaDlGroupPaid": "PAID",
+  "pivaDlChipEstimate": "Estimate",
+  "pivaDlChipOfficial": "Official",
+  "pivaDlChipNotRecorded": "Not recorded",
+  "pivaDlPaidOn": "Paid {date}",
+  "pivaDlNoDate": "No date",
+  "pivaDlTypePassThrough": "Integrativo · pass-through, not deductible",
+  "pivaDlMarkPaid": "Mark paid",
+  "pivaDlUndoPaid": "Undo",
+  "pivaDlEmpty": "No deadlines yet. They appear once your ledger has income in the categories of your profile.",
+  "pivaDlNew": "NEW DEADLINE",
+  "pivaDlEdit": "EDIT DEADLINE",
+  "pivaDlKind": "Kind",
+  "pivaDlLabel": "Label",
+  "pivaDlLabelHint": "Rata rottamazione, bollo…",
+  "pivaDlAmount": "Amount",
+  "pivaDlDueOn": "Due on",
+  "pivaDlPickDate": "Pick a date",
+  "pivaDlNote": "Note (optional)",
+  "pivaDlPaid": "Paid",
+  "pivaDlPaidOnLabel": "Paid on",
+  "pivaDlErrAmount": "Enter an amount, zero or more.",
+  "pivaDlErrDue": "Pick the due date.",
+  "pivaDlErrLabel": "Say what this deadline is.",
+  "pivaDlBackToEstimate": "Back to estimate",
+  "pivaDlRevertTitle": "Back to the estimate?",
+  "pivaDlRevertBody": "The amount and payment saved for \"{label}\" are removed and the estimate takes their place.",
+  "pivaDlDeleteTitle": "Delete this deadline?",
+  "pivaDlDeleteBody": "\"{label}\" is removed from the calendar.",
+  "pivaDlSaveError": "Couldn't save the deadline. {error}",
+  "pivaDlDeleteError": "Couldn't remove the deadline. {error}",
   "importSelectWalletError": "Please select a wallet",
   "importSuccess": "Successfully imported {count} transactions",
   "importError": "Error importing: {error}",
@@ -843,6 +886,69 @@
     }
   },
   "@pivaProfileSaveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDlDueByDec": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "@pivaDlCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@pivaDlOverdueCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@pivaDlNotRecordedHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@pivaDlPaidOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDlRevertBody": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDlDeleteBody": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDlSaveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDlDeleteError": {
     "placeholders": {
       "error": {
         "type": "String"

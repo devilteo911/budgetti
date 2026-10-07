@@ -765,6 +765,167 @@ class AppLocalizationsIt extends AppLocalizations {
       'Scegli almeno una categoria di entrata.';
 
   @override
+  String get pivaDlTitle => 'Scadenze';
+
+  @override
+  String get pivaDlAdd => 'Aggiungi scadenza';
+
+  @override
+  String pivaDlDueByDec(int year) {
+    return 'Da versare entro dic $year';
+  }
+
+  @override
+  String pivaDlCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count scadenze',
+      one: '1 scadenza',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pivaDlOverdue => 'In ritardo';
+
+  @override
+  String pivaDlOverdueCount(int count) {
+    return '$count in ritardo';
+  }
+
+  @override
+  String get pivaDlNothingOverdue => 'niente in ritardo';
+
+  @override
+  String get pivaDlNotRecorded => 'Non registrate';
+
+  @override
+  String pivaDlNotRecordedHint(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count scadenze passate',
+      one: '1 scadenza passata',
+    );
+    return '$_temp0 · segna pagata o imposta l\'importo';
+  }
+
+  @override
+  String get pivaDlNext => 'Prossima scadenza';
+
+  @override
+  String get pivaDlNothingUpcoming => 'niente in programma';
+
+  @override
+  String get pivaDlGroupUnrecorded => 'PASSATE · NON REGISTRATE';
+
+  @override
+  String get pivaDlGroupPaid => 'PAGATE';
+
+  @override
+  String get pivaDlChipEstimate => 'Stima';
+
+  @override
+  String get pivaDlChipOfficial => 'Ufficiale';
+
+  @override
+  String get pivaDlChipNotRecorded => 'Non registrata';
+
+  @override
+  String pivaDlPaidOn(String date) {
+    return 'Pagata il $date';
+  }
+
+  @override
+  String get pivaDlNoDate => 'Senza data';
+
+  @override
+  String get pivaDlTypePassThrough =>
+      'Integrativo · partita di giro, non deducibile';
+
+  @override
+  String get pivaDlMarkPaid => 'Segna pagata';
+
+  @override
+  String get pivaDlUndoPaid => 'Annulla pagamento';
+
+  @override
+  String get pivaDlEmpty =>
+      'Nessuna scadenza per ora. Compaiono quando il ledger ha entrate nelle categorie del profilo.';
+
+  @override
+  String get pivaDlNew => 'NUOVA SCADENZA';
+
+  @override
+  String get pivaDlEdit => 'MODIFICA SCADENZA';
+
+  @override
+  String get pivaDlKind => 'Tipo';
+
+  @override
+  String get pivaDlLabel => 'Descrizione';
+
+  @override
+  String get pivaDlLabelHint => 'Rata rottamazione, bollo…';
+
+  @override
+  String get pivaDlAmount => 'Importo';
+
+  @override
+  String get pivaDlDueOn => 'Scade il';
+
+  @override
+  String get pivaDlPickDate => 'Scegli una data';
+
+  @override
+  String get pivaDlNote => 'Nota (facoltativa)';
+
+  @override
+  String get pivaDlPaid => 'Pagata';
+
+  @override
+  String get pivaDlPaidOnLabel => 'Pagata il';
+
+  @override
+  String get pivaDlErrAmount => 'Inserisci un importo, zero o più.';
+
+  @override
+  String get pivaDlErrDue => 'Scegli la data di scadenza.';
+
+  @override
+  String get pivaDlErrLabel => 'Scrivi di che scadenza si tratta.';
+
+  @override
+  String get pivaDlBackToEstimate => 'Torna alla stima';
+
+  @override
+  String get pivaDlRevertTitle => 'Tornare alla stima?';
+
+  @override
+  String pivaDlRevertBody(String label) {
+    return 'L\'importo e il pagamento salvati per «$label» vengono rimossi e torna la stima.';
+  }
+
+  @override
+  String get pivaDlDeleteTitle => 'Eliminare questa scadenza?';
+
+  @override
+  String pivaDlDeleteBody(String label) {
+    return '«$label» viene tolta dal calendario.';
+  }
+
+  @override
+  String pivaDlSaveError(String error) {
+    return 'Scadenza non salvata. $error';
+  }
+
+  @override
+  String pivaDlDeleteError(String error) {
+    return 'Scadenza non rimossa. $error';
+  }
+
+  @override
   String get importSelectWalletError => 'Seleziona un portafoglio';
 
   @override
