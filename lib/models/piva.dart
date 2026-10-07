@@ -398,3 +398,143 @@ PivaYear estimateYear(
     net: _round2(revenue - tax - contributions),
   );
 }
+
+// ── Calendario stimato ────────────────────────────────────────────────────
+
+/// One row of the calendar: an estimate, or the accountant's saved amount that
+/// replaced it.
+class PivaDeadline {
+  const PivaDeadline({
+    required this.key,
+    required this.kind,
+    required this.label,
+    required this.dueDate,
+    required this.amount,
+    required this.estimated,
+    required this.paidDate,
+    required this.paymentId,
+    required this.note,
+  });
+
+  /// `'<law year>:<slot>'`, e.g. `'2026:imposta_saldo'`; `''` = added by hand.
+  final String key;
+
+  /// `imposta | contributi`.
+  final String kind;
+  final String label;
+
+  /// Local calendar day (only year, month and day count); `null` = no day (an
+  /// official row saved without one).
+  final DateTime? dueDate;
+  final double amount;
+
+  /// `false` once an official row of `piva_payments` stands behind it.
+  final bool estimated;
+
+  /// `null` = not paid.
+  final DateTime? paidDate;
+
+  /// `null` = no saved row behind it.
+  final String? paymentId;
+
+  /// `''` for the estimates.
+  final String note;
+}
+
+/// The statutory deadline `day`/`month` (1–12) of [year]. A deadline on a
+/// Saturday or Sunday slides to the Monday after: art. 7 c. 1 lett. h D.L.
+/// 70/2011. National holidays are not handled because none of the dates
+/// generated here (16/02, 16/05, 30/06, 20/08, 30/09, 16/11, 30/11) is one, and
+/// Easter Monday (23/03–26/04) cannot fall on any of them. The weekday is read
+/// on a UTC date, so it is the same in every time zone; the result is built with
+/// the local constructor, which carries the extra days over on the calendar —
+/// adding a time span to a local date would land at 23:00 of the day before
+/// across the clock change back to winter time.
+DateTime dueDay(int year, int month, int day) {
+  final wd = DateTime.utc(year, month, day).weekday;
+  return DateTime(
+    year,
+    month,
+    day + (wd == DateTime.saturday ? 2 : wd == DateTime.sunday ? 1 : 0),
+  );
+}
+
+/// First and second acconto of the imposta sostitutiva on [base] (the tax of the
+/// year before). Under `accontoMin` none; if the first rate would not exceed
+/// `accontoFirstMin` everything is paid at once, in the second. Thresholds from
+/// the table's first entry: the same in every year, and a base has no year to
+/// look them up by.
+(double, double) splitAcconto(double base) {
+  final r = _rules.values.first;
+  if (base < r.accontoMin) return (0.0, 0.0);
+  if (base / 2 <= r.accontoFirstMin) return (0.0, base);
+  final first = _round2(base / 2);
+  return (first, _round2(base - first));
+}
+
+/// What comes off the income of [year]: the contributions rows (not the
+/// integrativo, which is a pass-through) whose day — `paidDate` if set, else
+/// `dueDate` — falls in [year]. Run on the merged calendar, so the accountant's
+/// amounts win; the estimated tax deadlines use this same rule.
+double contributionsDeductible(List<PivaDeadline> rows, int year) => _round2(
+  _sum(
+    rows
+        // a row with neither a paidDate nor a dueDate has no year and counts nowhere
+        .where(
+          (d) => d.kind == 'contributi' && !isPassThrough(d) && (d.paidDate ?? d.dueDate)?.year == year,
+        )
+        .map((d) => d.amount),
+  ),
+);
+
+// ── Stato delle scadenze ──────────────────────────────────────────────────
+// Read-only helpers for the screen. "Today" comes in as a `DateTime` of which
+// only the local day counts, so they stay pure.
+
+/// The ordinal of the local day of [d]: sorts exactly like the web's
+/// `YYYY-MM-DD` string and does not depend on the time of day, the UTC flag or a
+/// clock change. The engine never compares two instants.
+int _ord(DateTime d) {
+  final l = d.toLocal();
+  return l.year * 10000 + l.month * 100 + l.day;
+}
+
+enum DeadlineState { paid, due, overdue, unrecorded }
+
+/// [today]: only its local day counts. A deadline falling today is not past yet,
+/// and one with no day at all (an official row saved without one) cannot be
+/// past: it is `due`. Past and unpaid, it is `overdue` if someone entered an
+/// amount for it (official), `unrecorded` if it is still only an estimate:
+/// nobody ever recorded it here, and the owner has most likely paid it already.
+DeadlineState deadlineState(PivaDeadline d, DateTime today) {
+  if (d.paidDate != null) return DeadlineState.paid;
+  final due = d.dueDate;
+  if (due == null || _ord(due) >= _ord(today)) return DeadlineState.due;
+  return d.estimated ? DeadlineState.unrecorded : DeadlineState.overdue;
+}
+
+/// What the screen adds up, all of it unpaid: `upcoming` is what falls due from
+/// today to the end of the year of [today] (the integrativo included, it leaves
+/// the account all the same), `overdue` the official amounts past their day,
+/// `unrecorded` the estimates past their day. `count` is how many rows each sum
+/// is made of.
+({double upcoming, double overdue, double unrecorded, ({int upcoming, int overdue, int unrecorded}) count})
+deadlineTotals(List<PivaDeadline> rows, DateTime today) {
+  final year = today.toLocal().year;
+  List<PivaDeadline> inState(DeadlineState s) => rows.where((d) => deadlineState(d, today) == s).toList();
+  // a due row with no day counts as upcoming
+  final upcoming = inState(DeadlineState.due).where((d) => (d.dueDate?.year ?? year) == year).toList();
+  final overdue = inState(DeadlineState.overdue);
+  final unrecorded = inState(DeadlineState.unrecorded);
+  double total(List<PivaDeadline> xs) => _round2(_sum(xs.map((d) => d.amount)));
+  return (
+    upcoming: total(upcoming),
+    overdue: total(overdue),
+    unrecorded: total(unrecorded),
+    count: (upcoming: upcoming.length, overdue: overdue.length, unrecorded: unrecorded.length),
+  );
+}
+
+/// True for the integrativo slot only: money collected for the cassa, not a cost
+/// and not deductible. The screen asks it here and nowhere else.
+bool isPassThrough(PivaDeadline d) => d.key.endsWith(':contributi_integrativo');

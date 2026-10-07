@@ -84,6 +84,30 @@ PivaPaymentData payment({
   isDeleted: isDeleted,
 );
 
+/// A calendar row; `due` and `paid` are 'YYYY-MM-DD' (an explicit `null` due =
+/// a row with no day). `estimated: false` is "official".
+PivaDeadline row({
+  String key = '2026:contributi_saldo',
+  String kind = 'contributi',
+  String label = '',
+  String? due = '2026-06-30',
+  String? paid,
+  double amount = 0,
+  bool estimated = true,
+  String? paymentId,
+  String note = '',
+}) => PivaDeadline(
+  key: key,
+  kind: kind,
+  label: label,
+  dueDate: due == null ? null : day(due),
+  amount: amount,
+  estimated: estimated,
+  paidDate: paid == null ? null : day(paid),
+  paymentId: paymentId,
+  note: note,
+);
+
 final now = DateTime(2026, 10, 6, 12);
 final today = day('2026-10-06');
 
@@ -303,6 +327,94 @@ void main() {
     expect(fields(zero).every((v) => v.isFinite), isTrue, reason: 'nessun NaN');
   });
 
+  // ── calendario: scadenze, acconti, deduzione ────────────────────────────
+  test('dueDay: sabato e domenica slittano al lunedì', () {
+    expect(dueDay(2026, 6, 30), day('2026-06-30'), reason: 'martedì');
+    expect(dueDay(2025, 11, 30), day('2025-12-01'), reason: 'domenica');
+    expect(dueDay(2026, 5, 16), day('2026-05-18'), reason: 'sabato (Circ. 14/2026)');
+    expect(dueDay(2027, 5, 16), day('2027-05-17'), reason: 'domenica');
+    expect(dueDay(2027, 2, 16), day('2027-02-16'), reason: 'martedì');
+  });
+
+  test('splitAcconto: soglie di 51,65 e di 103 sulla prima rata', () {
+    expect(splitAcconto(780), (390.0, 390.0), reason: '780');
+    expect(splitAcconto(803.98), (401.99, 401.99), reason: '803,98');
+    expect(splitAcconto(206.02), (103.01, 103.01), reason: 'prima rata 103,01: due rate');
+    expect(splitAcconto(206), (0.0, 206.0), reason: 'prima rata 103: tutto a novembre');
+    expect(splitAcconto(150), (0.0, 150.0), reason: '150');
+    expect(splitAcconto(51.65), (0.0, 51.65), reason: 'esattamente la soglia: si versa');
+    expect(splitAcconto(51.64), (0.0, 0.0), reason: 'sotto la soglia');
+    expect(splitAcconto(0), (0.0, 0.0), reason: 'zero');
+  });
+
+  test("contributionsDeductible: conta il giorno del pagamento, salta l'integrativo e l'imposta", () {
+    // The deduction rule: a contributions row counts in the year of its paidDate,
+    // else of its dueDate; the integrativo (a pass-through) never does.
+    final rows = [
+      row(amount: 100),
+      row(amount: 200, due: '2025-12-01', paid: '2026-01-10'),
+      row(amount: 50, key: '2026:contributi_integrativo', due: '2026-12-31'),
+      row(amount: 70, kind: 'imposta', key: '2026:imposta_saldo'),
+      row(amount: 30, key: '', due: '2026-07-15'),
+      row(amount: 40, due: '2025-06-30'),
+    ];
+    expect(contributionsDeductible(rows, 2026), 330.0, reason: '2026');
+    expect(contributionsDeductible(rows, 2025), 40.0, reason: '2025');
+    expect(contributionsDeductible(rows, 2024), 0.0, reason: '2024');
+  });
+
+  // ── stato delle scadenze ────────────────────────────────────────────────
+  test('deadlineState: pagata, da pagare, scaduta (ufficiale) e non registrata (solo stima); oggi non è ancora passata', () {
+    DeadlineState state(PivaDeadline d) => deadlineState(d, today);
+    expect(state(row(due: '2026-06-30', paid: '2026-06-28')), DeadlineState.paid, reason: 'pagata');
+    expect(
+      state(row(due: '2026-06-30', paid: '2026-10-20', estimated: false)),
+      DeadlineState.paid,
+      reason: 'pagata anche in ritardo',
+    );
+    expect(
+      state(row(due: '2026-06-30', estimated: false)),
+      DeadlineState.overdue,
+      reason: 'passata con un importo ufficiale: scaduta',
+    );
+    expect(state(row(due: '2026-10-05', estimated: false)), DeadlineState.overdue, reason: 'scaduta ieri');
+    expect(
+      state(row(due: '2026-06-30')),
+      DeadlineState.unrecorded,
+      reason: "passata ma solo stimata: nessuno l'ha mai registrata",
+    );
+    expect(state(row(due: '2026-10-05')), DeadlineState.unrecorded, reason: 'stimata, ieri');
+    expect(state(row(due: '2026-11-30')), DeadlineState.due, reason: 'futura');
+    expect(state(row(due: '2026-11-30', estimated: false)), DeadlineState.due, reason: 'futura e ufficiale');
+    expect(state(row(due: '2026-10-06')), DeadlineState.due, reason: 'esattamente oggi, stimata');
+    expect(state(row(due: '2026-10-06', estimated: false)), DeadlineState.due, reason: 'esattamente oggi, ufficiale');
+  });
+
+  test("deadlineTotals e isPassThrough: da pagare entro l'anno, scaduto, non registrato; l'integrativo conta, e solo lui è una partita di giro", () {
+    final rows = [
+      row(amount: 100, due: '2026-06-30', paid: '2026-06-28'), // pagata: fuori da tutto
+      row(amount: 250.5, due: '2026-06-30', estimated: false), // ufficiale e passata: scaduta
+      row(amount: 300, due: '2026-06-30'), // solo stimata e passata: non registrata
+      row(amount: 400.25, due: '2026-11-30'), // futura, quest'anno
+      row(amount: 2000, key: '2026:contributi_integrativo', due: '2026-12-31'), // integrativo non pagato, quest'anno
+      row(amount: 999, due: '2027-06-30'), // futura ma dell'anno dopo: fuori da «upcoming»
+    ];
+    expect(
+      deadlineTotals(rows, today),
+      (upcoming: 2400.25, overdue: 250.5, unrecorded: 300.0, count: (upcoming: 2, overdue: 1, unrecorded: 1)),
+      reason: '400,25 + 2.000 entro il 31/12; 250,50 scaduto; 300 non registrato; il 2027 non entra',
+    );
+    expect(
+      deadlineTotals([], today),
+      (upcoming: 0.0, overdue: 0.0, unrecorded: 0.0, count: (upcoming: 0, overdue: 0, unrecorded: 0)),
+      reason: 'elenco vuoto',
+    );
+    expect(isPassThrough(row(key: '2026:contributi_integrativo')), isTrue, reason: 'integrativo');
+    for (final key in ['2026:contributi_saldo', '', '2026:imposta_saldo']) {
+      expect(isPassThrough(row(key: key)), isFalse, reason: "'$key'");
+    }
+  });
+
   // ── JavaScript → Dart traps ─────────────────────────────────────────────
   test("trappola: i mezzi centesimi vanno verso l'alto anche sotto zero", () {
     // -0,875 × 100 = -87,5 exactly in binary: Math.round gives -87, rounding
@@ -340,5 +452,25 @@ void main() {
     final txns = [fattura('a', 1000, DateTime(2026, 1, 1, 0, 30).toUtc())];
     expect(incomeByMonth(txns, profile(), 2026)[0], 1000.0);
     expect(incomeByMonth(txns, profile(), 2025)[11], 0.0);
+  });
+
+  test('trappola: oggi si confronta per giorno, qualunque ora abbia', () {
+    final dueToday = row(due: '2026-10-06', estimated: false);
+    expect(
+      deadlineState(dueToday, DateTime(2026, 10, 6, 23, 59)),
+      DeadlineState.due,
+      reason: 'scadenza di oggi, a fine giornata',
+    );
+    final yesterday = row(due: '2026-10-05', estimated: false);
+    expect(
+      deadlineState(yesterday, DateTime(2026, 10, 6, 0, 0, 1)),
+      DeadlineState.overdue,
+      reason: 'ieri, un secondo dopo mezzanotte',
+    );
+    expect(
+      deadlineState(yesterday, DateTime(2026, 10, 6, 0, 30).toUtc()),
+      DeadlineState.overdue,
+      reason: 'ieri, con today in UTC',
+    );
   });
 }
