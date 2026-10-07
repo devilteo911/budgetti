@@ -39,7 +39,7 @@ Drift SQLite + PocketBase (data layer)
 
 - `lib/core/services/` — FinanceService (main CRUD), BackupService, GoogleDriveService, OCRService, NotificationService, ImportService, PersistenceService
 - `lib/core/widgets/` — Shared UI components
-- `lib/features/` — Feature modules: auth, dashboard, transactions, budget, stats, settings, import, profile, home, splash
+- `lib/features/` — Feature modules: auth, dashboard, transactions, budget, stats, settings, import, profile, home, splash, piva
 - `lib/models/` — Data models (Transaction, Account, Category, Tag, Budget, Installment) and `piva.dart`, the pure Partita IVA engine
 
 ### Database schema (Drift)
@@ -139,6 +139,34 @@ TZ=Pacific/Auckland PIVA_EXPECT_OFFSET_MIN=780 flutter test test/piva_test.dart
 TZ=America/Los_Angeles PIVA_EXPECT_OFFSET_MIN=-480 flutter test test/piva_test.dart
 TZ=Europe/Rome PIVA_EXPECT_OFFSET_MIN=60 flutter test test/piva_test.dart
 ```
+
+### Partita IVA screen
+
+Read-only for now: `/piva` (`lib/features/piva/`, a top-level route outside the
+shell like `/installments`) is reached from the `PivaCard` on the dashboard —
+shown only when a live profile exists, always on the current year — and from the
+permanent "Partita IVA" entry in Settings, which is also how the empty state is
+reachable. It shows the profile, the compensi of the chosen year (stepper from
+`startYear` to the current year, four tiles, a chart against the year before,
+and for a `cassa` with an integrativo the bank-vs-compensi reconciliation) and
+the prospetto of the year.
+
+Reads live in `FinanceService` (`get`/`watch` of `PivaProfile`, `PivaPayments`
+and `PivaIncome` — the last one is the whole income history with no date window,
+because the acconti of a year look at the years before it) and the five providers
+in `providers.dart` sit on Drift streams, so a sync refreshes them; none is
+invalidated by hand. `pivaViewProvider(year)` is where the derivation is
+memoised: it recomputes only when the profile, the payments or the income change
+or the year does, never on a rebuild, and reads the clock once per derivation.
+`lib/features/piva/piva_view.dart` is the pure derivation (tiles, prior year cut
+at the same day, reconciliation, the estimate with the deductible contributions)
+and mirrors the calculations the web does inside `PivaIncome.tsx` and
+`PivaForecast.tsx` — change one, change the other (`test/piva_view_test.dart`).
+
+Fiscal terms ("Compensi", "Imposta sostitutiva", the fund names…) are plain Dart
+constants in `piva_format.dart`, identical in both languages, not ARB keys.
+`pivaNumber` there is the only place a non-monetary number of this feature
+becomes text (`67`, not `67.0`; `26,07` in Italian).
 
 ### Transaction types
 
