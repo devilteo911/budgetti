@@ -20,6 +20,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/backup_service.dart';
 import 'package:budgetti/core/services/google_auth_service.dart';
+import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
@@ -156,6 +157,26 @@ void callbackDispatcher() {
         // Dead token: drop the persisted session so the next foreground
         // launch lands on login instead of silently failing every sync.
         if (summary.authExpired) await persistence.setPbAuth(null);
+
+        // The pull may have turned an estimate into the accountant's official
+        // amount (entered on the web) while the app stayed closed: replan the
+        // Partita IVA reminders from the database. init() sets tz.local, which
+        // this isolate has not got. Its own try: a failure here is logged and
+        // does not fail the task.
+        try {
+          final reminderService = NotificationService();
+          await reminderService.init();
+          final uid = client.userId.isNotEmpty
+              ? client.userId
+              : persistence.getLocalUserId();
+          await NotificationLogic(
+            reminderService,
+            FinanceService(db, uid),
+            persistence,
+          ).updatePivaReminders();
+        } catch (e) {
+          debugPrint('Error replanning PIVA reminders in pb sync: $e');
+        }
       } catch (e) {
         debugPrint('Error in background pb sync: $e');
       } finally {
@@ -267,6 +288,11 @@ Future<void> main() async {
     await container.read(notificationLogicProvider).updateAutoBackupSchedule();
     await container.read(notificationLogicProvider).updateBankSyncSchedule();
     await container.read(notificationLogicProvider).updatePocketBaseSyncSchedule();
+    // listen, not read: a provider nobody listens to does not follow the
+    // providers it listens to, so a read would plan the Partita IVA reminders
+    // once, here, and never again. Kept for the app's lifetime, it replans on
+    // every change of the profile, the deadlines, the ledger or the language.
+    container.listen(pivaRemindersSyncProvider, (_, __) {});
     // Start the live push: sync to PocketBase on every local data change.
     container.read(pocketBaseAutoSyncProvider);
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/services/finance_service.dart';
@@ -269,4 +271,50 @@ final notificationLogicProvider = Provider<NotificationLogic>((ref) {
   final financeService = ref.watch(financeServiceProvider);
   final persistenceService = ref.watch(persistenceServiceProvider);
   return NotificationLogic(notificationService, financeService, persistenceService);
+});
+
+/// How long [pivaRemindersSyncProvider] waits after the last change of its
+/// inputs before it replans: a sync pull writes many rows, and the plan should
+/// be built once, at the end. The same 2 seconds as `PocketBaseAutoSync`; a
+/// variable (read each time the timer is armed) only so a test can shorten it.
+@visibleForTesting
+Duration pivaRemindersDebounce = const Duration(seconds: 2);
+
+/// Keeps the Partita IVA reminders on the device in step with the data they are
+/// made of. Listens to the three sources of the Partita IVA screen (live Drift
+/// streams, so it hears `savePivaProfile`, `savePivaPayment`, `deletePivaPayment`,
+/// the pulls of the sync and the refresh on return to the foreground) and to the
+/// language, which the notification text is written in; each change re-arms one
+/// [pivaRemindersDebounce] timer. It is armed once at construction as well: that
+/// is the replan of every launch and of every `ref.invalidate`.
+///
+/// When the timer fires it reads the current values and calls
+/// [NotificationLogic.applyPivaReminders] — but only if all three sources have
+/// one. While a stream is still loading (or failed) there is nothing to plan
+/// from, and an empty plan would clear every reminder on the device. A profile of
+/// `null` is a value: it means "no profile", and that does clear them.
+final pivaRemindersSyncProvider = Provider<void>((ref) {
+  Timer? timer;
+  void arm() {
+    timer?.cancel();
+    timer = Timer(pivaRemindersDebounce, () {
+      final profile = ref.read(pivaProfileProvider);
+      final payments = ref.read(pivaPaymentsProvider);
+      final txns = ref.read(pivaTransactionsProvider);
+      if (!profile.hasValue || !payments.hasValue || !txns.hasValue) return;
+      // Never throws (see applyPivaReminders): nothing to await or catch here.
+      unawaited(ref.read(notificationLogicProvider).applyPivaReminders(
+            profile.requireValue,
+            payments.requireValue,
+            txns.requireValue,
+          ));
+    });
+  }
+
+  ref.listen(pivaProfileProvider, (_, __) => arm());
+  ref.listen(pivaPaymentsProvider, (_, __) => arm());
+  ref.listen(pivaTransactionsProvider, (_, __) => arm());
+  ref.listen(localeSettingsProvider, (_, __) => arm());
+  ref.onDispose(() => timer?.cancel());
+  arm();
 });

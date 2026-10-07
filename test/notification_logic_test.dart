@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:ffi';
 
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/providers/providers.dart'
+    show financeServiceProvider, notificationServiceProvider, persistenceServiceProvider, pivaProfileProvider;
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/notification_service.dart';
@@ -9,9 +12,12 @@ import 'package:budgetti/core/services/piva_reminders.dart';
 import 'package:budgetti/models/piva.dart' show PivaPaymentData, PivaProfileData, PivaProfileInput, deadlines;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart' as sqlite3open;
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 // See finance_service_seed_test.dart for why the FFI loader is overridden.
 void _ensureSqlite() {
@@ -113,8 +119,34 @@ void _expectBolloReminders(List<PivaReminder> plan) {
   expect(plan.every((r) => r.payload.startsWith(pivaReminderPayloadPrefix)), isTrue);
 }
 
+/// The four reminders of a deadline due on [due] (a day), at 9:00: what
+/// [_expectBolloReminders] says for its fixed date, for one that moves with today.
+void _expectFourReminders(List<PivaReminder> plan, DateTime due) {
+  expect([for (final r in plan) r.daysBefore], [30, 7, 1, 0]);
+  expect([for (final r in plan) r.fireAt], [
+    for (final n in [30, 7, 1, 0]) DateTime.utc(due.year, due.month, due.day - n, 9),
+  ]);
+  expect(plan.every((r) => r.deadlineKey == '' && r.id < 0), isTrue);
+}
+
+/// Polls until [done]. Drift streams and the debounce timer need real time, so
+/// the provider tests wait for the state they expect, not for a fixed time.
+Future<void> _until(bool Function() done) async {
+  final end = DateTime.now().add(const Duration(seconds: 5));
+  while (!done()) {
+    if (DateTime.now().isAfter(end)) fail('timed out waiting for the plan');
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
 void main() {
-  setUpAll(_ensureSqlite);
+  setUpAll(() {
+    _ensureSqlite();
+    // The logic reads Italy's clock from tz.local, which NotificationService.init()
+    // sets in the app; the provider tests do not pass a `now`.
+    tzdata.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Europe/Rome'));
+  });
 
   /// A logic over an empty in-memory database, with the preferences [prefs].
   Future<({_Recording service, NotificationLogic logic, FinanceService finance})> build(
@@ -240,6 +272,93 @@ void main() {
       for (final plan in t.service.plans) {
         _expectBolloReminders(plan);
       }
+    });
+  });
+
+  // The provider reads the real clock (Italy's wall clock), so its deadline is 40
+  // days from today: a fixed date would one day be in the past.
+  group('pivaRemindersSyncProvider', () {
+    final soon = DateTime.now().add(const Duration(days: 40));
+    final due = DateTime(soon.year, soon.month, soon.day);
+
+    Future<void> saveBollo(FinanceService finance, {DateTime? paid}) => finance.savePivaPayment(
+          id: 'p-bollo',
+          key: '',
+          kind: 'imposta',
+          label: 'Bollo',
+          dueDate: due,
+          amount: 120,
+          paidDate: paid,
+        );
+
+    /// Listens to the provider as main() does, with a 50 ms debounce, over the
+    /// database and the recording service of [t]; [profile] stands in for the
+    /// profile stream, so a test decides when it answers.
+    Future<void> listen(
+      ({_Recording service, NotificationLogic logic, FinanceService finance}) t, {
+      StreamController<PivaProfileData?>? profile,
+    }) async {
+      final debounce = pivaRemindersDebounce;
+      pivaRemindersDebounce = const Duration(milliseconds: 50);
+      addTearDown(() => pivaRemindersDebounce = debounce);
+      final container = ProviderContainer(overrides: [
+        financeServiceProvider.overrideWithValue(t.finance),
+        notificationServiceProvider.overrideWithValue(t.service),
+        persistenceServiceProvider.overrideWithValue(PersistenceService(await SharedPreferences.getInstance())),
+        if (profile != null) pivaProfileProvider.overrideWith((ref) => profile.stream),
+      ]);
+      // Registered after the database's close: it runs before it.
+      addTearDown(container.dispose);
+      container.listen(pivaRemindersSyncProvider, (_, __) {});
+    }
+
+    /// A profile and the deadline saved, the provider started, its four reminders
+    /// planned.
+    Future<({_Recording service, NotificationLogic logic, FinanceService finance})> planned() async {
+      final t = await build({});
+      expect(deadlines(_profile, const [], const [], DateTime.now()), isEmpty, reason: 'the premise: no estimated row');
+      await t.finance.savePivaProfile(_profileInput);
+      await saveBollo(t.finance);
+      await listen(t);
+      await _until(() => t.service.plans.isNotEmpty && t.service.plans.last.isNotEmpty);
+      _expectFourReminders(t.service.plans.last, due);
+      return t;
+    }
+
+    test('after the debounce the plan is the four reminders of the saved deadline', () async {
+      await planned();
+    });
+
+    test('the deadline marked paid: the next plan has none of its reminders', () async {
+      final t = await planned();
+
+      await saveBollo(t.finance, paid: DateTime.now());
+      await _until(() => t.service.plans.last.isEmpty);
+    });
+
+    test('the deadline deleted: the next plan has none of its reminders', () async {
+      final t = await planned();
+
+      await t.finance.deletePivaPayment('p-bollo');
+      await _until(() => t.service.plans.last.isEmpty);
+    });
+
+    // An empty plan clears every reminder on the device: it must come from "no
+    // profile", never from a source that has not answered yet.
+    test('no plan while a source is loading; "no profile" gives the empty one', () async {
+      final profile = StreamController<PivaProfileData?>();
+      addTearDown(profile.close);
+      final t = await build({});
+      await saveBollo(t.finance);
+      await listen(t, profile: profile);
+
+      // Six debounces, with the payments and the ledger answered.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(t.service.plans, isEmpty);
+
+      profile.add(null);
+      await _until(() => t.service.plans.isNotEmpty);
+      expect(t.service.plans.last, isEmpty);
     });
   });
 }
