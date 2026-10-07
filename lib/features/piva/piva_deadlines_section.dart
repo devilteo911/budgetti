@@ -320,10 +320,9 @@ class _TileGrid extends StatelessWidget {
   }
 }
 
-/// One deadline: label and amount, the day and the kind, the note, the state
-/// chips, and on the right the button that marks it paid (or takes that back).
-/// The whole row opens the sheet. At a large font the button goes under the text
-/// instead of squeezing it.
+/// One deadline: label and amount, the day and the kind, the note, then the state
+/// chips with the button that marks it paid (or takes that back) at the end of
+/// their line. The whole row opens the sheet.
 class _DeadlineRow extends StatelessWidget {
   const _DeadlineRow({
     super.key,
@@ -355,46 +354,27 @@ class _DeadlineRow extends StatelessWidget {
         : pivaTaxKind;
     final small = GoogleFonts.jetBrainsMono(color: quiet, fontSize: 11, letterSpacing: 0.3, height: 1.4);
 
-    final text = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                pivaNoBreak(row.label),
-                style: GoogleFonts.bricolageGrotesque(color: ink, fontSize: 15, fontWeight: FontWeight.w700),
-              ),
+    final top = <Widget>[
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              pivaNoBreak(row.label),
+              style: GoogleFonts.bricolageGrotesque(color: ink, fontSize: 15, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(width: 10),
-            Text(
-              currency.format(row.amount),
-              style: GoogleFonts.jetBrainsMono(color: ink, fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text('$date · $type', style: small),
-        if (row.note.isNotEmpty) Text(row.note, style: small),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            if (state == DeadlineState.unrecorded)
-              _Chip(l10n.pivaDlChipNotRecorded, ink: quiet)
-            else if (row.estimated)
-              _Chip(l10n.pivaDlChipEstimate, ink: quiet)
-            else
-              _Chip(l10n.pivaDlChipOfficial, ink: scheme.primary),
-            if (state == DeadlineState.overdue) _Chip(l10n.pivaDlOverdue, ink: scheme.error),
-            if (paid)
-              _Chip(l10n.pivaDlPaidOn(DateFormat.yMMMd().format(row.paidDate!)), ink: quiet),
-          ],
-        ),
-      ],
-    );
+          ),
+          const SizedBox(width: 10),
+          Text(
+            currency.format(row.amount),
+            style: GoogleFonts.jetBrainsMono(color: ink, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+      const SizedBox(height: 2),
+      Text('$date · $type', style: small),
+      if (row.note.isNotEmpty) Text(row.note, style: small),
+    ];
 
     final action = paid ? l10n.pivaDlUndoPaid : l10n.pivaDlMarkPaid;
     // The button's own text is the same on every row: the label says which one.
@@ -411,25 +391,45 @@ class _DeadlineRow extends StatelessWidget {
       ),
     );
 
+    // Label and amount across the whole row, the state chips and the button on the
+    // line below: a button on the right would leave the label a third of the width.
     return InkWell(
       onTap: onOpen,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-        child: _roomy(context)
-            ? Row(
-                children: [
-                  Expanded(child: text),
-                  const SizedBox(width: 4),
-                  button,
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(padding: const EdgeInsets.only(right: 12), child: text),
-                  Align(alignment: Alignment.centerRight, child: button),
-                ],
-              ),
+        padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: top),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (state == DeadlineState.unrecorded)
+                        _Chip(l10n.pivaDlChipNotRecorded, ink: quiet)
+                      else if (row.estimated)
+                        _Chip(l10n.pivaDlChipEstimate, ink: quiet)
+                      else
+                        _Chip(l10n.pivaDlChipOfficial, ink: scheme.primary),
+                      if (state == DeadlineState.overdue) _Chip(l10n.pivaDlOverdue, ink: scheme.error),
+                      if (paid)
+                        _Chip(l10n.pivaDlPaidOn(DateFormat.yMMMd().format(row.paidDate!)), ink: quiet),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                button,
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
