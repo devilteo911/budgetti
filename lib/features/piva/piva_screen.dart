@@ -1,6 +1,7 @@
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
+import 'package:budgetti/features/piva/piva_deadlines_section.dart';
 import 'package:budgetti/features/piva/piva_format.dart';
 import 'package:budgetti/features/piva/piva_income_section.dart';
 import 'package:budgetti/features/piva/piva_profile_sheet.dart';
@@ -13,10 +14,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 /// Partita IVA: the profile (set up and edited in [PivaProfileSheet]), the
-/// compensi of the chosen year against the year before, and the estimate of its
-/// tax and contributions. The figures are the web's, to the cent — they come out
-/// of the same engine (`models/piva.dart`), derived once per change of the data
-/// in [pivaViewProvider].
+/// compensi of the chosen year against the year before, the estimate of its tax
+/// and contributions, and the deadlines ([PivaDeadlinesSection]). The figures are
+/// the web's, to the cent — they come out of the same engine (`models/piva.dart`),
+/// derived once per change of the data in [pivaViewProvider].
 class PivaScreen extends ConsumerWidget {
   const PivaScreen({super.key});
 
@@ -54,6 +55,9 @@ class PivaScreen extends ConsumerWidget {
           ),
         ),
         data: (view) {
+          // The deadlines' "today": the year view has no clock of its own to share
+          // (the provider reads one per derivation), so the screen reads one per build.
+          final now = DateTime.now();
           final profile = ref.watch(pivaProfileProvider).value;
           if (view == null || profile == null) {
             return _EmptyState(onSetup: () => _openProfileSheet(context));
@@ -67,7 +71,13 @@ class PivaScreen extends ConsumerWidget {
               ),
               PivaIncomeSection(profile: profile, view: view),
               _Estimate(profile: profile, view: view, currency: ref.watch(currencyProvider)),
-              // #20: PivaDeadlinesSection goes here, below the prospetto.
+              // The view is data, so all three sources have emitted: `value` is the list.
+              PivaDeadlinesSection(
+                profile: profile,
+                payments: ref.watch(pivaPaymentsProvider).value ?? const [],
+                txns: ref.watch(pivaTransactionsProvider).value ?? const [],
+                now: now,
+              ),
             ],
           );
         },
