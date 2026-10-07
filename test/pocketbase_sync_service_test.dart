@@ -1061,4 +1061,608 @@ void main() {
           reason: 'the backfill re-stamped the row, so the push must not skip it');
     });
   });
+
+  // ── Partita IVA: piva_profile + piva_payments ───────────────────────────
+  // The installment-plan cases above, replayed on the two collections the web
+  // Ledger writes. Nothing here is special to the pair: the point is that they
+  // behave like every other synced collection. The Drift tables are
+  // `piva_profiles` / `piva_payments`; the collections are `piva_profile` (sic)
+  // / `piva_payments`, and the fake server's store is keyed by collection.
+  group('partita iva', () {
+    final t1 = DateTime(2026, 7, 1, 10);
+    String iso(DateTime d) => d.toUtc().toIso8601String();
+
+    Future<void> profile(AppDatabase db, String id,
+            {String fundName = 'Fondo Prova', DateTime? at}) =>
+        db.into(db.pivaProfiles).insert(PivaProfilesCompanion.insert(
+              id: id,
+              userId: const Value('u1'),
+              fundName: Value(fundName),
+              lastUpdated: Value(at ?? t1),
+            ));
+
+    Future<void> payment(AppDatabase db, String id,
+            {String label = 'Saldo imposta', DateTime? at}) =>
+        db.into(db.pivaPayments).insert(PivaPaymentsCompanion.insert(
+              id: id,
+              userId: const Value('u1'),
+              kind: const Value('imposta'),
+              label: Value(label),
+              lastUpdated: Value(at ?? t1),
+            ));
+
+    Future<PivaProfile?> profileRow(AppDatabase db, String id) =>
+        (db.select(db.pivaProfiles)..where((t) => t.id.equals(id)))
+            .getSingleOrNull();
+
+    Future<PivaPayment?> paymentRow(AppDatabase db, String id) =>
+        (db.select(db.pivaPayments)..where((t) => t.id.equals(id)))
+            .getSingleOrNull();
+
+    /// Another device: an empty database, fresh cursors, the same server.
+    Future<(AppDatabase, PocketBaseSyncService)> otherDevice(
+        _FakeClient client) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final db = AppDatabase.forExecutor(NativeDatabase.memory());
+      await db.delete(db.categories).go(); // the seeds, as _harness clears them
+      await db.delete(db.tags).go();
+      await db.delete(db.accounts).go();
+      return (
+        db,
+        PocketBaseSyncService(client, db, PersistenceService(prefs), 'u1')
+      );
+    }
+
+    /// A profile as PocketBase returns it: the `owner` relation and the
+    /// `updated` autodate on it, numbers that may be plain integers, unset text
+    /// as '' and an unset json field as null. `owner` is never read — the row's
+    /// userId comes from the service — so it is deliberately not the user's id.
+    Map<String, dynamic> serverProfile({Object? categories, DateTime? at}) {
+      final stamp = iso(at ?? t1);
+      return {
+        'owner': 'server-side-owner',
+        'atecoCode': '62.20.10',
+        'coefficient': 67,
+        'startYear': 2023,
+        'startupRate': true,
+        'fundType': 'gestione_separata',
+        'fundName': '',
+        'subjectiveRate': 26.07,
+        'integrativeRate': 0,
+        'minSubjective': 0,
+        'minIntegrative': 0,
+        'inpsReduction': false,
+        'incomeCategories': categories,
+        'isDeleted': false,
+        'lastUpdated': stamp,
+        'updated': stamp,
+      };
+    }
+
+    /// A payment as PocketBase returns it: an unset `key`, `paidDate` and note
+    /// are '', a zero amount is a real answer, and dates use PB's stored
+    /// `YYYY-MM-DD HH:MM:SS.sssZ` form (space separator).
+    Map<String, dynamic> serverPayment({DateTime? at}) {
+      final stamp = iso(at ?? t1);
+      return {
+        'owner': 'server-side-owner',
+        'key': '',
+        'kind': 'imposta',
+        'label': 'Acconto',
+        'dueDate': '2026-06-30 10:00:00.000Z',
+        'amount': 0,
+        'paidDate': '',
+        'note': '',
+        'isDeleted': false,
+        'lastUpdated': stamp,
+        'updated': stamp,
+      };
+    }
+
+    test('a profile round-trips push → pull with every field', () async {
+      final (db, _, client, service) = await _harness();
+      await db.into(db.pivaProfiles).insert(PivaProfilesCompanion.insert(
+            id: 'pro1',
+            userId: const Value('u1'),
+            atecoCode: const Value('62.20.10'),
+            coefficient: const Value(78.0),
+            startYear: const Value(2023),
+            startupRate: const Value(true),
+            fundType: const Value('gestione_separata'),
+            fundName: const Value('Fondo Prova'),
+            subjectiveRate: const Value(26.07),
+            integrativeRate: const Value(4.0),
+            minSubjective: const Value(4208.5),
+            minIntegrative: const Value(840.25),
+            inpsReduction: const Value(true),
+            incomeCategories:
+                const Value<List<String>?>(['Consulenza', 'Corsi']),
+            lastUpdated: Value(t1),
+          ));
+
+      await service.sync();
+
+      // Exactly the fourteen fields of pb_migrations/1751000012_piva.js — a typo
+      // here syncs silently wrong data — and no `owner`: the client adds that on
+      // the wire. (`updated` is the autodate the fake server stamps.)
+      final pushed = client._store['piva_profile']!['pro1']!;
+      expect(
+          pushed.keys.where((k) => k != 'updated'),
+          unorderedEquals([
+            'atecoCode',
+            'coefficient',
+            'startYear',
+            'startupRate',
+            'fundType',
+            'fundName',
+            'subjectiveRate',
+            'integrativeRate',
+            'minSubjective',
+            'minIntegrative',
+            'inpsReduction',
+            'incomeCategories',
+            'isDeleted',
+            'lastUpdated',
+          ]));
+      expect(pushed['atecoCode'], '62.20.10');
+      expect(pushed['coefficient'], 78);
+      expect(pushed['startYear'], 2023);
+      expect(pushed['startupRate'], true);
+      expect(pushed['fundType'], 'gestione_separata');
+      expect(pushed['fundName'], 'Fondo Prova');
+      expect(pushed['subjectiveRate'], 26.07);
+      expect(pushed['integrativeRate'], 4);
+      expect(pushed['minSubjective'], 4208.5);
+      expect(pushed['minIntegrative'], 840.25);
+      expect(pushed['inpsReduction'], true);
+      expect(pushed['incomeCategories'], ['Consulenza', 'Corsi']);
+      expect(pushed['isDeleted'], false);
+      expect(pushed['lastUpdated'], iso(t1));
+
+      // A fresh device pulls it back into Drift unchanged.
+      final (db2, service2) = await otherDevice(client);
+      await service2.sync();
+
+      final row = await profileRow(db2, 'pro1');
+      expect(row, isNotNull);
+      expect(row!.userId, 'u1');
+      expect(row.atecoCode, '62.20.10');
+      expect(row.coefficient, 78);
+      expect(row.startYear, 2023);
+      expect(row.startupRate, true);
+      expect(row.fundType, 'gestione_separata');
+      expect(row.fundName, 'Fondo Prova');
+      expect(row.subjectiveRate, 26.07);
+      expect(row.integrativeRate, 4);
+      expect(row.minSubjective, 4208.5);
+      expect(row.minIntegrative, 840.25);
+      expect(row.inpsReduction, true);
+      expect(row.incomeCategories, ['Consulenza', 'Corsi'],
+          reason: 'the json field comes back as a list, not a string');
+      expect(row.isDeleted, false);
+      expect(row.lastUpdated, t1);
+    });
+
+    test('a payment round-trips push → pull, and a paid date set later reaches '
+        'the server on the next sync', () async {
+      final (db, _, client, service) = await _harness();
+      await db.into(db.pivaPayments).insert(PivaPaymentsCompanion.insert(
+            id: 'pay1',
+            userId: const Value('u1'),
+            key: const Value('2026:imposta_saldo'),
+            kind: const Value('imposta'),
+            label: const Value('Saldo imposta 2025'),
+            dueDate: Value(DateTime(2026, 6, 30, 12)),
+            amount: const Value(1234.56),
+            note: const Value('importo della commercialista'),
+            lastUpdated: Value(t1),
+          ));
+
+      await service.sync();
+
+      final pushed = client._store['piva_payments']!['pay1']!;
+      expect(
+          pushed.keys.where((k) => k != 'updated'),
+          unorderedEquals([
+            'key',
+            'kind',
+            'label',
+            'dueDate',
+            'amount',
+            'paidDate',
+            'note',
+            'isDeleted',
+            'lastUpdated',
+          ]));
+      expect(pushed['key'], '2026:imposta_saldo');
+      expect(pushed['kind'], 'imposta');
+      expect(pushed['label'], 'Saldo imposta 2025');
+      expect(pushed['dueDate'], iso(DateTime(2026, 6, 30, 12)),
+          reason: 'dates travel as ISO UTC');
+      expect(pushed['amount'], 1234.56);
+      expect(pushed['paidDate'], isNull,
+          reason: 'an unpaid deadline sends null, which clears the field');
+      expect(pushed['note'], 'importo della commercialista');
+
+      // A fresh device pulls it back, still unpaid.
+      final (db2, service2) = await otherDevice(client);
+      await service2.sync();
+
+      final row = await paymentRow(db2, 'pay1');
+      expect(row, isNotNull);
+      expect(row!.userId, 'u1');
+      expect(row.key, '2026:imposta_saldo');
+      expect(row.kind, 'imposta');
+      expect(row.label, 'Saldo imposta 2025');
+      expect(row.dueDate?.toUtc(), DateTime(2026, 6, 30, 12).toUtc());
+      expect(row.amount, 1234.56);
+      expect(row.paidDate, isNull);
+      expect(row.note, 'importo della commercialista');
+
+      // Marked paid locally (a new lastUpdated, as the editor would stamp it):
+      // the paid date rides the next push.
+      await (db.update(db.pivaPayments)..where((t) => t.id.equals('pay1')))
+          .write(PivaPaymentsCompanion(
+              paidDate: Value(DateTime(2026, 7, 2, 12)),
+              lastUpdated: Value(DateTime(2026, 7, 2, 12))));
+      final second = await service.sync();
+
+      expect(second.skipped, 0);
+      expect(client._store['piva_payments']!['pay1']!['paidDate'],
+          iso(DateTime(2026, 7, 2, 12)));
+    });
+
+    test('rows in the shape the server really returns land without errors',
+        () async {
+      final (db, _, _, service) = await _harness(initialStore: {
+        'piva_profile': {'pro-web': serverProfile()},
+        'piva_payments': {'pay-web': serverPayment()},
+      });
+
+      final summary = await service.sync(full: true, push: false);
+
+      expect(summary.skipped, 0);
+      expect(summary.error, isNull);
+      expect(summary.pulled, 2);
+
+      final p = await profileRow(db, 'pro-web');
+      expect(p, isNotNull);
+      expect(p!.userId, 'u1', reason: 'the service\'s user, not the body\'s owner');
+      expect(p.atecoCode, '62.20.10');
+      expect(p.coefficient, 67.0, reason: 'a whole number reads as a double');
+      expect(p.startYear, 2023);
+      expect(p.startupRate, true);
+      expect(p.fundType, 'gestione_separata');
+      expect(p.fundName, '');
+      expect(p.subjectiveRate, 26.07);
+      expect(p.integrativeRate, 0.0);
+      expect(p.minSubjective, 0.0);
+      expect(p.minIntegrative, 0.0);
+      expect(p.inpsReduction, false);
+      expect(p.incomeCategories, isNull,
+          reason: 'a json field never set stays null, not an empty list');
+      expect(p.lastUpdated, t1);
+
+      final pay = await paymentRow(db, 'pay-web');
+      expect(pay, isNotNull);
+      expect(pay!.userId, 'u1');
+      expect(pay.key, '');
+      expect(pay.kind, 'imposta');
+      expect(pay.label, 'Acconto');
+      expect(pay.dueDate?.toUtc(), DateTime.utc(2026, 6, 30, 10),
+          reason: 'PB\'s space-separated date parses');
+      expect(pay.amount, 0.0, reason: 'a zero amount is a real answer');
+      expect(pay.paidDate, isNull, reason: 'PB\'s empty date is no date');
+      expect(pay.note, '');
+
+      // A payment points at no profile: with none on either side it lands too.
+      final (db2, _, _, service2) = await _harness(initialStore: {
+        'piva_payments': {'pay-web': serverPayment()},
+      });
+      final alone = await service2.sync(full: true, push: false);
+      expect(alone.skipped, 0);
+      expect(alone.pulled, 1);
+      expect(await db2.select(db2.pivaProfiles).get(), isEmpty);
+      expect(await paymentRow(db2, 'pay-web'), isNotNull);
+    });
+
+    test('incomeCategories that is not a list reads null and does not fail the '
+        'collection', () async {
+      // A PocketBase json field holds anything. A cast that threw here would
+      // mark the whole collection failed and freeze both cursors for good.
+      final (db, persistence, _, service) = await _harness(initialStore: {
+        'piva_profile': {
+          'pro-string': serverProfile(categories: 'Consulenza'),
+          'pro-map': serverProfile(categories: {'Consulenza': true}),
+        },
+      });
+
+      final summary = await service.sync(full: true, push: false);
+
+      expect(summary.skipped, 0, reason: 'the collection did not fail');
+      expect(summary.error, isNull);
+      expect(summary.pulled, 2);
+      expect((await profileRow(db, 'pro-string'))!.incomeCategories, isNull);
+      expect((await profileRow(db, 'pro-map'))!.incomeCategories, isNull);
+      expect(persistence.getPullSyncAt(), t1,
+          reason: 'the pull cursor advanced past both rows');
+    });
+
+    test('LWW in pull, both ways on piva_payments: a newer remote row '
+        'overwrites the local one, a newer local row wins and is pushed',
+        () async {
+      final (db, _, client, service) = await _harness();
+      await payment(db, 'pay-remote', label: 'Old', at: t1);
+      await payment(db, 'pay-local', label: 'Local', at: t1);
+      await service.sync(); // push both
+
+      // pay-remote: another device edits it newer than ours.
+      client.edit('piva_payments', 'pay-remote',
+          {'label': 'New', 'lastUpdated': iso(DateTime(2026, 7, 2, 10))});
+      // pay-local: the remote edit is at 11:00, ours at 12:00.
+      client.edit('piva_payments', 'pay-local', {
+        'label': 'RemoteWins?',
+        'lastUpdated': iso(DateTime(2026, 7, 1, 11))
+      });
+      await (db.update(db.pivaPayments)..where((t) => t.id.equals('pay-local')))
+          .write(PivaPaymentsCompanion(
+              label: const Value('LocalWins'),
+              lastUpdated: Value(DateTime(2026, 7, 1, 12))));
+
+      final summary = await service.sync();
+
+      expect(summary.pulled, 1, reason: 'only pay-remote was applied');
+      expect(summary.conflicts, 1, reason: 'pay-local won against the pull');
+      expect((await paymentRow(db, 'pay-remote'))?.label, 'New');
+      expect((await paymentRow(db, 'pay-local'))?.label, 'LocalWins');
+      // The local winner reached the server.
+      expect(client._store['piva_payments']!['pay-local']!['label'], 'LocalWins');
+    });
+
+    test('the server guard rejecting a push adopts the remote profile (remote '
+        'wins)', () async {
+      final (db, persistence, client, service) = await _harness();
+      client.enforceLww = true;
+      await profile(db, 'pro1', fundName: 'Base', at: t1);
+      await service.sync(); // push, cursor = 10:00
+
+      // The pull has already passed; another device writes a *newer* row while
+      // our (stale) local edit is being pushed — the window the guard is for.
+      await (db.update(db.pivaProfiles)..where((t) => t.id.equals('pro1')))
+          .write(PivaProfilesCompanion(
+              fundName: const Value('StaleLocal'),
+              lastUpdated: Value(DateTime(2026, 7, 1, 11))));
+      client.onBeforeUpsert = (c, id) {
+        client.onBeforeUpsert = null; // fire once, on the stale push itself
+        client.edit('piva_profile', 'pro1', {
+          'fundName': 'FreshRemote',
+          'lastUpdated': iso(DateTime(2026, 7, 1, 12)),
+        });
+      };
+
+      final summary = await service.sync();
+
+      expect(summary.pulled, 0, reason: 'the remote edit lands after the pull');
+      expect(summary.remoteWins, 1);
+      expect(summary.skipped, 0, reason: 'remote-wins is not a skip');
+      final row = await profileRow(db, 'pro1');
+      expect(row?.fundName, 'FreshRemote', reason: 'local adopted the remote body');
+      expect(row?.lastUpdated, DateTime(2026, 7, 1, 12));
+      // The cursor advanced past the row — no rewind, no re-pick of the fight.
+      expect(persistence.getLastSyncAt(), DateTime(2026, 7, 1, 12));
+    });
+
+    test('a soft-deleted payment propagates as a tombstone to a fresh device',
+        () async {
+      final (db, _, client, service) = await _harness();
+      await payment(db, 'pay1', at: t1);
+      // Device A deletes it (soft delete + stamp).
+      await (db.update(db.pivaPayments)..where((t) => t.id.equals('pay1')))
+          .write(PivaPaymentsCompanion(
+              isDeleted: const Value(true),
+              lastUpdated: Value(DateTime(2026, 7, 2, 10))));
+      await service.sync();
+      expect(client._store['piva_payments']!['pay1']!['isDeleted'], true);
+
+      // Device B: fresh DB + fresh cursor, same server, pulls the tombstone.
+      final (db2, service2) = await otherDevice(client);
+      final summary = await service2.sync();
+
+      expect(summary.pulled, greaterThanOrEqualTo(1));
+      final row = await paymentRow(db2, 'pay1');
+      expect(row, isNotNull);
+      expect(row!.isDeleted, true);
+    });
+
+    test('a NULL lastUpdated row (a restored backup) is pushed, stamped only '
+        'once the server accepted it, and not pushed again', () async {
+      final (db, _, client, service) = await _harness();
+      // lastUpdated omitted → null: how a restored backup lands.
+      await db.into(db.pivaProfiles).insert(PivaProfilesCompanion.insert(
+          id: 'pro1', userId: const Value('u1')));
+      await db.into(db.pivaPayments).insert(PivaPaymentsCompanion.insert(
+          id: 'pay1', userId: const Value('u1')));
+      client.reject.add('pay1');
+
+      final first = await service.sync();
+
+      expect(first.pushed, 1, reason: 'the profile');
+      expect(first.skipped, 1, reason: 'the payment the server refused');
+      expect((await profileRow(db, 'pro1'))!.lastUpdated, isNotNull,
+          reason: 'accepted → stamped');
+      expect((await paymentRow(db, 'pay1'))!.lastUpdated, isNull,
+          reason: 'refused → still NULL, so the next sync selects it again');
+
+      client.reject.clear();
+      final second = await service.sync();
+
+      expect(second.pushed, 1, reason: 'only the payment, now accepted');
+      expect(client._store['piva_payments']!.containsKey('pay1'), isTrue);
+      expect((await paymentRow(db, 'pay1'))!.lastUpdated, isNotNull);
+
+      // Both are stamped now: nothing is pushed a third time.
+      final third = await service.sync();
+      expect(third.pushed, 0);
+    });
+
+    test('a payment the server always rejects is dead-lettered on the fifth '
+        'attempt and the cursor passes it', () async {
+      final (db, persistence, client, service) = await _harness();
+      final t2 = DateTime(2026, 7, 1, 11);
+      await payment(db, 'pay-bad', at: t1);
+      await payment(db, 'pay-ok', at: t2);
+      client.reject.add('pay-bad');
+
+      // Four attempts: the row fails each time, pinning the cursor…
+      for (var i = 0; i < 4; i++) {
+        final s = await service.sync();
+        expect(s.skipped, 1);
+        expect(s.deadLettered, 0);
+        expect(persistence.getLastSyncAt().isBefore(t1), isTrue,
+            reason: 'still retriable, the cursor stays behind it');
+      }
+      // …the fifth dead-letters it and lets the cursor pass.
+      final fifth = await service.sync();
+      expect(fifth.skipped, 1);
+      expect(fifth.deadLettered, 1);
+      expect(persistence.getLastSyncAt(), t2,
+          reason: 'the cursor must pass the dead-lettered row');
+
+      // The ledger names the collection, not the Drift table.
+      final failure = (await db.select(db.syncFailures).get()).single;
+      expect(failure.collection, 'piva_payments');
+      expect(failure.recordId, 'pay-bad');
+      expect(failure.attempts, 5);
+
+      // No longer selected: further syncs neither retry it nor count it.
+      final after = await service.sync();
+      expect(after.skipped, 0);
+      expect(client.pushAttempts['pay-bad'], 5);
+
+      // Editing the row (new lastUpdated) clears the slate — it retries. The
+      // edit also fixes whatever the server objected to, hence reject.clear.
+      client.reject.clear();
+      await (db.update(db.pivaPayments)..where((t) => t.id.equals('pay-bad')))
+          .write(PivaPaymentsCompanion(
+              label: const Value('Fixed'),
+              lastUpdated: Value(DateTime(2026, 7, 1, 12))));
+      final retried = await service.sync();
+      expect(retried.pushed, 1);
+      expect(client._store['piva_payments']!['pay-bad']!['label'], 'Fixed');
+    });
+
+    test('a full sync from the epoch rescues a profile behind an advanced '
+        'push cursor and one behind an advanced pull cursor', () async {
+      // Push side: a local row stranded behind a poisoned push cursor.
+      final (db, persistence, client, service) = await _harness();
+      await profile(db, 'pro1', at: t1);
+      await persistence.setLastSyncAt(DateTime(2026, 7, 10));
+
+      final incremental = await service.sync();
+      expect(incremental.pushed, 0, reason: 'incremental cannot see it');
+
+      final fullPush = await service.sync(full: true, pull: false);
+      expect(fullPush.pushed, 1);
+      expect(client._store['piva_profile']!['pro1']!['fundName'], 'Fondo Prova');
+
+      // Pull side: a server row stamped before the pull cursor.
+      final (db2, persistence2, _, service2) = await _harness(initialStore: {
+        'piva_profile': {'pro-srv': serverProfile()},
+      });
+      await persistence2.setPullSyncAt(DateTime(2026, 7, 10));
+
+      final incremental2 = await service2.sync(push: false);
+      expect(incremental2.pulled, 0, reason: 'behind the pull cursor');
+      expect(await profileRow(db2, 'pro-srv'), isNull);
+
+      final fullPull = await service2.sync(full: true, push: false);
+      expect(fullPull.pulled, 1);
+      expect(await profileRow(db2, 'pro-srv'), isNotNull);
+    });
+
+    test('pull and push each advance only their own cursor, and a third sync '
+        'does nothing', () async {
+      final (db, persistence, client, service) = await _harness(initialStore: {
+        'piva_profile': {'pro-srv': serverProfile(at: t1)},
+      });
+      await profile(db, 'pro-loc', at: t1.add(const Duration(hours: 2)));
+
+      final pullOnly = await service.sync(full: true, push: false);
+      expect(pullOnly.pulled, 1);
+      // Pull confirmed the server up to its stamp — the push cursor did not
+      // move, and the local row newer than it is still unpushed.
+      expect(persistence.getPullSyncAt(), t1);
+      expect(persistence.getLastSyncAt(), DateTime.fromMillisecondsSinceEpoch(0));
+      expect(client._store['piva_profile']!.containsKey('pro-loc'), isFalse);
+
+      final pushOnly = await service.sync(full: true, pull: false);
+      expect(pushOnly.pushed, greaterThanOrEqualTo(1));
+      expect(client._store['piva_profile']!.containsKey('pro-loc'), isTrue);
+      expect(persistence.getLastSyncAt(), t1.add(const Duration(hours: 2)));
+      // The push itself stamped a server `updated` — the pull cursor learns it
+      // from the push outcome, so the next pull skips our own writes.
+      expect(persistence.getPullSyncAt().isAfter(t1), isTrue);
+
+      // Neither direction re-does its work.
+      final noop = await service.sync();
+      expect(noop.pushed, 0);
+      expect(noop.pulled, 0);
+    });
+
+    test('a server without the two collections yet cannot break the others, '
+        'and catches up once it has them', () async {
+      final (db, persistence, client, service) = await _harness();
+      client.failCollections.addAll(['piva_profile', 'piva_payments']);
+      await db.into(db.categories).insert(CategoriesCompanion.insert(
+            id: 'c1',
+            name: 'Food',
+            iconCode: 1,
+            colorHex: 2,
+            type: 'expense',
+            userId: const Value('u1'),
+            lastUpdated: Value(t1),
+          ));
+
+      final summary = await service.sync();
+
+      expect(summary.pushed, 1, reason: 'categories still sync');
+      expect(summary.skipped, 2, reason: 'both failures are reported');
+      expect(summary.error, isNull, reason: 'the run is partial, not failed');
+      // The cursor is global — advancing it would strand the profile forever.
+      expect(persistence.getLastSyncAt(), DateTime.fromMillisecondsSinceEpoch(0));
+
+      // Once the server catches up, the frozen cursor lets everything through.
+      client.failCollections.clear();
+      await profile(db, 'pro1', at: t1);
+      final second = await service.sync();
+      expect(second.skipped, 0);
+      expect(client._store['piva_profile']!.containsKey('pro1'), isTrue);
+      expect(persistence.getLastSyncAt(), t1);
+    });
+
+    test('a write to piva_payments triggers the auto-sync', () async {
+      final (db, _, _, _) = await _harness();
+      final fired = Completer<void>();
+      var runs = 0;
+      final auto = PocketBaseAutoSync(
+        db: db,
+        isEnabled: () => true,
+        runSync: () async {
+          runs++;
+          if (!fired.isCompleted) fired.complete();
+        },
+        debounce: const Duration(milliseconds: 20),
+      );
+      addTearDown(auto.dispose);
+
+      await db.into(db.pivaPayments).insert(
+          PivaPaymentsCompanion.insert(id: 'pay1', userId: const Value('u1')));
+
+      await fired.future.timeout(const Duration(seconds: 2));
+      // Let a second, unwanted run show itself before counting.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(runs, 1, reason: 'one write, one debounced sync');
+    });
+  });
 }

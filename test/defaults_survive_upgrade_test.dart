@@ -68,7 +68,7 @@ void main() {
   // a hidden row is data loss.
   group('an upgrade from an older build leaves every category and tag as it was',
       () {
-    for (final from in [1, 5, 9, 11]) {
+    for (final from in [1, 5, 9, 11, 18]) {
       test('from user_version $from', () async {
         final dir = Directory.systemTemp.createTempSync('upgrade');
         addTearDown(() => dir.deleteSync(recursive: true));

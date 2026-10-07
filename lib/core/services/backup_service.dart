@@ -138,7 +138,7 @@ class BackupService {
   }
 
   Future<File> _createBackupFile({bool isAutoBackup = false, PersistenceService? persistence}) async {
-    // 1. Fetch all data inside one transaction — six loose reads could span
+    // 1. Fetch all data inside one transaction — loose reads could span
     // an auto-sync write and ship a torn snapshot (categories from before an
     // edit, transactions from after).
     final data = await _db.transaction(() async {
@@ -148,8 +148,11 @@ class BackupService {
       final tags = await _db.select(_db.tags).get();
       final budgets = await _db.select(_db.budgets).get();
       final installments = await _db.select(_db.installments).get();
+      final pivaProfiles = await _db.select(_db.pivaProfiles).get();
+      final pivaPayments = await _db.select(_db.pivaPayments).get();
 
-      // 2. Convert to JSON
+      // 2. Convert to JSON. The Partita IVA keys are the *collection* names
+      // (`piva_profile`, singular) — the format the web Ledger reads and writes.
       return {
         'generated_at': DateTime.now().toIso8601String(),
         'accounts': accounts.map((e) => e.toJson()).toList(),
@@ -158,6 +161,8 @@ class BackupService {
         'tags': tags.map((e) => e.toJson()).toList(),
         'budgets': budgets.map((e) => e.toJson()).toList(),
         'installments': installments.map((e) => e.toJson()).toList(),
+        'piva_profile': pivaProfiles.map((e) => e.toJson()).toList(),
+        'piva_payments': pivaPayments.map((e) => e.toJson()).toList(),
       };
     });
 
@@ -256,6 +261,21 @@ class BackupService {
     final installments = ((data['installments'] as List?) ?? const [])
         .map((e) => Installment.fromJson(e as Map<String, dynamic>))
         .toList();
+    // Optional, and "absent" is not "empty": unlike installments, a backup that
+    // never names the Partita IVA says nothing about it (the profile is a row
+    // typed in by hand from the accountant's figures), so null here means the
+    // table is left alone, while a key that is present — even `[]` — replaces it.
+    final pivaProfiles = (data['piva_profile'] as List?)?.map((e) {
+      final map = e as Map<String, dynamic>;
+      // Same as `tags`: jsonDecode hands back a List<dynamic>, fromJson wants a
+      // List<String>. Anything that is not a list reads as "no categories".
+      final cats = map['incomeCategories'];
+      map['incomeCategories'] = cats is List ? List<String>.from(cats) : null;
+      return PivaProfile.fromJson(map);
+    }).toList();
+    final pivaPayments = (data['piva_payments'] as List?)
+        ?.map((e) => PivaPayment.fromJson(e as Map<String, dynamic>))
+        .toList();
 
     // 3. Replace data in transaction
     await _db.transaction(() async {
@@ -263,6 +283,9 @@ class BackupService {
       await _db.delete(_db.transactions).go();
       await _db.delete(_db.budgets).go();
       await _db.delete(_db.installments).go();
+      // Only the Partita IVA tables the file actually carried (see above).
+      if (pivaProfiles != null) await _db.delete(_db.pivaProfiles).go();
+      if (pivaPayments != null) await _db.delete(_db.pivaPayments).go();
       await _db.delete(_db.accounts).go();
       await _db.delete(_db.categories).go();
       await _db.delete(_db.tags).go();
@@ -274,6 +297,12 @@ class BackupService {
         batch.insertAll(_db.tags, tags);
         batch.insertAll(_db.budgets, budgets);
         batch.insertAll(_db.installments, installments);
+        if (pivaProfiles != null) {
+          batch.insertAll(_db.pivaProfiles, pivaProfiles);
+        }
+        if (pivaPayments != null) {
+          batch.insertAll(_db.pivaPayments, pivaPayments);
+        }
         batch.insertAll(_db.transactions, transactions);
       });
     });

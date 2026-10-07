@@ -154,6 +154,61 @@ class Installments extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// The Partita IVA (regime forfettario) profile: the one live row of figures
+/// the accountant gave, mirroring the web Ledger's `piva_profile` collection.
+///
+/// Tax, contributions and deadlines are derived at read time from this row
+/// and the ledger — they are never stored. There is no constraint
+/// between this table and [PivaPayments] (no FK, no unique key): sync delivers
+/// rows in any order, so a payment can land before the profile.
+class PivaProfiles extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get atecoCode => text().withDefault(const Constant(''))();
+  RealColumn get coefficient => real().withDefault(const Constant(0.0))();
+  IntColumn get startYear => integer().withDefault(const Constant(0))();
+  BoolColumn get startupRate => boolean().withDefault(const Constant(false))();
+  TextColumn get fundType => text().withDefault(const Constant(''))();
+  TextColumn get fundName => text().withDefault(const Constant(''))();
+  RealColumn get subjectiveRate => real().withDefault(const Constant(0.0))();
+  RealColumn get integrativeRate => real().withDefault(const Constant(0.0))();
+  RealColumn get minSubjective => real().withDefault(const Constant(0.0))();
+  RealColumn get minIntegrative => real().withDefault(const Constant(0.0))();
+  BoolColumn get inpsReduction =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get incomeCategories =>
+      text().map(const ListStringConverter()).nullable()();
+
+  // Sync fields
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get lastUpdated => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One Partita IVA deadline that has an official amount or a payment, mirroring
+/// the web Ledger's `piva_payments` collection. Estimates are not stored here;
+/// a row with the same [key] replaces the estimate for that deadline.
+class PivaPayments extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get key => text().withDefault(const Constant(''))();
+  TextColumn get kind => text().withDefault(const Constant(''))();
+  TextColumn get label => text().withDefault(const Constant(''))();
+  DateTimeColumn get dueDate => dateTime().nullable()();
+  RealColumn get amount => real().withDefault(const Constant(0.0))();
+  DateTimeColumn get paidDate => dateTime().nullable()();
+  TextColumn get note => text().withDefault(const Constant(''))();
+
+  // Sync fields
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get lastUpdated => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Draft transactions awaiting review — captured from Widiba bank emails or
 /// Revolut Android notifications. [source] distinguishes them so the inbox
 /// resolves the correct wallet on approval. The row is kept after
@@ -239,6 +294,8 @@ class SyncFailures extends Table {
     Transactions,
     Budgets,
     Installments,
+    PivaProfiles,
+    PivaPayments,
     PendingTransactions,
     SyncLocks,
     SyncFailures,
@@ -252,7 +309,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 18; // v18: categories.color_slot
+  int get schemaVersion => 19; // v19: piva_profiles, piva_payments
 
   /// Every index the schema declares, as full CREATE statements. Drift's
   /// codegen only picks up `@TableIndex` annotations — the plain
@@ -377,6 +434,10 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 18) {
         await _addColumnIfMissing(m, categories, categories.colorSlot);
+      }
+      if (from < 19) {
+        await m.createTable(pivaProfiles);
+        await m.createTable(pivaPayments);
       }
     },
   );
