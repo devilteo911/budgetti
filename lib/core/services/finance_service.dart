@@ -1039,6 +1039,72 @@ class FinanceService {
     return rows.isEmpty ? null : _toPivaProfile(rows.first);
   }
 
+  /// Saves the profile and leaves exactly one live row: the one
+  /// [getPivaProfile] reads (newest `lastUpdated`, nulls last) is updated, every
+  /// other live row is soft-deleted and stamped now, so the delete syncs.
+  ///
+  /// Reads never write, so the losers are retired here, on save. Two devices
+  /// can each create a profile offline, and a loser left live may be restamped
+  /// later (a backup restore, `adoptLocalData`) and come back as the newest.
+  /// `web/src/pb.ts savePivaProfile` is the mirror that updates the winner and
+  /// leaves the loser live — harmless on read, which is why the web is not
+  /// touched; the first save from the phone retires it for both.
+  ///
+  /// Same load as [_pivaProfileQuery] but without its `limit(1)`: the losers
+  /// are the point.
+  Future<void> savePivaProfile(model_piva.PivaProfileInput input) async {
+    final live = await (_db.select(_db.pivaProfiles)
+          ..where((t) => t.isDeleted.equals(false) & t.userId.equals(_userId))
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.lastUpdated,
+                  mode: OrderingMode.desc,
+                  nulls: NullsOrder.last,
+                ),
+          ]))
+        .get();
+
+    final now = DateTime.now();
+    final fields = PivaProfilesCompanion(
+      atecoCode: Value(input.atecoCode),
+      coefficient: Value(input.coefficient),
+      startYear: Value(input.startYear),
+      startupRate: Value(input.startupRate),
+      fundType: Value(input.fundType),
+      fundName: Value(input.fundName),
+      subjectiveRate: Value(input.subjectiveRate),
+      integrativeRate: Value(input.integrativeRate),
+      minSubjective: Value(input.minSubjective),
+      minIntegrative: Value(input.minIntegrative),
+      inpsReduction: Value(input.inpsReduction),
+      incomeCategories: Value(input.incomeCategories),
+      lastUpdated: Value(now),
+    );
+
+    if (live.isEmpty) {
+      await _db.into(_db.pivaProfiles).insert(fields.copyWith(
+            id: Value(const Uuid().v4()),
+            userId: Value(_userId),
+            isDeleted: const Value(false),
+          ));
+      return;
+    }
+
+    await _db.transaction(() async {
+      await (_db.update(_db.pivaProfiles)
+            ..where((t) => t.id.equals(live.first.id)))
+          .write(fields);
+      if (live.length > 1) {
+        await (_db.update(_db.pivaProfiles)
+              ..where((t) => t.id.isIn(live.skip(1).map((r) => r.id))))
+            .write(PivaProfilesCompanion(
+          isDeleted: const Value(true),
+          lastUpdated: Value(now),
+        ));
+      }
+    });
+  }
+
   /// Rows without a `dueDate` sort last.
   MultiSelectable<PivaPayment> _pivaPaymentsQuery() =>
       _db.select(_db.pivaPayments)
