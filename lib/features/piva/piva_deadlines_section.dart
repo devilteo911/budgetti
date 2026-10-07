@@ -396,7 +396,7 @@ class _DeadlineRow extends StatelessWidget {
     return InkWell(
       onTap: onOpen,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+        padding: const EdgeInsets.fromLTRB(20, 8, 8, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
