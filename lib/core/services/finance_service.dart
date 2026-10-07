@@ -8,6 +8,7 @@ import 'package:budgetti/models/transaction.dart' as model_txn;
 import 'package:budgetti/models/tag.dart' as model_tag;
 import 'package:budgetti/models/budget.dart' as model_budget;
 import 'package:budgetti/models/installment.dart' as model_installment;
+import 'package:budgetti/models/piva.dart' as model_piva;
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -379,6 +380,38 @@ class FinanceService {
         installmentId: t.installmentId,
       );
 
+  /// Drift row → engine profile. The engine class has no `id`/`isDeleted`, and
+  /// its `incomeCategories` is never null (a NULL column means "no categories").
+  model_piva.PivaProfileData _toPivaProfile(PivaProfile row) =>
+      model_piva.PivaProfileData(
+        atecoCode: row.atecoCode,
+        coefficient: row.coefficient,
+        startYear: row.startYear,
+        startupRate: row.startupRate,
+        fundType: row.fundType,
+        fundName: row.fundName,
+        subjectiveRate: row.subjectiveRate,
+        integrativeRate: row.integrativeRate,
+        minSubjective: row.minSubjective,
+        minIntegrative: row.minIntegrative,
+        inpsReduction: row.inpsReduction,
+        incomeCategories: row.incomeCategories ?? const [],
+      );
+
+  /// Days pass through untouched: `DateTime?` local, `null` = no day.
+  model_piva.PivaPaymentData _toPivaPayment(PivaPayment row) =>
+      model_piva.PivaPaymentData(
+        id: row.id,
+        key: row.key,
+        kind: row.kind,
+        label: row.label,
+        dueDate: row.dueDate,
+        amount: row.amount,
+        paidDate: row.paidDate,
+        note: row.note,
+        isDeleted: row.isDeleted,
+      );
+
   Stream<List<model_txn.Transaction>> watchTransactions({
     String? accountId,
     DateTime? startDate,
@@ -444,6 +477,31 @@ class FinanceService {
       ]);
     return query.watch().map((result) => result.map(_toModelTx).toList());
   }
+
+  /// Every income row of the ledger, whatever the date: the Partita IVA figures
+  /// read the whole history (the acconti of a year look at the years before
+  /// it), so no window. Same rule as `Transaction.isIncome` — a non-transfer
+  /// with a positive amount. The profile's categories are the engine's filter
+  /// (`pivaIncome`), not SQL's, so editing them needs no new query.
+  MultiSelectable<Transaction> _pivaIncomeQuery() =>
+      _db.select(_db.transactions)
+        ..where((tbl) =>
+            tbl.isDeleted.equals(false) &
+            tbl.userId.equals(_userId) &
+            tbl.type.equals('transfer').not() &
+            tbl.amount.isBiggerThanValue(0))
+        ..orderBy([
+          (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),
+        ]);
+
+  Stream<List<model_txn.Transaction>> watchPivaIncome() =>
+      _pivaIncomeQuery().watch().map((rows) => rows.map(_toModelTx).toList());
+
+  /// One-shot twin of [watchPivaIncome], for callers with no providers (the
+  /// background isolate).
+  Future<List<model_txn.Transaction>> getPivaIncome() async =>
+      (await _pivaIncomeQuery().get()).map(_toModelTx).toList();
 
   /// Totals over exactly the filter the ledger page queries — a SQL
   /// aggregate watched on the transactions table, instead of re-watching and
@@ -954,6 +1012,48 @@ class FinanceService {
       lastUpdated: Value(DateTime.now()),
     ));
   }
+
+  /// The one live Partita IVA profile. Nothing stops sync from bringing two
+  /// (two devices, each creating one offline): the newest by `lastUpdated`
+  /// wins — as in [upsertBudget] — and nothing is hidden or deleted for it.
+  MultiSelectable<PivaProfile> _pivaProfileQuery() =>
+      _db.select(_db.pivaProfiles)
+        ..where((t) => t.isDeleted.equals(false) & t.userId.equals(_userId))
+        ..orderBy([
+          (t) => OrderingTerm(
+                expression: t.lastUpdated,
+                mode: OrderingMode.desc,
+                nulls: NullsOrder.last,
+              ),
+        ])
+        ..limit(1);
+
+  /// `null` = no profile yet.
+  Stream<model_piva.PivaProfileData?> watchPivaProfile() =>
+      _pivaProfileQuery().watch().map(
+            (rows) => rows.isEmpty ? null : _toPivaProfile(rows.first),
+          );
+
+  Future<model_piva.PivaProfileData?> getPivaProfile() async {
+    final rows = await _pivaProfileQuery().get();
+    return rows.isEmpty ? null : _toPivaProfile(rows.first);
+  }
+
+  /// Rows without a `dueDate` sort last.
+  MultiSelectable<PivaPayment> _pivaPaymentsQuery() =>
+      _db.select(_db.pivaPayments)
+        ..where((t) => t.isDeleted.equals(false) & t.userId.equals(_userId))
+        ..orderBy([
+          (t) => OrderingTerm(expression: t.dueDate, nulls: NullsOrder.last),
+        ]);
+
+  Stream<List<model_piva.PivaPaymentData>> watchPivaPayments() =>
+      _pivaPaymentsQuery().watch().map(
+            (rows) => rows.map(_toPivaPayment).toList(),
+          );
+
+  Future<List<model_piva.PivaPaymentData>> getPivaPayments() async =>
+      (await _pivaPaymentsQuery().get()).map(_toPivaPayment).toList();
 
   /// One-shot repair: the original seed shipped with wrong Material codepoints,
   /// so default categories rendered as unrelated glyphs (Groceries=fence,

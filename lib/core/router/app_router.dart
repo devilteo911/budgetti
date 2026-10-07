@@ -12,6 +12,7 @@ import 'package:budgetti/features/transactions/email_inbox_screen.dart';
 import 'package:budgetti/features/stats/stats_screen.dart';
 import 'package:budgetti/features/budget/budget_screen.dart';
 import 'package:budgetti/features/installments/installments_screen.dart';
+import 'package:budgetti/features/piva/piva_screen.dart';
 import 'package:budgetti/features/settings/settings_screen.dart';
 import 'package:budgetti/features/settings/appearance_screen.dart';
 import 'package:budgetti/features/settings/preferences_screen.dart';
@@ -50,6 +51,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/installments',
         builder: (context, state) => const InstallmentsScreen(),
+      ),
+      GoRoute(
+        path: '/piva',
+        builder: (context, state) => const PivaScreen(),
       ),
       GoRoute(
         path: reviewInboxPath,

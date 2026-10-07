@@ -548,6 +548,122 @@ class AppLocalizationsEn extends AppLocalizations {
   String get instAttachPayment => 'Attach a payment';
 
   @override
+  String get pivaTitle => 'Partita IVA';
+
+  @override
+  String get pivaSettingsSubtitle =>
+      'Regime forfettario: income, tax and contributions';
+
+  @override
+  String get pivaEmptyKicker => 'NO PROFILE';
+
+  @override
+  String get pivaEmptyHint =>
+      'Set up your partita IVA from the web dashboard: it shows up here after the next sync.';
+
+  @override
+  String get pivaProfileLabel => 'PROFILE';
+
+  @override
+  String pivaSince(String year) {
+    return 'since $year';
+  }
+
+  @override
+  String get pivaPrevYear => 'Previous year';
+
+  @override
+  String get pivaNextYear => 'Next year';
+
+  @override
+  String get pivaTileAverage => 'Monthly average';
+
+  @override
+  String pivaTileAverageSub(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'over $count months',
+      one: 'over 1 month',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pivaTileFirstMonth => 'first month';
+
+  @override
+  String get pivaTilePayments => 'Payments counted';
+
+  @override
+  String pivaTilePaymentsSub(String amount) {
+    return 'avg $amount each';
+  }
+
+  @override
+  String get pivaNoneYet => 'none yet';
+
+  @override
+  String get pivaTileBest => 'Best month';
+
+  @override
+  String pivaVsYear(String year) {
+    return 'vs $year';
+  }
+
+  @override
+  String get pivaNew => 'new';
+
+  @override
+  String pivaNoIncome(String year) {
+    return 'No incassi in $year yet.';
+  }
+
+  @override
+  String pivaNoIncomeHint(String categories) {
+    return 'Income filed under $categories shows up here.';
+  }
+
+  @override
+  String get pivaNoIncomeNoCategories =>
+      'Pick the income categories in your profile and they show up here.';
+
+  @override
+  String get pivaReconIntegrativo =>
+      'Contributo integrativo collected · to remit';
+
+  @override
+  String get pivaReconBank => 'Incassi at the bank';
+
+  @override
+  String pivaEstimateLabel(String year) {
+    return 'ESTIMATE · TAX YEAR $year';
+  }
+
+  @override
+  String get pivaNet => 'Net';
+
+  @override
+  String get pivaPassThroughNote => 'pass-through: not income, not deductible';
+
+  @override
+  String get pivaEstimateFoot =>
+      'An estimate from the income in your ledger. Your accountant\'s figures replace it, deadline by deadline.';
+
+  @override
+  String pivaChartSemantics(String year, String total, String prior) {
+    return 'Compensi by month in $year, $total in total, against $prior';
+  }
+
+  @override
+  String pivaCardNet(String amount) {
+    return 'estimated net $amount';
+  }
+
+  @override
+  String get pivaCardSetAside => 'Tax and contributions';
+
+  @override
   String get importSelectWalletError => 'Please select a wallet';
 
   @override

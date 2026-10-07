@@ -1058,6 +1058,180 @@ abstract class AppLocalizations {
   /// **'Attach a payment'**
   String get instAttachPayment;
 
+  /// No description provided for @pivaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Partita IVA'**
+  String get pivaTitle;
+
+  /// No description provided for @pivaSettingsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Regime forfettario: income, tax and contributions'**
+  String get pivaSettingsSubtitle;
+
+  /// No description provided for @pivaEmptyKicker.
+  ///
+  /// In en, this message translates to:
+  /// **'NO PROFILE'**
+  String get pivaEmptyKicker;
+
+  /// No description provided for @pivaEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your partita IVA from the web dashboard: it shows up here after the next sync.'**
+  String get pivaEmptyHint;
+
+  /// No description provided for @pivaProfileLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'PROFILE'**
+  String get pivaProfileLabel;
+
+  /// No description provided for @pivaSince.
+  ///
+  /// In en, this message translates to:
+  /// **'since {year}'**
+  String pivaSince(String year);
+
+  /// No description provided for @pivaPrevYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous year'**
+  String get pivaPrevYear;
+
+  /// No description provided for @pivaNextYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Next year'**
+  String get pivaNextYear;
+
+  /// No description provided for @pivaTileAverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly average'**
+  String get pivaTileAverage;
+
+  /// No description provided for @pivaTileAverageSub.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1 {over 1 month} other {over {count} months}}'**
+  String pivaTileAverageSub(int count);
+
+  /// No description provided for @pivaTileFirstMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'first month'**
+  String get pivaTileFirstMonth;
+
+  /// No description provided for @pivaTilePayments.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments counted'**
+  String get pivaTilePayments;
+
+  /// No description provided for @pivaTilePaymentsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'avg {amount} each'**
+  String pivaTilePaymentsSub(String amount);
+
+  /// No description provided for @pivaNoneYet.
+  ///
+  /// In en, this message translates to:
+  /// **'none yet'**
+  String get pivaNoneYet;
+
+  /// No description provided for @pivaTileBest.
+  ///
+  /// In en, this message translates to:
+  /// **'Best month'**
+  String get pivaTileBest;
+
+  /// No description provided for @pivaVsYear.
+  ///
+  /// In en, this message translates to:
+  /// **'vs {year}'**
+  String pivaVsYear(String year);
+
+  /// No description provided for @pivaNew.
+  ///
+  /// In en, this message translates to:
+  /// **'new'**
+  String get pivaNew;
+
+  /// No description provided for @pivaNoIncome.
+  ///
+  /// In en, this message translates to:
+  /// **'No incassi in {year} yet.'**
+  String pivaNoIncome(String year);
+
+  /// No description provided for @pivaNoIncomeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Income filed under {categories} shows up here.'**
+  String pivaNoIncomeHint(String categories);
+
+  /// No description provided for @pivaNoIncomeNoCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the income categories in your profile and they show up here.'**
+  String get pivaNoIncomeNoCategories;
+
+  /// No description provided for @pivaReconIntegrativo.
+  ///
+  /// In en, this message translates to:
+  /// **'Contributo integrativo collected · to remit'**
+  String get pivaReconIntegrativo;
+
+  /// No description provided for @pivaReconBank.
+  ///
+  /// In en, this message translates to:
+  /// **'Incassi at the bank'**
+  String get pivaReconBank;
+
+  /// No description provided for @pivaEstimateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'ESTIMATE · TAX YEAR {year}'**
+  String pivaEstimateLabel(String year);
+
+  /// No description provided for @pivaNet.
+  ///
+  /// In en, this message translates to:
+  /// **'Net'**
+  String get pivaNet;
+
+  /// No description provided for @pivaPassThroughNote.
+  ///
+  /// In en, this message translates to:
+  /// **'pass-through: not income, not deductible'**
+  String get pivaPassThroughNote;
+
+  /// No description provided for @pivaEstimateFoot.
+  ///
+  /// In en, this message translates to:
+  /// **'An estimate from the income in your ledger. Your accountant\'s figures replace it, deadline by deadline.'**
+  String get pivaEstimateFoot;
+
+  /// No description provided for @pivaChartSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Compensi by month in {year}, {total} in total, against {prior}'**
+  String pivaChartSemantics(String year, String total, String prior);
+
+  /// No description provided for @pivaCardNet.
+  ///
+  /// In en, this message translates to:
+  /// **'estimated net {amount}'**
+  String pivaCardNet(String amount);
+
+  /// No description provided for @pivaCardSetAside.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax and contributions'**
+  String get pivaCardSetAside;
+
   /// No description provided for @importSelectWalletError.
   ///
   /// In en, this message translates to:

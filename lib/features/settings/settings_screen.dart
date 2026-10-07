@@ -76,6 +76,12 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push('/settings/wallets'),
             ),
             SettingsTile(
+              icon: Icons.work_outline,
+              title: context.l10n.pivaTitle,
+              subtitle: context.l10n.pivaSettingsSubtitle,
+              onTap: () => context.push('/piva'),
+            ),
+            SettingsTile(
               icon: Icons.file_upload_outlined,
               iconColor: Colors.orangeAccent,
               title: context.l10n.setImportQuicken,

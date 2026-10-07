@@ -16,6 +16,8 @@ export 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/models/tag.dart';
 import 'package:budgetti/models/budget.dart';
 import 'package:budgetti/models/installment.dart';
+import 'package:budgetti/models/piva.dart' show PivaPaymentData, PivaProfileData;
+import 'package:budgetti/features/piva/piva_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
@@ -345,6 +347,66 @@ final installmentsOwedProvider = Provider<double>((ref) {
   final plans = ref.watch(installmentsProvider).value ?? const [];
   return plans.fold<double>(0, (s, p) => s + p.remainingAmount());
 });
+
+// The Partita IVA sources. Streams, never FutureProviders, for the reason in
+// the comment above [accountsProvider]: rows arrive from sync, and nobody
+// invalidates these by hand.
+
+/// The one live profile; `null` = none yet.
+final pivaProfileProvider = StreamProvider<PivaProfileData?>((ref) {
+  return ref.watch(financeServiceProvider).watchPivaProfile();
+});
+
+final pivaPaymentsProvider = StreamProvider<List<PivaPaymentData>>((ref) {
+  return ref.watch(financeServiceProvider).watchPivaPayments();
+});
+
+/// Every income row of the ledger, no date window (see
+/// [FinanceService.watchPivaIncome]).
+final pivaTransactionsProvider = StreamProvider<List<Transaction>>((ref) {
+  return ref.watch(financeServiceProvider).watchPivaIncome();
+});
+
+/// The year the Partita IVA screen shows. A provider, not widget state, so it
+/// survives leaving and re-entering the screen.
+class PivaYearNotifier extends Notifier<int> {
+  @override
+  int build() => DateTime.now().year;
+
+  void set(int year) => state = year;
+}
+
+final pivaYearProvider = NotifierProvider<PivaYearNotifier, int>(
+  PivaYearNotifier.new,
+);
+
+/// [year] of the profile as the screen shows it; `AsyncData(null)` = no profile.
+/// Riverpod keeps the value until one of the three sources emits, so widget
+/// rebuilds recompute nothing; `now` is read once per derivation.
+final pivaViewProvider =
+    Provider.family<AsyncValue<PivaYearView?>, int>((ref, year) {
+      final profileAsync = ref.watch(pivaProfileProvider);
+      final paymentsAsync = ref.watch(pivaPaymentsProvider);
+      final txnsAsync = ref.watch(pivaTransactionsProvider);
+
+      return profileAsync.when(
+        loading: () => const AsyncLoading(),
+        error: AsyncError.new,
+        data: (profile) => paymentsAsync.when(
+          loading: () => const AsyncLoading(),
+          error: AsyncError.new,
+          data: (payments) => txnsAsync.when(
+            loading: () => const AsyncLoading(),
+            error: AsyncError.new,
+            data: (txns) => AsyncData(
+              profile == null
+                  ? null
+                  : pivaYearView(profile, txns, payments, year, DateTime.now()),
+            ),
+          ),
+        ),
+      );
+    });
 
 /// Local profile (username, currency, avatar, email). Single user — no cloud.
 /// Kept as a FutureProvider so existing `.when`/`.value` callers keep working.
