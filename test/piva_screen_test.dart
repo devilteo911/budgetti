@@ -1,5 +1,7 @@
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/features/piva/piva_deadlines_section.dart';
 import 'package:budgetti/features/piva/piva_format.dart';
+import 'package:budgetti/features/piva/piva_income_section.dart' show PivaLine;
 import 'package:budgetti/features/piva/piva_profile_sheet.dart';
 import 'package:budgetti/features/piva/piva_screen.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
@@ -180,7 +182,9 @@ void main() {
     expect(find.text(en.pivaPassThroughNote), findsOneWidget);
     expect(find.text(en.pivaReconBank), findsOneWidget);
     expect(find.text('€10,400.00'), findsOneWidget); // the bank amount
-    expect(find.text('€400.00'), findsNWidgets(2)); // the integrativo to remit
+    // The integrativo to remit. Under PivaLine: the deadlines below can hold an
+    // estimated row of the same amount, depending on the day the test runs.
+    expect(find.descendant(of: find.byType(PivaLine), matching: find.text('€400.00')), findsNWidgets(2));
   });
 
   testWidgets('the profile title is one line when it fits', (tester) async {
@@ -283,6 +287,9 @@ void main() {
       // The list is lazy: scroll to the foot so every section has been laid out.
       await tester.scrollUntilVisible(find.text(en.pivaEstimateFoot), 300);
       await settle(tester);
+      // ...and the deadlines below it, tiles and rows.
+      await tester.scrollUntilVisible(find.byType(PivaDeadlinesSection), 300);
+      await settle(tester);
 
       expect(tester.takeException(), isNull);
     });
@@ -294,7 +301,9 @@ void main() {
       await pump(tester, profile: profile(), txns: [income(10000)], locale: locale);
 
       expect(find.text(net), findsOneWidget);
-      expect(find.textContaining('Imposta sostitutiva'), findsOneWidget);
+      // The whole label: the deadlines below name the same tax ("Imposta
+      // sostitutiva · Saldo …").
+      expect(find.text('Imposta sostitutiva · 15%'), findsOneWidget);
     });
   }
 }

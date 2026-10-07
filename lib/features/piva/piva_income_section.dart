@@ -48,7 +48,7 @@ class PivaIncomeSection extends ConsumerWidget {
             border: TableBorder.all(color: scheme.outline.withValues(alpha: 0.12)),
             children: [
               TableRow(children: [
-                _Tile(
+                PivaTile(
                   label: '$pivaCompensi $year',
                   value: currency.format(view.total),
                   sub: delta,
@@ -58,7 +58,7 @@ class PivaIncomeSection extends ConsumerWidget {
                           ? expenseInk(scheme.brightness)
                           : null,
                 ),
-                _Tile(
+                PivaTile(
                   label: l10n.pivaTileAverage,
                   value: avg == null ? '—' : currency.format(avg),
                   sub: avg == null
@@ -67,14 +67,14 @@ class PivaIncomeSection extends ConsumerWidget {
                 ),
               ]),
               TableRow(children: [
-                _Tile(
+                PivaTile(
                   label: l10n.pivaTilePayments,
                   value: '${view.count}',
                   sub: view.count > 0
                       ? l10n.pivaTilePaymentsSub(currency.format(view.total / view.count))
                       : l10n.pivaNoneYet,
                 ),
-                _Tile(
+                PivaTile(
                   label: l10n.pivaTileBest,
                   value: view.best > 0 ? currency.format(view.best) : '—',
                   sub: view.best > 0
@@ -283,11 +283,11 @@ class _YearHeader extends ConsumerWidget {
   }
 }
 
-/// A cell of the 2×2 grid: the label and the amount each on one line (they
-/// shrink instead of wrapping, so the two cells of a row stay level), then a
-/// small line that may wrap.
-class _Tile extends StatelessWidget {
-  const _Tile({required this.label, required this.value, required this.sub, this.subInk});
+/// A cell of the 2×2 grid of compensi and of the deadlines' three tiles: the
+/// label and the amount each on one line (they shrink instead of wrapping, so
+/// the cells of a row stay level), then a small line that may wrap.
+class PivaTile extends StatelessWidget {
+  const PivaTile({super.key, required this.label, required this.value, required this.sub, this.subInk});
 
   final String label, value, sub;
   final Color? subInk;

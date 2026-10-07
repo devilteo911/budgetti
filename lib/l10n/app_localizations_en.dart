@@ -758,6 +758,167 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pivaProfileErrCategories => 'Pick at least one income category.';
 
   @override
+  String get pivaDlTitle => 'Deadlines';
+
+  @override
+  String get pivaDlAdd => 'Add deadline';
+
+  @override
+  String pivaDlDueByDec(int year) {
+    return 'Due by Dec $year';
+  }
+
+  @override
+  String pivaDlCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count deadlines',
+      one: '1 deadline',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pivaDlOverdue => 'Overdue';
+
+  @override
+  String pivaDlOverdueCount(int count) {
+    return '$count overdue';
+  }
+
+  @override
+  String get pivaDlNothingOverdue => 'nothing overdue';
+
+  @override
+  String get pivaDlNotRecorded => 'Not recorded';
+
+  @override
+  String pivaDlNotRecordedHint(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count past deadlines',
+      one: '1 past deadline',
+    );
+    return '$_temp0 · mark paid or set the amount';
+  }
+
+  @override
+  String get pivaDlNext => 'Next deadline';
+
+  @override
+  String get pivaDlNothingUpcoming => 'nothing upcoming';
+
+  @override
+  String get pivaDlGroupUnrecorded => 'PAST · NOT RECORDED';
+
+  @override
+  String get pivaDlGroupPaid => 'PAID';
+
+  @override
+  String get pivaDlChipEstimate => 'Estimate';
+
+  @override
+  String get pivaDlChipOfficial => 'Official';
+
+  @override
+  String get pivaDlChipNotRecorded => 'Not recorded';
+
+  @override
+  String pivaDlPaidOn(String date) {
+    return 'Paid $date';
+  }
+
+  @override
+  String get pivaDlNoDate => 'No date';
+
+  @override
+  String get pivaDlTypePassThrough =>
+      'Integrativo · pass-through, not deductible';
+
+  @override
+  String get pivaDlMarkPaid => 'Mark paid';
+
+  @override
+  String get pivaDlUndoPaid => 'Undo';
+
+  @override
+  String get pivaDlEmpty =>
+      'No deadlines yet. They appear once your ledger has income in the categories of your profile.';
+
+  @override
+  String get pivaDlNew => 'NEW DEADLINE';
+
+  @override
+  String get pivaDlEdit => 'EDIT DEADLINE';
+
+  @override
+  String get pivaDlKind => 'Kind';
+
+  @override
+  String get pivaDlLabel => 'Label';
+
+  @override
+  String get pivaDlLabelHint => 'Rata rottamazione, bollo…';
+
+  @override
+  String get pivaDlAmount => 'Amount';
+
+  @override
+  String get pivaDlDueOn => 'Due on';
+
+  @override
+  String get pivaDlPickDate => 'Pick a date';
+
+  @override
+  String get pivaDlNote => 'Note (optional)';
+
+  @override
+  String get pivaDlPaid => 'Paid';
+
+  @override
+  String get pivaDlPaidOnLabel => 'Paid on';
+
+  @override
+  String get pivaDlErrAmount => 'Enter an amount, zero or more.';
+
+  @override
+  String get pivaDlErrDue => 'Pick the due date.';
+
+  @override
+  String get pivaDlErrLabel => 'Say what this deadline is.';
+
+  @override
+  String get pivaDlBackToEstimate => 'Back to estimate';
+
+  @override
+  String get pivaDlRevertTitle => 'Back to the estimate?';
+
+  @override
+  String pivaDlRevertBody(String label) {
+    return 'The amount and payment saved for \"$label\" are removed and the estimate takes their place.';
+  }
+
+  @override
+  String get pivaDlDeleteTitle => 'Delete this deadline?';
+
+  @override
+  String pivaDlDeleteBody(String label) {
+    return '\"$label\" is removed from the calendar.';
+  }
+
+  @override
+  String pivaDlSaveError(String error) {
+    return 'Couldn\'t save the deadline. $error';
+  }
+
+  @override
+  String pivaDlDeleteError(String error) {
+    return 'Couldn\'t remove the deadline. $error';
+  }
+
+  @override
   String get importSelectWalletError => 'Please select a wallet';
 
   @override

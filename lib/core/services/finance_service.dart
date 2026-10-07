@@ -1121,6 +1121,55 @@ class FinanceService {
   Future<List<model_piva.PivaPaymentData>> getPivaPayments() async =>
       (await _pivaPaymentsQuery().get()).map(_toPivaPayment).toList();
 
+  /// Writes a whole `piva_payments` row: [id] null creates one, otherwise the
+  /// row is replaced (so every field must be passed, as in [upsertInstallment]).
+  /// An empty [key] is a deadline added by hand; a [paidDate] of null is unpaid.
+  /// A null [dueDate] is legal — the column is nullable and the row just reads
+  /// "no date" — and so is an [amount] of 0, an official "nothing due".
+  ///
+  /// Both days are saved at local noon, as the web does (`dayIso`): there the
+  /// local and the UTC day agree, so the other client reads the same day.
+  Future<void> savePivaPayment({
+    String? id,
+    required String key,
+    required String kind,
+    required String label,
+    required DateTime? dueDate,
+    required double amount,
+    DateTime? paidDate,
+    String note = '',
+  }) async {
+    await _db.into(_db.pivaPayments).insert(
+          PivaPaymentsCompanion.insert(
+            id: id ?? const Uuid().v4(),
+            userId: Value(_userId),
+            key: Value(key),
+            kind: Value(kind),
+            label: Value(label.trim()),
+            dueDate: Value(_localNoon(dueDate)),
+            amount: Value(amount),
+            paidDate: Value(_localNoon(paidDate)),
+            note: Value(note.trim()),
+            isDeleted: const Value(false),
+            lastUpdated: Value(DateTime.now()),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+  }
+
+  static DateTime? _localNoon(DateTime? d) =>
+      d == null ? null : DateTime(d.year, d.month, d.day, 12);
+
+  /// Soft delete, never a physical one: a device that was offline would bring
+  /// the row back. Stamped now, so the delete syncs.
+  Future<void> deletePivaPayment(String id) async {
+    await (_db.update(_db.pivaPayments)..where((t) => t.id.equals(id)))
+        .write(PivaPaymentsCompanion(
+      isDeleted: const Value(true),
+      lastUpdated: Value(DateTime.now()),
+    ));
+  }
+
   /// One-shot repair: the original seed shipped with wrong Material codepoints,
   /// so default categories rendered as unrelated glyphs (Groceries=fence,
   /// Health=plane…). Rewrite only the icon where it still holds a known-bad value
