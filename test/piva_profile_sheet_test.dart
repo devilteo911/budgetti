@@ -4,6 +4,7 @@ import 'dart:ffi' show DynamicLibrary;
 import 'package:budgetti/core/database/database.dart' show AppDatabase, PivaProfile;
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
+import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/features/piva/piva_profile_sheet.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/l10n/app_localizations_en.dart';
@@ -156,6 +157,9 @@ void main() {
       ],
       child: MaterialApp.router(
         routerConfig: router,
+        // The app's own theme: its filled, borderless inputs float their label
+        // over the field's top edge, which the default theme does not.
+        theme: AppTheme.buildTheme(palette: AppPalette.values.first, brightness: Brightness.dark),
         locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -228,6 +232,52 @@ void main() {
     await type(tester, en.pivaProfileAtecoLabel, '6');
 
     expect(find.text(_atecoError), findsNothing);
+  });
+
+  // A floating label rides ~6 dp above its field's top edge, over whatever is
+  // above: it must clear the heading and the switch row, and every field above it.
+  Future<void> expectClearLabels(WidgetTester tester, {required bool cassa}) async {
+    Rect r(Finder f) => tester.getRect(f.first);
+    final labels = <(String, Rect)>[
+      ('SET UP YOUR PARTITA IVA', r(find.text('SET UP YOUR PARTITA IVA'))),
+      ('startup switch', r(find.textContaining('Aliquota startup'))),
+    ];
+    final fields = tester
+        .widgetList<InputDecorator>(find.byType(InputDecorator))
+        .map((d) => tester.getRect(find.byWidget(d)))
+        .toList()
+      ..sort((a, b) => a.top.compareTo(b.top));
+    // Heading → first field, switch row → the fund dropdown: 12 dp of air beyond
+    // the label's own rise at the least.
+    final first = fields.first;
+    final fund = fields.firstWhere((f) => f.top > labels[1].$2.bottom);
+    expect(first.top - 6 - labels[0].$2.bottom, greaterThanOrEqualTo(12), reason: 'heading → first field');
+    expect(fund.top - 6 - labels[1].$2.bottom, greaterThanOrEqualTo(12), reason: 'switch row → fund');
+    // Each field to the one above it (a row of two counts as one line).
+    for (var i = 1; i < fields.length; i++) {
+      final above = fields.sublist(0, i).where((f) => f.bottom <= fields[i].top + 1);
+      if (above.isEmpty) continue;
+      final gap = fields[i].top - 6 - above.map((f) => f.bottom).reduce((a, b) => a > b ? a : b);
+      expect(gap, greaterThanOrEqualTo(4), reason: 'field ${fields[i]} touches the one above');
+    }
+    expect(fields.length, cassa ? greaterThan(6) : lessThan(6));
+  }
+
+  testWidgets('no floating label touches the heading, the switch row or a field above (any fund)',
+      (tester) async {
+    await pump(tester, size: const Size(390, 1400));
+    await type(tester, 'ATECO code', '62.01.00');
+    await type(tester, 'Opened in', '2023');
+    await expectClearLabels(tester, cassa: false);
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await settle(tester);
+    await tester.tap(find.text('Cassa professionale').last);
+    await settle(tester);
+    for (final label in ['Fund name', _subjective, _integrative, _minSubjective, _minIntegrative]) {
+      await type(tester, label, '1');
+    }
+    await expectClearLabels(tester, cassa: true);
   });
 
   testWidgets('Save and the error stay on screen on a phone-sized sheet, whatever the form length',

@@ -289,7 +289,9 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
                           ? l10n.pivaProfileNew
                           : l10n.pivaProfileEdit,
                     ),
-                    const SizedBox(height: 14),
+                    // A floating label rides ~6 above its field: 22 leaves it 16 clear of
+                    // the heading, where the other sheets' 14 left 8.
+                    const SizedBox(height: 22),
                     _Pair(
                       labels: (l10n.pivaProfileAtecoLabel, _coefficientLabel),
                       first: _field(
@@ -360,7 +362,9 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
                       value: _startup,
                       onChanged: (v) => _changed(() => _startup = v),
                     ),
-                    const SizedBox(height: 8),
+                    // The switch row has no padding of its own below its text: the
+                    // dropdown's floating label would sit on it.
+                    const SizedBox(height: 18),
                     DropdownButtonFormField<String>(
                       // A `fundType` the table does not know (the server keeps text) shows
                       // no choice, and saving it asks for one.
