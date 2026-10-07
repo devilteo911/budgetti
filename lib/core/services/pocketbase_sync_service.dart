@@ -94,9 +94,22 @@ class PushOutcome {
   final DateTime? updated;
   final LwwStaleWrite? stale;
   final Object? error;
-  const PushOutcome.pushed(this.updated) : stale = null, error = null;
-  const PushOutcome.remoteWins(this.stale) : updated = null, error = null;
-  const PushOutcome.failed(this.error) : updated = null, stale = null;
+
+  /// The row as the server stored it after the write (the batch response body or
+  /// the upsert's return), when the client has it. A body that omitted a field
+  /// leaves the stored value there, so this is how the sync learns it back.
+  final Map<String, dynamic>? record;
+  const PushOutcome.pushed(this.updated, [this.record])
+      : stale = null,
+        error = null;
+  const PushOutcome.remoteWins(this.stale)
+      : updated = null,
+        error = null,
+        record = null;
+  const PushOutcome.failed(this.error)
+      : updated = null,
+        stale = null,
+        record = null;
   bool get pushed => updated != null;
 }
 
@@ -139,7 +152,7 @@ abstract class SyncClient {
         await () async {
           try {
             final row = await upsert(collection, id, body);
-            return PushOutcome.pushed(_fromIso(row['updated']));
+            return PushOutcome.pushed(_fromIso(row['updated']), row);
           } on LwwStaleWrite catch (e) {
             return PushOutcome.remoteWins(e);
           } on SyncAuthExpired {
@@ -219,8 +232,9 @@ class PocketBaseSyncClient implements SyncClient {
       final results = await batch.send();
       return [
         for (final r in results)
-          PushOutcome.pushed(_fromIso(
-              (r.body as Map<String, dynamic>?)?['updated']))
+          PushOutcome.pushed(
+              _fromIso((r.body as Map<String, dynamic>?)?['updated']),
+              r.body as Map<String, dynamic>?)
       ];
     } on pb.ClientException catch (e) {
       if (e.statusCode == 401) throw const SyncAuthExpired();
@@ -233,7 +247,7 @@ class PocketBaseSyncClient implements SyncClient {
       for (final (id, body) in chunk) {
         try {
           final row = await upsert(collection, id, body);
-          outcomes.add(PushOutcome.pushed(_fromIso(row['updated'])));
+          outcomes.add(PushOutcome.pushed(_fromIso(row['updated']), row));
         } on LwwStaleWrite catch (e2) {
           outcomes.add(PushOutcome.remoteWins(e2));
         } on SyncAuthExpired {
@@ -508,6 +522,22 @@ class PocketBaseSyncService {
         .write(const SyncLocksCompanion(running: Value(false)));
   }
 
+  /// A profile pushed WITHOUT `declaredIncome` (the local map is empty, so the key
+  /// was left out and the server kept its value) learns the server's figure from
+  /// the record the write answered with. Pulls would never bring it back: the row's
+  /// new `updated` is already behind the pull cursor. Only `declaredIncome` is
+  /// written, so `lastUpdated` stays and nothing is pushed again; a record without
+  /// the key (a server without `1751000013`) or with an empty map changes nothing.
+  Future<void> _learnDeclaredIncome(
+      _Row row, Map<String, dynamic>? record) async {
+    if (row.body.containsKey('declaredIncome')) return;
+    final kept = declaredIncomeFromJson(record?['declaredIncome']);
+    if (kept == null || kept.isEmpty) return;
+    await (_db.update(_db.pivaProfiles)..where((t) => t.id.equals(row.id)))
+        .write(PivaProfilesCompanion(declaredIncome: Value(kept)));
+  }
+
+
   /// [full] ignores the stored cursors and considers every row on both sides —
   /// the recovery lever for a poisoned cursor (rows stranded behind it) and
   /// the engine of the git-style "push/pull everything" actions. [pull] /
@@ -651,6 +681,9 @@ class PocketBaseSyncService {
                 final o = outcomes[i];
                 if (o.pushed) {
                   pushed++;
+                  if (spec.collection == 'piva_profile') {
+                    await _learnDeclaredIncome(row, o.record);
+                  }
                   if (row.needsStamp) toStamp.add(row.id);
                   final ts = row.lastUpdated ?? now;
                   if (ts.isAfter(maxPushTs)) maxPushTs = ts;

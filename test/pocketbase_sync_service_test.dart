@@ -1494,6 +1494,41 @@ void main() {
             reason: '$id: an omitted field keeps the stored value');
       }
       expect(store['pro-new']!.containsKey('declaredIncome'), isFalse);
+
+      // The write's answer carries the figure the server kept; an incremental
+      // pull would never bring it back (the row's new `updated` is behind the
+      // cursor), so the phone learns it from the answer — only that column, no
+      // new `lastUpdated`, and nothing is pushed again.
+      for (final id in ['pro-null', 'pro-empty']) {
+        final row = (await profileRow(db, id))!;
+        expect(row.declaredIncome, {'2025': 40000.0},
+            reason: '$id: learned back from the answer to its own push');
+        expect(row.lastUpdated, later, reason: '$id: lastUpdated untouched');
+        expect(row.fundName, 'Locale');
+      }
+      expect((await profileRow(db, 'pro-new'))!.declaredIncome, isNull,
+          reason: 'the server had no figure: nothing to learn');
+      final again = await service.sync();
+      expect(again.pushed, 0, reason: 'learning the figure is not a local edit');
+      expect(again.skipped, 0);
+    });
+
+    test('a profile pushed with its own declaredIncome keeps it whatever the '
+        'answer holds', () async {
+      final (db, _, client, service) = await _harness(initialStore: {
+        'piva_profile': {'pro1': serverProfile(declared: {'2025': 40000})},
+      });
+      await profile(db, 'pro1',
+          at: t1.add(const Duration(hours: 1)),
+          declaredIncome: {'2025': 50000.0, '2024': null});
+
+      final summary = await service.sync(pull: false);
+
+      expect(summary.pushed, 1);
+      expect(client._store['piva_profile']!['pro1']!['declaredIncome'],
+          {'2025': 50000.0, '2024': null}, reason: 'sent whole, null entry too');
+      expect((await profileRow(db, 'pro1'))!.declaredIncome,
+          {'2025': 50000.0, '2024': null});
     });
 
     // The server migration that adds declaredIncome leaves `updated` alone on

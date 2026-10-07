@@ -120,7 +120,10 @@ column is `{}` (`Map<String, double?>`, never null in `PivaProfileData`;
 `containsKey` tells *null* from *absent*). Sync: the push sends a non-empty map
 **whole** (PocketBase replaces the json object, never merges it) and **omits the
 key** for a NULL or empty one — an omitted field keeps the server's value, so a
-phone that never learned the web's figure cannot erase it; the pull keeps the
+phone that never learned the web's figure cannot erase it, and it learns the
+figure the server kept from the record its own push was answered with
+(`PushOutcome.record`; a pull would never bring it back, the pushed row's new
+`updated` is behind the cursor), writing only that column so `lastUpdated` stays; the pull keeps the
 local value when the record has no such key (a server without
 `1751000013_piva_declared_income.js` answers 200 to a write that carries it and
 never returns it back). The server migration does not touch `updated`, so the
