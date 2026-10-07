@@ -95,6 +95,23 @@ const _profileInput = PivaProfileInput(
   declaredIncome: {},
 );
 
+/// [_profileInput] with the gross declared for a past year.
+PivaProfileInput _declaring(Map<String, double?> declared) => PivaProfileInput(
+      atecoCode: _profileInput.atecoCode,
+      coefficient: _profileInput.coefficient,
+      startYear: _profileInput.startYear,
+      startupRate: _profileInput.startupRate,
+      fundType: _profileInput.fundType,
+      fundName: _profileInput.fundName,
+      subjectiveRate: _profileInput.subjectiveRate,
+      integrativeRate: _profileInput.integrativeRate,
+      minSubjective: _profileInput.minSubjective,
+      minIntegrative: _profileInput.minIntegrative,
+      inpsReduction: _profileInput.inpsReduction,
+      incomeCategories: _profileInput.incomeCategories,
+      declaredIncome: declared,
+    );
+
 /// A deadline added by hand (empty key), due on 19 February 2027.
 PivaPaymentData _bollo({DateTime? paid}) => PivaPaymentData(
       id: 'p-bollo',
@@ -242,6 +259,39 @@ void main() {
       await t.logic.updatePivaReminders(now: _today);
 
       _expectBolloReminders(t.service.plans.single);
+    });
+
+    // The background replan reads the profile from the database and nothing else,
+    // so a figure declared for the previous year (2026, for `_today`) moves the
+    // calendar and its reminders with no change in the logic. Hand arithmetic,
+    // Gestione Separata 26,07%, coefficient 67, 15% tax, an empty ledger, 2026
+    // declared at 50.000 (a made-up figure):
+    //   gross income 50.000 × 67% = 33.500; contributions 33.500 × 26,07% = 8.733,45
+    //   contributions: saldo 2026 8.733,45 (30/06/2027); acconti 2027 80% = 6.986,76,
+    //     two halves of 3.493,38 (30/06 and 30/11/2027)
+    //   imposta 33.500 × 15% = 5.025, nothing deducted in 2026: saldo 5.025 (30/06/2027);
+    //     acconti 2027 two halves of 2.512,50 (30/06 and 30/11/2027)
+    //   six deadlines, all in the future, four reminders each: 24
+    test('the previous year declared, an empty ledger: the estimated saldo and acconti are planned', () async {
+      final t = await build({});
+      await t.finance.savePivaProfile(_profileInput);
+      await t.logic.updatePivaReminders(now: _today);
+      expect(t.service.plans.single, isEmpty, reason: 'the premise: nothing declared, nothing in the ledger');
+
+      await t.finance.savePivaProfile(_declaring({'2026': 50000.0}));
+      await t.logic.updatePivaReminders(now: _today);
+
+      expect(t.service.plans, hasLength(2));
+      final plan = t.service.plans.last;
+      expect({for (final r in plan) r.deadlineKey}, {
+        '2027:imposta_saldo',
+        '2027:imposta_acconto1',
+        '2027:imposta_acconto2',
+        '2027:contributi_saldo',
+        '2027:contributi_acconto1',
+        '2027:contributi_acconto2',
+      });
+      expect(plan, hasLength(24), reason: 'four reminders for each of the six deadlines');
     });
 
     test('updatePivaReminders on an empty database: an empty plan', () async {

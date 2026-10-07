@@ -6,6 +6,11 @@
 /// `PivaForecast.tsx` (64–87) — so, unlike `models/piva.dart`, it is not a mirror
 /// of `piva.ts`. Same figures, same rules, to the cent.
 ///
+/// The estimate of the year is made on `compensiForYear` (what the owner declared
+/// for a past year the ledger does not cover, else the ledger's total), as
+/// `PivaForecast.tsx` does for every year; the tiles above it still read the
+/// ledger (devilteo911/budgetti#30).
+///
 /// Pure: no I/O, and `now` is a parameter, read once per derivation on the local
 /// calendar. It imports the engine and the transaction model only — no Flutter,
 /// Drift or Riverpod — so the background isolate can use it too.
@@ -162,7 +167,9 @@ PivaYearView pivaYearView(
     toRemit: carved ? integrativeCollected(txns, profile, year) : 0.0,
     estimate: estimateYear(
       profile,
-      total,
+      // Not `total`: a declared year has no months. For the year of `now`, with no
+      // declared figure for it, this is the same ledger total.
+      compensiForYear(profile, txns, year),
       year,
       contributionsDeductible(deadlines(profile, txns, payments, now), year),
     ),
