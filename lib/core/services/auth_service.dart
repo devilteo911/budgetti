@@ -71,6 +71,8 @@ class AuthService {
     final pbId = pbUserId;
     if (pbId == null || pbId.isEmpty) return;
 
+    // SQL table names, not collection names: Drift pluralises the profile
+    // table (`piva_profiles`) where the PocketBase collection is `piva_profile`.
     const tables = [
       'categories',
       'tags',
@@ -78,6 +80,8 @@ class AuthService {
       'transactions',
       'budgets',
       'installments', // synced collection since v13 — a miss ghosts plans
+      'piva_profiles',
+      'piva_payments',
     ];
     for (final t in tables) {
       await _db.customUpdate(

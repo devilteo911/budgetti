@@ -25,6 +25,50 @@ void _ensureSqlite() {
   }
 }
 
+/// A full profile (two income categories) and two payments: one paid, one with
+/// no `paidDate` and an empty `key`. Made-up figures.
+Future<void> _seedPiva(AppDatabase d) async {
+  final t = DateTime(2026, 6, 23, 12);
+  await d.into(d.pivaProfiles).insert(PivaProfilesCompanion.insert(
+        id: 'piva1',
+        userId: const Value('user-a'),
+        atecoCode: const Value('62.01.00'),
+        coefficient: const Value(67.0),
+        startYear: const Value(2024),
+        startupRate: const Value(true),
+        fundType: const Value('gestione_separata'),
+        fundName: const Value('Fondo di prova'),
+        subjectiveRate: const Value(26.07),
+        integrativeRate: const Value(4.0),
+        minSubjective: const Value(1000.0),
+        minIntegrative: const Value(50.0),
+        inpsReduction: const Value(true),
+        incomeCategories: const Value(['Compensi', 'Consulenze']),
+        lastUpdated: Value(t),
+      ));
+  await d.into(d.pivaPayments).insert(PivaPaymentsCompanion.insert(
+        id: 'pay1',
+        userId: const Value('user-a'),
+        key: const Value('2026:imposta_saldo'),
+        kind: const Value('imposta'),
+        label: const Value('Saldo imposta'),
+        dueDate: Value(DateTime(2026, 6, 30, 12)),
+        amount: const Value(812.4),
+        paidDate: Value(DateTime(2026, 6, 28, 12)),
+        note: const Value('F24 dal commercialista'),
+        lastUpdated: Value(t),
+      ));
+  await d.into(d.pivaPayments).insert(PivaPaymentsCompanion.insert(
+        id: 'pay2',
+        userId: const Value('user-a'),
+        kind: const Value('contributi'),
+        label: const Value('Contributi extra'),
+        dueDate: Value(DateTime(2026, 11, 30, 12)),
+        amount: const Value(250.0),
+        lastUpdated: Value(t),
+      ));
+}
+
 void main() {
   setUpAll(_ensureSqlite);
 
@@ -145,6 +189,7 @@ void main() {
           category: const Value('Shopping'),
           accountId: const Value('acc1'),
         ));
+    await _seedPiva(db);
     // A transfer with a destination, and a soft-deleted rate-linked charge with tags.
     await db.into(db.transactions).insert(TransactionsCompanion.insert(
           id: 'tx-transfer',
@@ -182,6 +227,8 @@ void main() {
         'tags': await js(d.select(d.tags).get()),
         'budgets': await js(d.select(d.budgets).get()),
         'installments': await js(d.select(d.installments).get()),
+        'piva_profile': await js(d.select(d.pivaProfiles).get()),
+        'piva_payments': await js(d.select(d.pivaPayments).get()),
       };
     }
 
@@ -202,6 +249,125 @@ void main() {
     expect(tx.tags, ['eating out', 'x']);
     expect(tx.installmentId, 'inst1');
     expect(tx.isDeleted, isTrue);
+  });
+
+  // The web (budgetti-web) reads and writes this shape: collection names as
+  // keys, dates in millis, income categories as a JSON array.
+  test('the exported file names the Partita IVA collections in the web shape',
+      () async {
+    await _seedPiva(db);
+    await serviceFor(db).performAutoBackup(persistence);
+    final file = dir.listSync().whereType<File>().single;
+    final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+
+    final profile =
+        (json['piva_profile'] as List).single as Map<String, dynamic>;
+    expect(
+        profile.keys,
+        unorderedEquals([
+          'id',
+          'userId',
+          'atecoCode',
+          'coefficient',
+          'startYear',
+          'startupRate',
+          'fundType',
+          'fundName',
+          'subjectiveRate',
+          'integrativeRate',
+          'minSubjective',
+          'minIntegrative',
+          'inpsReduction',
+          'incomeCategories',
+          'isDeleted',
+          'lastUpdated',
+        ]));
+    expect(profile['id'], 'piva1');
+    expect(profile['userId'], 'user-a');
+    expect(profile['incomeCategories'], ['Compensi', 'Consulenze']);
+    expect(profile['lastUpdated'], isA<int>());
+
+    final payments =
+        (json['piva_payments'] as List).cast<Map<String, dynamic>>();
+    expect(payments, hasLength(2));
+    for (final p in payments) {
+      expect(
+          p.keys,
+          unorderedEquals([
+            'id',
+            'userId',
+            'key',
+            'kind',
+            'label',
+            'dueDate',
+            'amount',
+            'paidDate',
+            'note',
+            'isDeleted',
+            'lastUpdated',
+          ]));
+      expect(p['userId'], 'user-a');
+      expect(p['dueDate'], isA<int>());
+    }
+    final unpaid = payments.singleWhere((p) => p['id'] == 'pay2');
+    expect(unpaid['paidDate'], isNull);
+    expect(unpaid['key'], '');
+    expect(
+        payments.singleWhere((p) => p['id'] == 'pay1')['paidDate'], isA<int>());
+  });
+
+  // An absent key says nothing about the Partita IVA, so the tables stay; a key
+  // that is present replaces its table, even with `[]`. (Installments differ:
+  // they are cleared whether or not the file names them.)
+  test('a backup without the Partita IVA keys leaves them; present keys replace',
+      () async {
+    await _seedPiva(db);
+    final tx = (await db.select(db.transactions).get()).single.toJson()
+      ..['id'] = 'tx-restored'
+      ..['description'] = 'Esselunga';
+
+    Future<void> restore(Map<String, dynamic> pivaKeys) async {
+      final file = File('${dir.path}/restore.json');
+      await file.writeAsString(jsonEncode({
+        'accounts': const [],
+        'transactions': [tx],
+        'categories': const [],
+        'tags': const [],
+        'budgets': const [],
+        ...pivaKeys,
+      }));
+      await serviceFor(db).importDatabase(file);
+    }
+
+    Future<Map<String, List<String>>> pivaIds() async => {
+          'profiles': [
+            for (final r in await db.select(db.pivaProfiles).get()) r.id
+          ]..sort(),
+          'payments': [
+            for (final r in await db.select(db.pivaPayments).get()) r.id
+          ]..sort(),
+        };
+
+    await restore({});
+    expect((await db.select(db.transactions).get()).map((r) => r.id),
+        ['tx-restored']);
+    expect(await pivaIds(), {
+      'profiles': ['piva1'],
+      'payments': ['pay1', 'pay2'],
+    });
+
+    // Each key is judged on its own.
+    await restore({'piva_payments': const []});
+    expect(await pivaIds(), {
+      'profiles': ['piva1'],
+      'payments': <String>[],
+    });
+
+    await restore({'piva_profile': const [], 'piva_payments': const []});
+    expect(await pivaIds(), {
+      'profiles': <String>[],
+      'payments': <String>[],
+    });
   });
 
   test('a failed auto-backup records why, and the next success clears it',
