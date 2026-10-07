@@ -121,7 +121,7 @@ class PivaIncomeSection extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 child: Column(
                   children: [
-                    PivaLine(label: pivaCompensi.toLowerCase(), value: currency.format(view.total)),
+                    PivaLine(label: pivaCompensi, value: currency.format(view.total)),
                     PivaLine(label: l10n.pivaReconIntegrativo, value: currency.format(view.toRemit)),
                     PivaLine(label: l10n.pivaReconBank, value: currency.format(view.gross)),
                   ],

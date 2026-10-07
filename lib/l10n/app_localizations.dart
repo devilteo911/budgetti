@@ -1181,13 +1181,13 @@ abstract class AppLocalizations {
   /// No description provided for @pivaReconIntegrativo.
   ///
   /// In en, this message translates to:
-  /// **'contributo integrativo collected · to remit'**
+  /// **'Contributo integrativo collected · to remit'**
   String get pivaReconIntegrativo;
 
   /// No description provided for @pivaReconBank.
   ///
   /// In en, this message translates to:
-  /// **'incassi at the bank'**
+  /// **'Incassi at the bank'**
   String get pivaReconBank;
 
   /// No description provided for @pivaEstimateLabel.

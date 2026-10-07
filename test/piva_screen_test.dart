@@ -3,6 +3,7 @@ import 'package:budgetti/features/piva/piva_format.dart';
 import 'package:budgetti/features/piva/piva_screen.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
 import 'package:budgetti/l10n/app_localizations_en.dart';
+import 'package:budgetti/l10n/app_localizations_it.dart';
 import 'package:budgetti/models/piva.dart';
 import 'package:budgetti/models/transaction.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -127,7 +128,9 @@ void main() {
       (tester) async {
     await pump(tester, profile: profile(), txns: [income(10000)]);
 
-    expect(find.textContaining('coefficiente\u00A067%'), findsOneWidget);
+    // 390 wide: the title does not fit on one line, so it is two lines.
+    expect(find.text('ATECO 62.01'), findsOneWidget);
+    expect(find.text('coefficiente 67%'), findsOneWidget);
     expect(find.text('Imponibile'), findsOneWidget);
     expect(find.text('Imposta sostitutiva · 15%'), findsOneWidget);
     expect(find.text('Contributi · Gestione Separata INPS'), findsOneWidget);
@@ -153,6 +156,42 @@ void main() {
     expect(find.text('€10,400.00'), findsOneWidget); // the bank amount
     expect(find.text('€400.00'), findsNWidgets(2)); // the integrativo to remit
   });
+
+  testWidgets('the profile title is one line when it fits', (tester) async {
+    await pump(tester, profile: profile(), size: const Size(1200, 3000));
+
+    expect(find.text('ATECO 62.01 · coefficiente 67%'), findsOneWidget);
+    expect(find.text('ATECO 62.01'), findsNothing);
+  });
+
+  testWidgets('the profile title is two lines without the dot when it does not', (tester) async {
+    await pump(tester, profile: profile(), size: const Size(320, 3000));
+
+    expect(find.text('ATECO 62.01'), findsOneWidget);
+    expect(find.text('coefficiente 67%'), findsOneWidget);
+    expect(find.textContaining('ATECO 62.01 ·'), findsNothing);
+  });
+
+  for (final (locale, l10n) in [
+    (const Locale('it'), AppLocalizationsIt()),
+    (const Locale('en'), AppLocalizationsEn()),
+  ]) {
+    testWidgets('$locale: the row labels of both boxes are in sentence case', (tester) async {
+      await pump(
+        tester,
+        profile: profile(fundType: 'cassa', integrativeRate: 4),
+        txns: [income(10400)],
+        locale: locale,
+      );
+
+      for (final label in [pivaCompensi, l10n.pivaReconIntegrativo, l10n.pivaReconBank]) {
+        expect(label[0], label[0].toUpperCase(), reason: label);
+        expect(find.text(label), findsWidgets, reason: label);
+      }
+      // The note under the pass-through row is a note: it stays lowercase.
+      expect(l10n.pivaPassThroughNote[0], l10n.pivaPassThroughNote[0].toLowerCase());
+    });
+  }
 
   testWidgets('a year with no income says so, and the tiles stay', (tester) async {
     await pump(tester, profile: profile());

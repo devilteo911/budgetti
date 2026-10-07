@@ -630,10 +630,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pivaReconIntegrativo =>
-      'contributo integrativo collected · to remit';
+      'Contributo integrativo collected · to remit';
 
   @override
-  String get pivaReconBank => 'incassi at the bank';
+  String get pivaReconBank => 'Incassi at the bank';
 
   @override
   String pivaEstimateLabel(String year) {

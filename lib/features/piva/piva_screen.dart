@@ -161,17 +161,7 @@ class _ProfileSummary extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  // U+00A0: on a narrow phone "67%" must not wrap alone under the title.
-                  '$pivaAteco ${profile.atecoCode} · $pivaCoefficient\u00A0${pivaNumber(profile.coefficient)}%',
-                  style: GoogleFonts.bricolageGrotesque(
-                    color: scheme.onSurface,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.6,
-                    height: 1.1,
-                  ),
-                ),
+                _ProfileTitle(profile: profile),
                 const SizedBox(height: 8),
                 Text(
                   note,
@@ -190,6 +180,46 @@ class _ProfileSummary extends StatelessWidget {
             IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined)),
         ],
       ),
+    );
+  }
+}
+
+/// "ATECO 62.20.10 · coefficiente 67%" on one line when it fits; when it does not,
+/// two lines without the separator — a break at the dot would leave it dangling
+/// at the end of the first line, and a plain wrap would orphan "67%".
+class _ProfileTitle extends StatelessWidget {
+  const _ProfileTitle({required this.profile});
+
+  final PivaProfileData profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = GoogleFonts.bricolageGrotesque(
+      color: Theme.of(context).colorScheme.onSurface,
+      fontSize: 22,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.6,
+      height: 1.1,
+    );
+    final code = '$pivaAteco ${profile.atecoCode}';
+    final coefficient = '$pivaCoefficient ${pivaNumber(profile.coefficient)}%';
+    final oneLine = '$code · $coefficient';
+    return LayoutBuilder(
+      builder: (context, box) {
+        final painter = TextPainter(
+          text: TextSpan(text: oneLine, style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        final fits = painter.width <= box.maxWidth;
+        painter.dispose();
+        if (fits) return Text(oneLine, style: style);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [Text(code, style: style), Text(coefficient, style: style)],
+        );
+      },
     );
   }
 }
