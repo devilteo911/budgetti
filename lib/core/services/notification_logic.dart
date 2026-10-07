@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
+import 'package:budgetti/core/services/piva_reminders.dart';
+import 'package:budgetti/models/piva.dart' show PivaPaymentData, PivaProfileData, deadlines;
 import 'package:budgetti/models/transaction.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:workmanager/workmanager.dart';
 
 class NotificationLogic {
@@ -97,6 +101,69 @@ class NotificationLogic {
       );
     } catch (e, s) {
       debugPrint('Daily reminder scheduling failed: $e\n$s');
+    }
+  }
+
+  /// Puts the Partita IVA deadline reminders on the device for the given inputs:
+  /// the plan of [planPivaReminders] when notifications, the Partita IVA
+  /// reminders and a [profile] are all there, otherwise an empty plan, which
+  /// clears them. The inputs are the ones the Partita IVA screen reads, so the
+  /// amount in the notification is the amount on screen.
+  ///
+  /// Preferences are re-read first: this runs in the workmanager isolate too,
+  /// whose cache can be old. "Now" is a plain wall clock of Italy — the clock of
+  /// the reminders, wherever the phone is — and so a plain `DateTime`, not a
+  /// `TZDateTime`: the engine reads its local components. [now] replaces it, in
+  /// the same form, for tests.
+  ///
+  /// Like [updateDailyReminder] it never throws: what the OS refuses must not
+  /// take the caller down.
+  Future<void> applyPivaReminders(
+    PivaProfileData? profile,
+    List<PivaPaymentData> payments,
+    List<Transaction> txns, {
+    DateTime? now,
+  }) async {
+    try {
+      await _persistenceService.reload();
+      if (!_persistenceService.getNotificationsEnabled() ||
+          !_persistenceService.getPivaRemindersEnabled() ||
+          profile == null) {
+        await _notificationService.syncPivaReminders(const []);
+        return;
+      }
+      final today = now ?? _italyWallClock();
+      final plan = planPivaReminders(
+        deadlines(profile, txns, payments, today),
+        today,
+        l10n: await backgroundL10n(),
+      );
+      await _notificationService.syncPivaReminders(plan);
+    } catch (e, s) {
+      debugPrint('PIVA reminders failed: $e\n$s');
+    }
+  }
+
+  /// The wall clock of Italy now, as a plain `DateTime` (needs the time zones
+  /// initialised, which [NotificationService.init] does). Not read when a test
+  /// passes its own.
+  static DateTime _italyWallClock() {
+    final rome = tz.TZDateTime.now(tz.local);
+    return DateTime(rome.year, rome.month, rome.day, rome.hour, rome.minute);
+  }
+
+  /// [applyPivaReminders] for callers with no providers (the workmanager
+  /// isolate): reads the three inputs from the database, then applies them.
+  Future<void> updatePivaReminders({DateTime? now}) async {
+    try {
+      await applyPivaReminders(
+        await _financeService.getPivaProfile(),
+        await _financeService.getPivaPayments(),
+        await _financeService.getPivaIncome(),
+        now: now,
+      );
+    } catch (e, s) {
+      debugPrint('PIVA reminders failed: $e\n$s');
     }
   }
 
