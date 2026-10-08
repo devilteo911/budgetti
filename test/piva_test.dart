@@ -667,7 +667,7 @@ void main() {
   // ── un anno dichiarato (il libro non lo copre) ──────────────────────────
   // The owner declares the gross collected in a year the ledger lacks; the engine reads it as if
   // the ledger had recorded it. Hand arithmetic below, never the implementation's output. The web's
-  // `declaredFromForm` case is not ported: the phone's previous-year field and its rule come later.
+  // `declaredFromForm` case sits with the profile form's, in the group below.
 
   // Cassa 4%, 2025 declared 10.000 gross, with a 1.040 in the 2025 ledger and 2.080 in the 2026 one:
   //   2025 declared 10.000 gross:  compensi = round2(10.000 / 1,04) = round2(9.615,3846…) = 9.615,38
@@ -1247,6 +1247,52 @@ void main() {
 
     test('parseProfileForm: le categorie sono ripulite dagli spazi e senza doppioni', () {
       expect(parsed(form(incomeCategories: [' Fatture', 'Fatture'])).incomeCategories, ['Fatture'], reason: 'doppione');
+    });
+
+    // The previous-year field of the profile form (year 2025). Every other key is carried through; a
+    // number emptied goes back to the ledger (null), an unanswered year stays unanswered; an amount
+    // saves the number, 0 included; a negative or unreadable one is the one error. '41.600,50' is
+    // 41600,50 (the last separator is the decimal one). The web's `null` and absent `declaredIncome`
+    // are both `{}` here (a NULL column reads as `{}`, never null): a platform difference, not a
+    // different rule, so those two rows take a `{}` and expect the `{}` back (the web: null).
+    test("declaredFromForm: il campo dell'anno prima segue la regola del form", () {
+      final rows = <(String, Map<String, double?>, String, Map<String, double?>)>[
+        ('un numero svuotato torna al libro', {'2024': null, '2025': 30000.0}, '', {'2024': null, '2025': null}),
+        ('senza risposta resta senza', {'2024': null}, '  ', {'2024': null}),
+        ('un null resta null', {'2025': null}, '', {'2025': null}),
+        ('campo null', {}, '', {}),
+        ('campo assente', {}, '', {}),
+        (
+          'un importo con virgola, gli altri anni restano',
+          {'2024': 1000.0},
+          '41.600,50',
+          {'2024': 1000.0, '2025': 41600.5},
+        ),
+        ('zero è una risposta', {}, '0', {'2025': 0.0}),
+        ('la stessa cifra', {'2025': 30000.0}, '30000', {'2025': 30000.0}),
+      ];
+      for (final (name, stored, text, want) in rows) {
+        final r = declaredFromForm(stored, 2025, text);
+        expect(r.invalid, isFalse, reason: name);
+        expect(r.declaredIncome, want, reason: name);
+      }
+      for (final text in ['-5', 'abc']) {
+        final r = declaredFromForm({'2025': 30000.0}, 2025, text);
+        expect((r.invalid, r.declaredIncome), (true, null), reason: 'errore: $text');
+      }
+      final kept = <String, double?>{'2024': 1000.0, '2025': 30000.0};
+      final before = Map.of(kept);
+      for (final text in ['', '41.600,50', '0', '-5']) {
+        declaredFromForm(kept, 2025, text);
+      }
+      expect(kept, before, reason: 'stored non mutato');
+    });
+
+    // Not in the web suite: JavaScript prints -0 as 0, Dart prints -0.0.
+    test('trappola: declaredFromForm salva un -0 come 0, non come -0.0', () {
+      final saved = declaredFromForm(const {}, 2025, '-0').declaredIncome!['2025']!;
+      expect(saved, 0.0);
+      expect(saved.isNegative, isFalse, reason: 'uguale a 0 non basta: -0.0 == 0.0');
     });
 
     // Not in the web suite: the Dart form carries the declared income to the save.
