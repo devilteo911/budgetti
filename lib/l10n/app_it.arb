@@ -284,6 +284,7 @@
   "pivaDeclPrior": "{year} dichiarato: {amount}",
   "pivaDeclChartNote": "Il {year} è stato dichiarato come un unico importo annuo — {gross} incassati, {total} di compensi. Non ci sono mesi da disegnare.",
   "pivaDeclChartPriorNote": "{year}: dichiarato come totale annuo, nessun mese da confrontare",
+  "pivaDeclChartSemantics": "Compensi per mese nel {year}, {total} in totale",
   "pivaDeclEstimateFoot": "I compensi {year} vengono dalla cifra che hai dichiarato. Le cifre della commercialista sostituiscono la stima, scadenza per scadenza.",
   "importSelectWalletError": "Seleziona un portafoglio",
   "importSuccess": "Transazioni importate: {count}",

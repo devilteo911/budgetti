@@ -1024,6 +1024,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String pivaDeclChartSemantics(String year, String total) {
+    return 'Compensi by month in $year, $total in total';
+  }
+
+  @override
   String pivaDeclEstimateFoot(String year) {
     return 'Compensi $year from the figure you declared. Your accountant\'s figures replace the estimate, deadline by deadline.';
   }

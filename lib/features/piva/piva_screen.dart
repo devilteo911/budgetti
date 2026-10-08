@@ -473,7 +473,10 @@ class _Estimate extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             child: Column(
               children: [
-                PivaLine(label: '$pivaCompensi ${view.year}', value: currency.format(e.revenue)),
+                PivaLine(
+                  label: '$pivaCompensi ${view.year}${view.declared ? ' · ${l10n.pivaDeclared}' : ''}',
+                  value: currency.format(e.revenue),
+                ),
                 PivaLine(
                   label: '$pivaGrossIncome ${pivaNumber(profile.coefficient)}%',
                   value: currency.format(e.grossIncome),
@@ -509,7 +512,7 @@ class _Estimate extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
           child: Text(
-            l10n.pivaEstimateFoot,
+            view.declared ? l10n.pivaDeclEstimateFoot('${view.year}') : l10n.pivaEstimateFoot,
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12, height: 1.4),
           ),
         ),

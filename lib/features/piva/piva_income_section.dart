@@ -13,7 +13,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 /// The compensi of one year: the year stepper, four tiles, and — once there is
-/// anything to show — the month-by-month chart against the year before.
+/// anything to show — the month-by-month chart against the year before. A year the
+/// owner declared as one yearly figure says so and has no months: the average and
+/// best-month tiles read "—" and a note stands where the chart would be; the year
+/// after it draws its own rods only.
 /// Mirrors `web/src/components/PivaIncome.tsx`, minus the list of payments.
 class PivaIncomeSection extends ConsumerWidget {
   const PivaIncomeSection({super.key, required this.profile, required this.view});
@@ -37,6 +40,8 @@ class PivaIncomeSection extends ConsumerWidget {
         ? '${l10n.pivaNew} $vs'
         : '${up ? '▲' : down ? '▼' : '■'} ${pct.abs().toStringAsFixed(0)}% $vs';
     final cats = profile.incomeCategories;
+    // A declared year is one yearly figure: no months to average or rank.
+    final declared = view.declared;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,9 +54,16 @@ class PivaIncomeSection extends ConsumerWidget {
             children: [
               TableRow(children: [
                 PivaTile(
-                  label: '$pivaCompensi $year',
+                  label: '$pivaCompensi $year${declared ? ' · ${l10n.pivaDeclared}' : ''}',
                   value: currency.format(view.total),
-                  sub: delta,
+                  // The year before is declared and this one is running: no stretch
+                  // to compare, so name the whole figure. No base at all (a year the
+                  // ledger does not reach): no foot, rather than a "new" that is false.
+                  sub: view.noStretch
+                      ? l10n.pivaDeclPrior('${year - 1}', currency.format(view.prior))
+                      : view.noPrev
+                          ? null
+                          : delta,
                   subInk: up
                       ? incomeInk(scheme.brightness)
                       : down
@@ -60,10 +72,12 @@ class PivaIncomeSection extends ConsumerWidget {
                 ),
                 PivaTile(
                   label: l10n.pivaTileAverage,
-                  value: avg == null ? '—' : currency.format(avg),
-                  sub: avg == null
-                      ? l10n.pivaTileFirstMonth
-                      : l10n.pivaTileAverageSub(view.concludedMonths),
+                  value: declared || avg == null ? '—' : currency.format(avg),
+                  sub: declared
+                      ? l10n.pivaDeclNoMonths
+                      : avg == null
+                          ? l10n.pivaTileFirstMonth
+                          : l10n.pivaTileAverageSub(view.concludedMonths),
                 ),
               ]),
               TableRow(children: [
@@ -76,10 +90,12 @@ class PivaIncomeSection extends ConsumerWidget {
                 ),
                 PivaTile(
                   label: l10n.pivaTileBest,
-                  value: view.best > 0 ? currency.format(view.best) : '—',
-                  sub: view.best > 0
-                      ? DateFormat('MMMM yyyy').format(DateTime(year, view.bestMonth + 1))
-                      : l10n.pivaNoneYet,
+                  value: !declared && view.best > 0 ? currency.format(view.best) : '—',
+                  sub: declared
+                      ? l10n.pivaDeclNoMonths
+                      : view.best > 0
+                          ? DateFormat('MMMM yyyy').format(DateTime(year, view.bestMonth + 1))
+                          : l10n.pivaNoneYet,
                 ),
               ]),
             ],
@@ -128,7 +144,16 @@ class PivaIncomeSection extends ConsumerWidget {
                 ),
               ),
             ),
-          _IncomeChart(view: view, currency: currency),
+          if (declared)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                l10n.pivaDeclChartNote('$year', currency.format(view.gross), currency.format(view.total)),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13, height: 1.4),
+              ),
+            )
+          else
+            _IncomeChart(view: view, currency: currency),
         ],
       ],
     );
@@ -285,16 +310,19 @@ class _YearHeader extends ConsumerWidget {
 
 /// A cell of the 2×2 grid of compensi and of the deadlines' three tiles: the
 /// label and the amount each on one line (they shrink instead of wrapping, so
-/// the cells of a row stay level), then a small line that may wrap.
+/// the cells of a row stay level), then a small line that may wrap — none at all
+/// when [sub] is null.
 class PivaTile extends StatelessWidget {
   const PivaTile({super.key, required this.label, required this.value, required this.sub, this.subInk});
 
-  final String label, value, sub;
+  final String label, value;
+  final String? sub;
   final Color? subInk;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final sub = this.sub;
     return MergeSemantics(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -329,15 +357,17 @@ class PivaTile extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              sub,
-              style: GoogleFonts.jetBrainsMono(
-                color: subInk ?? scheme.onSurfaceVariant,
-                fontSize: 11,
-                letterSpacing: 0.3,
+            if (sub != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                sub,
+                style: GoogleFonts.jetBrainsMono(
+                  color: subInk ?? scheme.onSurfaceVariant,
+                  fontSize: 11,
+                  letterSpacing: 0.3,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -347,7 +377,9 @@ class PivaTile extends StatelessWidget {
 
 /// The year before and the chosen year, side by side month by month. Built like
 /// `CategoryTrendChart` (no left axis, no grid, the value on touch); the bars
-/// are sized from the width so twelve groups fit a 320 dp phone.
+/// are sized from the width so twelve groups fit a 320 dp phone. When the year
+/// before is declared it has no months: one rod per group, and a note in place of
+/// its legend key.
 class _IncomeChart extends StatelessWidget {
   const _IncomeChart({required this.view, required this.currency});
 
@@ -356,11 +388,13 @@ class _IncomeChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final year = view.year;
+    final withPrior = !view.priorDeclared;
     final ink = incomeInk(scheme.brightness);
     final priorInk = scheme.onSurfaceVariant.withValues(alpha: 0.45);
-    final peak = [...view.months, ...view.priorMonths].reduce(math.max);
+    final peak = [...view.months, if (withPrior) ...view.priorMonths].reduce(math.max);
     final initial = DateFormat('MMMMM');
     final tipDay = DateFormat('MMMM yyyy');
     final label = GoogleFonts.jetBrainsMono(
@@ -374,7 +408,9 @@ class _IncomeChart extends StatelessWidget {
     // merged into the heading's); the bars are not exposed.
     return Semantics(
       container: true,
-      label: context.l10n.pivaChartSemantics('$year', currency.format(view.total), '${year - 1}'),
+      label: withPrior
+          ? l10n.pivaChartSemantics('$year', currency.format(view.total), '${year - 1}')
+          : l10n.pivaDeclChartSemantics('$year', currency.format(view.total)),
       excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -386,7 +422,17 @@ class _IncomeChart extends StatelessWidget {
               runSpacing: 4,
               children: [
                 _Key(color: ink, text: '$year'),
-                _Key(color: priorInk, text: '${year - 1}'),
+                if (withPrior)
+                  _Key(color: priorInk, text: '${year - 1}')
+                else
+                  Text(
+                    l10n.pivaDeclChartPriorNote('${year - 1}'),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 11,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -412,7 +458,7 @@ class _IncomeChart extends StatelessWidget {
                           fitInsideVertically: true,
                           tooltipPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           getTooltipItem: (group, _, r, rodIndex) => BarTooltipItem(
-                            '${tipDay.format(DateTime(rodIndex == 0 ? year - 1 : year, group.x + 1))}\n',
+                            '${tipDay.format(DateTime(withPrior && rodIndex == 0 ? year - 1 : year, group.x + 1))}\n',
                             label,
                             children: [
                               TextSpan(
@@ -453,7 +499,7 @@ class _IncomeChart extends StatelessWidget {
                           BarChartGroupData(
                             x: i,
                             barRods: [
-                              rod(view.priorMonths[i], priorInk),
+                              if (withPrior) rod(view.priorMonths[i], priorInk),
                               // The month in progress is still filling in.
                               rod(view.months[i], ink.withValues(alpha: i == view.currentMonth ? 0.4 : 1)),
                             ],

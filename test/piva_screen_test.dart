@@ -6,7 +6,7 @@ import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/features/piva/piva_deadlines_section.dart';
 import 'package:budgetti/features/piva/piva_format.dart';
-import 'package:budgetti/features/piva/piva_income_section.dart' show PivaLine;
+import 'package:budgetti/features/piva/piva_income_section.dart' show PivaLine, PivaTile;
 import 'package:budgetti/features/piva/piva_profile_sheet.dart';
 import 'package:budgetti/features/piva/piva_screen.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
@@ -649,4 +649,136 @@ void main() {
       expect(tester.getRect(button).right, lessThanOrEqualTo(320));
     }
   });
+
+  // ── a declared year ───────────────────────────────────────────────────────
+  // A cassa at 4% that declared the 41,600 the bank received in last year, with
+  // one 1,040 invoice in the ledger for it: the declared figure wins, so
+  // compensi 41,600 ÷ 1.04 = 40,000 and 1,600 of integrativo to remit. This year,
+  // the same invoice is 1,000 of compensi.
+  PivaProfileData declaredCassa() => profile(
+        fundType: 'cassa',
+        integrativeRate: 4,
+        startYear: year - 2,
+        declaredIncome: {'$lastYear': 41600.0},
+      );
+  final declaredLabel = '$pivaCompensi $lastYear · ${en.pivaDeclared}';
+  final lastYearInvoice = income(1040, date: DateTime(lastYear, 3, 15, 12));
+
+  /// The tile named [label] (its text is upper-cased on screen), and [text] inside it.
+  Finder tile(String label) =>
+      find.ancestor(of: find.text(label.toUpperCase()), matching: find.byType(PivaTile));
+  Finder inTile(String label, String text) =>
+      find.descendant(of: tile(label), matching: find.text(text));
+
+  /// The line of the boxes named [label], and [text] inside it.
+  Finder inLine(String label, String text) => find.descendant(
+        of: find.ancestor(of: find.text(label), matching: find.byType(PivaLine)),
+        matching: find.text(text),
+      );
+
+  Future<void> stepBack(WidgetTester tester, [String? tooltip]) async {
+    await tester.tap(find.byTooltip(tooltip ?? en.pivaPrevYear));
+    await settle(tester);
+  }
+
+  testWidgets('a declared year: said so, the same figure in the tile and in the prospetto, '
+      'no months and no chart', (tester) async {
+    await pump(tester, profile: declaredCassa(), txns: [lastYearInvoice]);
+    await stepBack(tester);
+
+    // The tiles.
+    expect(inTile(declaredLabel, '€40,000.00'), findsOneWidget);
+    for (final label in [en.pivaTileAverage, en.pivaTileBest]) {
+      expect(inTile(label, '—'), findsOneWidget, reason: label);
+      expect(inTile(label, en.pivaDeclNoMonths), findsOneWidget, reason: label);
+    }
+    // The payments are the ledger's rows, and the web leaves that tile alone.
+    expect(inTile(en.pivaTilePayments, '1'), findsOneWidget);
+    expect(inTile(en.pivaTilePayments, en.pivaTilePaymentsSub('€40,000.00')), findsOneWidget);
+    // No chart, no zero bars: a note says why.
+    expect(find.byType(BarChart), findsNothing);
+    expect(
+      find.text(en.pivaDeclChartNote('$lastYear', '€41,600.00', '€40,000.00')),
+      findsOneWidget,
+    );
+    // The reconciliation: the bank row is the declared gross, under its plain label.
+    expect(inLine(en.pivaReconBank, '€41,600.00'), findsOneWidget);
+    expect(find.text('${en.pivaReconBank} · ${en.pivaDeclared}'), findsNothing);
+    // The prospetto: the same figure as the tile, and its own foot.
+    expect(inLine(declaredLabel, '€40,000.00'), findsOneWidget);
+    expect(find.text(en.pivaDeclEstimateFoot('$lastYear')), findsOneWidget);
+    expect(find.text(en.pivaEstimateFoot), findsNothing);
+  });
+
+  testWidgets('a year that is not declared keeps its plain labels and foot', (tester) async {
+    await pump(tester, profile: profile(), txns: [income(10000)]);
+
+    expect(find.text(en.pivaDeclared), findsNothing);
+    expect(find.textContaining('· ${en.pivaDeclared}'), findsNothing);
+    expect(find.text(en.pivaEstimateFoot), findsOneWidget);
+    expect(find.text(en.pivaDeclNoMonths), findsNothing);
+    // Two rods a month, this year and the year before, as always.
+    final groups = tester.widget<BarChart>(find.byType(BarChart)).data.barGroups;
+    expect(groups, hasLength(12));
+    expect(groups.every((g) => g.barRods.length == 2), isTrue);
+    expect(find.textContaining(en.pivaDeclChartPriorNote('$lastYear')), findsNothing);
+  });
+
+  testWidgets('in Italian a declared year says dichiarato', (tester) async {
+    final it = AppLocalizationsIt();
+    await pump(tester, profile: declaredCassa(), txns: [lastYearInvoice], locale: const Locale('it'));
+    await stepBack(tester, it.pivaPrevYear);
+
+    expect(it.pivaDeclared, isNot(en.pivaDeclared));
+    final label = '$pivaCompensi $lastYear · ${it.pivaDeclared}';
+    expect(inTile(label, '€40,000.00'), findsOneWidget);
+    expect(inTile(it.pivaTileAverage, it.pivaDeclNoMonths), findsOneWidget);
+    expect(inTile(it.pivaTileBest, it.pivaDeclNoMonths), findsOneWidget);
+    expect(find.text(it.pivaDeclChartNote('$lastYear', '€41,600.00', '€40,000.00')), findsOneWidget);
+    expect(inLine(label, '€40,000.00'), findsOneWidget);
+    expect(find.text(it.pivaDeclEstimateFoot('$lastYear')), findsOneWidget);
+  });
+
+  testWidgets('the year after a declared one draws its own rods only, and names the whole '
+      'declared year instead of a delta', (tester) async {
+    await pump(tester, profile: declaredCassa(), txns: [income(1040)]);
+
+    // This year is not declared: plain label, its own figure, and the year before as declared.
+    expect(inTile('$pivaCompensi $year', '€1,000.00'), findsOneWidget);
+    expect(inTile('$pivaCompensi $year', en.pivaDeclPrior('$lastYear', '€40,000.00')), findsOneWidget);
+    expect(find.textContaining('· ${en.pivaDeclared}'), findsNothing);
+    // One rod a month, and the legend says why the other is missing.
+    final groups = tester.widget<BarChart>(find.byType(BarChart)).data.barGroups;
+    expect(groups, hasLength(12));
+    expect(groups.every((g) => g.barRods.length == 1), isTrue);
+    expect(find.text(en.pivaDeclChartPriorNote('$lastYear')), findsOneWidget);
+    expect(find.textContaining(en.pivaVsYear('$lastYear')), findsNothing, reason: 'no delta');
+  });
+
+  testWidgets('the chart of the year after a declared one is read without "against" the year before',
+      (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester, profile: declaredCassa(), txns: [income(1040)]);
+
+    expect(tester.getSemantics(find.byType(BarChart)).label,
+        en.pivaDeclChartSemantics('$year', '€1,000.00'));
+    handle.dispose();
+  });
+
+  // The year before has nothing: the foot is a delta only when its zero is real.
+  for (final (covers, start) in [
+    (true, DateTime(lastYear, 1, 1, 12)),
+    (false, DateTime(lastYear, 1, 2, 12)),
+  ]) {
+    testWidgets(
+        covers
+            ? 'an empty year before that the ledger reaches back to: "new"'
+            : 'an empty year before that the ledger reaches a day late: no foot at all',
+        (tester) async {
+      await pump(tester, profile: profile(), txns: [income(10000)], ledgerStart: start);
+
+      expect(find.text('${en.pivaNew} ${en.pivaVsYear('$lastYear')}'), covers ? findsOneWidget : findsNothing);
+      expect(find.textContaining(en.pivaVsYear('$lastYear')), covers ? findsOneWidget : findsNothing);
+    });
+  }
 }

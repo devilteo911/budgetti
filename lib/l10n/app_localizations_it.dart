@@ -1031,6 +1031,11 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String pivaDeclChartSemantics(String year, String total) {
+    return 'Compensi per mese nel $year, $total in totale';
+  }
+
+  @override
   String pivaDeclEstimateFoot(String year) {
     return 'I compensi $year vengono dalla cifra che hai dichiarato. Le cifre della commercialista sostituiscono la stima, scadenza per scadenza.';
   }

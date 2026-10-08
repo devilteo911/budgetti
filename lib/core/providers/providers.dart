@@ -389,12 +389,17 @@ final pivaYearProvider = NotifierProvider<PivaYearNotifier, int>(
 
 /// [year] of the profile as the screen shows it; `AsyncData(null)` = no profile.
 /// Riverpod keeps the value until one of the three sources emits, so widget
-/// rebuilds recompute nothing; `now` is read once per derivation.
+/// rebuilds recompute nothing; `now` is read once per derivation. The ledger's
+/// start is read as an input, not waited for: null while it loads (or fails),
+/// which only hides the delta of a year the ledger might not cover, and the view
+/// is derived again when it arrives — a start that never comes must not blank
+/// the screen.
 final pivaViewProvider =
     Provider.family<AsyncValue<PivaYearView?>, int>((ref, year) {
       final profileAsync = ref.watch(pivaProfileProvider);
       final paymentsAsync = ref.watch(pivaPaymentsProvider);
       final txnsAsync = ref.watch(pivaTransactionsProvider);
+      final ledgerStart = ref.watch(pivaLedgerStartProvider).value;
 
       return profileAsync.when(
         loading: () => const AsyncLoading(),
@@ -408,7 +413,14 @@ final pivaViewProvider =
             data: (txns) => AsyncData(
               profile == null
                   ? null
-                  : pivaYearView(profile, txns, payments, year, DateTime.now()),
+                  : pivaYearView(
+                      profile,
+                      txns,
+                      payments,
+                      year,
+                      DateTime.now(),
+                      ledgerStart: ledgerStart,
+                    ),
             ),
           ),
         ),

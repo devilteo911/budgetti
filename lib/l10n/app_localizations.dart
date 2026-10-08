@@ -1802,6 +1802,12 @@ abstract class AppLocalizations {
   /// **'{year}: declared as a yearly total, no months to compare'**
   String pivaDeclChartPriorNote(String year);
 
+  /// No description provided for @pivaDeclChartSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Compensi by month in {year}, {total} in total'**
+  String pivaDeclChartSemantics(String year, String total);
+
   /// No description provided for @pivaDeclEstimateFoot.
   ///
   /// In en, this message translates to:

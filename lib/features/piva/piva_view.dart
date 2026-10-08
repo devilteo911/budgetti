@@ -6,10 +6,12 @@
 /// `PivaForecast.tsx` (64–87) — so, unlike `models/piva.dart`, it is not a mirror
 /// of `piva.ts`. Same figures, same rules, to the cent.
 ///
-/// The estimate of the year is made on `compensiForYear` (what the owner declared
-/// for a past year the ledger does not cover, else the ledger's total), as
-/// `PivaForecast.tsx` does for every year; the tiles above it still read the
-/// ledger (devilteo911/budgetti#30).
+/// The figures of the year are made on `compensiForYear` (what the owner declared
+/// for a year the ledger does not cover, else the ledger's total), tiles and
+/// estimate alike, as `PivaIncome.tsx` and `PivaForecast.tsx` do. A declared year
+/// is one yearly figure: its `months` (and the tiles built on them: average, best
+/// month) stay the ledger's and the screen does not draw them; a year after it has
+/// no months to compare with, so it is never set against a stretch of it.
 ///
 /// Pure: no I/O, and `now` is a parameter, read once per derivation on the local
 /// calendar. It imports the engine and the transaction model only — no Flutter,
@@ -39,21 +41,45 @@ class PivaYearView {
     required this.toRemit,
     required this.estimate,
     required this.ratePct,
+    required this.declared,
+    required this.priorDeclared,
+    required this.noPrev,
   });
 
   final int year;
 
   /// The 12 monthly compensi of [year] and of the year before: whole months, the
-  /// chart's bars.
+  /// chart's bars (the ledger's, also for a declared year).
   final List<double> months, priorMonths;
 
-  /// Compensi of [year]; and of the year before — the same stretch of it
-  /// (1 January to the day of `now`) while [year] is still running, the whole
-  /// year otherwise.
+  /// Compensi of [year] (`compensiForYear`: the declared figure, else the ledger's);
+  /// and of the year before — the same stretch of it (1 January to the day of
+  /// `now`) while [year] is still running, the whole year otherwise, and also the
+  /// whole year while [noStretch] (the figure the tile names, not a base for [pct]).
   final double total, prior;
 
-  /// [total] against [prior], in %; `null` when there is no base to compare with.
+  /// [total] against [prior], in %; `null` when there is no base to compare with
+  /// (and always while [noStretch]).
   final double? pct;
+
+  /// The owner declared [year] as one yearly figure: it has no months to average,
+  /// rank or draw.
+  final bool declared;
+
+  /// The year before [year] is declared: no months to set against, so the chart
+  /// draws one rod per month.
+  final bool priorDeclared;
+
+  /// The year before has nothing at all: not declared, no compensi, and the ledger
+  /// does not reach back to 1 January of it. "New vs" would read as "no income the
+  /// year before" when the ledger just does not cover it, so no delta is shown. A
+  /// covered year with no income is a real zero and stays "new".
+  final bool noPrev;
+
+  /// [year] is running and the year before is declared: there is no stretch of
+  /// that year to compare with, so the tile names its whole figure ([prior])
+  /// instead of a delta.
+  bool get noStretch => priorDeclared && currentMonth >= 0;
 
   /// Months of [year] that are over: 12, or the ones before the current month.
   final int concludedMonths;
@@ -71,7 +97,8 @@ class PivaYearView {
   /// Index 0–11 of the month in progress, `-1` when [year] is not the current one.
   final int currentMonth;
 
-  /// Whether [year] or the year before has any compensi to show.
+  /// Whether [year] or the year before has anything to show: compensi in the
+  /// ledger, or a declared figure for either.
   final bool hasData;
 
   /// A cassa that charges an integrativo: the bank amounts include money that is
@@ -79,8 +106,8 @@ class PivaYearView {
   final bool carved;
 
   /// What the bank credited in [year] for the profile's categories (the
-  /// integrativo included), and the integrativo to remit out of it (0 unless
-  /// [carved]).
+  /// integrativo included): the declared figure for a declared year, else the
+  /// ledger's. And the integrativo to remit out of it (0 unless [carved]).
   final double gross, toRemit;
 
   /// The tax and contributions of [year], with the contributions that come off
@@ -109,23 +136,34 @@ double? _pctDelta(double cur, double prev) =>
 /// [year] of the profile as the screen shows it. [txns] is the whole income
 /// history, not a window: the deductible contributions of the estimate reach back
 /// years (see `deadlines`). [now] is read once, on the local calendar.
+/// [ledgerStart] is the first live transaction of the whole ledger (any type), for
+/// [PivaYearView.noPrev]; null is an empty ledger, which covers nothing.
 PivaYearView pivaYearView(
   PivaProfileData profile,
   List<Transaction> txns,
   List<PivaPaymentData> payments,
   int year,
-  DateTime now,
-) {
+  DateTime now, {
+  DateTime? ledgerStart,
+}) {
   final n = now.toLocal();
   final running = year == n.year;
   final months = incomeByMonth(txns, profile, year);
   final priorMonths = incomeByMonth(txns, profile, year - 1);
+  // Any year with a number is declared, whatever `now` is: the stored answer is
+  // what counts, as on the web.
+  final declaredGross = declaredFor(profile, year);
+  final priorDeclared = declaredFor(profile, year - 1) != null;
+  final prevTotal = compensiForYear(profile, txns, year - 1);
+  final noStretch = running && priorDeclared;
 
   // A year still running is set against the same stretch of the year before: up
   // to the day of `now`, clamped to the length of that month then, and the whole
   // month on the last day of its own (29 February meets all of a leap February).
-  var prior = _sum(priorMonths);
-  if (running) {
+  // A declared year before it has no months, so there is no stretch: `prior` is
+  // its whole figure and the percentage is dropped.
+  var prior = prevTotal;
+  if (running && !noStretch) {
     final dim = _daysInMonth(year - 1, n.month);
     final cut = (n.day == _daysInMonth(year, n.month) || n.day > dim) ? dim : n.day;
     final last = _key(year - 1, n.month, cut);
@@ -141,7 +179,7 @@ PivaYearView pivaYearView(
     );
   }
 
-  final total = _sum(months);
+  final total = compensiForYear(profile, txns, year);
   final concluded = running ? n.month - 1 : 12;
   final inYear = pivaIncome(txns, profile).where((t) => t.date.toLocal().year == year).toList();
   final carved = profile.fundType == 'cassa' && profile.integrativeRate > 0;
@@ -153,7 +191,7 @@ PivaYearView pivaYearView(
     priorMonths: List.unmodifiable(priorMonths),
     total: total,
     prior: prior,
-    pct: _pctDelta(total, prior),
+    pct: noStretch ? null : _pctDelta(total, prior),
     concludedMonths: concluded,
     // The month in progress would dilute it; January has no concluded month yet.
     average: concluded > 0 ? _sum(months.take(concluded)) / concluded : null,
@@ -161,18 +199,19 @@ PivaYearView pivaYearView(
     best: best,
     bestMonth: months.indexOf(best),
     currentMonth: running ? n.month - 1 : -1,
-    hasData: total != 0 || _sum(priorMonths) != 0,
+    hasData: total != 0 || _sum(priorMonths) != 0 || declaredGross != null || priorDeclared,
     carved: carved,
-    gross: _sum(inYear.map((t) => t.amount)),
+    gross: declaredGross ?? _sum(inYear.map((t) => t.amount)),
     toRemit: carved ? integrativeCollected(txns, profile, year) : 0.0,
     estimate: estimateYear(
       profile,
-      // Not `total`: a declared year has no months. For the year of `now`, with no
-      // declared figure for it, this is the same ledger total.
-      compensiForYear(profile, txns, year),
+      total,
       year,
       contributionsDeductible(deadlines(profile, txns, payments, now), year),
     ),
     ratePct: taxRate(profile, year) * 100,
+    declared: declaredGross != null,
+    priorDeclared: priorDeclared,
+    noPrev: !priorDeclared && prevTotal == 0 && !ledgerCovers(ledgerStart, year - 1),
   );
 }
