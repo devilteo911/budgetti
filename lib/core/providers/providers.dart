@@ -367,6 +367,13 @@ final pivaTransactionsProvider = StreamProvider<List<Transaction>>((ref) {
   return ref.watch(financeServiceProvider).watchPivaIncome();
 });
 
+/// The date of the first live transaction of any type; `null` = empty ledger.
+/// What `askDeclaredIncome` and `ledgerCovers` take (the income rows alone
+/// would put the start too late).
+final pivaLedgerStartProvider = StreamProvider<DateTime?>((ref) {
+  return ref.watch(financeServiceProvider).watchLedgerStart();
+});
+
 /// The year the Partita IVA screen shows. A provider, not widget state, so it
 /// survives leaving and re-entering the screen.
 class PivaYearNotifier extends Notifier<int> {

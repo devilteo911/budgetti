@@ -120,6 +120,10 @@ void main() {
             (ref) => payments ?? Stream.value(const <PivaPaymentData>[]),
           ),
           pivaTransactionsProvider.overrideWith((ref) => Stream.value(txns)),
+          // Two years back: last year is covered, so no declared-income banner.
+          pivaLedgerStartProvider.overrideWith(
+            (ref) => Stream.value(DateTime(year - 2, 6, 1, 12)),
+          ),
           currencyProvider.overrideWithValue(money),
         ],
         child: MaterialApp(

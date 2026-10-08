@@ -69,11 +69,15 @@ void main() {
   }
 
   /// Tall by default so the lazy list builds every section; the narrow-phone
-  /// tests pass 320×640 and scroll instead.
+  /// tests pass 320×640 and scroll instead. The ledger starts two years back
+  /// unless [ledgerStart] says otherwise (or [emptyLedger]), so last year is
+  /// covered and no case sees the declared-income banner by accident.
   Future<void> pump(
     WidgetTester tester, {
     PivaProfileData? profile,
     List<Transaction> txns = const [],
+    DateTime? ledgerStart,
+    bool emptyLedger = false,
     Locale locale = const Locale('en'),
     Size size = const Size(390, 3000),
     double textScale = 1,
@@ -87,6 +91,8 @@ void main() {
         pivaProfileProvider.overrideWith((ref) => Stream.value(profile)),
         pivaPaymentsProvider.overrideWith((ref) => Stream.value(const <PivaPaymentData>[])),
         pivaTransactionsProvider.overrideWith((ref) => Stream.value(txns)),
+        pivaLedgerStartProvider.overrideWith((ref) => Stream.value(
+            emptyLedger ? null : ledgerStart ?? DateTime(year - 2, 6, 1, 12))),
         // What the profile sheet reads when the screen opens it.
         categoriesProvider.overrideWith((ref) => Stream.value(const <Category>[])),
         currencyProvider.overrideWithValue(
