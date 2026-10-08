@@ -737,4 +737,37 @@ void main() {
     expect(textOf(tester, declaredLabel), '1234.5679');
     expect(await savedDeclared(tester, h), {'$prev': 1234.56789});
   });
+
+  // The map is merged into the profile as it is when Save is tapped, not as the sheet opened
+  // on it (web `PivaProfileForm.tsx:86-93`): an answer another device made meanwhile and a
+  // sync brought in must survive, or the old map written back with a newer `lastUpdated`
+  // would make it lose last-write-wins.
+  Future<void> syncBrings(WidgetTester tester, AppDatabase db, Map<String, double?> declared) async {
+    await tester.runAsync(() => FinanceService(db, 'u').savePivaProfile(_gs(declaredIncome: declared)));
+  }
+
+  testWidgets("a figure for another year that a sync brought while the sheet was open survives an untouched save",
+      (tester) async {
+    final h = await pump(tester, stored: _gs(declaredIncome: {'$older': 999.0}));
+    await syncBrings(tester, h.db, {'$older': 999.0, '${older - 1}': 555.0});
+
+    expect(await savedDeclared(tester, h), {'$older': 999.0, '${older - 1}': 555.0});
+  });
+
+  testWidgets("last year's answer a sync brought while the sheet was open survives an untouched save",
+      (tester) async {
+    final h = await pump(tester, stored: _gs());
+    await syncBrings(tester, h.db, {'$prev': 2222.0});
+
+    expect(textOf(tester, declaredLabel), isEmpty, reason: 'the sheet still shows what it opened on');
+    expect(await savedDeclared(tester, h), {'$prev': 2222.0});
+  });
+
+  testWidgets("a typed amount keeps the other years a sync brought while the sheet was open", (tester) async {
+    final h = await pump(tester, stored: _gs(declaredIncome: {'$older': 999.0}));
+    await syncBrings(tester, h.db, {'$older': 999.0, '${older - 1}': 555.0});
+    await type(tester, declaredLabel, '1234,5');
+
+    expect(await savedDeclared(tester, h), {'$older': 999.0, '${older - 1}': 555.0, '$prev': 1234.5});
+  });
 }

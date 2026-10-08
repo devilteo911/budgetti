@@ -191,10 +191,21 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
 
   Future<void> _save() async {
     // The whole map goes out (a write replaces the object) with only last year's
-    // entry changed by the field's rule. An untouched field is not an emptied
-    // one: it carries the map through as it is, so a figure the field could not
-    // hold (more decimals than its text keeps) is not rewritten.
-    final stored = widget.existing?.declaredIncome ?? const <String, double?>{};
+    // entry changed by the field's rule. It is merged into the profile as it is
+    // NOW, not as the sheet opened on it: a sync may have brought an answer from
+    // the web meanwhile, and writing the old map back with a newer `lastUpdated`
+    // would drop it. An untouched field is not an emptied one: it carries the map
+    // through as it is, so a figure the field could not hold (more decimals than
+    // its text keeps) is not rewritten.
+    // Held from the first tap, across the read: a second tap must not start a
+    // second save.
+    setState(() => _saving = true);
+    final current = await ref
+        .read(financeServiceProvider)
+        .getPivaProfile()
+        .catchError((_) => widget.existing);
+    if (!mounted) return;
+    final stored = current?.declaredIncome ?? const <String, double?>{};
     final declared = _declared.text == _declared0
         ? null
         : declaredFromForm(stored, _previousYear, _declared.text);
@@ -218,20 +229,21 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
     );
     final error = parsed.error;
     if (error != null) {
-      setState(() => _error = _message(error));
+      setState(() {
+        _error = _message(error);
+        _saving = false;
+      });
       return;
     }
-    // The amount field comes last in field order, so its error comes last.
+    // Its error comes after parseProfileForm's, as on the web.
     if (declared != null && declared.invalid) {
-      setState(
-        () => _error = context.l10n.pivaDeclFieldError('$_previousYear'),
-      );
+      setState(() {
+        _error = context.l10n.pivaDeclFieldError('$_previousYear');
+        _saving = false;
+      });
       return;
     }
-    setState(() {
-      _error = null;
-      _saving = true;
-    });
+    setState(() => _error = null);
     try {
       await ref.read(financeServiceProvider).savePivaProfile(parsed.profile!);
       // `_saving` stays set: the button must not take a second tap while the
