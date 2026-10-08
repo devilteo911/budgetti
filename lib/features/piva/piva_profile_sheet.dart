@@ -265,12 +265,14 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
     String? hint,
     TextInputType? type,
     bool autofocus = false,
+    EdgeInsets scrollPadding = const EdgeInsets.all(20),
     TextCapitalization capitalization = TextCapitalization.none,
     List<TextInputFormatter>? formatters,
     ValueChanged<String>? onChanged,
   }) => TextField(
     controller: controller,
     autofocus: autofocus,
+    scrollPadding: scrollPadding,
     keyboardType: type,
     textCapitalization: capitalization,
     inputFormatters: formatters,
@@ -422,6 +424,8 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
                       l10n.pivaDeclFieldLabel('$_previousYear'),
                       type: _decimal,
                       autofocus: widget.focusDeclared,
+                      // Its hint is two lines: scroll far enough to keep it above the keyboard.
+                      scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
                     ),
                     const SizedBox(height: 8),
                     Text(
