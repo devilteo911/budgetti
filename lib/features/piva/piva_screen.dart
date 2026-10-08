@@ -1,3 +1,4 @@
+import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/widgets/app_sheet.dart';
@@ -58,11 +59,11 @@ class _PivaScreenState extends ConsumerState<PivaScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _revealDeadlines(tries - 1));
   }
 
-  void _openProfileSheet(BuildContext context, {PivaProfileData? existing}) {
+  void _openProfileSheet(BuildContext context, {PivaProfileData? existing, bool focusDeclared = false}) {
     showAppSheet(
       context,
       isScrollControlled: true,
-      builder: (_) => PivaProfileSheet(existing: existing),
+      builder: (_) => PivaProfileSheet(existing: existing, focusDeclared: focusDeclared),
     );
   }
 
@@ -103,10 +104,23 @@ class _PivaScreenState extends ConsumerState<PivaScreen> {
             _scrolled = true;
             WidgetsBinding.instance.addPostFrameCallback((_) => _revealDeadlines(3));
           }
+          // Only once the ledger has answered: a start still loading is not "no
+          // start". `hasValue` is true for a `null` start too (the empty ledger).
+          final ledgerStart = ref.watch(pivaLedgerStartProvider);
+          final askYear = ledgerStart.hasValue
+              ? askDeclaredIncome(profile, ledgerStart.value, now)
+              : null;
           return ListView(
             controller: _scroll,
             padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom + 32),
             children: [
+              if (askYear != null)
+                _DeclaredBanner(
+                  profile: profile,
+                  year: askYear,
+                  ledgerStart: ledgerStart.value,
+                  onEnter: () => _openProfileSheet(context, existing: profile, focusDeclared: true),
+                ),
               _ProfileSummary(
                 profile: profile,
                 onEdit: () => _openProfileSheet(context, existing: profile),
@@ -180,6 +194,149 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
+/// The ledger does not reach back to 1 January of [year] (the previous one), and
+/// the estimates of this year rest on what was collected in it: ask for the gross
+/// ("Enter it" opens the profile sheet on that field), or let the ledger's figure
+/// stand ("Derive it from the ledger"). Either answer lands in the profile's
+/// `declaredIncome`, and the banner goes by itself once the key exists
+/// (`askDeclaredIncome`). (`DeclaredBanner` in `web/src/components/Piva.tsx`)
+class _DeclaredBanner extends ConsumerStatefulWidget {
+  const _DeclaredBanner({
+    required this.profile,
+    required this.year,
+    required this.ledgerStart,
+    required this.onEnter,
+  });
+
+  final PivaProfileData profile;
+  final int year;
+
+  /// The ledger's first transaction; null = it has none yet.
+  final DateTime? ledgerStart;
+  final VoidCallback onEnter;
+
+  @override
+  ConsumerState<_DeclaredBanner> createState() => _DeclaredBannerState();
+}
+
+class _DeclaredBannerState extends ConsumerState<_DeclaredBanner> {
+  /// The write is in flight: both buttons wait.
+  bool _busy = false;
+
+  /// Saves `{'<year>': null}` — "from the ledger" — on top of the declared years
+  /// the profile already holds: a write replaces the whole map, so it goes out
+  /// whole. [_DeclaredBanner.profile] is the live row (the screen rebuilds on
+  /// every emission of its stream), so a sync's answer is already in it.
+  Future<void> _deriveFromLedger() async {
+    final p = widget.profile;
+    setState(() => _busy = true);
+    try {
+      await ref.read(financeServiceProvider).savePivaProfile(
+            _inputOf(p, {...p.declaredIncome, '${widget.year}': null}),
+          );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.pivaProfileSaveError(errorText(context, e)))),
+      );
+    } finally {
+      // On success the profile stream takes the banner away; if it does not (yet),
+      // the buttons must not stay dead.
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final year = widget.year;
+    final start = widget.ledgerStart;
+    final inLedger = ref.watch(currencyProvider).format(
+          compensiForYear(widget.profile, ref.watch(pivaTransactionsProvider).value ?? const [], year),
+        );
+    const touch = ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(48, 48)));
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      decoration: BoxDecoration(
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              l10n.pivaDeclBannerTitle('$year'),
+              style: GoogleFonts.bricolageGrotesque(
+                color: scheme.onSurface,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+                height: 1.2,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            start == null
+                ? l10n.pivaDeclBannerEmpty('$year', '${year + 1}')
+                : l10n.pivaDeclBannerStart(DateFormat.yMMMd().format(start), '$year', '${year + 1}'),
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 8),
+          // A Wrap: at a large font the buttons stack instead of overflowing.
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              OutlinedButton(
+                style: touch,
+                onPressed: _busy ? null : widget.onEnter,
+                child: Text(l10n.pivaDeclEnter),
+              ),
+              TextButton(
+                style: touch,
+                onPressed: _busy ? null : _deriveFromLedger,
+                child: Text(l10n.pivaDeclFromLedger),
+              ),
+              Text(
+                l10n.pivaDeclBannerLedger(inLedger),
+                style: GoogleFonts.jetBrainsMono(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 11,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// [p] as the input the write takes, with [declaredIncome] in place of its own:
+/// every other field exactly as it is.
+PivaProfileInput _inputOf(PivaProfileData p, Map<String, double?> declaredIncome) => PivaProfileInput(
+      atecoCode: p.atecoCode,
+      coefficient: p.coefficient,
+      startYear: p.startYear,
+      startupRate: p.startupRate,
+      fundType: p.fundType,
+      fundName: p.fundName,
+      subjectiveRate: p.subjectiveRate,
+      integrativeRate: p.integrativeRate,
+      minSubjective: p.minSubjective,
+      minIntegrative: p.minIntegrative,
+      inpsReduction: p.inpsReduction,
+      incomeCategories: p.incomeCategories,
+      declaredIncome: declaredIncome,
+    );
 
 /// What the profile says, in one block: the ATECO code and coefficient as the
 /// title, the fund, the opening year and the income categories under it.
