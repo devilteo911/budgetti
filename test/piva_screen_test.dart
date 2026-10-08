@@ -626,6 +626,7 @@ void main() {
     await pump(tester, profile: profile(startYear: year - 2), ledgerStart: startsThisYear);
 
     expect(tester.getSemantics(bannerTitle), containsSemantics(isHeader: true));
+    expect(tester.getSemantics(bannerTitle).label, en.pivaDeclBannerTitle('${year - 1}'));
     handle.dispose();
   });
 

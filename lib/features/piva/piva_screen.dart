@@ -267,7 +267,11 @@ class _DeclaredBannerState extends ConsumerState<_DeclaredBanner> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // A node of its own: without `container` the heading flag lands on the
+          // merged node of the whole box and the screen reader announces the body as
+          // part of the heading.
           Semantics(
+            container: true,
             header: true,
             child: Text(
               l10n.pivaDeclBannerTitle('$year'),
