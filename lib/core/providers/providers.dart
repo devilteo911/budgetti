@@ -172,9 +172,13 @@ final authServiceProvider = Provider<AuthService>((ref) {
   );
 });
 
-// Emits on login/logout so auth-dependent providers + the router rebuild.
-final authStateProvider = StreamProvider<void>((ref) {
-  return ref.watch(authServiceProvider).changes;
+// Emits the PocketBase user id on login/logout. Not `void`: Riverpod drops an
+// update equal to the previous one, so a second `AsyncData(null)` (logout, then
+// login) never reached currentUserIdProvider and the sync service kept stamping
+// pulled rows with the pre-login id.
+final authStateProvider = StreamProvider<String?>((ref) {
+  final auth = ref.watch(authServiceProvider);
+  return auth.changes.map((_) => auth.pbUserId);
 });
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
