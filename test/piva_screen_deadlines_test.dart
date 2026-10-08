@@ -241,6 +241,7 @@ void main() {
           minIntegrative: 0,
           inpsReduction: false,
           incomeCategories: const ['Freelance'],
+          declaredIncome: const {},
         ),
       ),
     );

@@ -12,6 +12,15 @@
 /// "Ricavi" always means *compensi*: cash received, minus the integrativo a
 /// `cassa` profile charges its clients (not income).
 ///
+/// What the engine reads is the ledger, plus one figure the profile can hold: the
+/// gross the owner declared for a past year the ledger does not cover
+/// (`declaredIncome`). The public functions around it — `declaredFor`,
+/// `compensiForYear`, the declared-aware `integrativeCollected`, `askDeclaredIncome`
+/// and `ledgerCovers` — are part of the mirror. The web's `declaredFromForm` (the
+/// previous-year field of the profile form) is web-only until the phone has that
+/// field (devilteo911/budgetti#30), so `parseProfileForm` here only passes the map
+/// through.
+///
 /// The code is pure — no I/O, no database — and the clock is never read:
 /// `now` / `today` are always injected by the caller. Days are local
 /// `DateTime`s of which only year, month and day count.
@@ -176,6 +185,7 @@ class PivaProfileData {
     required this.minIntegrative,
     required this.inpsReduction,
     required this.incomeCategories,
+    this.declaredIncome = const {},
   });
 
   final String atecoCode;
@@ -203,6 +213,12 @@ class PivaProfileData {
   /// Category *names*. Never null: a database `null` or `''` is `[]` in the
   /// mapping.
   final List<String> incomeCategories;
+
+  /// The gross collected in a concluded year, as the accountant's figure, keyed
+  /// by four-digit year (`'2025'`). Never null: a database `NULL` is `{}`.
+  /// `containsKey` tells the two non-numbers apart: a `null` value means "derive
+  /// it from the ledger" (asked and answered), an absent key "not answered".
+  final Map<String, double?> declaredIncome;
 }
 
 /// A tax/contribution payment row. An official amount from the accountant
@@ -260,6 +276,14 @@ double _sum(Iterable<double> xs) => xs.fold(0.0, (a, b) => a + b);
 double _compensiDivisor(PivaProfileData p) =>
     p.fundType == 'cassa' && p.integrativeRate > 0 ? 1 + p.integrativeRate / 100 : 1.0;
 
+/// The gross the owner declared for [year] (what the bank received, integrativo
+/// included), or null when the year is to be read from the ledger: a `null`
+/// value, an absent key, anything not a finite number ≥ 0.
+double? declaredFor(PivaProfileData profile, int year) {
+  final d = profile.declaredIncome['$year'];
+  return d != null && d.isFinite && d >= 0 ? d : null;
+}
+
 /// The ledger income of the profile's categories, as banked (integrativo
 /// included). The sign decides, like everywhere else: [Transaction.isIncome].
 /// The model has no `isDeleted`: deleted rows never reach it.
@@ -278,15 +302,44 @@ List<double> incomeByMonth(List<Transaction> txns, PivaProfileData profile, int 
   return [for (final m in months) _round2(m / div)];
 }
 
+/// Compensi of a concluded [year]: the declared gross divided once, else the
+/// ledger's total. One yearly division, never twelve monthly ones — a declared
+/// year has no months.
+double compensiForYear(PivaProfileData profile, List<Transaction> txns, int year) {
+  final d = declaredFor(profile, year);
+  return d != null ? _round2(d / _compensiDivisor(profile)) : _round2(_sum(incomeByMonth(txns, profile, year)));
+}
+
 /// Integrativo collected in [year] on behalf of the cassa: gross banked minus
-/// compensi. 0 when nothing is split.
+/// compensi (the declared gross, if the year is declared). 0 when nothing is split.
 double integrativeCollected(List<Transaction> txns, PivaProfileData profile, int year) {
   if (_compensiDivisor(profile) == 1) return 0.0;
+  final declared = declaredFor(profile, year);
+  if (declared != null) return _round2(declared - compensiForYear(profile, txns, year));
   final gross = _sum(
     pivaIncome(txns, profile).where((t) => t.date.toLocal().year == year).map((t) => t.amount),
   );
   return _round2(gross - _sum(incomeByMonth(txns, profile, year)));
 }
+
+/// The year whose gross the owner should be asked for, or null. Only the
+/// previous year is ever asked: the year of `now − 1`, once the partita IVA was
+/// open, nothing is stored for it yet (a `null` value is an answer too) and the
+/// ledger does not reach back to 1 January of it. [ledgerStart] — the first live
+/// transaction of the whole ledger, any category or type, null when empty — is an
+/// input because the app feeds the engine income rows only.
+int? askDeclaredIncome(PivaProfileData profile, DateTime? ledgerStart, DateTime now) {
+  final y = now.toLocal().year - 1;
+  if (y < profile.startYear || profile.declaredIncome.containsKey('$y')) return null;
+  return ledgerCovers(ledgerStart, y) ? null : y;
+}
+
+/// The ledger reaches back to 1 January of [year] (local calendar): its first
+/// live transaction, any category or type, falls on that day or before. An empty
+/// ledger ([ledgerStart] null) covers nothing. Compared as local days, never as
+/// instants (the web's `+ledgerStart < +new Date(year, 0, 2)`): 1 January 23:59
+/// covers, 2 January 00:00 does not, and a UTC-flagged start reads the local one.
+bool ledgerCovers(DateTime? ledgerStart, int year) => ledgerStart != null && _ord(ledgerStart) <= year * 10000 + 101;
 
 // ponytail: linear average, diluted when the activity started mid-year; add
 // seasonality from the previous year's months if that proves too rough.
@@ -495,12 +548,12 @@ double contributionsDeductible(List<PivaDeadline> rows, int year) => _round2(
 
 // ── Calendario: righe stimate e importi salvati ───────────────────────────
 
-/// Compensi of [year] as the calendar sees them: the real total for a concluded
-/// year, the projection for the year of [now], 0 for later years and for those
-/// before the opening.
+/// Compensi of [year] as the calendar sees them: the declared figure, else the
+/// ledger total, for a concluded year ([compensiForYear]); the projection for the
+/// year of [now], 0 for later years and for those before the opening.
 double _compensiOf(PivaProfileData p, List<Transaction> txns, int year, DateTime now) {
   if (year < p.startYear || year > now.year) return 0.0;
-  return year == now.year ? projectRevenue(txns, p, now) : _round2(_sum(incomeByMonth(txns, p, year)));
+  return year == now.year ? projectRevenue(txns, p, now) : compensiForYear(p, txns, year);
 }
 
 /// One slot of the calendar: the statutory date of each slot, the only place
@@ -788,6 +841,7 @@ class ProfileFormValues {
     required this.minIntegrative,
     required this.inpsReduction,
     required this.incomeCategories,
+    required this.declaredIncome,
   });
 
   final String atecoCode, coefficient, startYear;
@@ -796,10 +850,15 @@ class ProfileFormValues {
   final String subjectiveRate, integrativeRate, minSubjective, minIntegrative;
   final bool inpsReduction;
   final List<String> incomeCategories;
+
+  /// Not a field of the form: the profile's declared income, carried to the save
+  /// untouched. Required so that no save can forget it and erase the figure.
+  final Map<String, double?> declaredIncome;
 }
 
-/// What the form saves: the twelve fields of the profile, typed, with neither
-/// `userId` nor `lastUpdated` — the write stamps those.
+/// What the form saves: the twelve fields of the profile plus the declared
+/// income, typed, with neither `userId` nor `lastUpdated` — the write stamps
+/// those.
 class PivaProfileInput {
   const PivaProfileInput({
     required this.atecoCode,
@@ -814,6 +873,7 @@ class PivaProfileInput {
     required this.minIntegrative,
     required this.inpsReduction,
     required this.incomeCategories,
+    required this.declaredIncome,
   });
 
   final String atecoCode;
@@ -824,6 +884,10 @@ class PivaProfileInput {
   final double subjectiveRate, integrativeRate, minSubjective, minIntegrative;
   final bool inpsReduction;
   final List<String> incomeCategories;
+
+  /// Written as given, `{}` included: a save that dropped it would erase the
+  /// figure the web (or an earlier answer) put there.
+  final Map<String, double?> declaredIncome;
 }
 
 /// The first rule the form broke, in the order the rules run.
@@ -860,7 +924,9 @@ double? _optionalAmount(String s) {
 /// can be rejected). Only a `cassa` keeps its own fields: for any other fund the
 /// hidden ones are saved as '' / 0 whatever they hold, and the INPS reduction
 /// only counts for artigiani and commercianti. Exactly one of the two fields of
-/// the result is set.
+/// the result is set. The declared income is not a field of the form: its map
+/// passes through untouched (copied, entry for entry, `null` values included);
+/// the previous year's field and its rule come with #30.
 ({PivaProfileInput? profile, ProfileFormError? error}) parseProfileForm(ProfileFormValues f, DateTime now) {
   final atecoCode = f.atecoCode.trim();
   if (!RegExp(r'^\d{2}(\.?\d{1,2}){0,2}$').hasMatch(atecoCode)) return _fail(ProfileFormError.atecoCode);
@@ -918,6 +984,7 @@ double? _optionalAmount(String s) {
       minIntegrative: cassa.minIntegrative,
       inpsReduction: f.inpsReduction && (fundType == 'artigiani' || fundType == 'commercianti'),
       incomeCategories: incomeCategories,
+      declaredIncome: Map.of(f.declaredIncome),
     ),
     error: null,
   );

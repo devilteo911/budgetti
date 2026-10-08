@@ -271,6 +271,11 @@ class BackupService {
       // List<String>. Anything that is not a list reads as "no categories".
       final cats = map['incomeCategories'];
       map['incomeCategories'] = cats is List ? List<String>.from(cats) : null;
+      // Same again for the declared income: the generated fromJson only casts,
+      // and a jsonDecode'd object (a `Map<String, dynamic>` whose whole numbers
+      // are ints) is not a `Map<String, double?>`. The key is absent on a v0.7
+      // backup and null on a web one that never declared; both read as NULL.
+      map['declaredIncome'] = declaredIncomeFromJson(map['declaredIncome']);
       return PivaProfile.fromJson(map);
     }).toList();
     final pivaPayments = (data['piva_payments'] as List?)

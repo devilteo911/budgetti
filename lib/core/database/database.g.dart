@@ -3719,6 +3719,18 @@ class $PivaProfilesTable extends PivaProfiles
       ).withConverter<List<String>?>(
         $PivaProfilesTable.$converterincomeCategoriesn,
       );
+  @override
+  late final GeneratedColumnWithTypeConverter<Map<String, double?>?, String>
+  declaredIncome =
+      GeneratedColumn<String>(
+        'declared_income',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<Map<String, double?>?>(
+        $PivaProfilesTable.$converterdeclaredIncomen,
+      );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -3761,6 +3773,7 @@ class $PivaProfilesTable extends PivaProfiles
     minIntegrative,
     inpsReduction,
     incomeCategories,
+    declaredIncome,
     isDeleted,
     lastUpdated,
   ];
@@ -3956,6 +3969,12 @@ class $PivaProfilesTable extends PivaProfiles
           data['${effectivePrefix}income_categories'],
         ),
       ),
+      declaredIncome: $PivaProfilesTable.$converterdeclaredIncomen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}declared_income'],
+        ),
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -3976,6 +3995,12 @@ class $PivaProfilesTable extends PivaProfiles
       const ListStringConverter();
   static TypeConverter<List<String>?, String?> $converterincomeCategoriesn =
       NullAwareTypeConverter.wrap($converterincomeCategories);
+  static TypeConverter<Map<String, double?>, String> $converterdeclaredIncome =
+      const DeclaredIncomeConverter();
+  static TypeConverter<Map<String, double?>?, String?>
+  $converterdeclaredIncomen = NullAwareTypeConverter.wrap(
+    $converterdeclaredIncome,
+  );
 }
 
 class PivaProfile extends DataClass implements Insertable<PivaProfile> {
@@ -3993,6 +4018,13 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
   final double minIntegrative;
   final bool inpsReduction;
   final List<String>? incomeCategories;
+
+  /// What the owner declared as the gross income collected in a concluded year:
+  /// `{ "<four-digit year>": number >= 0 | null }`. A number is the gross
+  /// collected that year (integrativo included for a `cassa`), `null` means
+  /// "derive it from the ledger" (asked and answered), an absent key means
+  /// "never asked". A NULL column reads as `{}`.
+  final Map<String, double?>? declaredIncome;
   final bool isDeleted;
   final DateTime? lastUpdated;
   const PivaProfile({
@@ -4010,6 +4042,7 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
     required this.minIntegrative,
     required this.inpsReduction,
     this.incomeCategories,
+    this.declaredIncome,
     required this.isDeleted,
     this.lastUpdated,
   });
@@ -4034,6 +4067,11 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
     if (!nullToAbsent || incomeCategories != null) {
       map['income_categories'] = Variable<String>(
         $PivaProfilesTable.$converterincomeCategoriesn.toSql(incomeCategories),
+      );
+    }
+    if (!nullToAbsent || declaredIncome != null) {
+      map['declared_income'] = Variable<String>(
+        $PivaProfilesTable.$converterdeclaredIncomen.toSql(declaredIncome),
       );
     }
     map['is_deleted'] = Variable<bool>(isDeleted);
@@ -4063,6 +4101,9 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
       incomeCategories: incomeCategories == null && nullToAbsent
           ? const Value.absent()
           : Value(incomeCategories),
+      declaredIncome: declaredIncome == null && nullToAbsent
+          ? const Value.absent()
+          : Value(declaredIncome),
       isDeleted: Value(isDeleted),
       lastUpdated: lastUpdated == null && nullToAbsent
           ? const Value.absent()
@@ -4092,6 +4133,9 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
       incomeCategories: serializer.fromJson<List<String>?>(
         json['incomeCategories'],
       ),
+      declaredIncome: serializer.fromJson<Map<String, double?>?>(
+        json['declaredIncome'],
+      ),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
     );
@@ -4114,6 +4158,9 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
       'minIntegrative': serializer.toJson<double>(minIntegrative),
       'inpsReduction': serializer.toJson<bool>(inpsReduction),
       'incomeCategories': serializer.toJson<List<String>?>(incomeCategories),
+      'declaredIncome': serializer.toJson<Map<String, double?>?>(
+        declaredIncome,
+      ),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
     };
@@ -4134,6 +4181,7 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
     double? minIntegrative,
     bool? inpsReduction,
     Value<List<String>?> incomeCategories = const Value.absent(),
+    Value<Map<String, double?>?> declaredIncome = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> lastUpdated = const Value.absent(),
   }) => PivaProfile(
@@ -4153,6 +4201,9 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
     incomeCategories: incomeCategories.present
         ? incomeCategories.value
         : this.incomeCategories,
+    declaredIncome: declaredIncome.present
+        ? declaredIncome.value
+        : this.declaredIncome,
     isDeleted: isDeleted ?? this.isDeleted,
     lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
   );
@@ -4188,6 +4239,9 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
       incomeCategories: data.incomeCategories.present
           ? data.incomeCategories.value
           : this.incomeCategories,
+      declaredIncome: data.declaredIncome.present
+          ? data.declaredIncome.value
+          : this.declaredIncome,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       lastUpdated: data.lastUpdated.present
           ? data.lastUpdated.value
@@ -4212,6 +4266,7 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
           ..write('minIntegrative: $minIntegrative, ')
           ..write('inpsReduction: $inpsReduction, ')
           ..write('incomeCategories: $incomeCategories, ')
+          ..write('declaredIncome: $declaredIncome, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated')
           ..write(')'))
@@ -4234,6 +4289,7 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
     minIntegrative,
     inpsReduction,
     incomeCategories,
+    declaredIncome,
     isDeleted,
     lastUpdated,
   );
@@ -4255,6 +4311,7 @@ class PivaProfile extends DataClass implements Insertable<PivaProfile> {
           other.minIntegrative == this.minIntegrative &&
           other.inpsReduction == this.inpsReduction &&
           other.incomeCategories == this.incomeCategories &&
+          other.declaredIncome == this.declaredIncome &&
           other.isDeleted == this.isDeleted &&
           other.lastUpdated == this.lastUpdated);
 }
@@ -4274,6 +4331,7 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
   final Value<double> minIntegrative;
   final Value<bool> inpsReduction;
   final Value<List<String>?> incomeCategories;
+  final Value<Map<String, double?>?> declaredIncome;
   final Value<bool> isDeleted;
   final Value<DateTime?> lastUpdated;
   final Value<int> rowid;
@@ -4292,6 +4350,7 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
     this.minIntegrative = const Value.absent(),
     this.inpsReduction = const Value.absent(),
     this.incomeCategories = const Value.absent(),
+    this.declaredIncome = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4311,6 +4370,7 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
     this.minIntegrative = const Value.absent(),
     this.inpsReduction = const Value.absent(),
     this.incomeCategories = const Value.absent(),
+    this.declaredIncome = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4330,6 +4390,7 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
     Expression<double>? minIntegrative,
     Expression<bool>? inpsReduction,
     Expression<String>? incomeCategories,
+    Expression<String>? declaredIncome,
     Expression<bool>? isDeleted,
     Expression<DateTime>? lastUpdated,
     Expression<int>? rowid,
@@ -4349,6 +4410,7 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
       if (minIntegrative != null) 'min_integrative': minIntegrative,
       if (inpsReduction != null) 'inps_reduction': inpsReduction,
       if (incomeCategories != null) 'income_categories': incomeCategories,
+      if (declaredIncome != null) 'declared_income': declaredIncome,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (lastUpdated != null) 'last_updated': lastUpdated,
       if (rowid != null) 'rowid': rowid,
@@ -4370,6 +4432,7 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
     Value<double>? minIntegrative,
     Value<bool>? inpsReduction,
     Value<List<String>?>? incomeCategories,
+    Value<Map<String, double?>?>? declaredIncome,
     Value<bool>? isDeleted,
     Value<DateTime?>? lastUpdated,
     Value<int>? rowid,
@@ -4389,6 +4452,7 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
       minIntegrative: minIntegrative ?? this.minIntegrative,
       inpsReduction: inpsReduction ?? this.inpsReduction,
       incomeCategories: incomeCategories ?? this.incomeCategories,
+      declaredIncome: declaredIncome ?? this.declaredIncome,
       isDeleted: isDeleted ?? this.isDeleted,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       rowid: rowid ?? this.rowid,
@@ -4444,6 +4508,13 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
         ),
       );
     }
+    if (declaredIncome.present) {
+      map['declared_income'] = Variable<String>(
+        $PivaProfilesTable.$converterdeclaredIncomen.toSql(
+          declaredIncome.value,
+        ),
+      );
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -4473,6 +4544,7 @@ class PivaProfilesCompanion extends UpdateCompanion<PivaProfile> {
           ..write('minIntegrative: $minIntegrative, ')
           ..write('inpsReduction: $inpsReduction, ')
           ..write('incomeCategories: $incomeCategories, ')
+          ..write('declaredIncome: $declaredIncome, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated, ')
           ..write('rowid: $rowid')
@@ -8625,6 +8697,7 @@ typedef $$PivaProfilesTableCreateCompanionBuilder =
       Value<double> minIntegrative,
       Value<bool> inpsReduction,
       Value<List<String>?> incomeCategories,
+      Value<Map<String, double?>?> declaredIncome,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -8645,6 +8718,7 @@ typedef $$PivaProfilesTableUpdateCompanionBuilder =
       Value<double> minIntegrative,
       Value<bool> inpsReduction,
       Value<List<String>?> incomeCategories,
+      Value<Map<String, double?>?> declaredIncome,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -8727,6 +8801,16 @@ class $$PivaProfilesTableFilterComposer
   ColumnWithTypeConverterFilters<List<String>?, List<String>, String>
   get incomeCategories => $composableBuilder(
     column: $table.incomeCategories,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    Map<String, double?>?,
+    Map<String, double>?,
+    String
+  >
+  get declaredIncome => $composableBuilder(
+    column: $table.declaredIncome,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
@@ -8820,6 +8904,11 @@ class $$PivaProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get declaredIncome => $composableBuilder(
+    column: $table.declaredIncome,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -8899,6 +8988,12 @@ class $$PivaProfilesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumnWithTypeConverter<Map<String, double?>?, String>
+  get declaredIncome => $composableBuilder(
+    column: $table.declaredIncome,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
@@ -8953,6 +9048,8 @@ class $$PivaProfilesTableTableManager
                 Value<double> minIntegrative = const Value.absent(),
                 Value<bool> inpsReduction = const Value.absent(),
                 Value<List<String>?> incomeCategories = const Value.absent(),
+                Value<Map<String, double?>?> declaredIncome =
+                    const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -8971,6 +9068,7 @@ class $$PivaProfilesTableTableManager
                 minIntegrative: minIntegrative,
                 inpsReduction: inpsReduction,
                 incomeCategories: incomeCategories,
+                declaredIncome: declaredIncome,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,
@@ -8991,6 +9089,8 @@ class $$PivaProfilesTableTableManager
                 Value<double> minIntegrative = const Value.absent(),
                 Value<bool> inpsReduction = const Value.absent(),
                 Value<List<String>?> incomeCategories = const Value.absent(),
+                Value<Map<String, double?>?> declaredIncome =
+                    const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -9009,6 +9109,7 @@ class $$PivaProfilesTableTableManager
                 minIntegrative: minIntegrative,
                 inpsReduction: inpsReduction,
                 incomeCategories: incomeCategories,
+                declaredIncome: declaredIncome,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,

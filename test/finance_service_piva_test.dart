@@ -129,6 +129,23 @@ void main() {
           ['Consulenze', 'Corsi']);
     });
 
+    test('a NULL declaredIncome is an empty map, a stored one keeps its null entry',
+        () async {
+      await profile('p', updated: DateTime(2026, 1, 1));
+      expect((await service.getPivaProfile())!.declaredIncome, isEmpty);
+
+      await (db.update(db.pivaProfiles)..where((t) => t.id.equals('p')))
+          .write(PivaProfilesCompanion(
+        declaredIncome: Value({'2025': 40000.0, '2024': null}),
+        lastUpdated: Value(DateTime(2026, 2, 1)),
+      ));
+      final declared = (await service.getPivaProfile())!.declaredIncome;
+      expect(declared, {'2025': 40000.0, '2024': null});
+      expect(declared.containsKey('2024'), isTrue);
+      expect(declared['2024'], isNull);
+      expect(declared.containsKey('2023'), isFalse);
+    });
+
     test('every column lands in its own field', () async {
       await db.into(db.pivaProfiles).insert(PivaProfilesCompanion.insert(
             id: 'p',
@@ -270,6 +287,65 @@ void main() {
       await until(2);
 
       expect(seen, [1, 2]);
+    });
+  });
+
+  // The start of the ledger is the first live row of the user, any type: the
+  // income rows alone (`getPivaIncome`) would put it too late.
+  group('ledger start', () {
+    test('an empty ledger has no start', () async {
+      expect(await service.getLedgerStart(), isNull);
+      expect(await service.watchLedgerStart().first, isNull);
+    });
+
+    test('the earliest row wins, whatever its type', () async {
+      await txn('income', 100, 'income', DateTime(2025, 6, 1));
+      expect(await service.getLedgerStart(), DateTime(2025, 6, 1));
+
+      await txn('out', -30, 'expense', DateTime(2025, 3, 1));
+      expect(await service.getLedgerStart(), DateTime(2025, 3, 1),
+          reason: 'an expense moves it');
+
+      await txn('move', 500, 'transfer', DateTime(2024, 11, 1));
+      expect(await service.getLedgerStart(), DateTime(2024, 11, 1),
+          reason: 'a transfer moves it');
+
+      await txn('badtype', -10, 'income', DateTime(2024, 2, 1));
+      expect(await service.getLedgerStart(), DateTime(2024, 2, 1),
+          reason: 'a negative "income" moves it');
+    });
+
+    test('a deleted row and another user\'s row never move it', () async {
+      await txn('mine', 100, 'income', DateTime(2025, 6, 1));
+      await txn('gone', -5, 'expense', DateTime(2020, 1, 1), deleted: true);
+      await txn('theirs', 80, 'income', DateTime(2021, 1, 1), user: 'user-b');
+
+      expect(await service.getLedgerStart(), DateTime(2025, 6, 1));
+      expect(await service.watchLedgerStart().first, DateTime(2025, 6, 1));
+    });
+
+    test('the stream emits again when an earlier row is inserted; getLedgerStart is its first value',
+        () async {
+      await txn('first', 10, 'income', DateTime(2026, 1, 1));
+
+      final seen = <DateTime?>[];
+      final sub = service.watchLedgerStart().listen(seen.add);
+      addTearDown(sub.cancel);
+
+      Future<void> until(int n) async {
+        for (var i = 0; i < 300 && seen.length < n; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        if (seen.length < n) fail('never emitted $n times: $seen');
+      }
+
+      await until(1);
+      expect(await service.getLedgerStart(), seen.first);
+
+      await txn('earlier', -20, 'expense', DateTime(2025, 12, 1));
+      await until(2);
+
+      expect(seen, [DateTime(2026, 1, 1), DateTime(2025, 12, 1)]);
     });
   });
 }

@@ -73,6 +73,7 @@ const _cassa = PivaProfileInput(
   minIntegrative: 50,
   inpsReduction: false,
   incomeCategories: ['Freelance', 'Salary'],
+  declaredIncome: {},
 );
 const _artigiani = PivaProfileInput(
   atecoCode: '43.21.01',
@@ -87,6 +88,7 @@ const _artigiani = PivaProfileInput(
   minIntegrative: 0,
   inpsReduction: true,
   incomeCategories: ['Salary'],
+  declaredIncome: {},
 );
 
 /// The profile sheet: the first broken rule shown inside it, the fields that
@@ -215,6 +217,7 @@ void main() {
     expect(row.minIntegrative, want.minIntegrative);
     expect(row.inpsReduction, want.inpsReduction);
     expect(row.incomeCategories, want.incomeCategories);
+    expect(row.declaredIncome, want.declaredIncome);
   }
 
   testWidgets('an empty form shows the first broken rule inside the sheet; the next edit clears it',
@@ -386,6 +389,7 @@ void main() {
         minIntegrative: 0,
         inpsReduction: false,
         incomeCategories: ['Freelance', 'Retired'],
+        declaredIncome: {},
       ),
     );
 
@@ -432,8 +436,41 @@ void main() {
         minIntegrative: 0,
         inpsReduction: false,
         incomeCategories: ['Freelance'],
+        declaredIncome: {},
       ),
     );
+  });
+
+  testWidgets('a save from the sheet keeps the declared income, the null entry included',
+      (tester) async {
+    final h = await pump(
+      tester,
+      stored: const PivaProfileInput(
+        atecoCode: '62.01',
+        coefficient: 67,
+        startYear: 2020,
+        startupRate: false,
+        fundType: 'gestione_separata',
+        fundName: '',
+        subjectiveRate: 0,
+        integrativeRate: 0,
+        minSubjective: 0,
+        minIntegrative: 0,
+        inpsReduction: false,
+        incomeCategories: ['Freelance'],
+        declaredIncome: {'2025': 40000.0, '2024': null},
+      ),
+    );
+
+    await type(tester, en.pivaProfileAtecoLabel, '62.02');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(h.finance.saves, 1);
+    final row = (await rowsOf(tester, h.db)).single;
+    expect(row.atecoCode, '62.02');
+    expect(row.declaredIncome, {'2025': 40000.0, '2024': null});
+    expect(row.declaredIncome!.containsKey('2024'), isTrue);
   });
 
   testWidgets('a cassa filled in and then switched back to Gestione Separata saves its fields blank',

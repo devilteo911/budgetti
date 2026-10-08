@@ -94,9 +94,22 @@ class PushOutcome {
   final DateTime? updated;
   final LwwStaleWrite? stale;
   final Object? error;
-  const PushOutcome.pushed(this.updated) : stale = null, error = null;
-  const PushOutcome.remoteWins(this.stale) : updated = null, error = null;
-  const PushOutcome.failed(this.error) : updated = null, stale = null;
+
+  /// The row as the server stored it after the write (the batch response body or
+  /// the upsert's return), when the client has it. A body that omitted a field
+  /// leaves the stored value there, so this is how the sync learns it back.
+  final Map<String, dynamic>? record;
+  const PushOutcome.pushed(this.updated, [this.record])
+      : stale = null,
+        error = null;
+  const PushOutcome.remoteWins(this.stale)
+      : updated = null,
+        error = null,
+        record = null;
+  const PushOutcome.failed(this.error)
+      : updated = null,
+        stale = null,
+        record = null;
   bool get pushed => updated != null;
 }
 
@@ -139,7 +152,7 @@ abstract class SyncClient {
         await () async {
           try {
             final row = await upsert(collection, id, body);
-            return PushOutcome.pushed(_fromIso(row['updated']));
+            return PushOutcome.pushed(_fromIso(row['updated']), row);
           } on LwwStaleWrite catch (e) {
             return PushOutcome.remoteWins(e);
           } on SyncAuthExpired {
@@ -219,8 +232,9 @@ class PocketBaseSyncClient implements SyncClient {
       final results = await batch.send();
       return [
         for (final r in results)
-          PushOutcome.pushed(_fromIso(
-              (r.body as Map<String, dynamic>?)?['updated']))
+          PushOutcome.pushed(
+              _fromIso((r.body as Map<String, dynamic>?)?['updated']),
+              r.body as Map<String, dynamic>?)
       ];
     } on pb.ClientException catch (e) {
       if (e.statusCode == 401) throw const SyncAuthExpired();
@@ -233,7 +247,7 @@ class PocketBaseSyncClient implements SyncClient {
       for (final (id, body) in chunk) {
         try {
           final row = await upsert(collection, id, body);
-          outcomes.add(PushOutcome.pushed(_fromIso(row['updated'])));
+          outcomes.add(PushOutcome.pushed(_fromIso(row['updated']), row));
         } on LwwStaleWrite catch (e2) {
           outcomes.add(PushOutcome.remoteWins(e2));
         } on SyncAuthExpired {
@@ -508,6 +522,22 @@ class PocketBaseSyncService {
         .write(const SyncLocksCompanion(running: Value(false)));
   }
 
+  /// A profile pushed WITHOUT `declaredIncome` (the local map is empty, so the key
+  /// was left out and the server kept its value) learns the server's figure from
+  /// the record the write answered with. Pulls would never bring it back: the row's
+  /// new `updated` is already behind the pull cursor. Only `declaredIncome` is
+  /// written, so `lastUpdated` stays and nothing is pushed again; a record without
+  /// the key (a server without `1751000013`) or with an empty map changes nothing.
+  Future<void> _learnDeclaredIncome(
+      _Row row, Map<String, dynamic>? record) async {
+    if (row.body.containsKey('declaredIncome')) return;
+    final kept = declaredIncomeFromJson(record?['declaredIncome']);
+    if (kept == null || kept.isEmpty) return;
+    await (_db.update(_db.pivaProfiles)..where((t) => t.id.equals(row.id)))
+        .write(PivaProfilesCompanion(declaredIncome: Value(kept)));
+  }
+
+
   /// [full] ignores the stored cursors and considers every row on both sides —
   /// the recovery lever for a poisoned cursor (rows stranded behind it) and
   /// the engine of the git-style "push/pull everything" actions. [pull] /
@@ -521,6 +551,11 @@ class PocketBaseSyncService {
   ///     confirmed seen (pulled or pushed) — filters the remote listChanges.
   /// One shared cursor mixed device wall-clock stamps with server stamps, so
   /// a fast device clock diverged the pull filter permanently.
+  ///
+  /// `piva_profile` is the one collection pulled from epoch regardless of the
+  /// cursor, once, until a run with [pull] has pulled it without an exception
+  /// (`pb_piva_profile_repulled`): the upgrade that added `declaredIncome` must
+  /// reach profiles whose `updated` the server migration did not touch.
   Future<SyncSummary> sync({
     bool full = false,
     bool pull = true,
@@ -561,11 +596,16 @@ class PocketBaseSyncService {
       var collectionFailed = false;
 
       for (final spec in _specs) {
+        // One-shot, see [PersistenceService.getPivaProfileRepulled]: until the
+        // profile has been pulled once from epoch, the cursor does not apply.
+        final repull = spec.collection == 'piva_profile' &&
+            !_persistence.getPivaProfileRepulled();
         try {
           // --- PULL (server `updated` > pull cursor) ---
           final applied = <String>{};
           if (pull) {
-            final remote = await _client.listChanges(spec.collection, pullCursor);
+            final remote = await _client.listChanges(spec.collection,
+                repull ? DateTime.fromMillisecondsSinceEpoch(0) : pullCursor);
             if (remote.isNotEmpty) {
               final localMap = await spec.localLastUpdated(
                   _db, remote.map((r) => r['id'] as String).toSet());
@@ -599,6 +639,9 @@ class PocketBaseSyncService {
                 }
               }
             }
+            // Reached only when the pull above did not throw: an auth expiry or
+            // a failed collection skips it, and the next sync tries again.
+            if (repull) await _persistence.setPivaProfileRepulled(true);
           }
 
           if (spec.collection == 'categories') {
@@ -638,6 +681,9 @@ class PocketBaseSyncService {
                 final o = outcomes[i];
                 if (o.pushed) {
                   pushed++;
+                  if (spec.collection == 'piva_profile') {
+                    await _learnDeclaredIncome(row, o.record);
+                  }
                   if (row.needsStamp) toStamp.add(row.id);
                   final ts = row.lastUpdated ?? now;
                   if (ts.isAfter(maxPushTs)) maxPushTs = ts;
@@ -1119,7 +1165,10 @@ class PocketBaseSyncService {
       );
 
   // ── piva_profile ─────────────────────────────────────────────────────────
-  // Table `piva_profiles`, collection `piva_profile` (singular).
+  // Table `piva_profiles`, collection `piva_profile` (singular). The
+  // `declaredIncome` field came later, with 1751000013_piva_declared_income.js:
+  // the push sends it whole or not at all (never null, never ""), and the pull
+  // keeps the local value when the server has no such key.
   _Spec get _pivaProfile => _Spec(
         'piva_profile',
         (db, cursor, now) async {
@@ -1144,6 +1193,13 @@ class PocketBaseSyncService {
               'minIntegrative': p.minIntegrative,
               'inpsReduction': p.inpsReduction,
               'incomeCategories': p.incomeCategories,
+              // A non-empty map goes whole (PocketBase replaces the json object,
+              // never merges it), its `null` entries as JSON null; a NULL or
+              // empty column leaves the key out, because an omitted field keeps
+              // the server's value and `null` / "" would erase the figure the
+              // web declared. No UI path takes a non-empty map back to empty.
+              if (p.declaredIncome?.isNotEmpty ?? false)
+                'declaredIncome': p.declaredIncome,
               'isDeleted': p.isDeleted,
               'lastUpdated': _toIso(p.lastUpdated ?? now),
             });
@@ -1154,32 +1210,55 @@ class PocketBaseSyncService {
                   .get();
           return {for (final r in rows) r.id: r.lastUpdated};
         },
-        (db, userId, rows) => db.batch((b) {
-              for (final r in rows) {
-                b.insert(
-                    db.pivaProfiles,
-                    PivaProfilesCompanion.insert(
-                      id: r['id'] as String,
-                      userId: Value(userId),
-                      atecoCode: Value(r['atecoCode'] as String? ?? ''),
-                      coefficient: Value(_toDouble(r['coefficient'])),
-                      startYear: Value(_toInt(r['startYear'])),
-                      startupRate: Value(_toBool(r['startupRate'])),
-                      fundType: Value(r['fundType'] as String? ?? ''),
-                      fundName: Value(r['fundName'] as String? ?? ''),
-                      subjectiveRate: Value(_toDouble(r['subjectiveRate'])),
-                      integrativeRate: Value(_toDouble(r['integrativeRate'])),
-                      minSubjective: Value(_toDouble(r['minSubjective'])),
-                      minIntegrative: Value(_toDouble(r['minIntegrative'])),
-                      inpsReduction: Value(_toBool(r['inpsReduction'])),
-                      incomeCategories:
-                          Value(_toStringListOrNull(r['incomeCategories'])),
-                      isDeleted: Value(_toBool(r['isDeleted'])),
-                      lastUpdated: Value(_fromIso(r['lastUpdated'])),
-                    ),
-                    mode: InsertMode.insertOrReplace);
-              }
-            }),
+        (db, userId, rows) async {
+          // The row is replaced whole, so a record that carries no
+          // `declaredIncome` key (a server without the field) must have the
+          // local value written back, or every pull would reset it. A record
+          // that does carry the key is authoritative, `null` included.
+          final keyless = [
+            for (final r in rows)
+              if (!r.containsKey('declaredIncome')) r['id'] as String
+          ];
+          final Map<String, Map<String, double?>?> local = keyless.isEmpty
+              ? const {}
+              : {
+                  for (final p in await (db.select(db.pivaProfiles)
+                        ..where((t) => t.id.isIn(keyless)))
+                      .get())
+                    p.id: p.declaredIncome
+                };
+          await db.batch((b) {
+            for (final r in rows) {
+              final id = r['id'] as String;
+              b.insert(
+                  db.pivaProfiles,
+                  PivaProfilesCompanion.insert(
+                    id: id,
+                    userId: Value(userId),
+                    atecoCode: Value(r['atecoCode'] as String? ?? ''),
+                    coefficient: Value(_toDouble(r['coefficient'])),
+                    startYear: Value(_toInt(r['startYear'])),
+                    startupRate: Value(_toBool(r['startupRate'])),
+                    fundType: Value(r['fundType'] as String? ?? ''),
+                    fundName: Value(r['fundName'] as String? ?? ''),
+                    subjectiveRate: Value(_toDouble(r['subjectiveRate'])),
+                    integrativeRate: Value(_toDouble(r['integrativeRate'])),
+                    minSubjective: Value(_toDouble(r['minSubjective'])),
+                    minIntegrative: Value(_toDouble(r['minIntegrative'])),
+                    inpsReduction: Value(_toBool(r['inpsReduction'])),
+                    incomeCategories:
+                        Value(_toStringListOrNull(r['incomeCategories'])),
+                    // Never throws: see declaredIncomeFromJson.
+                    declaredIncome: Value(r.containsKey('declaredIncome')
+                        ? declaredIncomeFromJson(r['declaredIncome'])
+                        : local[id]),
+                    isDeleted: Value(_toBool(r['isDeleted'])),
+                    lastUpdated: Value(_fromIso(r['lastUpdated'])),
+                  ),
+                  mode: InsertMode.insertOrReplace);
+            }
+          });
+        },
         (db, ids, now) => (db.update(db.pivaProfiles)
               ..where((t) => t.id.isIn(ids)))
             .write(PivaProfilesCompanion(lastUpdated: Value(now))),

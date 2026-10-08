@@ -19,6 +19,7 @@ PivaProfileData profile({
   bool startupRate = true,
   String fundType = 'gestione_separata',
   double integrativeRate = 0,
+  Map<String, double?> declaredIncome = const {},
 }) => PivaProfileData(
   atecoCode: '69.20.11',
   coefficient: coefficient,
@@ -32,6 +33,7 @@ PivaProfileData profile({
   minIntegrative: 0,
   inpsReduction: false,
   incomeCategories: const ['Fatture'],
+  declaredIncome: declaredIncome,
 );
 
 Transaction fattura(String id, double amount, DateTime date) => Transaction(
@@ -287,6 +289,80 @@ void main() {
       final v = pivaYearView(gs, gsTxns, [row], 2026, now).estimate;
       expect(fields(v), fields(base), reason: row.id);
     }
+  });
+
+  // The estimate of a year is made on `compensiForYear`, as the web's PivaForecast
+  // does for every year. Hand arithmetic, same profile as above (Gestione
+  // Separata 26,07%, coefficient 78, startYear 2024, 5% tax), now = 6 October 2026,
+  // an empty ledger and only 2025 declared, at 40.000:
+  //   revenue 2025 = the declared 40.000 (a Gestione Separata splits nothing)
+  //   contributions deducted in 2025: the saldo of 2024 and the acconti of 2025 are
+  //     made on the compensi of 2024, which the ledger reads 0 → 0
+  //   gross income 40.000 × 78% = 31.200; taxable 31.200 − 0 = 31.200
+  //   imposta 5% = 1.560; contributions 31.200 × 26,07% = 8.133,84
+  //   net 40.000 − 1.560 − 8.133,84 = 30.306,16
+  test('anno concluso dichiarato su un registro vuoto: la stima parte dal dichiarato', () {
+    final p = profile(declaredIncome: {'2025': 40000.0});
+    expect(
+      pivaYearView(gs, const [], const [], 2025, now).estimate.revenue,
+      0,
+      reason: 'the premise: the ledger alone reads nothing',
+    );
+    final v = pivaYearView(p, const [], const [], 2025, now);
+    expect(fields(v.estimate), [2025, 40000, 31200, 0, 31200, 1560, 8133.84, 30306.16]);
+    final byHand = estimateYear(
+      p,
+      40000,
+      2025,
+      contributionsDeductible(deadlines(p, const [], const [], now), 2025),
+    );
+    expect(fields(v.estimate), fields(byHand));
+  });
+
+  // A cassa at 4% integrativo (rates and minimums 0), 2025 declared at the 41.600
+  // the bank received, an empty ledger:
+  //   compensi 41.600 ÷ 1,04 = 40.000; integrativo to remit 41.600 − 40.000 = 1.600
+  //   no contribution of the professional (rates and minimums 0), none deducted
+  //   gross income 40.000 × 78% = 31.200; imposta 5% = 1.560
+  //   net 40.000 − 1.560 − 0 = 38.440
+  test('cassa al 4% dichiarata a 41600: compensi 40000 e 1600 da versare', () {
+    final p = profile(fundType: 'cassa', integrativeRate: 4, declaredIncome: {'2025': 41600.0});
+    final v = pivaYearView(p, const [], const [], 2025, now);
+    expect(v.carved, isTrue);
+    expect(v.estimate.revenue, 40000);
+    expect(v.toRemit, 1600);
+    expect(fields(v.estimate), [2025, 40000, 31200, 0, 31200, 1560, 0, 38440]);
+  });
+
+  // 2025 over gsTxns (Gestione Separata 26,07%, coefficient 78, 5% tax):
+  //   compensi 2025 30.000; contributions deducted in 2025: saldo 2024
+  //     (20.000 × 78% × 26,07% = 4.066,92) + acconti 2025 (80% of it = 3.253,54,
+  //     two halves of 1.626,77) = 7.320,46
+  //   gross income 30.000 × 78% = 23.400; taxable 23.400 − 7.320,46 = 16.079,54
+  //   imposta 5% = 803,98; contributions 23.400 × 26,07% = 6.100,38
+  //   net 30.000 − 803,98 − 6.100,38 = 23.095,64
+  test("anno risposto «dal registro» (voce null): le cifre di un profilo mai interrogato", () {
+    final answered = profile(declaredIncome: {'2025': null});
+    for (final p in [gs, answered]) {
+      final v = pivaYearView(p, gsTxns, const [], 2025, now);
+      expect(fields(v.estimate), [2025, 30000, 23400, 7320.46, 16079.54, 803.98, 6100.38, 23095.64]);
+    }
+    // The year of now keeps the hand figures of the test above.
+    final running = pivaYearView(answered, gsTxns, const [], 2026, now);
+    expect(fields(running.estimate), [2026, 31500, 24570, 7727.14, 16842.86, 842.14, 6405.40, 24252.46]);
+  });
+
+  test("anno in corso senza voce dichiarata: la stima è sul registro finora, anche con un altro anno dichiarato", () {
+    final p = profile(declaredIncome: {'2025': 40000.0});
+    final v = pivaYearView(p, gsTxns, const [], 2026, now);
+    expect(v.estimate.revenue, 31500, reason: '9 × 3.500 so far, not the projection');
+    final byHand = estimateYear(
+      p,
+      31500,
+      2026,
+      contributionsDeductible(deadlines(p, gsTxns, const [], now), 2026),
+    );
+    expect(fields(v.estimate), fields(byHand));
   });
 
   test("ratePct: 5% fino all'ultimo anno di startup, poi 15%", () {

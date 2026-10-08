@@ -196,13 +196,128 @@ void main() {
     ), (null, '', '', '', null, 0.0, null, '', false, null));
   });
 
+  // v20: the profile keeps the gross income the owner declared for the previous
+  // year. The column is nullable and starts NULL (= `{}`, never asked), so every
+  // profile already on a phone reads "not answered" until someone answers.
+  test('v19 -> v20 aggiunge declared_income, NULL per il profilo esistente, '
+      'riga intatta', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory(setup: (raw) {
+      // ponytail: v19's piva_profiles by hand (the shape that shipped, without
+      // declared_income), as in the v16 test above.
+      raw.execute('CREATE TABLE piva_profiles ('
+          'id TEXT NOT NULL, user_id TEXT NULL, '
+          "ateco_code TEXT NOT NULL DEFAULT '', "
+          'coefficient REAL NOT NULL DEFAULT 0.0, '
+          'start_year INTEGER NOT NULL DEFAULT 0, '
+          'startup_rate INTEGER NOT NULL DEFAULT 0, '
+          "fund_type TEXT NOT NULL DEFAULT '', "
+          "fund_name TEXT NOT NULL DEFAULT '', "
+          'subjective_rate REAL NOT NULL DEFAULT 0.0, '
+          'integrative_rate REAL NOT NULL DEFAULT 0.0, '
+          'min_subjective REAL NOT NULL DEFAULT 0.0, '
+          'min_integrative REAL NOT NULL DEFAULT 0.0, '
+          'inps_reduction INTEGER NOT NULL DEFAULT 0, '
+          'income_categories TEXT NULL, '
+          'is_deleted INTEGER NOT NULL DEFAULT 0, last_updated INTEGER NULL, '
+          'PRIMARY KEY (id))');
+      raw.execute('INSERT INTO piva_profiles (id, user_id, ateco_code, '
+          'coefficient, start_year, startup_rate, fund_type, fund_name, '
+          'subjective_rate, integrative_rate, min_subjective, min_integrative, '
+          'inps_reduction, income_categories, last_updated) '
+          "VALUES ('prof', 'u', '62.01.00', 67.0, 2023, 1, 'cassa', "
+          "'Cassa Test', 26.07, 4.0, 1000.0, 500.0, 0, "
+          '\'["Consulting","Services"]\', 1750000000)');
+      raw.execute('PRAGMA user_version = 19');
+    }));
+    addTearDown(db.close);
+
+    final columns = (await db
+            .customSelect('PRAGMA table_info(piva_profiles)')
+            .get())
+        .map((r) => r.read<String>('name'))
+        .toSet();
+    final profile = (await db.select(db.pivaProfiles).get()).single;
+
+    expect(columns, contains('declared_income'));
+    expect(profile.declaredIncome, isNull);
+    expect((
+      profile.id,
+      profile.userId,
+      profile.atecoCode,
+      profile.coefficient,
+      profile.startYear,
+      profile.startupRate,
+      profile.fundType,
+      profile.fundName,
+      profile.subjectiveRate,
+      profile.integrativeRate,
+      profile.minSubjective,
+      profile.minIntegrative,
+      profile.inpsReduction,
+      profile.isDeleted,
+      profile.lastUpdated?.millisecondsSinceEpoch,
+    ), (
+      'prof', 'u', '62.01.00', 67.0, 2023, true, 'cassa', 'Cassa Test', 26.07,
+      4.0, 1000.0, 500.0, false, false, 1750000000000,
+    ));
+    expect(profile.incomeCategories, ['Consulting', 'Services']);
+
+    // The new column takes a write, null entries included.
+    await db.update(db.pivaProfiles).write(PivaProfilesCompanion(
+        declaredIncome: Value({'2025': 40000.0, '2024': null})));
+    final declared =
+        (await db.select(db.pivaProfiles).get()).single.declaredIncome;
+    expect(declared, {'2025': 40000.0, '2024': null});
+  });
+
+  // The converter and its reader. PocketBase hands a whole number back as an
+  // integer with the keys sorted; the reader must take that, and anything else,
+  // without ever throwing — an exception in the sync pull freezes the cursors.
+  group('DeclaredIncomeConverter / declaredIncomeFromJson', () {
+    const converter = DeclaredIncomeConverter();
+
+    test('round-trips through toSql/fromSql, null entries included', () {
+      final map = <String, double?>{'2025': 40000.0, '2024': null};
+      final back = converter.fromSql(converter.toSql(map));
+
+      expect(back, {'2025': 40000.0, '2024': null});
+      expect(back.containsKey('2024'), isTrue);
+      expect(back['2024'], isNull);
+      expect(converter.toSql(<String, double?>{'2025': null}), '{"2025":null}');
+      expect(converter.fromSql(converter.toSql(const {})), isEmpty);
+    });
+
+    test("reads PocketBase's sorted keys and whole integers", () {
+      final read = converter.fromSql('{"2024":null,"2025":40000}');
+
+      expect(read, {'2025': 40000.0, '2024': null});
+      expect(read['2025'], isA<double>());
+    });
+
+    test('malformed text, a list, a string, an empty text read as {}', () {
+      for (final text in ['[1]', '"x"', '', '{', 'null']) {
+        expect(converter.fromSql(text), isEmpty, reason: text);
+      }
+    });
+
+    test('declaredIncomeFromJson keeps numbers and nulls, drops the rest', () {
+      expect(declaredIncomeFromJson({'2025': 'x', '2024': 1}), {'2024': 1.0});
+      expect(declaredIncomeFromJson({'2025': null}), {'2025': null});
+      expect(declaredIncomeFromJson({1: 5, '2024': true}), isEmpty);
+      expect(declaredIncomeFromJson(const {}), isEmpty);
+      expect(declaredIncomeFromJson('x'), isNull);
+      expect(declaredIncomeFromJson([1]), isNull);
+      expect(declaredIncomeFromJson(null), isNull);
+    });
+  });
+
   // An older build opens a NEWER database without complaint — it only rewrites
   // user_version — and leaves the newer schema in place. Installing the newer
   // build again then re-runs its upgrade steps over columns and tables that are
   // already there: "duplicate column name" and a database that never opens. Every
   // `from < N` step has to be safe to run twice.
   group('re-upgrading a database an older build had opened', () {
-    /// A current (v19) database file holding one row of everything the upgrade
+    /// A current (v20) database file holding one row of everything the upgrade
     /// steps touch, closed and ready to be tampered with.
     Future<File> currentDb() async {
       final dir = await Directory.systemTemp.createTemp('budgetti_downgrade_');
@@ -243,7 +358,8 @@ void main() {
       await db.into(db.pivaProfiles).insert(PivaProfilesCompanion.insert(
           id: 'prof',
           userId: const Value('u'),
-          incomeCategories: Value(['Consulting', 'Services'])));
+          incomeCategories: Value(['Consulting', 'Services']),
+          declaredIncome: Value({'2025': 40000.0, '2024': null})));
       await db.into(db.pivaPayments).insert(PivaPaymentsCompanion.insert(
           id: 'pay',
           userId: const Value('u'),
@@ -285,6 +401,12 @@ void main() {
           for (final p in await db.select(db.pivaProfiles).get())
             p.incomeCategories
         ],
+        // The same for the declared map; its `null` entry is an answer, and
+        // `expect` on a map checks the key is there.
+        'declaredIncome': [
+          for (final p in await db.select(db.pivaProfiles).get())
+            p.declaredIncome
+        ],
         'pivaPayments': [
           for (final p in await db.select(db.pivaPayments).get())
             (p.id, p.key, p.dueDate, p.paidDate)
@@ -304,6 +426,9 @@ void main() {
       'incomeCategories': [
         ['Consulting', 'Services']
       ],
+      'declaredIncome': [
+        {'2025': 40000.0, '2024': null}
+      ],
       'pivaPayments': [
         ('pay', 'imposta_saldo', DateTime(2026, 6, 30, 12), null)
       ],
@@ -316,22 +441,22 @@ void main() {
       return v;
     }
 
-    test('v19 schema, user_version 16 (the QA-4 brick): opens, data intact',
+    test('v20 schema, user_version 16 (the QA-4 brick): opens, data intact',
         () async {
       final file = await currentDb();
       tamper(file, (raw) => raw.execute('PRAGMA user_version = 16'));
 
       expect(await reopen(file), intact);
-      expect(userVersion(file), 19);
+      expect(userVersion(file), 20);
     });
 
-    test('v19 schema, user_version 1: every step re-runs over what exists',
+    test('v20 schema, user_version 1: every step re-runs over what exists',
         () async {
       final file = await currentDb();
       tamper(file, (raw) => raw.execute('PRAGMA user_version = 1'));
 
       expect(await reopen(file), intact);
-      expect(userVersion(file), 19);
+      expect(userVersion(file), 20);
     });
 
     // The old steps wrapped their addColumn pairs in one swallow-all try: the

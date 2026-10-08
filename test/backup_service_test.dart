@@ -44,6 +44,8 @@ Future<void> _seedPiva(AppDatabase d) async {
         minIntegrative: const Value(50.0),
         inpsReduction: const Value(true),
         incomeCategories: const Value(['Compensi', 'Consulenze']),
+        // A figure and an answered "from the ledger" (null): both must survive.
+        declaredIncome: const Value({'2025': 40000.0, '2024': null}),
         lastUpdated: Value(t),
       ));
   await d.into(d.pivaPayments).insert(PivaPaymentsCompanion.insert(
@@ -279,12 +281,15 @@ void main() {
           'minIntegrative',
           'inpsReduction',
           'incomeCategories',
+          'declaredIncome',
           'isDeleted',
           'lastUpdated',
         ]));
     expect(profile['id'], 'piva1');
     expect(profile['userId'], 'user-a');
     expect(profile['incomeCategories'], ['Compensi', 'Consulenze']);
+    expect(profile['declaredIncome'], {'2025': 40000.0, '2024': null},
+        reason: 'an object, its null entry kept — what the web writes too');
     expect(profile['lastUpdated'], isA<int>());
 
     final payments =
@@ -314,6 +319,34 @@ void main() {
     expect(unpaid['key'], '');
     expect(
         payments.singleWhere((p) => p['id'] == 'pay1')['paidDate'], isA<int>());
+  });
+
+  // A backup written by v0.7 predates `declaredIncome`: the key is absent from
+  // its piva_profile rows, which must still import (the generated fromJson alone
+  // would not coerce it) and read the column as NULL.
+  test('a piva_profile row without declaredIncome (a v0.7 backup) imports as '
+      'NULL', () async {
+    await _seedPiva(db);
+    final row = (await db.select(db.pivaProfiles).get()).single.toJson()
+      ..remove('declaredIncome');
+    final file = File('${dir.path}/v07.json');
+    await file.writeAsString(jsonEncode({
+      'accounts': const [],
+      'transactions': const [],
+      'categories': const [],
+      'tags': const [],
+      'budgets': const [],
+      'piva_profile': [row],
+    }));
+
+    final fresh = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(fresh.close);
+    await serviceFor(fresh).importDatabase(file);
+
+    final restored = (await fresh.select(fresh.pivaProfiles).get()).single;
+    expect(restored.id, 'piva1');
+    expect(restored.incomeCategories, ['Compensi', 'Consulenze']);
+    expect(restored.declaredIncome, isNull);
   });
 
   // An absent key says nothing about the Partita IVA, so the tables stay; a key

@@ -1073,11 +1073,14 @@ void main() {
     String iso(DateTime d) => d.toUtc().toIso8601String();
 
     Future<void> profile(AppDatabase db, String id,
-            {String fundName = 'Fondo Prova', DateTime? at}) =>
+            {String fundName = 'Fondo Prova',
+            DateTime? at,
+            Map<String, double?>? declaredIncome}) =>
         db.into(db.pivaProfiles).insert(PivaProfilesCompanion.insert(
               id: id,
               userId: const Value('u1'),
               fundName: Value(fundName),
+              declaredIncome: Value(declaredIncome),
               lastUpdated: Value(at ?? t1),
             ));
 
@@ -1114,11 +1117,21 @@ void main() {
       );
     }
 
+    // serverProfile's `declared` when the caller says nothing: no key at all.
+    const notGiven = Object();
+
     /// A profile as PocketBase returns it: the `owner` relation and the
     /// `updated` autodate on it, numbers that may be plain integers, unset text
     /// as '' and an unset json field as null. `owner` is never read — the row's
     /// userId comes from the service — so it is deliberately not the user's id.
-    Map<String, dynamic> serverProfile({Object? categories, DateTime? at}) {
+    ///
+    /// `declared` is written as `declaredIncome` only when given, because a
+    /// record without the key is a different thing from one holding null: the
+    /// first is a server that never ran 1751000013_piva_declared_income.js, the
+    /// second the field never set. PocketBase hands a stored object back with
+    /// sorted keys and a whole number as an integer.
+    Map<String, dynamic> serverProfile(
+        {Object? categories, DateTime? at, Object? declared = notGiven}) {
       final stamp = iso(at ?? t1);
       return {
         'owner': 'server-side-owner',
@@ -1134,6 +1147,7 @@ void main() {
         'minIntegrative': 0,
         'inpsReduction': false,
         'incomeCategories': categories,
+        if (!identical(declared, notGiven)) 'declaredIncome': declared,
         'isDeleted': false,
         'lastUpdated': stamp,
         'updated': stamp,
@@ -1178,14 +1192,18 @@ void main() {
             inpsReduction: const Value(true),
             incomeCategories:
                 const Value<List<String>?>(['Consulenza', 'Corsi']),
+            // A figure and an answered "from the ledger" (null entry).
+            declaredIncome: const Value<Map<String, double?>?>(
+                {'2025': 40000.0, '2024': null}),
             lastUpdated: Value(t1),
           ));
 
       await service.sync();
 
-      // Exactly the fourteen fields of pb_migrations/1751000012_piva.js — a typo
-      // here syncs silently wrong data — and no `owner`: the client adds that on
-      // the wire. (`updated` is the autodate the fake server stamps.)
+      // Exactly the fourteen fields of pb_migrations/1751000012_piva.js plus
+      // `declaredIncome` from 1751000013_piva_declared_income.js — a typo here
+      // syncs silently wrong data — and no `owner`: the client adds that on the
+      // wire. (`updated` is the autodate the fake server stamps.)
       final pushed = client._store['piva_profile']!['pro1']!;
       expect(
           pushed.keys.where((k) => k != 'updated'),
@@ -1202,6 +1220,7 @@ void main() {
             'minIntegrative',
             'inpsReduction',
             'incomeCategories',
+            'declaredIncome',
             'isDeleted',
             'lastUpdated',
           ]));
@@ -1217,6 +1236,8 @@ void main() {
       expect(pushed['minIntegrative'], 840.25);
       expect(pushed['inpsReduction'], true);
       expect(pushed['incomeCategories'], ['Consulenza', 'Corsi']);
+      expect(pushed['declaredIncome'], {'2025': 40000.0, '2024': null},
+          reason: 'a non-empty map goes whole, its null entry as JSON null');
       expect(pushed['isDeleted'], false);
       expect(pushed['lastUpdated'], iso(t1));
 
@@ -1240,6 +1261,10 @@ void main() {
       expect(row.inpsReduction, true);
       expect(row.incomeCategories, ['Consulenza', 'Corsi'],
           reason: 'the json field comes back as a list, not a string');
+      expect(row.declaredIncome, {'2025': 40000.0, '2024': null},
+          reason: 'the json field comes back as a map, not a string');
+      expect(row.declaredIncome!.containsKey('2024'), isTrue,
+          reason: 'a null entry is an answer, it is not dropped');
       expect(row.isDeleted, false);
       expect(row.lastUpdated, t1);
     });
@@ -1387,6 +1412,205 @@ void main() {
       expect((await profileRow(db, 'pro-map'))!.incomeCategories, isNull);
       expect(persistence.getPullSyncAt(), t1,
           reason: 'the pull cursor advanced past both rows');
+    });
+
+    test('declaredIncome is read through num as PocketBase hands it back, and '
+        'what is not an object reads NULL without failing the collection',
+        () async {
+      // Sorted keys and a whole number as an integer (`40000`, not `40000.0`);
+      // a json field never set is null, and it holds anything.
+      final (db, persistence, _, service) = await _harness(initialStore: {
+        'piva_profile': {
+          'pro-map':
+              serverProfile(declared: {'2024': null, '2025': 40000}),
+          'pro-null': serverProfile(declared: null),
+          'pro-string': serverProfile(declared: 'x'),
+        },
+      });
+
+      final summary = await service.sync(full: true, push: false);
+
+      expect(summary.skipped, 0, reason: 'the collection did not fail');
+      expect(summary.error, isNull);
+      expect(summary.pulled, 3);
+      final map = (await profileRow(db, 'pro-map'))!.declaredIncome;
+      expect(map, {'2025': 40000.0, '2024': null});
+      expect(map!.containsKey('2024'), isTrue,
+          reason: 'a null entry is an answer, it is not dropped');
+      expect((await profileRow(db, 'pro-null'))!.declaredIncome, isNull);
+      expect((await profileRow(db, 'pro-string'))!.declaredIncome, isNull);
+      expect(persistence.getPullSyncAt(), t1,
+          reason: 'the pull cursor advanced past the three rows');
+    });
+
+    test('a newer remote record without the declaredIncome key updates the '
+        'other fields and keeps the local map', () async {
+      // A server that never ran 1751000013_piva_declared_income.js says nothing
+      // about the field; the row is replaced whole, so the pull has to write the
+      // local value back or every pull would reset it.
+      final t2 = t1.add(const Duration(hours: 1));
+      final (db, _, _, service) = await _harness(initialStore: {
+        'piva_profile': {'pro1': serverProfile(at: t2)},
+      });
+      await profile(db, 'pro1',
+          fundName: 'Locale', at: t1, declaredIncome: {'2025': 40000.0});
+
+      final summary = await service.sync(push: false);
+
+      expect(summary.pulled, 1);
+      final row = (await profileRow(db, 'pro1'))!;
+      expect(row.fundName, '', reason: 'the remote record was applied');
+      expect(row.atecoCode, '62.20.10');
+      expect(row.lastUpdated, t2);
+      expect(row.declaredIncome, {'2025': 40000.0});
+    });
+
+    test('a NULL or empty declaredIncome is pushed without the key, so the '
+        'server keeps the figure it holds', () async {
+      // The server holds a figure the web declared and this phone never learned
+      // (a profile edited here before its first sync after the upgrade): its
+      // newer row wins whole, and neither null nor {} may erase the figure.
+      final (db, _, client, service) = await _harness(initialStore: {
+        'piva_profile': {
+          'pro-null': serverProfile(declared: {'2025': 40000}),
+          'pro-empty': serverProfile(declared: {'2025': 40000}),
+        },
+      });
+      final later = t1.add(const Duration(hours: 1));
+      await profile(db, 'pro-null', fundName: 'Locale', at: later);
+      await profile(db, 'pro-empty',
+          fundName: 'Locale', at: later, declaredIncome: const {});
+      // A profile the server has not seen yet is created without the key too.
+      await profile(db, 'pro-new', at: later);
+
+      final summary = await service.sync(pull: false);
+
+      expect(summary.skipped, 0);
+      expect(summary.pushed, 3);
+      final store = client._store['piva_profile']!;
+      for (final id in ['pro-null', 'pro-empty']) {
+        expect(store[id]!['fundName'], 'Locale', reason: '$id: the push landed');
+        expect(store[id]!['declaredIncome'], {'2025': 40000},
+            reason: '$id: an omitted field keeps the stored value');
+      }
+      expect(store['pro-new']!.containsKey('declaredIncome'), isFalse);
+
+      // The write's answer carries the figure the server kept; an incremental
+      // pull would never bring it back (the row's new `updated` is behind the
+      // cursor), so the phone learns it from the answer — only that column, no
+      // new `lastUpdated`, and nothing is pushed again.
+      for (final id in ['pro-null', 'pro-empty']) {
+        final row = (await profileRow(db, id))!;
+        expect(row.declaredIncome, {'2025': 40000.0},
+            reason: '$id: learned back from the answer to its own push');
+        expect(row.lastUpdated, later, reason: '$id: lastUpdated untouched');
+        expect(row.fundName, 'Locale');
+      }
+      expect((await profileRow(db, 'pro-new'))!.declaredIncome, isNull,
+          reason: 'the server had no figure: nothing to learn');
+      final again = await service.sync();
+      expect(again.pushed, 0, reason: 'learning the figure is not a local edit');
+      expect(again.skipped, 0);
+    });
+
+    test('a profile pushed with its own declaredIncome keeps it whatever the '
+        'answer holds', () async {
+      final (db, _, client, service) = await _harness(initialStore: {
+        'piva_profile': {'pro1': serverProfile(declared: {'2025': 40000})},
+      });
+      await profile(db, 'pro1',
+          at: t1.add(const Duration(hours: 1)),
+          declaredIncome: {'2025': 50000.0, '2024': null});
+
+      final summary = await service.sync(pull: false);
+
+      expect(summary.pushed, 1);
+      expect(client._store['piva_profile']!['pro1']!['declaredIncome'],
+          {'2025': 50000.0, '2024': null}, reason: 'sent whole, null entry too');
+      expect((await profileRow(db, 'pro1'))!.declaredIncome,
+          {'2025': 50000.0, '2024': null});
+    });
+
+    // The server migration that adds declaredIncome leaves `updated` alone on
+    // the rows it finds, so a phone whose pull cursor is already past the
+    // profile (v0.7 after the upgrade) would never receive a figure the web
+    // declared. `pb_piva_profile_repulled` makes its first sync pull that one
+    // collection from epoch.
+    group('the one-shot re-pull of piva_profile', () {
+      /// A v0.7 phone after the upgrade: it synced everything long ago (both
+      /// cursors past the profile), its row has the same `lastUpdated` as the
+      /// server's and no declared income, and the server row holds one but its
+      /// `updated` predates the pull cursor.
+      Future<(AppDatabase, PersistenceService, _FakeClient,
+              PocketBaseSyncService)>
+          upgradedPhone() async {
+        final h = await _harness(initialStore: {
+          'piva_profile': {'pro1': serverProfile(declared: {'2025': 40000})},
+        });
+        final (db, persistence, _, _) = h;
+        await persistence.setPullSyncAt(DateTime(2026, 7, 10));
+        await persistence.setLastSyncAt(DateTime(2026, 7, 10));
+        await profile(db, 'pro1', at: t1);
+        return h;
+      }
+
+      test('with the flag unset the first sync gets the figure and sets it, the '
+          'second does not pull again', () async {
+        final (db, persistence, client, service) = await upgradedPhone();
+        expect(persistence.getPivaProfileRepulled(), isFalse);
+
+        final first = await service.sync();
+
+        expect(first.skipped, 0);
+        expect(first.pulled, 1);
+        expect((await profileRow(db, 'pro1'))!.declaredIncome, {'2025': 40000.0});
+        expect(persistence.getPivaProfileRepulled(), isTrue);
+
+        // The server map changes without moving `updated`: a normal pull
+        // cannot see it, and the re-pull does not run twice.
+        client._store['piva_profile']!['pro1']!['declaredIncome'] = {
+          '2025': 50000
+        };
+        final second = await service.sync();
+        expect(second.pulled, 0);
+        expect((await profileRow(db, 'pro1'))!.declaredIncome, {'2025': 40000.0});
+      });
+
+      test('with the flag already set the first sync does not see the figure — '
+          'what the re-pull is for', () async {
+        final (db, persistence, _, service) = await upgradedPhone();
+        await persistence.setPivaProfileRepulled(true);
+
+        final first = await service.sync();
+
+        expect(first.pulled, 0, reason: 'behind the pull cursor');
+        expect((await profileRow(db, 'pro1'))!.declaredIncome, isNull);
+      });
+
+      test('a push-only run, an expired session and a failed collection leave '
+          'the flag unset', () async {
+        final (db, persistence, client, service) = await upgradedPhone();
+
+        await service.sync(pull: false);
+        expect(persistence.getPivaProfileRepulled(), isFalse,
+            reason: 'push-only: the collection was not pulled');
+
+        client.authExpired = true;
+        await service.sync();
+        expect(persistence.getPivaProfileRepulled(), isFalse,
+            reason: 'auth expiry aborts before any collection is pulled');
+        client.authExpired = false;
+
+        client.failCollections.add('piva_profile');
+        await service.sync();
+        expect(persistence.getPivaProfileRepulled(), isFalse,
+            reason: 'the collection failed, so the next sync tries again');
+        client.failCollections.clear();
+
+        await service.sync();
+        expect(persistence.getPivaProfileRepulled(), isTrue);
+        expect((await profileRow(db, 'pro1'))!.declaredIncome, {'2025': 40000.0});
+      });
     });
 
     test('LWW in pull, both ways on piva_payments: a newer remote row '
@@ -1571,6 +1795,9 @@ void main() {
         'piva_profile': {'pro-srv': serverProfile()},
       });
       await persistence2.setPullSyncAt(DateTime(2026, 7, 10));
+      // An install that already re-pulled the profile once (the one-shot below
+      // would otherwise pull it from epoch, whatever the cursor says).
+      await persistence2.setPivaProfileRepulled(true);
 
       final incremental2 = await service2.sync(push: false);
       expect(incremental2.pulled, 0, reason: 'behind the pull cursor');
