@@ -556,11 +556,18 @@ class PocketBaseSyncService {
   /// cursor, once, until a run with [pull] has pulled it without an exception
   /// (`pb_piva_profile_repulled`): the upgrade that added `declaredIncome` must
   /// reach profiles whose `updated` the server migration did not touch.
+  ///
+  /// A sync with no session at all (the client holds no user) returns at once.
   Future<SyncSummary> sync({
     bool full = false,
     bool pull = true,
     bool push = true,
   }) async {
+    // No session at all (a fresh install before its first login): the probe
+    // would 401 and the 401 listener would log out a store that holds nothing,
+    // firing an auth event for no reason. An expired session still has its
+    // record, so it still reaches the probe, whose 401 offers re-login.
+    if (_client.userId.isEmpty) return const SyncSummary();
     if (_isSyncing) return const SyncSummary();
     // Another isolate is mid-sync (or a stale holder hasn't timed out yet):
     // bow out rather than interleave — the next scheduled run covers us.
