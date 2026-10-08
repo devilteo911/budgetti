@@ -53,8 +53,12 @@ class _FakeClient extends SyncClient {
   /// Simulates an expired/revoked token: every call throws [SyncAuthExpired].
   bool authExpired = false;
 
+  /// How many [SyncClient] calls reached the server, whatever they were.
+  int calls = 0;
+
   @override
   Future<void> ensureAuthenticated() async {
+    calls++;
     if (authExpired) throw const SyncAuthExpired();
   }
 
@@ -70,6 +74,7 @@ class _FakeClient extends SyncClient {
   @override
   Future<List<Map<String, dynamic>>> listChanges(
       String c, DateTime since) async {
+    calls++;
     if (gate != null) await gate;
     if (authExpired) throw const SyncAuthExpired();
     if (failCollections.contains(c)) throw Exception('404: no collection $c');
@@ -108,6 +113,7 @@ class _FakeClient extends SyncClient {
   @override
   Future<Map<String, dynamic>> upsert(
       String c, String id, Map<String, dynamic> body) async {
+    calls++;
     if (authExpired) throw const SyncAuthExpired();
     pushAttempts[id] = (pushAttempts[id] ?? 0) + 1;
     if (reject.contains(id)) throw Exception('rejected: $id');
@@ -128,6 +134,7 @@ class _FakeClient extends SyncClient {
 
   @override
   Future<Map<String, dynamic>> getRecord(String c, String id) async {
+    calls++;
     if (authExpired) throw const SyncAuthExpired();
     final row = _store[c]?[id];
     if (row == null) throw Exception('404: $c/$id');
@@ -137,6 +144,7 @@ class _FakeClient extends SyncClient {
   @override
   Future<List<PushOutcome>> batchPush(
       String collection, List<(String, Map<String, dynamic>)> rows) {
+    calls++;
     batchPushCalls++;
     return super.batchPush(collection, rows);
   }
@@ -665,6 +673,43 @@ void main() {
     expect(service.sessionExpired.value, isTrue);
     // Cursor frozen: the aborted run must not pretend both sides agreed.
     expect(persistence.getLastSyncAt(), t1);
+  });
+
+  test('a sync with no session at all does nothing and expires nothing',
+      () async {
+    final (db, _, client, service) = await _harness(userId: '');
+    await db.into(db.categories).insert(CategoriesCompanion.insert(
+          id: 'c1',
+          name: 'Food',
+          iconCode: 1,
+          colorHex: 2,
+          type: 'expense',
+          userId: const Value('u1'),
+          lastUpdated: Value(DateTime(2026, 7, 1, 10)),
+        ));
+
+    for (final full in [false, true]) {
+      final summary = await service.sync(full: full);
+
+      expect(client.calls, 0, reason: 'no probe, no pull, no push');
+      expect(summary.pushed, 0);
+      expect(summary.pulled, 0);
+      expect(summary.authExpired, isFalse);
+      expect(service.sessionExpired.value, isFalse,
+          reason: 'nothing to log out of, so no 401 listener to wake');
+    }
+  });
+
+  test('a session with a record but a dead token still reaches the probe',
+      () async {
+    final (_, _, client, service) = await _harness();
+    client.authExpired = true;
+
+    final summary = await service.sync();
+
+    expect(client.calls, greaterThan(0), reason: 'the probe was reached');
+    expect(summary.authExpired, isTrue);
+    expect(service.sessionExpired.value, isTrue);
   });
 
   test('a second service instance bows out while a sync holds the lock',
