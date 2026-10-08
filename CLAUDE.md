@@ -53,6 +53,20 @@ hears about them, so a warm resume shows pre-background state. `main()` covers
 this with an `AppLifecycleListener` that calls `markTablesUpdated(db.allTables)`
 on resume; any new background writer is already covered by it.
 
+**The signed-in user reaches every provider.** `authStateProvider` emits the
+PocketBase user id (`null` on logout), not `void`: Riverpod 3 drops an update
+equal to the previous one, so with `void` a login after a logout — a pre-login
+401 logs out an empty store — went unseen, and `currentUserIdProvider`,
+`financeServiceProvider` and the sync service kept the pre-login id and stamped
+every pulled row with an owner that each query then filters out (the ledger read
+empty after the first restart). `PocketBaseSyncService.sync()` returns at once
+when the client holds no user, so a fresh install never probes: the probe would
+401 and the 401 listener would log out a store that holds nothing. An expired
+session still has its record, so it still reaches the probe and its 401 still
+offers re-login. An install hit before the fix keeps those rows under the old id
+until Settings → Integrations → Pull everything, whose full pull restamps them
+with the current user (a push never rewrites a row's `userId`).
+
 ### Installment plans
 
 `Installments` stores a purchase paid in equal monthly rates: total, rate count
