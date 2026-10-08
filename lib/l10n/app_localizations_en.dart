@@ -959,6 +959,81 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pivaRemBlocked => 'Notifications are blocked by the system';
 
   @override
+  String pivaDeclBannerTitle(String year) {
+    return 'Your ledger doesn\'t cover $year';
+  }
+
+  @override
+  String pivaDeclBannerStart(String date, String year, String next) {
+    return 'It starts on $date — the saldo $year and the acconti $next are estimated on what you collected in $year.';
+  }
+
+  @override
+  String pivaDeclBannerEmpty(String year, String next) {
+    return 'It has no transactions yet — the saldo $year and the acconti $next are estimated on what you collected in $year.';
+  }
+
+  @override
+  String get pivaDeclEnter => 'Enter it';
+
+  @override
+  String get pivaDeclFromLedger => 'Derive it from the ledger';
+
+  @override
+  String pivaDeclBannerLedger(String amount) {
+    return '$amount in the ledger';
+  }
+
+  @override
+  String get pivaDeclared => 'declared';
+
+  @override
+  String pivaDeclFieldLabel(String year) {
+    return 'Collected in $year (€)';
+  }
+
+  @override
+  String get pivaDeclFieldNote =>
+      'Gross, as banked. Empty: read from the ledger.';
+
+  @override
+  String get pivaDeclFieldNoteCassa =>
+      'Gross, as banked, contributo integrativo included. Empty: read from the ledger.';
+
+  @override
+  String pivaDeclFieldError(String year) {
+    return 'Enter what you collected in $year as an amount, like 41600.';
+  }
+
+  @override
+  String get pivaDeclNoMonths => 'declared · no months';
+
+  @override
+  String pivaDeclPrior(String year, String amount) {
+    return '$year declared: $amount';
+  }
+
+  @override
+  String pivaDeclChartNote(String year, String gross, String total) {
+    return '$year was declared as one yearly figure — $gross collected, $total compensi. There are no months to draw.';
+  }
+
+  @override
+  String pivaDeclChartPriorNote(String year) {
+    return '$year: declared as a yearly total, no months to compare';
+  }
+
+  @override
+  String pivaDeclChartSemantics(String year, String total) {
+    return 'Compensi by month in $year, $total in total';
+  }
+
+  @override
+  String pivaDeclEstimateFoot(String year) {
+    return 'Compensi $year from the figure you declared. Your accountant\'s figures replace the estimate, deadline by deadline.';
+  }
+
+  @override
   String get importSelectWalletError => 'Please select a wallet';
 
   @override

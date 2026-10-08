@@ -367,6 +367,13 @@ final pivaTransactionsProvider = StreamProvider<List<Transaction>>((ref) {
   return ref.watch(financeServiceProvider).watchPivaIncome();
 });
 
+/// The date of the first live transaction of any type; `null` = empty ledger.
+/// What `askDeclaredIncome` and `ledgerCovers` take (the income rows alone
+/// would put the start too late).
+final pivaLedgerStartProvider = StreamProvider<DateTime?>((ref) {
+  return ref.watch(financeServiceProvider).watchLedgerStart();
+});
+
 /// The year the Partita IVA screen shows. A provider, not widget state, so it
 /// survives leaving and re-entering the screen.
 class PivaYearNotifier extends Notifier<int> {
@@ -382,12 +389,17 @@ final pivaYearProvider = NotifierProvider<PivaYearNotifier, int>(
 
 /// [year] of the profile as the screen shows it; `AsyncData(null)` = no profile.
 /// Riverpod keeps the value until one of the three sources emits, so widget
-/// rebuilds recompute nothing; `now` is read once per derivation.
+/// rebuilds recompute nothing; `now` is read once per derivation. The ledger's
+/// start is read as an input, not waited for: null while it loads (or fails),
+/// which only hides the delta of a year the ledger might not cover, and the view
+/// is derived again when it arrives — a start that never comes must not blank
+/// the screen.
 final pivaViewProvider =
     Provider.family<AsyncValue<PivaYearView?>, int>((ref, year) {
       final profileAsync = ref.watch(pivaProfileProvider);
       final paymentsAsync = ref.watch(pivaPaymentsProvider);
       final txnsAsync = ref.watch(pivaTransactionsProvider);
+      final ledgerStart = ref.watch(pivaLedgerStartProvider).value;
 
       return profileAsync.when(
         loading: () => const AsyncLoading(),
@@ -401,7 +413,14 @@ final pivaViewProvider =
             data: (txns) => AsyncData(
               profile == null
                   ? null
-                  : pivaYearView(profile, txns, payments, year, DateTime.now()),
+                  : pivaYearView(
+                      profile,
+                      txns,
+                      payments,
+                      year,
+                      DateTime.now(),
+                      ledgerStart: ledgerStart,
+                    ),
             ),
           ),
         ),

@@ -82,8 +82,8 @@ owner, one profile), built in small steps (#16–#21), in four pieces:
   (`test/piva_test.dart`, `web/src/piva.test.ts`). The web's simulations are not
   in the app, and **estimates are never stored**: tax, contributions and
   deadlines are derived at every read; only what the accountant says is saved.
-- **Screens** — `/piva` (profile, compensi, prospetto, deadlines), the dashboard
-  `PivaCard`, `PivaProfileSheet` and `PivaDeadlineSheet`.
+- **Screens** — `/piva` (the last-year banner, profile, compensi, prospetto,
+  deadlines), the dashboard `PivaCard`, `PivaProfileSheet` and `PivaDeadlineSheet`.
 - **Reminders** — a local notification before each unpaid deadline, planned by
   the pure `lib/core/services/piva_reminders.dart` (below, "reminders").
 
@@ -130,7 +130,9 @@ never returns it back). The server migration does not touch `updated`, so the
 upgrade makes one sync re-pull `piva_profile` from epoch: `pb_piva_profile_repulled`
 (a pref next to the cursors, default false, set by the sync once that pull ran).
 `savePivaProfile` writes the map as given and `PivaProfileInput.declaredIncome`
-is required, so a save can never forget it; the sheet only passes it through.
+is required, so a save can never forget it; the profile sheet builds it with
+`declaredFromForm` and the banner's "derive it" answer writes it as `{...map,
+'<year>': null}` (below, "Last year's income is asked").
 
 **Backup.** Two extra top-level keys, `piva_profile` and `piva_payments`, in the
 format the web reads (camelCase, dates as epoch millis, `incomeCategories` an
@@ -154,18 +156,19 @@ acconti, the merge with the accountant's saved amounts, and the declared year:
 divided once by `1 + integrativo %` for a `cassa`, else the ledger's — with
 `declaredFor`, the declared-aware `integrativeCollected`, `askDeclaredIncome` and
 `ledgerCovers`) — without the web's
-simulations and `writeFailure`; `parseProfileForm` (the profile form's rules)
-is in the same file. `test/piva_test.dart` ports the web cases with the same
+simulations and `writeFailure`; `parseProfileForm` (the profile form's rules) and
+`declaredFromForm` (the rule of the previous-year field) are in the same file. `test/piva_test.dart` ports the web cases with the same
 names and the same figures to the cent (**change one, change both**), plus
-eighteen cases the web suite does not have yet: sixteen on the JavaScript-to-Dart
-traps (`trappola: …`, among them four for the declared year: a UTC-flagged
+nineteen cases the web suite does not have yet: seventeen on the JavaScript-to-Dart
+traps (`trappola: …`, among them five for the declared year: a UTC-flagged
 `ledgerStart` and `now`, a 41.600 declared on a cassa at 4%, `declaredFor`'s
-guards), `estimateYear, cassa a zero` and `parseProfileForm: declaredIncome passa
+guards, the `-0` of `declaredFromForm`), `estimateYear, cassa a zero` and `parseProfileForm: declaredIncome passa
 intatto`; the artigiani case with saldo and acconti above the minimale was also
 written for the web suite, so the two should be kept in step. The seven cases the
 web added with its declared year (`compensiForYear …`, `askDeclaredIncome …`, the
-two `deadlines … dichiarato …` calendars) are here under the same names; its
-`declaredFromForm` case has no twin until the phone has the field (#30). Every fiscal figure lives in the one year-keyed table
+two `deadlines … dichiarato …` calendars) are here under the same names, and so is
+the eighth, `declaredFromForm: il campo dell'anno prima segue la regola del form`
+(its `null`/absent rows are `{}` here: a NULL column reads `{}`). Every fiscal figure lives in the one year-keyed table
 at the top of the file, with its source; a new year is one new row.
 
 No Drift, no Flutter, no I/O, and no `DateTime.now()`: `now` and `today` are
@@ -207,15 +210,18 @@ and `PivaIncome` — the last one is the whole income history with no date windo
 because the acconti of a year look at the years before it — and `getLedgerStart` /
 `watchLedgerStart`, the date of the first live transaction of **any type**, which
 `askDeclaredIncome` takes as an input because the income rows alone would put the
-start too late) and the five providers
-in `providers.dart` sit on Drift streams, so a sync refreshes them; none is
-invalidated by hand. `pivaViewProvider(year)` is where the derivation is
+start too late) and the six providers
+in `providers.dart` (`pivaLedgerStartProvider` is the one over `watchLedgerStart`)
+sit on Drift streams, so a sync refreshes them; none is invalidated by hand. `pivaViewProvider(year)` is where the derivation is
 memoised: it recomputes only when the profile, the payments or the income change
-or the year does, never on a rebuild, and reads the clock once per derivation.
+or the year does, never on a rebuild, and reads the clock once per derivation. The
+ledger's start is an input of it, not a source it waits for (null while it loads or
+fails, which only hides the delta of a year the ledger might not cover): a start
+that never comes must not blank the screen.
 `lib/features/piva/piva_view.dart` is the pure derivation (tiles, prior year cut
 at the same day, reconciliation, the estimate with the deductible contributions,
-made on `compensiForYear` for every year like the web's `PivaForecast.tsx`; the
-tiles of a declared year still read the ledger until #30) and mirrors the calculations the web does inside `PivaIncome.tsx` and
+made on `compensiForYear` for every year like the web's `PivaForecast.tsx`, and so
+are the tiles, as in `PivaIncome.tsx`) and mirrors the calculations the web does inside `PivaIncome.tsx` and
 `PivaForecast.tsx` — change one, change the other (`test/piva_view_test.dart`).
 
 Fiscal terms ("Compensi", "Imposta sostitutiva", the fund names…) are plain Dart
@@ -231,8 +237,9 @@ is the mirror of the web's function of the same name and returns a
 `ProfileFormError` code that the sheet turns into its (translated) message — the
 rules and their order are the web's, change one, change both. A `cassa`'s own
 fields are saved blank/0 for any other fund, and the INPS reduction only counts
-for artigiani and commercianti. The sheet passes the profile's `declaredIncome`
-through untouched (no field yet, not part of the dirty check). `FinanceService.savePivaProfile` keeps **one live
+for artigiani and commercianti. Last year's amount is a field of the sheet, with
+its own rule in `declaredFromForm` (below, "Last year's income is asked").
+`FinanceService.savePivaProfile` keeps **one live
 row**: it updates the newest and logically deletes (stamped, so the deletion
 syncs) any other live row — two devices that each created a profile offline end
 with one. Numbers go back into the fields with `pivaNumber`, never fixed decimals:
@@ -240,6 +247,32 @@ with one. Numbers go back into the fields with `pivaNumber`, never fixed decimal
 button sit outside the scroll view, so an error cannot push the button off the
 screen. Like every sheet guarded by `DiscardGuard`, closing with edits asks first
 on the back key; a downward drag on a dirty sheet just doesn't close it.
+
+**Last year's income is asked** (mirror: the web's `DeclaredBanner` in `Piva.tsx`,
+the previous-year field of `PivaProfileForm.tsx`, `PivaIncome.tsx` and
+`PivaForecast.tsx`). When `askDeclaredIncome(profile, ledgerStart, now)` returns a
+year — the ledger does not reach back to 1 January of last year and the profile
+holds no answer for it, not even `null` — a banner tops `/piva` (`_DeclaredBanner`
+in `piva_screen.dart`; none while the ledger start is still loading). "Enter it"
+opens `PivaProfileSheet` with `focusDeclared` (the field takes the focus, and the
+sheet scrolls to keep its hint above the keyboard); "Derive it from the ledger"
+saves `null` for that year through `savePivaProfile`. Either way **the whole map
+goes out**: a PocketBase write replaces the json object, so an answer carrying only
+its own year would erase every other. The sheet's field (always offered, as on the
+web) follows `declaredFromForm`: a number saves the number, an emptied declared
+number becomes `null` ("from the ledger"), an unanswered year stays unanswered, and
+a field left as it opened carries the map through exactly as it is. The map is
+merged into the profile **as it is at save time** (`getPivaProfile`), not as the
+sheet opened on it: an answer a sync brought meanwhile must not be written back
+over, since the newer `lastUpdated` would make the phone win. A year with a number
+is *declared* (`declaredFor`, no gating on the year, as on the web): its tile reads
+"Compensi 2025 · dichiarato" and `compensiForYear`'s figure, the average and
+best-month tiles read "—", a note stands where the chart would be, the bank row of
+the reconciliation is the declared gross, and the prospetto says so; the year after
+it draws one rod per month and names the declared figure instead of a delta
+(`PivaYearView.declared` / `priorDeclared` / `noStretch` / `noPrev`). `noPrev` hides
+the delta of a previous year with nothing in it and outside the ledger. The wording
+is the web's (ARB keys `pivaDecl…`, `pivaDeclared`), the fiscal words stay Italian.
 
 **Deadlines are managed on the phone** (`piva_deadlines_section.dart`, mounted under
 the prospetto, and `piva_deadline_sheet.dart`; the mirror is

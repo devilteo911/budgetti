@@ -91,6 +91,25 @@ const _artigiani = PivaProfileInput(
   declaredIncome: {},
 );
 
+/// A valid Gestione Separata profile (the sheet can save it as it is) holding
+/// [declaredIncome].
+PivaProfileInput _gs({int startYear = 2020, Map<String, double?> declaredIncome = const {}}) =>
+    PivaProfileInput(
+      atecoCode: '62.01',
+      coefficient: 67,
+      startYear: startYear,
+      startupRate: false,
+      fundType: 'gestione_separata',
+      fundName: '',
+      subjectiveRate: 0,
+      integrativeRate: 0,
+      minSubjective: 0,
+      minIntegrative: 0,
+      inpsReduction: false,
+      incomeCategories: const ['Freelance'],
+      declaredIncome: declaredIncome,
+    );
+
 /// The profile sheet: the first broken rule shown inside it, the fields that
 /// follow the fund, the coefficient suggested by the ATECO code, what a save
 /// writes (once) and what an untouched one leaves, the failed save and the
@@ -103,6 +122,11 @@ void main() {
   });
 
   final en = AppLocalizationsEn();
+
+  // The sheet asks about the year before the clock's, read once when it opens.
+  final prev = DateTime.now().year - 1;
+  final older = prev - 2;
+  final declaredLabel = en.pivaDeclFieldLabel('$prev');
 
   Category category(String name, String type) =>
       Category(id: 'cat_$name', userId: 'u', name: name, iconCode: 0, colorHex: 0, type: type);
@@ -124,6 +148,7 @@ void main() {
     bool fail = false,
     Completer<void>? gate,
     Size size = const Size(390, 4000),
+    bool focusDeclared = false,
   }) async {
     final db = AppDatabase.forExecutor(NativeDatabase.memory());
     addTearDown(db.close);
@@ -145,7 +170,8 @@ void main() {
       GoRoute(path: '/', builder: (_, __) => const Scaffold()),
       GoRoute(
         path: '/sheet',
-        builder: (_, __) => Scaffold(body: PivaProfileSheet(existing: existing)),
+        builder: (_, __) =>
+            Scaffold(body: PivaProfileSheet(existing: existing, focusDeclared: focusDeclared)),
       ),
     ]);
     await tester.pumpWidget(ProviderScope(
@@ -250,12 +276,13 @@ void main() {
         .map((d) => tester.getRect(find.byWidget(d)))
         .toList()
       ..sort((a, b) => a.top.compareTo(b.top));
-    // Heading → first field, switch row → the fund dropdown: 12 dp of air beyond
-    // the label's own rise at the least.
+    // Heading → first field, switch row → the field below it (last year's amount):
+    // 12 dp of air beyond the label's own rise at the least. The fund dropdown, under
+    // that field's note, is covered by the field-to-field loop below.
     final first = fields.first;
-    final fund = fields.firstWhere((f) => f.top > labels[1].$2.bottom);
+    final amount = fields.firstWhere((f) => f.top > labels[1].$2.bottom);
     expect(first.top - 6 - labels[0].$2.bottom, greaterThanOrEqualTo(12), reason: 'heading → first field');
-    expect(fund.top - 6 - labels[1].$2.bottom, greaterThanOrEqualTo(12), reason: 'switch row → fund');
+    expect(amount.top - 6 - labels[1].$2.bottom, greaterThanOrEqualTo(12), reason: 'switch row → amount');
     // Each field to the one above it (a row of two counts as one line).
     for (var i = 1; i < fields.length; i++) {
       final above = fields.sublist(0, i).where((f) => f.bottom <= fields[i].top + 1);
@@ -320,6 +347,9 @@ void main() {
       expect(find.text(label), findsNothing, reason: label);
     }
     expect(find.text(en.pivaProfileIntegrativoNote), findsNothing);
+    // Last year's amount is there for every fund; only its note names the integrativo.
+    expect(find.text(en.pivaDeclFieldNote), findsOneWidget);
+    expect(find.text(en.pivaDeclFieldNoteCassa), findsNothing);
 
     await pickFund(tester, 'Cassa professionale');
 
@@ -328,6 +358,8 @@ void main() {
     }
     expect(find.text(en.pivaProfileIntegrativoNote), findsOneWidget);
     expect(find.text(_reduction), findsNothing);
+    expect(find.text(en.pivaDeclFieldNote), findsNothing);
+    expect(find.text(en.pivaDeclFieldNoteCassa), findsOneWidget);
 
     await pickFund(tester, 'Artigiani INPS');
 
@@ -336,6 +368,8 @@ void main() {
     }
     expect(find.text(en.pivaProfileIntegrativoNote), findsNothing);
     expect(find.text(_reduction), findsOneWidget);
+    expect(find.text(en.pivaDeclFieldNote), findsOneWidget);
+    expect(find.text(en.pivaDeclFieldNoteCassa), findsNothing);
   });
 
   testWidgets('the ATECO code fills the coefficient, a typed one stays, "Use it" takes the suggestion',
@@ -557,5 +591,183 @@ void main() {
 
     expect(find.text('Discard changes?'), findsNothing);
     expect(find.byType(PivaProfileSheet), findsNothing);
+  });
+
+  // ── last year's amount ────────────────────────────────────────────────────
+  // The field's rule is `declaredFromForm`'s (piva_test.dart); what is checked here is the
+  // wiring: the figure it starts from, the whole map that goes out, the error, the focus.
+
+  /// Taps Save and returns the declared income the one saved row holds.
+  Future<Map<String, double?>?> savedDeclared(
+    WidgetTester tester,
+    ({AppDatabase db, _Finance finance}) h,
+  ) async {
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(h.finance.saves, 1);
+    return (await rowsOf(tester, h.db)).single.declaredIncome;
+  }
+
+  bool focused(WidgetTester tester, String label) => tester
+      .widget<EditableText>(find.descendant(of: field(label), matching: find.byType(EditableText)))
+      .focusNode
+      .hasFocus;
+
+  testWidgets("the stored amount for last year fills the field, and saved untouched every year stays",
+      (tester) async {
+    final h = await pump(tester, stored: _gs(declaredIncome: {'$prev': 41600.0, '$older': 999.0}));
+
+    expect(textOf(tester, declaredLabel), '41600'); // `41600`, never `41600.0`
+    expect(await savedDeclared(tester, h), {'$prev': 41600.0, '$older': 999.0});
+  });
+
+  testWidgets("a typed amount is saved for last year and the other years stay", (tester) async {
+    final h = await pump(tester, stored: _gs(declaredIncome: {'$older': 999.0}));
+
+    await type(tester, declaredLabel, '1234,5');
+
+    expect(await savedDeclared(tester, h), {'$older': 999.0, '$prev': 1234.5});
+  });
+
+  testWidgets("emptying a stored amount sends last year back to the ledger (null), the other years stay",
+      (tester) async {
+    final h = await pump(tester, stored: _gs(declaredIncome: {'$prev': 30000.0, '$older': 999.0}));
+
+    await type(tester, declaredLabel, '');
+
+    final declared = await savedDeclared(tester, h);
+    expect(declared, {'$prev': null, '$older': 999.0});
+    expect(declared!.containsKey('$prev'), isTrue, reason: 'null = from the ledger, an answer');
+  });
+
+  // Untouched, or only spaces typed: a year never answered stays so, one answered "from the
+  // ledger" stays so. Spaces go through the rule (the text is no longer the one the field opened
+  // with), untouched does not.
+  for (final (name, typed) in <(String, String?)>[('untouched', null), ('only spaces', '  ')]) {
+    testWidgets('a blank amount leaves a year never answered without a key ($name)', (tester) async {
+      final h = await pump(tester, stored: _gs());
+      if (typed != null) await type(tester, declaredLabel, typed);
+
+      final declared = await savedDeclared(tester, h);
+
+      expect(declared ?? const <String, double?>{}, isEmpty);
+    });
+
+    testWidgets('a blank amount leaves a year answered "from the ledger" at null ($name)', (tester) async {
+      final h = await pump(tester, stored: _gs(declaredIncome: {'$prev': null}));
+      if (typed != null) await type(tester, declaredLabel, typed);
+
+      final declared = await savedDeclared(tester, h);
+
+      expect(declared, {'$prev': null});
+      expect(declared!.containsKey('$prev'), isTrue);
+    });
+  }
+
+  for (final text in ['-5', 'abc']) {
+    testWidgets("'$text' in last year's amount shows the error above Save and saves nothing", (tester) async {
+      final h = await pump(tester, stored: _gs(declaredIncome: {'$older': 999.0}));
+
+      await type(tester, declaredLabel, text);
+      await tester.tap(save);
+      await tester.pump();
+
+      final message = find.text(en.pivaDeclFieldError('$prev'));
+      expect(message, findsOneWidget);
+      expect(tester.getRect(message).bottom, lessThanOrEqualTo(tester.getRect(save).top));
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(PivaProfileSheet), findsOneWidget);
+      expect(h.finance.saves, 0);
+      expect((await rowsOf(tester, h.db)).single.declaredIncome, {'$older': 999.0});
+    });
+  }
+
+  testWidgets("the amount's error comes last: a broken ATECO code is reported first", (tester) async {
+    final h = await pump(tester);
+
+    await type(tester, declaredLabel, '-5');
+    await tester.tap(save);
+    await tester.pump();
+
+    expect(find.text(_atecoError), findsOneWidget);
+    expect(find.text(en.pivaDeclFieldError('$prev')), findsNothing);
+    expect(h.finance.saves, 0);
+  });
+
+  testWidgets("last year's amount is offered whatever the opening year, and a save keeps it", (tester) async {
+    final h = await pump(tester, stored: _gs(startYear: DateTime.now().year, declaredIncome: {'$prev': 5000.0}));
+
+    expect(textOf(tester, en.pivaProfileStartYearLabel), '${DateTime.now().year}');
+    expect(textOf(tester, declaredLabel), '5000');
+    expect(await savedDeclared(tester, h), {'$prev': 5000.0});
+  });
+
+  testWidgets("typing in last year's amount makes the sheet dirty: closing asks first", (tester) async {
+    await pump(tester);
+    await type(tester, declaredLabel, '1');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discard changes?'), findsOneWidget);
+    expect(find.byType(PivaProfileSheet), findsOneWidget);
+  });
+
+  testWidgets('a new profile opens on the ATECO code', (tester) async {
+    await pump(tester);
+
+    expect(focused(tester, en.pivaProfileAtecoLabel), isTrue);
+    expect(focused(tester, declaredLabel), isFalse);
+  });
+
+  for (final (name, stored) in <(String, PivaProfileInput?)>[('a new profile', null), ('an edited one', _gs())]) {
+    testWidgets("focusDeclared puts the focus on last year's amount, not on the ATECO code ($name)", (tester) async {
+      await pump(tester, stored: stored, focusDeclared: true);
+
+      expect(focused(tester, declaredLabel), isTrue);
+      expect(focused(tester, en.pivaProfileAtecoLabel), isFalse);
+    });
+  }
+
+  testWidgets('an untouched amount carries the stored figure exactly, even past what the field keeps',
+      (tester) async {
+    final h = await pump(tester, stored: _gs(declaredIncome: {'$prev': 1234.56789}));
+
+    // The field shows four decimals at most; the figure itself has five.
+    expect(textOf(tester, declaredLabel), '1234.5679');
+    expect(await savedDeclared(tester, h), {'$prev': 1234.56789});
+  });
+
+  // The map is merged into the profile as it is when Save is tapped, not as the sheet opened
+  // on it (web `PivaProfileForm.tsx:86-93`): an answer another device made meanwhile and a
+  // sync brought in must survive, or the old map written back with a newer `lastUpdated`
+  // would make it lose last-write-wins.
+  Future<void> syncBrings(WidgetTester tester, AppDatabase db, Map<String, double?> declared) async {
+    await tester.runAsync(() => FinanceService(db, 'u').savePivaProfile(_gs(declaredIncome: declared)));
+  }
+
+  testWidgets("a figure for another year that a sync brought while the sheet was open survives an untouched save",
+      (tester) async {
+    final h = await pump(tester, stored: _gs(declaredIncome: {'$older': 999.0}));
+    await syncBrings(tester, h.db, {'$older': 999.0, '${older - 1}': 555.0});
+
+    expect(await savedDeclared(tester, h), {'$older': 999.0, '${older - 1}': 555.0});
+  });
+
+  testWidgets("last year's answer a sync brought while the sheet was open survives an untouched save",
+      (tester) async {
+    final h = await pump(tester, stored: _gs());
+    await syncBrings(tester, h.db, {'$prev': 2222.0});
+
+    expect(textOf(tester, declaredLabel), isEmpty, reason: 'the sheet still shows what it opened on');
+    expect(await savedDeclared(tester, h), {'$prev': 2222.0});
+  });
+
+  testWidgets("a typed amount keeps the other years a sync brought while the sheet was open", (tester) async {
+    final h = await pump(tester, stored: _gs(declaredIncome: {'$older': 999.0}));
+    await syncBrings(tester, h.db, {'$older': 999.0, '${older - 1}': 555.0});
+    await type(tester, declaredLabel, '1234,5');
+
+    expect(await savedDeclared(tester, h), {'$older': 999.0, '${older - 1}': 555.0, '$prev': 1234.5});
   });
 }

@@ -1712,6 +1712,108 @@ abstract class AppLocalizations {
   /// **'Notifications are blocked by the system'**
   String get pivaRemBlocked;
 
+  /// No description provided for @pivaDeclBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your ledger doesn\'t cover {year}'**
+  String pivaDeclBannerTitle(String year);
+
+  /// No description provided for @pivaDeclBannerStart.
+  ///
+  /// In en, this message translates to:
+  /// **'It starts on {date} — the saldo {year} and the acconti {next} are estimated on what you collected in {year}.'**
+  String pivaDeclBannerStart(String date, String year, String next);
+
+  /// No description provided for @pivaDeclBannerEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'It has no transactions yet — the saldo {year} and the acconti {next} are estimated on what you collected in {year}.'**
+  String pivaDeclBannerEmpty(String year, String next);
+
+  /// No description provided for @pivaDeclEnter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter it'**
+  String get pivaDeclEnter;
+
+  /// No description provided for @pivaDeclFromLedger.
+  ///
+  /// In en, this message translates to:
+  /// **'Derive it from the ledger'**
+  String get pivaDeclFromLedger;
+
+  /// No description provided for @pivaDeclBannerLedger.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in the ledger'**
+  String pivaDeclBannerLedger(String amount);
+
+  /// No description provided for @pivaDeclared.
+  ///
+  /// In en, this message translates to:
+  /// **'declared'**
+  String get pivaDeclared;
+
+  /// No description provided for @pivaDeclFieldLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Collected in {year} (€)'**
+  String pivaDeclFieldLabel(String year);
+
+  /// No description provided for @pivaDeclFieldNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Gross, as banked. Empty: read from the ledger.'**
+  String get pivaDeclFieldNote;
+
+  /// No description provided for @pivaDeclFieldNoteCassa.
+  ///
+  /// In en, this message translates to:
+  /// **'Gross, as banked, contributo integrativo included. Empty: read from the ledger.'**
+  String get pivaDeclFieldNoteCassa;
+
+  /// No description provided for @pivaDeclFieldError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter what you collected in {year} as an amount, like 41600.'**
+  String pivaDeclFieldError(String year);
+
+  /// No description provided for @pivaDeclNoMonths.
+  ///
+  /// In en, this message translates to:
+  /// **'declared · no months'**
+  String get pivaDeclNoMonths;
+
+  /// No description provided for @pivaDeclPrior.
+  ///
+  /// In en, this message translates to:
+  /// **'{year} declared: {amount}'**
+  String pivaDeclPrior(String year, String amount);
+
+  /// No description provided for @pivaDeclChartNote.
+  ///
+  /// In en, this message translates to:
+  /// **'{year} was declared as one yearly figure — {gross} collected, {total} compensi. There are no months to draw.'**
+  String pivaDeclChartNote(String year, String gross, String total);
+
+  /// No description provided for @pivaDeclChartPriorNote.
+  ///
+  /// In en, this message translates to:
+  /// **'{year}: declared as a yearly total, no months to compare'**
+  String pivaDeclChartPriorNote(String year);
+
+  /// No description provided for @pivaDeclChartSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Compensi by month in {year}, {total} in total'**
+  String pivaDeclChartSemantics(String year, String total);
+
+  /// No description provided for @pivaDeclEstimateFoot.
+  ///
+  /// In en, this message translates to:
+  /// **'Compensi {year} from the figure you declared. Your accountant\'s figures replace the estimate, deadline by deadline.'**
+  String pivaDeclEstimateFoot(String year);
+
   /// No description provided for @importSelectWalletError.
   ///
   /// In en, this message translates to:

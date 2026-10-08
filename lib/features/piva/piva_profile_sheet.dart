@@ -13,6 +13,8 @@ import 'package:budgetti/models/piva.dart'
         ProfileFormError,
         ProfileFormValues,
         coefficientFor,
+        declaredFor,
+        declaredFromForm,
         parseProfileForm;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,11 +36,13 @@ const _decimal = TextInputType.numberWithOptions(decimal: true);
 /// Create or edit the Partita IVA profile. [existing] null creates, a profile
 /// edits. The rules live in `parseProfileForm` (`models/piva.dart`): the sheet
 /// holds text, asks it, and shows the first error in field order, like the web
-/// form (`PivaProfileForm.tsx`) it mirrors.
+/// form (`PivaProfileForm.tsx`) it mirrors. [focusDeclared] opens it on last
+/// year's amount instead of the ATECO code ("Enter it" on the screen's banner).
 class PivaProfileSheet extends ConsumerStatefulWidget {
-  const PivaProfileSheet({super.key, this.existing});
+  const PivaProfileSheet({super.key, this.existing, this.focusDeclared = false});
 
   final PivaProfileData? existing;
+  final bool focusDeclared;
 
   @override
   ConsumerState<PivaProfileSheet> createState() => _PivaProfileSheetState();
@@ -54,10 +58,19 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
       _subjective,
       _integrative,
       _minSubjective,
-      _minIntegrative;
+      _minIntegrative,
+      _declared;
   late bool _startup, _reduction;
   late String _fund;
   late final Set<String> _categories;
+
+  /// The year the amount field asks about: read once at open (a sheet left open
+  /// over New Year's Eve keeps asking about the same one), like the web's form.
+  late final int _previousYear;
+
+  /// What the amount field held when the sheet opened: a field still holding it
+  /// is untouched, which is not the same as emptied (see `_save`).
+  late final String _declared0;
 
   /// The last coefficient put in the field from the ATECO code: only a field
   /// still holding it (or empty) is overwritten, a hand-typed value never is.
@@ -80,6 +93,7 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
     _integrative.text,
     _minSubjective.text,
     _minIntegrative.text,
+    _declared.text,
     _startup,
     _reduction,
     _fund,
@@ -111,6 +125,12 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
     _minIntegrative = TextEditingController(
       text: e == null ? '' : pivaNumber(e.minIntegrative),
     );
+    _previousYear = DateTime.now().year - 1;
+    final declared = e == null ? null : declaredFor(e, _previousYear);
+    _declared = TextEditingController(
+      text: declared == null ? '' : pivaNumber(declared),
+    );
+    _declared0 = _declared.text;
     _startup = e?.startupRate ?? false;
     _reduction = e?.inpsReduction ?? false;
     _fund = e?.fundType ?? 'gestione_separata';
@@ -130,6 +150,7 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
       _integrative,
       _minSubjective,
       _minIntegrative,
+      _declared,
     ]) {
       c.dispose();
     }
@@ -169,6 +190,25 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
   }
 
   Future<void> _save() async {
+    // The whole map goes out (a write replaces the object) with only last year's
+    // entry changed by the field's rule. It is merged into the profile as it is
+    // NOW, not as the sheet opened on it: a sync may have brought an answer from
+    // the web meanwhile, and writing the old map back with a newer `lastUpdated`
+    // would drop it. An untouched field is not an emptied one: it carries the map
+    // through as it is, so a figure the field could not hold (more decimals than
+    // its text keeps) is not rewritten.
+    // Held from the first tap, across the read: a second tap must not start a
+    // second save.
+    setState(() => _saving = true);
+    final current = await ref
+        .read(financeServiceProvider)
+        .getPivaProfile()
+        .catchError((_) => widget.existing);
+    if (!mounted) return;
+    final stored = current?.declaredIncome ?? const <String, double?>{};
+    final declared = _declared.text == _declared0
+        ? null
+        : declaredFromForm(stored, _previousYear, _declared.text);
     final parsed = parseProfileForm(
       ProfileFormValues(
         atecoCode: _ateco.text,
@@ -183,20 +223,27 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
         minIntegrative: _minIntegrative.text,
         inpsReduction: _reduction,
         incomeCategories: _categories.toList(),
-        // Not edited here (#30 asks for it): passed through so a save keeps it.
-        declaredIncome: widget.existing?.declaredIncome ?? const {},
+        declaredIncome: declared?.declaredIncome ?? stored,
       ),
       DateTime.now(),
     );
     final error = parsed.error;
     if (error != null) {
-      setState(() => _error = _message(error));
+      setState(() {
+        _error = _message(error);
+        _saving = false;
+      });
       return;
     }
-    setState(() {
-      _error = null;
-      _saving = true;
-    });
+    // Its error comes after parseProfileForm's, as on the web.
+    if (declared != null && declared.invalid) {
+      setState(() {
+        _error = context.l10n.pivaDeclFieldError('$_previousYear');
+        _saving = false;
+      });
+      return;
+    }
+    setState(() => _error = null);
     try {
       await ref.read(financeServiceProvider).savePivaProfile(parsed.profile!);
       // `_saving` stays set: the button must not take a second tap while the
@@ -218,12 +265,14 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
     String? hint,
     TextInputType? type,
     bool autofocus = false,
+    EdgeInsets scrollPadding = const EdgeInsets.all(20),
     TextCapitalization capitalization = TextCapitalization.none,
     List<TextInputFormatter>? formatters,
     ValueChanged<String>? onChanged,
   }) => TextField(
     controller: controller,
     autofocus: autofocus,
+    scrollPadding: scrollPadding,
     keyboardType: type,
     textCapitalization: capitalization,
     inputFormatters: formatters,
@@ -300,7 +349,8 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
                         _ateco,
                         l10n.pivaProfileAtecoLabel,
                         hint: '62.01.00',
-                        autofocus: widget.existing == null,
+                        autofocus:
+                            widget.existing == null && !widget.focusDeclared,
                         type: _decimal,
                         // A decimal keyboard on an Italian phone may offer only the comma.
                         formatters: [
@@ -365,8 +415,26 @@ class _PivaProfileSheetState extends ConsumerState<PivaProfileSheet> {
                       onChanged: (v) => _changed(() => _startup = v),
                     ),
                     // The switch row has no padding of its own below its text: the
-                    // dropdown's floating label would sit on it.
+                    // field's floating label would sit on it.
                     const SizedBox(height: 18),
+                    // Last year's gross, for a ledger that does not reach back to it.
+                    // Always offered, whatever the opening year typed above.
+                    _field(
+                      _declared,
+                      l10n.pivaDeclFieldLabel('$_previousYear'),
+                      type: _decimal,
+                      autofocus: widget.focusDeclared,
+                      // Its hint is two lines: scroll far enough to keep it above the keyboard.
+                      scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _fund == 'cassa'
+                          ? l10n.pivaDeclFieldNoteCassa
+                          : l10n.pivaDeclFieldNote,
+                      style: note,
+                    ),
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       // A `fundType` the table does not know (the server keeps text) shows
                       // no choice, and saving it asks for one.

@@ -381,6 +381,105 @@ void main() {
     expect(fields(b.estimate), fields(a.estimate));
   });
 
+  // ── l'anno dichiarato ──────────────────────────────────────────────────────
+  // As the web's PivaIncome: a year is declared when it holds a number, whatever
+  // `now` is, and the tiles read `compensiForYear`. Cassa at 4% integrativo
+  // (rates and minimums 0), opened 2024, now = 6 October 2026:
+  //   2025 declared at the 41.600 the bank received, an empty ledger:
+  //     compensi 41.600 ÷ 1,04 = 40.000; integrativo to remit 41.600 − 40.000 = 1.600
+  final cassa = profile(fundType: 'cassa', integrativeRate: 4, declaredIncome: {'2025': 41600.0});
+
+  test('anno dichiarato su un registro vuoto: tessere e stima sul dichiarato, lordo e da versare', () {
+    final v = pivaYearView(cassa, const [], const [], 2025, now);
+    expect(v.declared, isTrue);
+    expect(v.total, 40000);
+    expect(v.gross, 41600, reason: 'the declared gross, not the ledger sum');
+    expect(v.toRemit, 1600);
+    expect(v.estimate.revenue, 40000);
+    expect(v.hasData, isTrue, reason: 'the ledger reads nothing, the declaration is something');
+    expect(v.carved, isTrue);
+    expect(v.months, List.filled(12, 0.0), reason: 'a declared year has no months of its own');
+    expect(v.priorDeclared, isFalse);
+  });
+
+  test("l'anno dopo un anno dichiarato, in corso: niente tratto da confrontare, prior è l'intero", () {
+    final v = pivaYearView(cassa, const [], const [], 2026, now);
+    expect(v.declared, isFalse);
+    expect(v.priorDeclared, isTrue);
+    expect(v.noStretch, isTrue);
+    expect(v.prior, 40000, reason: 'the whole declared year, what the tile names');
+    expect(v.pct, isNull);
+    expect(v.hasData, isTrue, reason: 'the year before is declared');
+    // Not running any more: the whole year is the base, and it is a delta again.
+    final later = pivaYearView(cassa, [fattura('a', 20800, at(2026, 3, 10))], const [], 2026, at(2027, 2, 1));
+    expect(later.noStretch, isFalse);
+    expect(later.prior, 40000);
+    expect(later.pct, closeTo(-50, 1e-9));
+  });
+
+  test("anno dopo un anno dichiarato, concluso: la variazione è sull'anno intero dichiarato", () {
+    final p = profile(declaredIncome: {'2024': 20000.0});
+    final v = pivaYearView(p, [fattura('a', 25000, at(2025, 6, 15))], const [], 2025, now);
+    expect(v.declared, isFalse);
+    expect(v.priorDeclared, isTrue);
+    expect(v.noStretch, isFalse, reason: '2025 is over: there is a whole year to compare with');
+    expect(v.prior, 20000);
+    expect(v.pct, closeTo(25, 1e-9));
+  });
+
+  test('una voce null («dal registro») non è un anno dichiarato: le cifre sono del registro', () {
+    final p = profile(declaredIncome: {'2025': null});
+    final v = pivaYearView(p, [fattura('a', 12000, at(2025, 6, 15))], const [], 2025, now);
+    expect(v.declared, isFalse);
+    expect(v.total, 12000);
+    expect(v.gross, 12000);
+    // ...and as the year before one: it is not declared either.
+    expect(pivaYearView(p, const [], const [], 2026, now).priorDeclared, isFalse);
+  });
+
+  test("come sul web, ogni anno con un numero è dichiarato: anche l'anno in corso", () {
+    final p = profile(declaredIncome: {'2026': 5000.0});
+    final v = pivaYearView(p, [fattura('a', 3000, at(2026, 3, 10))], const [], 2026, now);
+    expect(v.declared, isTrue, reason: 'the web does not gate on now either');
+    expect(v.total, 5000);
+    expect(v.gross, 5000);
+    expect(v.estimate.revenue, 5000);
+    expect(v.count, 1, reason: 'the payments are still the ledger rows');
+  });
+
+  test('il dichiarato vince sul registro dello stesso anno, che resta nei mesi', () {
+    final p = profile(declaredIncome: {'2025': 30000.0});
+    final v = pivaYearView(p, [fattura('a', 1000, at(2025, 3, 10))], const [], 2025, now);
+    expect(v.declared, isTrue);
+    expect(v.total, 30000);
+    expect(v.gross, 30000);
+    expect(v.hasData, isTrue);
+    expect(v.months[2], 1000, reason: 'the ledger keeps its months; the screen does not draw them');
+    expect(v.count, 1);
+  });
+
+  test('noPrev: né dichiarato, né compensi, né un registro che arrivi al 1 gennaio', () {
+    // The year before is 2025.
+    bool noPrev(PivaProfileData p, {List<Transaction> txns = const [], DateTime? ledgerStart}) =>
+        pivaYearView(p, txns, const [], 2026, now, ledgerStart: ledgerStart).noPrev;
+
+    expect(noPrev(gs), isTrue, reason: 'an empty ledger covers nothing');
+    expect(noPrev(gs, ledgerStart: at(2025, 1, 1)), isFalse, reason: 'covered: that zero is real, "new"');
+    expect(noPrev(gs, ledgerStart: at(2024, 6, 1)), isFalse);
+    expect(noPrev(gs, ledgerStart: at(2025, 1, 2)), isTrue, reason: 'it starts a day too late');
+    expect(noPrev(gs, ledgerStart: at(2025, 6, 1)), isTrue);
+    expect(noPrev(gs, txns: [fattura('a', 100, at(2025, 12, 5))]), isFalse, reason: 'income in the ledger');
+    expect(noPrev(profile(declaredIncome: {'2025': 7000.0})), isFalse, reason: 'declared');
+    expect(noPrev(profile(declaredIncome: {'2025': 0.0})), isFalse, reason: 'a declared zero is an answer');
+    // "from the ledger" (null) is not a declaration: the ledger decides.
+    expect(noPrev(profile(declaredIncome: {'2025': null})), isTrue);
+    // The ledger's start does not change the tiles of the year itself.
+    final v = pivaYearView(gs, gsTxns, const [], 2026, now, ledgerStart: at(2026, 1, 10));
+    expect(v.total, 31500);
+    expect(v.prior, 30000);
+    expect(v.noPrev, isFalse, reason: '2025 has income');
+  });
+
   test('piva_view.dart importa solo il motore e il modello delle transazioni', () {
     final imports = File('lib/features/piva/piva_view.dart')
         .readAsLinesSync()

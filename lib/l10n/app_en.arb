@@ -269,6 +269,23 @@
   "pivaRemNoProfile": "Set up the Partita IVA profile first",
   "pivaRemMasterOff": "Turn on push notifications first",
   "pivaRemBlocked": "Notifications are blocked by the system",
+  "pivaDeclBannerTitle": "Your ledger doesn't cover {year}",
+  "pivaDeclBannerStart": "It starts on {date} — the saldo {year} and the acconti {next} are estimated on what you collected in {year}.",
+  "pivaDeclBannerEmpty": "It has no transactions yet — the saldo {year} and the acconti {next} are estimated on what you collected in {year}.",
+  "pivaDeclEnter": "Enter it",
+  "pivaDeclFromLedger": "Derive it from the ledger",
+  "pivaDeclBannerLedger": "{amount} in the ledger",
+  "pivaDeclared": "declared",
+  "pivaDeclFieldLabel": "Collected in {year} (€)",
+  "pivaDeclFieldNote": "Gross, as banked. Empty: read from the ledger.",
+  "pivaDeclFieldNoteCassa": "Gross, as banked, contributo integrativo included. Empty: read from the ledger.",
+  "pivaDeclFieldError": "Enter what you collected in {year} as an amount, like 41600.",
+  "pivaDeclNoMonths": "declared · no months",
+  "pivaDeclPrior": "{year} declared: {amount}",
+  "pivaDeclChartNote": "{year} was declared as one yearly figure — {gross} collected, {total} compensi. There are no months to draw.",
+  "pivaDeclChartPriorNote": "{year}: declared as a yearly total, no months to compare",
+  "pivaDeclChartSemantics": "Compensi by month in {year}, {total} in total",
+  "pivaDeclEstimateFoot": "Compensi {year} from the figure you declared. Your accountant's figures replace the estimate, deadline by deadline.",
   "importSelectWalletError": "Please select a wallet",
   "importSuccess": "Successfully imported {count} transactions",
   "importError": "Error importing: {error}",
@@ -995,6 +1012,104 @@
         "type": "String"
       },
       "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclBannerTitle": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclBannerStart": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "year": {
+        "type": "String"
+      },
+      "next": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclBannerEmpty": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      },
+      "next": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclBannerLedger": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclFieldLabel": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclFieldError": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclPrior": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclChartNote": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      },
+      "gross": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclChartPriorNote": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclChartSemantics": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "@pivaDeclEstimateFoot": {
+    "placeholders": {
+      "year": {
         "type": "String"
       }
     }

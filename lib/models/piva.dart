@@ -16,10 +16,9 @@
 /// gross the owner declared for a past year the ledger does not cover
 /// (`declaredIncome`). The public functions around it — `declaredFor`,
 /// `compensiForYear`, the declared-aware `integrativeCollected`, `askDeclaredIncome`
-/// and `ledgerCovers` — are part of the mirror. The web's `declaredFromForm` (the
-/// previous-year field of the profile form) is web-only until the phone has that
-/// field (devilteo911/budgetti#30), so `parseProfileForm` here only passes the map
-/// through.
+/// and `ledgerCovers` — are part of the mirror, and so is `declaredFromForm`, the
+/// rule of the previous-year field of the profile form: `parseProfileForm` only
+/// passes the map through, the sheet runs the field's rule on it first.
 ///
 /// The code is pure — no I/O, no database — and the clock is never read:
 /// `now` / `today` are always injected by the caller. Days are local
@@ -925,8 +924,9 @@ double? _optionalAmount(String s) {
 /// hidden ones are saved as '' / 0 whatever they hold, and the INPS reduction
 /// only counts for artigiani and commercianti. Exactly one of the two fields of
 /// the result is set. The declared income is not a field of the form: its map
-/// passes through untouched (copied, entry for entry, `null` values included);
-/// the previous year's field and its rule come with #30.
+/// passes through untouched (copied, entry for entry, `null` values included).
+/// The previous year's field has its own rule, [declaredFromForm], which the
+/// caller applies to the map before it comes here.
 ({PivaProfileInput? profile, ProfileFormError? error}) parseProfileForm(ProfileFormValues f, DateTime now) {
   final atecoCode = f.atecoCode.trim();
   if (!RegExp(r'^\d{2}(\.?\d{1,2}){0,2}$').hasMatch(atecoCode)) return _fail(ProfileFormError.atecoCode);
@@ -988,4 +988,29 @@ double? _optionalAmount(String s) {
     ),
     error: null,
   );
+}
+
+/// The `declaredIncome` map to save for the previous-year amount field: the
+/// [stored] map (the profile as it is at submit time — a write replaces the whole
+/// object) with [year] set to what was typed, every other key carried through.
+/// Emptied, a declared number becomes `null` ("derive it from the ledger"); an
+/// unanswered year stays unanswered. A negative or unreadable amount is the one
+/// error: `invalid` is set and the map is null. Never mutates [stored], and the
+/// saved value is always a `double`.
+({Map<String, double?>? declaredIncome, bool invalid}) declaredFromForm(
+  Map<String, double?> stored,
+  int year,
+  String text,
+) {
+  final key = '$year';
+  final out = Map<String, double?>.of(stored);
+  if (text.trim().isEmpty) {
+    if (out[key] != null) out[key] = null;
+    return (declaredIncome: out, invalid: false);
+  }
+  final v = parseAmount(text);
+  if (v == null || v < 0) return (declaredIncome: null, invalid: true);
+  // '-0' reads as -0.0: adding 0.0 turns it into 0.0, as in `_optionalAmount`.
+  out[key] = v + 0.0;
+  return (declaredIncome: out, invalid: false);
 }

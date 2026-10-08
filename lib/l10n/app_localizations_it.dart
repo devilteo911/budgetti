@@ -966,6 +966,81 @@ class AppLocalizationsIt extends AppLocalizations {
   String get pivaRemBlocked => 'Notifiche bloccate dal sistema';
 
   @override
+  String pivaDeclBannerTitle(String year) {
+    return 'Il tuo registro non copre il $year';
+  }
+
+  @override
+  String pivaDeclBannerStart(String date, String year, String next) {
+    return 'Comincia il $date — il saldo $year e gli acconti $next sono stimati su quanto hai incassato nel $year.';
+  }
+
+  @override
+  String pivaDeclBannerEmpty(String year, String next) {
+    return 'Non ha ancora movimenti — il saldo $year e gli acconti $next sono stimati su quanto hai incassato nel $year.';
+  }
+
+  @override
+  String get pivaDeclEnter => 'Inseriscilo';
+
+  @override
+  String get pivaDeclFromLedger => 'Ricavalo dal registro';
+
+  @override
+  String pivaDeclBannerLedger(String amount) {
+    return '$amount nel registro';
+  }
+
+  @override
+  String get pivaDeclared => 'dichiarato';
+
+  @override
+  String pivaDeclFieldLabel(String year) {
+    return 'Incassato nel $year (€)';
+  }
+
+  @override
+  String get pivaDeclFieldNote =>
+      'Lordo, come incassato in banca. Vuoto: si legge dal registro.';
+
+  @override
+  String get pivaDeclFieldNoteCassa =>
+      'Lordo, come incassato in banca, contributo integrativo compreso. Vuoto: si legge dal registro.';
+
+  @override
+  String pivaDeclFieldError(String year) {
+    return 'Inserisci quanto hai incassato nel $year come importo, ad esempio 41600.';
+  }
+
+  @override
+  String get pivaDeclNoMonths => 'dichiarato · senza mesi';
+
+  @override
+  String pivaDeclPrior(String year, String amount) {
+    return '$year dichiarato: $amount';
+  }
+
+  @override
+  String pivaDeclChartNote(String year, String gross, String total) {
+    return 'Il $year è stato dichiarato come un unico importo annuo — $gross incassati, $total di compensi. Non ci sono mesi da disegnare.';
+  }
+
+  @override
+  String pivaDeclChartPriorNote(String year) {
+    return '$year: dichiarato come totale annuo, nessun mese da confrontare';
+  }
+
+  @override
+  String pivaDeclChartSemantics(String year, String total) {
+    return 'Compensi per mese nel $year, $total in totale';
+  }
+
+  @override
+  String pivaDeclEstimateFoot(String year) {
+    return 'I compensi $year vengono dalla cifra che hai dichiarato. Le cifre della commercialista sostituiscono la stima, scadenza per scadenza.';
+  }
+
+  @override
   String get importSelectWalletError => 'Seleziona un portafoglio';
 
   @override
