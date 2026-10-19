@@ -12,18 +12,25 @@ var _seq = 0;
 Transaction tx(
   double amount,
   DateTime date, {
+  String? id,
   String category = 'Food',
   String type = 'expense',
   List<String> tags = const [],
+  String? toAccountId,
+  double othersShare = 0,
+  String? reimbursesId,
 }) => Transaction(
-  id: 't${_seq++}',
+  id: id ?? 't${_seq++}',
   accountId: 'a1',
+  toAccountId: toAccountId,
   amount: amount,
   date: date,
   description: 'x',
   category: category,
   type: type,
   tags: tags,
+  othersShare: othersShare,
+  reimbursesId: reimbursesId,
 );
 
 Account acc(double balance) => Account(
@@ -120,6 +127,281 @@ void main() {
       expect(clampShare(5, 0), 0.0); // a share cannot exceed a zero amount
       expect(clampShare(-0.0, -100).isNegative, isFalse);
       expect(clampShare(-0.004, -100).isNegative, isFalse);
+    });
+  });
+
+  // Mirror of web/src/finance.test.ts "shared expenses" cases 1-12 — change one,
+  // change both. A 100 € dinner for four, the others owe 75; 25 € came back in
+  // June and 25 € in July, around a salary, a grocery run and a transfer. Same
+  // names and figures as the web; where the web function has no Dart twin, the
+  // Dart quantity that computes the same thing stands in (`statsForPeriod`'s
+  // month bucket for `monthlyFlow`, `monthlyNetFlow` for the history and the
+  // savings, `categorySpendForMonth` for `spendByCategory` and `budgetStatus`).
+  group('shared expenses (mirror: web/src/finance.test.ts)', () {
+    // Local noon, like the web's `at()`: nothing here depends on the zone.
+    DateTime at(int y, int m, int d) => DateTime(y, m, d, 12);
+    final now = at(2026, 7, 22);
+    final june15 = at(2026, 6, 15);
+
+    final dinner = tx(
+      -100,
+      at(2026, 6, 10),
+      id: 'dinner',
+      category: 'Eating out',
+      othersShare: 75,
+    );
+    final back1 = tx(
+      25,
+      at(2026, 6, 12),
+      id: 'back1',
+      category: 'Gifts',
+      type: 'income',
+      reimbursesId: 'dinner',
+    );
+    final back2 = tx(
+      25,
+      at(2026, 7, 3),
+      id: 'back2',
+      category: 'Gifts',
+      type: 'income',
+      reimbursesId: 'dinner',
+    );
+    final pay = tx(
+      2000,
+      at(2026, 6, 1),
+      id: 'pay',
+      category: 'Salary',
+      type: 'income',
+    );
+    final food = tx(
+      -50,
+      at(2026, 6, 5),
+      id: 'food',
+      category: 'Groceries',
+    );
+    final move = tx(
+      300,
+      at(2026, 6, 20),
+      id: 'move',
+      category: 'Transfer',
+      type: 'transfer',
+      toAccountId: 'a2',
+    );
+    final split = [pay, food, dinner, back1, back2, move];
+
+    // The web's `monthlyFlow` for a month: {earned, spent} of `statsForPeriod`.
+    Map<String, double>? bucket(List<Transaction> txns, int month) =>
+        statsForPeriod(
+          txns,
+          StatsPeriod(year: 2026, month: month),
+        ).monthlyBreakdown['2026-0$month'];
+    double earned(List<Transaction> txns, int month) =>
+        bucket(txns, month)?['earned'] ?? 0.0; // a month with no row is absent
+    double sum(List<double> xs) => xs.fold(0.0, (a, b) => a + b);
+
+    test('ownShare: a 100 € dinner for four counts 25', () {
+      expect(
+        [dinner, back1, back2, pay, food, move].map(ownShare).toList(),
+        [-25, 0, 0, 2000, -50, 300],
+        reason: 'shared expense, reimbursements, the rest',
+      );
+      expect(
+        ownShare(tx(-33.34, june15, othersShare: 22.23)),
+        -11.11,
+        reason: 'rounded to the cent',
+      );
+    });
+
+    test(
+      'ownView: shared expenses carry their own share, reimbursements are dropped',
+      () {
+        final v = ownView(split);
+        expect([for (final t in v) t.id], ['pay', 'food', 'dinner', 'move']);
+        expect([for (final t in v) t.amount], [2000, -50, -25, 300]);
+        expect(dinner.amount, -100, reason: 'the input is not mutated');
+      },
+    );
+
+    test('own view by category: the dinner is 25 € in Eating out', () {
+      expect(categorySpendForMonth(ownView(split), now: june15), {
+        'Groceries': 50.0,
+        'Eating out': 25.0,
+      }, reason: 'own');
+      expect(categorySpendForMonth(split, now: june15), {
+        'Eating out': 100.0,
+        'Groceries': 50.0,
+      }, reason: 'raw');
+      expect(bucket(ownView(split), 6), {
+        'earned': 2000.0,
+        'spent': 75.0,
+      }, reason: 'own flow');
+      expect(bucket(split, 6), {
+        'earned': 2025.0,
+        'spent': 150.0,
+      }, reason: 'raw flow');
+    });
+
+    test('month boundary: the expense in June, its reimbursement in July', () {
+      expect(earned(ownView(split), 7), 0.0, reason: 'own July income');
+      expect(earned(split, 7), 25.0, reason: 'raw July income');
+      // The web's `incomeExpenseHistory` [[5, 2000, 75], [6, 0, 0]]: its net.
+      expect(
+        monthlyNetFlow(ownView(split), now: now, months: 2),
+        [1925, 0],
+        reason: 'June, July',
+      );
+    });
+
+    test('dangling reimbursesId: still never income', () {
+      final lost = tx(
+        40,
+        june15,
+        id: 'lost',
+        category: 'Gifts',
+        type: 'income',
+        reimbursesId: 'gone',
+      );
+      expect(ownShare(lost), 0, reason: 'ownShare');
+      expect(
+        [for (final t in ownView([pay, lost])) t.id],
+        ['pay'],
+        reason: 'dropped from the own view',
+      );
+      expect(
+        earned(ownView([pay, lost]), 6),
+        2000.0,
+        reason: 'own June income',
+      );
+      expect(
+        receivable(dinner, [dinner, lost]).received,
+        0,
+        reason: 'not received by the dinner',
+      );
+    });
+
+    test('receivable: owed, received, outstanding, on the raw list', () {
+      expect(receivable(dinner, split), (
+        owed: 75.0,
+        received: 50.0,
+        outstanding: 25.0,
+      ), reason: 'two reimbursements');
+      // The web's `isDeleted: true` variant: a deleted row never reaches the
+      // Dart model, so it is left out of the list.
+      expect(receivable(dinner, [pay, food, dinner, back2, move]), (
+        owed: 75.0,
+        received: 25.0,
+        outstanding: 50.0,
+      ), reason: 'a deleted reimbursement is not received');
+      expect(receivable(food, split), (
+        owed: 0.0,
+        received: 0.0,
+        outstanding: 0.0,
+      ), reason: 'not shared');
+      expect(receivable(dinner, ownView(split)), (
+        owed: 75.0,
+        received: 0.0,
+        outstanding: 75.0,
+      ), reason: 'the own view has no reimbursements left: it takes the raw list');
+    });
+
+    test('over-payment: more received than owed moves no analytic', () {
+      final extra = tx(
+        50,
+        at(2026, 7, 10),
+        id: 'extra',
+        category: 'Gifts',
+        type: 'income',
+        reimbursesId: 'dinner',
+      );
+      final all = [...split, extra];
+      expect(receivable(dinner, all), (
+        owed: 75.0,
+        received: 100.0,
+        outstanding: -25.0,
+      ), reason: 'over-paid');
+      expect(categorySpendForMonth(ownView(all), now: june15), {
+        'Groceries': 50.0,
+        'Eating out': 25.0,
+      }, reason: 'June unchanged');
+      expect(earned(ownView(all), 7), 0.0, reason: 'July own income');
+    });
+
+    test(
+      'own share 0: a fully paid-back expense leaves the category totals',
+      () {
+        final gift = tx(
+          -60,
+          at(2026, 6, 8),
+          id: 'gift',
+          category: 'Gifts',
+          othersShare: 60,
+        );
+        final over = tx(
+          -40,
+          at(2026, 6, 9),
+          id: 'over',
+          category: 'Gifts',
+          othersShare: 80,
+        );
+        final v = ownView([food, gift, over]);
+        expect(
+          [for (final t in v) t.amount],
+          [-50, 0, 0],
+          reason: 'shares 50, 0 and 0 (over-paid, never negative)',
+        );
+        expect(
+          [for (final t in v) t.amount.isNegative],
+          [true, false, false],
+          reason: 'a zero share is 0.0, never a -0.0 that formats "-0,00"',
+        );
+        expect(categorySpendForMonth(v, now: june15), {
+          'Groceries': 50.0,
+        }, reason: 'June');
+        // `topExpenses` (largest expenses) is web only, not ported.
+      },
+    );
+
+    test('transfers and balances stay raw', () {
+      expect(
+        identical(ownView([move]).single, move),
+        isTrue,
+        reason: 'a transfer is untouched',
+      );
+      // The web's `liveBalance` bullets are not ported here: the app's balance
+      // is `FinanceService.getAccounts`, whose suite is account_balance_test.dart.
+    });
+
+    test('budget pacing counts the own share', () {
+      const limit = 50.0; // an Eating out budget for June
+      final own = categorySpendForMonth(ownView(split), now: june15);
+      final raw = categorySpendForMonth(split, now: june15);
+      expect([own['Eating out'], own['Eating out']! / limit], [25.0, 0.5]);
+      expect(raw['Eating out'], 100.0, reason: 'raw');
+      // The web's budget `level` is web only, not ported.
+    });
+
+    test('savings: a reimbursement is not money saved', () {
+      final own = monthlyNetFlow(ownView(split), now: now, months: 12);
+      expect(own[10], 1925.0, reason: 'June');
+      expect(sum(own), 1925.0, reason: 'own year to date');
+      final raw = monthlyNetFlow(split, now: now, months: 12);
+      expect([raw[10], raw[11]], [1875.0, 25.0], reason: 'raw June, July');
+      expect(sum(raw), 1900.0, reason: 'raw year to date');
+      // `positive`, `complete` and `bestNet` are web only, not ported.
+    });
+
+    test('splitShare: split in N', () {
+      expect(
+        [
+          splitShare(-100, 4),
+          splitShare(100, 3),
+          splitShare(-50, 2),
+          splitShare(-100, 1),
+          splitShare(-100, 0),
+        ],
+        [75.0, 66.67, 25.0, 0.0, 0.0],
+        reason: 'N = 4, 3, 2, 1, 0',
+      );
     });
   });
 

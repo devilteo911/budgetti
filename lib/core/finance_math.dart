@@ -62,6 +62,55 @@ double clampShare(double share, double amount) {
   return v <= 0 ? 0.0 : (v > capped ? capped : v); // `<=`: never a -0.0
 }
 
+/// The owner's part of a row: a shared expense counts only what the others do
+/// not owe, a reimbursement nothing, anything else its amount. Mirror of
+/// `ownShare` in `web/src/finance.ts` — change one, change both.
+double ownShare(Transaction t) {
+  if (t.isExpense && t.othersShare > 0) {
+    // Fully paid back or over-paid: 0, and never a -0.0 that formats "-0,00".
+    final own = _round2(t.amount.abs() - t.othersShare);
+    return own > 0 ? -own : 0.0;
+  }
+  if (t.isIncome && (t.reimbursesId ?? '').isNotEmpty) return 0.0;
+  return t.amount;
+}
+
+/// The list every analytic reads: shared expenses at their [ownShare], every
+/// row with a `reimbursesId` dropped (even when its expense is gone), the rest
+/// untouched — transfers included, the very same objects. Never mutates.
+///
+/// Apply it **once, on a raw list**: the copy keeps `othersShare`, so a list
+/// that already went through it would read a −25 row that still carries 75 as 0.
+/// Mirror of `ownView` in `web/src/finance.ts` — change one, change both.
+List<Transaction> ownView(List<Transaction> txns) => [
+  for (final t in txns)
+    if ((t.reimbursesId ?? '').isEmpty)
+      t.isExpense && t.othersShare > 0 ? t.copyWith(amount: ownShare(t)) : t,
+];
+
+/// What the others owe on an expense, what came back and what is still out.
+typedef Receivable = ({double owed, double received, double outstanding});
+
+/// [expense]'s [Receivable]: `received` sums the incomes whose `reimbursesId` is
+/// its id; a negative `outstanding` means more came back than was owed. [txns]
+/// must be the **raw** list — [ownView] drops exactly the rows this sums.
+/// Mirror of `receivable` in `web/src/finance.ts` — change one, change both.
+Receivable receivable(Transaction expense, List<Transaction> txns) {
+  var sum = 0.0;
+  for (final t in txns) {
+    if (t.isIncome && t.reimbursesId == expense.id) sum += t.amount;
+  }
+  final owed = _round2(expense.othersShare);
+  final received = _round2(sum);
+  return (owed: owed, received: received, outstanding: _round2(owed - received));
+}
+
+/// "Split in N", the editor's shortcut: the others owe (N − 1)/N of the amount.
+/// Never stored. Mirror of `splitShare` in `web/src/finance.ts` — change one,
+/// change both.
+double splitShare(double amount, int n) =>
+    n > 1 ? _round2(amount.abs() * (n - 1) / n) : 0.0;
+
 /// `2026-08` for a date — the key both clients use for a month bucket.
 String monthKey(DateTime d) => DateFormat(_monthKeyFormat).format(d);
 
