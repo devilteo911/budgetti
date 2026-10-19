@@ -573,6 +573,14 @@
   "txIgnore": "Ignora",
   "txInstallment": "Rata",
   "txInstallmentOption": "{amount} × {count} · {paid} pagate finora",
+  "txShared": "Condivisa",
+  "txSharedOthersOwe": "Condivisa — gli altri devono",
+  "txNotShared": "Non condivisa",
+  "txOthersOwe": "gli altri devono {amount}",
+  "txSplitIn": "Dividi in",
+  "txEnterAmountFirst": "Inserisci prima l'importo.",
+  "txShareInvalid": "Inserisci quanto devono gli altri come importo, o lascia vuoto.",
+  "txShareTooMuch": "Gli altri non possono dovere più dell'intera spesa.",
   "txInvalidAmount": "Non valido",
   "txIsSameExpense": "È la stessa spesa?",
   "txLast30Days": "Ultimi 30 giorni",
@@ -1213,6 +1221,13 @@
       },
       "paid": {
         "type": "int"
+      }
+    }
+  },
+  "@txOthersOwe": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
       }
     }
   },

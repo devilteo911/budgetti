@@ -82,6 +82,7 @@ void main() {
     Transaction? transaction,
     Transaction? prefill,
     List<Transaction> history = const [],
+    List<Transaction> shared = const [],
     List<Account>? accounts,
     Future<void> Function(AppDatabase db)? seed,
     Future<void> Function(Transaction)? onSave,
@@ -123,6 +124,7 @@ void main() {
         databaseProvider.overrideWithValue(db),
         transactionsProvider(null)
             .overrideWith((ref) => Stream.value(history)),
+        shareTransactionsProvider.overrideWith((ref) => Stream.value(shared)),
         currencyProvider.overrideWithValue(
             NumberFormat.simpleCurrency(name: 'EUR', locale: 'en_US')),
         financeServiceProvider.overrideWithValue(FinanceService(db, 'u')),
@@ -494,9 +496,9 @@ void main() {
     });
   });
 
-  // The sheet has no split fields yet (#38): an edit builds a brand-new
-  // Transaction from the form, which would write othersShare 0 over a split
-  // marked on the web. It carries the row's own values over instead.
+  // An edit builds a brand-new Transaction from the form, which would write
+  // othersShare 0 over a split marked on the web. The editor holds the split in
+  // its own state, seeded from the row, and writes it back unchanged.
   group('editing a split row keeps its split', () {
     Future<Transaction> editDescription(
         WidgetTester tester, Transaction existing) async {
@@ -529,6 +531,216 @@ void main() {
       expect(saved.description, 'Dinner, edited');
       expect((saved.amount, saved.othersShare, saved.reimbursesId),
           (75.0, 0.0, 'exp'));
+    });
+  });
+
+  // The SHARED row and its sheet: what the others owe, typed or split in N.
+  group('marking an expense as shared', () {
+    final sharedField = find.widgetWithText(TextField, 'Shared — others owe');
+    const tooMuch = "The others can't owe more than the whole expense.";
+
+    Future<void> openSharedSheet(WidgetTester tester) async {
+      await tester.tap(find.text('SHARED'));
+      await tester.pumpAndSettle();
+    }
+
+    /// The sheet's own Save is the last one on screen (the editor has one too).
+    Future<void> applySharedSheet(WidgetTester tester) async {
+      await tester.tap(find.text('SAVE').last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> splitIn(WidgetTester tester, int n) async {
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('$n').last);
+      await tester.pumpAndSettle();
+    }
+
+    String sharedFieldText(WidgetTester tester) =>
+        tester.widget<TextField>(sharedField).controller!.text;
+
+    Future<void> typeAmount(WidgetTester tester, String amount) async {
+      await tester.enterText(find.byType(TextFormField).at(0), amount);
+      await tester.enterText(find.byType(TextFormField).at(1), 'Dinner');
+    }
+
+    /// A new expense of [amount], shared through [fill] (which drives the sheet),
+    /// saved: what the editor handed to `onSave`.
+    Future<Transaction> saveShared(
+      WidgetTester tester,
+      String amount,
+      Future<void> Function() fill,
+    ) async {
+      Transaction? saved;
+      await pump(tester, onSave: (t) async => saved = t);
+      await typeAmount(tester, amount);
+      await openSharedSheet(tester);
+      await fill();
+      await applySharedSheet(tester);
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+      return saved!;
+    }
+
+    testWidgets('the row is offered for an expense only', (tester) async {
+      await pump(tester);
+
+      expect(find.text('SHARED'), findsOneWidget);
+      expect(find.text('Not shared'), findsOneWidget);
+
+      await tester.tap(find.text('INCOME'));
+      await tester.pumpAndSettle();
+      expect(find.text('SHARED'), findsNothing);
+
+      await tester.tap(find.text('TRANSFER'));
+      await tester.pumpAndSettle();
+      expect(find.text('SHARED'), findsNothing);
+    });
+
+    testWidgets('and not in the inbox approval (a prefill)', (tester) async {
+      await pump(tester, prefill: tx());
+
+      expect(find.text('SHARED'), findsNothing);
+    });
+
+    testWidgets('100 split in 4 saves 75 and the row says so', (tester) async {
+      Transaction? saved;
+      await pump(tester, onSave: (t) async => saved = t);
+      await typeAmount(tester, '100');
+      await openSharedSheet(tester);
+      await splitIn(tester, 4);
+
+      expect(sharedFieldText(tester), '75.00');
+
+      await applySharedSheet(tester);
+      expect(find.text('others owe €75.00'), findsOneWidget);
+
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+      expect((saved?.amount, saved?.othersShare), (-100.0, 75.0));
+    });
+
+    testWidgets('10 split in 3 saves 6.67', (tester) async {
+      final saved = await saveShared(tester, '10', () => splitIn(tester, 3));
+
+      expect(saved.othersShare, 6.67);
+    });
+
+    testWidgets('a typed figure is saved as typed', (tester) async {
+      final saved = await saveShared(tester, '100',
+          () => tester.enterText(sharedField, '30'));
+
+      expect(saved.othersShare, 30);
+    });
+
+    testWidgets('a comma works as the decimal separator', (tester) async {
+      final saved = await saveShared(tester, '100',
+          () => tester.enterText(sharedField, '12,5'));
+
+      expect(saved.othersShare, 12.5);
+    });
+
+    testWidgets('an emptied field is "not shared"', (tester) async {
+      Transaction? saved;
+      await pump(tester,
+          transaction: tx(amount: -100, othersShare: 75),
+          onSave: (t) async => saved = t);
+      await openSharedSheet(tester);
+      expect(sharedFieldText(tester), '75.00');
+
+      await tester.enterText(sharedField, '');
+      await applySharedSheet(tester);
+      expect(find.text('Not shared'), findsOneWidget);
+
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+      expect(saved?.othersShare, 0);
+    });
+
+    testWidgets('more than the whole expense is refused in the sheet',
+        (tester) async {
+      await pump(tester);
+      await typeAmount(tester, '100');
+      await openSharedSheet(tester);
+      await tester.enterText(sharedField, '120');
+
+      await applySharedSheet(tester);
+
+      expect(find.text(tooMuch), findsOneWidget);
+      expect(sharedField, findsOneWidget); // still open
+      expect(find.text('Not shared'), findsOneWidget); // nothing was applied
+    });
+
+    testWidgets('something that is not an amount is refused in the sheet',
+        (tester) async {
+      await pump(tester);
+      await typeAmount(tester, '100');
+      await openSharedSheet(tester);
+      await tester.enterText(sharedField, 'abc');
+
+      await applySharedSheet(tester);
+
+      expect(
+          find.text(
+              'Enter what the others owe as an amount, or leave it empty.'),
+          findsOneWidget);
+      expect(sharedField, findsOneWidget);
+    });
+
+    testWidgets('"Split in" with no amount asks for it and writes nothing',
+        (tester) async {
+      await pump(tester);
+      await openSharedSheet(tester);
+
+      await splitIn(tester, 4);
+
+      expect(find.text('Enter the amount first.'), findsOneWidget);
+      expect(sharedFieldText(tester), '');
+    });
+
+    testWidgets('an amount lowered below the share is refused at save',
+        (tester) async {
+      var saves = 0;
+      await pump(tester,
+          transaction: tx(amount: -100, othersShare: 75),
+          onSave: (_) async => saves++);
+
+      await tester.enterText(find.byType(TextFormField).at(0), '50');
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      expect(inlineMessage(tooMuch), findsOneWidget);
+      expect(find.byType(AddTransactionModal), findsOneWidget);
+      expect(saves, 0);
+    });
+
+    testWidgets('an edited shared expense switched to income saves no share',
+        (tester) async {
+      Transaction? saved;
+      await pump(tester,
+          transaction: tx(amount: -100, othersShare: 75),
+          onSave: (t) async => saved = t);
+
+      await tester.tap(find.text('INCOME'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      expect((saved?.amount, saved?.othersShare), (100.0, 0.0));
+    });
+
+    testWidgets('an unsaved split makes the sheet ask before it closes',
+        (tester) async {
+      await pump(tester);
+      await openSharedSheet(tester);
+      await tester.enterText(sharedField, '30');
+      await applySharedSheet(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
     });
   });
 

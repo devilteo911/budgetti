@@ -1995,6 +1995,34 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get txShared => 'Shared';
+
+  @override
+  String get txSharedOthersOwe => 'Shared — others owe';
+
+  @override
+  String get txNotShared => 'Not shared';
+
+  @override
+  String txOthersOwe(String amount) {
+    return 'others owe $amount';
+  }
+
+  @override
+  String get txSplitIn => 'Split in';
+
+  @override
+  String get txEnterAmountFirst => 'Enter the amount first.';
+
+  @override
+  String get txShareInvalid =>
+      'Enter what the others owe as an amount, or leave it empty.';
+
+  @override
+  String get txShareTooMuch =>
+      'The others can\'t owe more than the whole expense.';
+
+  @override
   String get txInvalidAmount => 'Invalid';
 
   @override

@@ -573,6 +573,14 @@
   "txIgnore": "Ignore",
   "txInstallment": "Installment",
   "txInstallmentOption": "{amount} × {count} · {paid} due so far",
+  "txShared": "Shared",
+  "txSharedOthersOwe": "Shared — others owe",
+  "txNotShared": "Not shared",
+  "txOthersOwe": "others owe {amount}",
+  "txSplitIn": "Split in",
+  "txEnterAmountFirst": "Enter the amount first.",
+  "txShareInvalid": "Enter what the others owe as an amount, or leave it empty.",
+  "txShareTooMuch": "The others can't owe more than the whole expense.",
   "txInvalidAmount": "Invalid",
   "txIsSameExpense": "Is this the same expense?",
   "txLast30Days": "Last 30 Days",
@@ -1407,6 +1415,13 @@
       },
       "paid": {
         "type": "int"
+      }
+    }
+  },
+  "@txOthersOwe": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
       }
     }
   },

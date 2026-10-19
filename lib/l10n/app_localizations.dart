@@ -3536,6 +3536,54 @@ abstract class AppLocalizations {
   /// **'{amount} × {count} · {paid} due so far'**
   String txInstallmentOption(String amount, int count, int paid);
 
+  /// No description provided for @txShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared'**
+  String get txShared;
+
+  /// No description provided for @txSharedOthersOwe.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared — others owe'**
+  String get txSharedOthersOwe;
+
+  /// No description provided for @txNotShared.
+  ///
+  /// In en, this message translates to:
+  /// **'Not shared'**
+  String get txNotShared;
+
+  /// No description provided for @txOthersOwe.
+  ///
+  /// In en, this message translates to:
+  /// **'others owe {amount}'**
+  String txOthersOwe(String amount);
+
+  /// No description provided for @txSplitIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Split in'**
+  String get txSplitIn;
+
+  /// No description provided for @txEnterAmountFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the amount first.'**
+  String get txEnterAmountFirst;
+
+  /// No description provided for @txShareInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter what the others owe as an amount, or leave it empty.'**
+  String get txShareInvalid;
+
+  /// No description provided for @txShareTooMuch.
+  ///
+  /// In en, this message translates to:
+  /// **'The others can\'t owe more than the whole expense.'**
+  String get txShareTooMuch;
+
   /// No description provided for @txInvalidAmount.
   ///
   /// In en, this message translates to:

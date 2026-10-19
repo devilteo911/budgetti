@@ -2008,6 +2008,34 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String get txShared => 'Condivisa';
+
+  @override
+  String get txSharedOthersOwe => 'Condivisa — gli altri devono';
+
+  @override
+  String get txNotShared => 'Non condivisa';
+
+  @override
+  String txOthersOwe(String amount) {
+    return 'gli altri devono $amount';
+  }
+
+  @override
+  String get txSplitIn => 'Dividi in';
+
+  @override
+  String get txEnterAmountFirst => 'Inserisci prima l\'importo.';
+
+  @override
+  String get txShareInvalid =>
+      'Inserisci quanto devono gli altri come importo, o lascia vuoto.';
+
+  @override
+  String get txShareTooMuch =>
+      'Gli altri non possono dovere più dell\'intera spesa.';
+
+  @override
   String get txInvalidAmount => 'Non valido';
 
   @override
