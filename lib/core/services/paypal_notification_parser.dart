@@ -4,11 +4,13 @@
 ///
 /// Only money RECEIVED becomes a draft. A payment made from PayPal is funded by
 /// the card or bank behind it, which already notifies it, so capturing it here
-/// too would book it twice. Every push is sorted four ways:
+/// too would book it twice. Every push is sorted four ways, direction first:
 ///
-/// - noise (codes, promos, account notices): no draft, not surfaced;
+/// - incoming wording with an amount: an income draft, whatever else the text
+///   says (a payer's note may quote "offerta" or "password");
 /// - outgoing wording: no draft, not surfaced;
-/// - incoming wording with an amount: an income draft;
+/// - noise (codes, promos, account notices) with no incoming wording: no draft,
+///   not surfaced;
 /// - anything else with an amount or a money word: no draft, but
 ///   [PayPalNotificationParser.looksTransactional], so the review inbox shows
 ///   its raw text.
@@ -33,18 +35,17 @@ const paypalFallbackDescription = 'Movimento PayPal';
 class PayPalNotificationParser {
   const PayPalNotificationParser();
 
-  /// Returns an income draft, or null when the notification is noise, outgoing,
-  /// carries no readable amount (the one field we never invent) or has no
-  /// recognisable incoming wording.
+  /// Returns an income draft, or null when the notification has no recognisable
+  /// incoming wording (outgoing, noise, anything else) or carries no readable
+  /// amount (the one field we never invent). Noise is not consulted: incoming
+  /// wording wins over whatever a payer's note quotes.
   ParsedBankDraft? parse({
     required String title,
     required String text,
     required DateTime when,
   }) {
     final haystack = _haystack(title, text);
-    if (_isNoise(haystack) || _direction(haystack) != _Direction.incoming) {
-      return null;
-    }
+    if (_direction(haystack) != _Direction.incoming) return null;
 
     final match = bankAmountRe.firstMatch(haystack);
     if (match == null) return null;
@@ -75,15 +76,15 @@ class PayPalNotificationParser {
 
   /// Whether an unparsed notification looks like it was about money coming in
   /// (or about money at all, when its direction is unknown) and so deserves
-  /// surfacing in the review inbox. Noise and outgoing pushes never do.
+  /// surfacing in the review inbox. Outgoing pushes never do, and noise only
+  /// when nothing in the text says money came in.
   bool looksTransactional(String title, String text) {
     final haystack = _haystack(title, text);
-    if (_isNoise(haystack)) return false;
     return switch (_direction(haystack)) {
       _Direction.incoming => true,
       _Direction.outgoing => false,
-      _Direction.unknown =>
-        bankAmountRe.hasMatch(haystack) || _moneyWordRe.hasMatch(haystack),
+      _Direction.unknown => !_isNoise(haystack) &&
+          (bankAmountRe.hasMatch(haystack) || _moneyWordRe.hasMatch(haystack)),
     };
   }
 
@@ -103,10 +104,9 @@ class PayPalNotificationParser {
     return joined.length > 240 ? '${joined.substring(0, 240)}…' : joined;
   }
 
-  /// Codes, promos and account notices. Kept narrow: over-matching here
-  /// silently drops a real credit. A sender's free-text note that quotes one of
-  /// these words would be dropped too (ponytail: if a real push shows notes in
-  /// the notification, check the incoming wording before this list).
+  /// Codes, promos and account notices. Only asked about a push with no
+  /// incoming or outgoing wording: an incoming one is a credit whatever its
+  /// payer's note quotes.
   bool _isNoise(String haystack) => _noiseMarkers.any(haystack.contains);
 
   /// Direction from the wording. When both kinds are present the one that comes
@@ -219,8 +219,9 @@ final _moneyWordRe = RegExp(
   r'|transazion|transaction|donazion|donation',
 );
 
-/// Non-money pushes. Kept narrow: over-matching here silently drops real
-/// credits, which is the failure mode this whole pipeline exists to avoid.
+/// Non-money pushes. Kept narrow: over-matching here silently drops a credit
+/// worded in a way we do not know yet, which is the failure mode this whole
+/// pipeline exists to avoid.
 const _noiseMarkers = <String>[
   'codice di verifica', 'verification code', 'security code',
   'codice di sicurezza', 'codice monouso', 'one-time', 'il tuo codice',

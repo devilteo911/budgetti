@@ -188,12 +188,44 @@ void main() {
     }
   });
 
+  // The payer's own note rides in the push and may quote a noise word; incoming
+  // wording decides, so the credit is still a draft (and is shown).
+  group('a noise word in the payer note does not drop a credit', () {
+    const credits = [
+      ('Mario Rossi ti ha inviato 20,00 € EUR: offerta cena', 'Mario Rossi'),
+      ('Mario Rossi ti ha inviato 20,00 € EUR: promo cena', 'Mario Rossi'),
+      ('Mario Rossi ti ha inviato 20,00 € EUR: password del wifi', 'Mario Rossi'),
+      ('Mario Rossi ti ha inviato 20,00 € EUR: scopri il locale', 'Mario Rossi'),
+      ('Jane Doe sent you €20.00: offer for dinner', 'Jane Doe'),
+      ('Jane Doe sent you €20.00: promo dinner', 'Jane Doe'),
+      ('Jane Doe sent you €20.00 for the password', 'Jane Doe'),
+      ('Jane Doe sent you €20.00: discover the venue', 'Jane Doe'),
+    ];
+
+    for (final (text, name) in credits) {
+      test(text, () {
+        final r = run('PayPal', text);
+
+        expect(r, isNotNull);
+        expect(r!.type, 'income');
+        expect(r.amount, 20.0);
+        expect(r.counterparty, name);
+        expect(parser.looksTransactional('PayPal', text), isTrue);
+      });
+    }
+  });
+
   group('noise is neither parsed nor surfaced', () {
     const noise = [
       ('PayPal', 'Il tuo codice di sicurezza PayPal è 123456'),
       ('PayPal', 'Your PayPal security code is 123456'),
+      ('PayPal', 'Il tuo codice di verifica PayPal è 123456'),
+      ('PayPal', 'Your PayPal verification code is 123456'),
       ('PayPal', 'Scopri PayPal Premium a solo 7,99 € al mese'),
       ('PayPal', 'Discover PayPal Plus for only €7.99 a month'),
+      // An amount, but no incoming wording: a promo, not a credit.
+      ('PayPal', "Scopri l'offerta PayPal: 10 € di sconto sul tuo prossimo acquisto"),
+      ('PayPal', 'Discover the PayPal offer: €10 discount on your next purchase'),
       ('PayPal', 'Invita un amico e ricevi 10 € di bonus'),
       ('PayPal', 'Nuovo accesso al tuo account da un dispositivo sconosciuto'),
     ];
