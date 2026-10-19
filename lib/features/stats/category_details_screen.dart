@@ -93,9 +93,18 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
             return _EmptyState(period: period, catColor: catColor);
           }
 
+          // The owner's share for the totals, the trend and the budget; the
+          // raw rows above stay for the section count and the list. Filtered
+          // raw first, so a fully paid-back expense stays here at 0 and the
+          // hero counts what the list shows (`categoryAll` is still raw).
+          final categoryOwn = ownView(categoryAll);
+          final ownForPeriod = categoryOwn
+              .where((t) => period.contains(t.date))
+              .toList();
+
           final trendMonths = lastMonthKeys(12);
-          final monthlyData = spendByMonth(categoryAll, trendMonths);
-          final monthlySpentThisMonth = _currentMonthSpent(categoryAll);
+          final monthlyData = spendByMonth(categoryOwn, trendMonths);
+          final monthlySpentThisMonth = _currentMonthSpent(categoryOwn);
 
           return CustomScrollView(
             slivers: [
@@ -106,7 +115,7 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen>
                 child: SliverToBoxAdapter(
                   child: CategoryHero(
                     category: widget.category,
-                    transactionsForPeriod: forPeriod,
+                    transactionsForPeriod: ownForPeriod,
                     period: period,
                     currencyFormatter: currencyFormatter,
                   ),

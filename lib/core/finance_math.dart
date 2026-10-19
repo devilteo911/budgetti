@@ -144,7 +144,11 @@ class DashboardStats {
 /// Balance across all wallets, this calendar month's income and expenses, the
 /// rolling 30-day net flow, and the newest [recentCount] rows.
 ///
-/// [transactions] must already be newest-first — the caller's query orders it.
+/// The totals are the owner's share ([ownView], applied here); the rows are
+/// raw — the dashboard lists a 100 € dinner as 100 € beside its reimbursement.
+///
+/// [transactions] must be the raw list, already newest-first — the caller's
+/// query orders it.
 DashboardStats dashboardStats(
   List<Transaction> transactions,
   List<Account> accounts, {
@@ -157,7 +161,7 @@ DashboardStats dashboardStats(
   var monthlyIncome = 0.0;
   var monthlyExpenses = 0.0;
   var netFlow = 0.0;
-  for (final t in transactions) {
+  for (final t in ownView(transactions)) {
     if (t.date.year == ref.year && t.date.month == ref.month) {
       if (t.isIncome) {
         monthlyIncome += t.amount;

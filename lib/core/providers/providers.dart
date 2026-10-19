@@ -839,7 +839,7 @@ final dashboardStatsProvider = Provider<AsyncValue<DashboardStats>>((ref) {
 
 final monthlyNetFlowHistoryProvider = Provider<List<double>>((ref) {
   final transactions = ref.watch(transactionsProvider(null)).value ?? [];
-  return monthlyNetFlow(transactions);
+  return monthlyNetFlow(ownView(transactions));
 });
 
 final budgetMapProvider = Provider<Map<String, Budget>>((ref) {
@@ -848,7 +848,9 @@ final budgetMapProvider = Provider<Map<String, Budget>>((ref) {
 });
 
 final budgetStatsProvider = Provider<AsyncValue<Map<String, double>>>((ref) {
-  return ref.watch(transactionsProvider(null)).whenData(categorySpendForMonth);
+  return ref
+      .watch(transactionsProvider(null))
+      .whenData((txs) => categorySpendForMonth(ownView(txs)));
 });
 
 final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
@@ -857,7 +859,7 @@ final statsDataProvider = Provider.family<AsyncValue<StatsData>, StatsPeriod>((
 ) {
   return ref
       .watch(periodTransactionsProvider(period))
-      .whenData((txs) => statsForPeriod(txs, period));
+      .whenData((txs) => statsForPeriod(ownView(txs), period));
 });
 
 class ChartGranularityNotifier extends Notifier<ChartGranularity> {
@@ -877,7 +879,7 @@ final chartsDataProvider = Provider<AsyncValue<ChartSeries>>((ref) {
   final period = ref.watch(selectedStatsPeriodProvider);
   return ref
       .watch(periodTransactionsProvider(period))
-      .whenData((txs) => chartSeries(txs, period, granularity));
+      .whenData((txs) => chartSeries(ownView(txs), period, granularity));
 });
 
 class PaginatedTransactionsState {

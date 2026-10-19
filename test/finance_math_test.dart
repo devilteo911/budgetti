@@ -403,6 +403,48 @@ void main() {
         reason: 'N = 4, 3, 2, 1, 0',
       );
     });
+
+    // Not in the web suite (no dashboard there): note it in the PR so the web
+    // may add it.
+    test('dashboardStats: totals at the own share, recent rows raw', () {
+      final stats = dashboardStats(split, const [], now: at(2026, 6, 25));
+
+      expect(stats.monthlyExpenses, 75.0, reason: 'dinner 25 + groceries 50');
+      expect(stats.monthlyIncome, 2000.0, reason: 'no reimbursement in it');
+      expect(stats.netFlow, 1925.0, reason: '30 days: 2000 - 50 - 25');
+      expect(
+        [for (final t in stats.recentTransactions) t.amount],
+        [2000, -50, -100, 25, 25, 300],
+        reason: 'the rows are raw: the dinner at -100, both reimbursements',
+      );
+    });
+
+    test('statsForPeriod and chartSeries over the own view: category, tag, series',
+        () {
+      final trip = tx(
+        -20,
+        at(2026, 6, 18),
+        id: 'trip',
+        category: 'Eating out',
+        tags: ['Trip'],
+      );
+      final rows = [dinner.copyWith(tags: ['Trip']), back1, trip];
+      final june = StatsPeriod(year: 2026, month: 6);
+
+      final s = statsForPeriod(ownView(rows), june);
+      expect(s.categoryTotals, {'Eating out': 45.0}, reason: '25 + 20');
+      expect(s.tagTotals, {'Trip': 45.0}, reason: 'the dinner counts 25');
+      expect(s.totalExpenses, 45.0);
+      expect(s.monthlyBreakdown['2026-06'], {
+        'earned': 0.0,
+        'spent': 45.0,
+      }, reason: 'the reimbursement adds nothing to earned');
+      expect(statsForPeriod(rows, june).totalExpenses, 120.0, reason: 'raw');
+
+      final c = chartSeries(ownView(rows), june, ChartGranularity.daily);
+      expect([for (final p in c.expenses) p.amount], [25.0, 20.0]);
+      expect(c.income, isEmpty, reason: 'nor to the income series');
+    });
   });
 
   group('dashboardStats', () {
