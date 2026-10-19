@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
+import 'package:budgetti/features/transactions/widgets/receivable_badge.dart';
 import 'package:budgetti/models/transaction.dart';
 
 /// Left edge shared by every element of the ledger: the hero, the month
@@ -47,6 +49,8 @@ class TransactionLedgerItem extends ConsumerWidget {
     final categoryIcons = ref.watch(categoryIconCacheProvider);
     final accountMap = ref.watch(accountMapProvider);
     final formatter = ref.watch(currencyProvider);
+    final receivables = ref.watch(receivablesProvider).value ??
+        const <String, Receivable>{};
 
     final isTransfer = transaction.type == 'transfer';
     final isIncome = transaction.amount > 0 && !isTransfer;
@@ -72,6 +76,10 @@ class TransactionLedgerItem extends ConsumerWidget {
     final walletName = showWallet && accountMap.length > 1
         ? accountMap[transaction.accountId]?.name
         : null;
+
+    // What is still owed on a shared expense, or the expense an income pays
+    // back: one more item on the meta line, never a third line.
+    final tag = shareTag(context.l10n, formatter, transaction, receivables);
 
     return Material(
       color: Colors.transparent,
@@ -139,7 +147,9 @@ class TransactionLedgerItem extends ConsumerWidget {
                     _MetaRow(
                       category: transaction.category,
                       tags: transaction.tags,
+                      tag: tag,
                       ink: scheme.onSurfaceVariant,
+                      owedInk: incomeInk(scheme.brightness),
                       outline: scheme.outlineVariant,
                     ),
                   ],
@@ -193,36 +203,51 @@ class TransactionLedgerItem extends ConsumerWidget {
 /// Category, then its tags. A tag is a filter facet, not a semantic — it gets a
 /// hairline outline and the same muted ink as everything else, instead of the
 /// filled per-tag colour chip that used to make the least important datum on the
-/// row the loudest thing on it.
+/// row the loudest thing on it. A shared expense or a reimbursement adds its
+/// [tag] right after the category, on the same line: [owedInk] while money is
+/// still owed, [ink] otherwise.
 class _MetaRow extends StatelessWidget {
   final String category;
   final List<String> tags;
+  final ShareTag? tag;
   final Color ink;
+  final Color owedInk;
   final Color outline;
 
   const _MetaRow({
     required this.category,
     required this.tags,
+    required this.tag,
     required this.ink,
+    required this.owedInk,
     required this.outline,
   });
 
   @override
   Widget build(BuildContext context) {
+    final style = TextStyle(
+      color: ink,
+      fontSize: 11.5,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+    );
+    final tag = this.tag;
     return Row(
       children: [
         Flexible(
-          child: Text(
-            category,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: ink,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
-            ),
-          ),
+          child: tag == null
+              ? Text(
+                  category,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: style,
+                )
+              : ShareTagLine(
+                  lead: category,
+                  tag: tag,
+                  style: style,
+                  tagColor: tag.owed ? owedInk : ink,
+                ),
         ),
         for (final name in tags) ...[
           const SizedBox(width: 6),

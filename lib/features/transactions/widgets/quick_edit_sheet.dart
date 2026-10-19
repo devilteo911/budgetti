@@ -3,14 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/widgets/inline_sheet_message.dart';
 import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
 import 'package:budgetti/features/transactions/widgets/sheet_parts.dart';
 import 'package:budgetti/models/transaction.dart';
 
 /// Fix a row's title and amount in place from the swipe-through detail page.
 /// Pops the edited [Transaction] (or null on dismiss); the caller saves it.
-/// Everything else about a row — type, wallet, date, installment — goes
-/// through the full editor.
+/// Everything else about a row — type, wallet, date, installment, shared — goes
+/// through the full editor. The one rule it keeps is the share's: an amount
+/// below what the others owe is refused, not silently clamped.
 class QuickEditSheet extends ConsumerStatefulWidget {
   final Transaction transaction;
 
@@ -34,6 +36,8 @@ class _QuickEditSheetState extends ConsumerState<QuickEditSheet> {
     text: widget.transaction.amount.abs().toStringAsFixed(2),
   );
 
+  String? _error;
+
   Transaction get _tx => widget.transaction;
 
   @override
@@ -49,6 +53,12 @@ class _QuickEditSheetState extends ConsumerState<QuickEditSheet> {
     // The direction is the row's own: editing the digits never flips an
     // expense into income. Only a transfer or an income stays positive.
     final positive = _tx.type == 'transfer' || _tx.isIncome;
+    // The service would clamp a share above the amount down without a word; the
+    // editor and the web refuse it, so this does too.
+    if (!positive && _tx.othersShare > value) {
+      setState(() => _error = context.l10n.txShareTooMuch);
+      return;
+    }
     Navigator.pop(
       context,
       _tx.copyWith(
@@ -71,6 +81,10 @@ class _QuickEditSheetState extends ConsumerState<QuickEditSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Form(
         key: _formKey,
+        // Any edit takes the refusal back.
+        onChanged: () {
+          if (_error != null) setState(() => _error = null);
+        },
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -123,6 +137,7 @@ class _QuickEditSheetState extends ConsumerState<QuickEditSheet> {
                     ? context.l10n.txEnterDescription
                     : null,
               ),
+              InlineSheetMessage(_error),
               const SizedBox(height: 20),
               SaveButton(
                 label: context.l10n.commonSave.toUpperCase(),

@@ -595,6 +595,10 @@
   "txReceivedMore": "received {amount} more",
   "txPaysBackMarker": "pays back",
   "txPaysBackMissing": "pays back · expense missing",
+  "txDueShort": "{amount} due",
+  "txMoreShort": "+{amount}",
+  "txPaysBackShort": "↩ pays back",
+  "txPaysBackMissingShort": "↩ missing",
   "txInvalidAmount": "Invalid",
   "txIsSameExpense": "Is this the same expense?",
   "txLast30Days": "Last 30 Days",
@@ -1457,6 +1461,20 @@
     }
   },
   "@txReceivedMore": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@txDueShort": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@txMoreShort": {
     "placeholders": {
       "amount": {
         "type": "String"

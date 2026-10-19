@@ -75,7 +75,7 @@ void main() {
             tx('negative-income', -5, 'income'),
             tx('a-transfer', 500, 'transfer'),
           ]),
-          const [],
+          [receivablesProvider.overrideWithValue(const AsyncData({}))],
         );
 
     testWidgets('a positive row booked as expense shows as money in',

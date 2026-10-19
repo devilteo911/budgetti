@@ -3668,6 +3668,30 @@ abstract class AppLocalizations {
   /// **'pays back · expense missing'**
   String get txPaysBackMissing;
 
+  /// No description provided for @txDueShort.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} due'**
+  String txDueShort(String amount);
+
+  /// No description provided for @txMoreShort.
+  ///
+  /// In en, this message translates to:
+  /// **'+{amount}'**
+  String txMoreShort(String amount);
+
+  /// No description provided for @txPaysBackShort.
+  ///
+  /// In en, this message translates to:
+  /// **'↩ pays back'**
+  String get txPaysBackShort;
+
+  /// No description provided for @txPaysBackMissingShort.
+  ///
+  /// In en, this message translates to:
+  /// **'↩ missing'**
+  String get txPaysBackMissingShort;
+
   /// No description provided for @txInvalidAmount.
   ///
   /// In en, this message translates to:

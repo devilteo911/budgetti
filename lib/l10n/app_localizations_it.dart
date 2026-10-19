@@ -2084,6 +2084,22 @@ class AppLocalizationsIt extends AppLocalizations {
   String get txPaysBackMissing => 'rimborso · spesa mancante';
 
   @override
+  String txDueShort(String amount) {
+    return '$amount dovuti';
+  }
+
+  @override
+  String txMoreShort(String amount) {
+    return '+$amount';
+  }
+
+  @override
+  String get txPaysBackShort => '↩ rimborso';
+
+  @override
+  String get txPaysBackMissingShort => '↩ mancante';
+
+  @override
   String get txInvalidAmount => 'Non valido';
 
   @override
