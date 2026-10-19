@@ -96,6 +96,33 @@ void main() {
     });
   });
 
+  // Mirror of web/src/finance.test.ts "clampShare and othersShareOf: the server
+  // never sees a negative share" — change one, change both. The `othersShareOf`
+  // bullets are web only (the phone's form rules come with its form).
+  group('clampShare', () {
+    test('the server never sees a negative share', () {
+      expect(
+        [
+          clampShare(-5, -100),
+          clampShare(150, -100),
+          clampShare(75, -100),
+          clampShare(double.nan, -100),
+        ],
+        [0.0, 100.0, 75.0, 0.0],
+      );
+    });
+
+    test('an infinite share is 0, the cent is rounded and zero is never -0.0',
+        () {
+      expect(clampShare(double.infinity, -100), 0.0);
+      expect(clampShare(double.negativeInfinity, -100), 0.0);
+      expect(clampShare(33.333, -100), 33.33);
+      expect(clampShare(5, 0), 0.0); // a share cannot exceed a zero amount
+      expect(clampShare(-0.0, -100).isNegative, isFalse);
+      expect(clampShare(-0.004, -100).isNegative, isFalse);
+    });
+  });
+
   group('dashboardStats', () {
     test('splits this month by sign and excludes transfers', () {
       final stats = dashboardStats(

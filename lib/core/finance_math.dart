@@ -42,6 +42,26 @@ double? parseAmount(String raw) {
   return v == null ? null : sign * v;
 }
 
+/// JavaScript's `Math.round(x * 100) / 100`: halves go towards +∞ (-12.5 → -12),
+/// where Dart's own `round()` moves them away from zero (-13).
+// ponytail: twin of `_round2` in `models/piva.dart` (that file is mirrored line by
+// line with piva.ts, so it keeps its own copy); merge both when a third caller appears.
+double _round2(double x) {
+  final v = x * 100;
+  final f = v.floorToDouble();
+  return (v - f >= 0.5 ? f + 1 : f) / 100;
+}
+
+/// The others' share of an expense, kept in [0, |amount|] to the cent: the
+/// server rejects a negative `othersShare`, so every write path goes through
+/// here. Mirror of `clampShare` in `web/src/finance.ts` — change one, change both.
+double clampShare(double share, double amount) {
+  if (!share.isFinite) return 0.0;
+  final capped = _round2(amount.abs());
+  final v = _round2(share);
+  return v <= 0 ? 0.0 : (v > capped ? capped : v); // `<=`: never a -0.0
+}
+
 /// `2026-08` for a date — the key both clients use for a month bucket.
 String monthKey(DateTime d) => DateFormat(_monthKeyFormat).format(d);
 

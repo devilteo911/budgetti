@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/finance_math.dart' show clampShare;
 
 import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
@@ -242,6 +243,25 @@ class BackupService {
             map['tags'] = [];
           }
         }
+        // Same as the `declaredIncome` of `piva_profile` below: the generated
+        // fromJson only casts, and `othersShare` is a non-null column, so a row
+        // without the key would throw and fail the whole restore. Three shapes
+        // are accepted: the key absent (an older app backup, a web one that omits
+        // it), the web's `0` / `null`, and the app's own export (a number, and
+        // `reimbursesId` a string or null). The split only exists on an expense
+        // and a reimbursement only on an income, the type guard of
+        // `toServerBody` in web/src/backup.ts: any other row reads as neither.
+        final type = map['type'];
+        final amount = map['amount'];
+        final share = map['othersShare'];
+        map['othersShare'] = type == 'expense' && share is num && amount is num
+            ? clampShare(share.toDouble(), amount.toDouble())
+            : 0.0;
+        final reimburses = map['reimbursesId'];
+        map['reimbursesId'] =
+            type == 'income' && reimburses is String && reimburses.isNotEmpty
+                ? reimburses
+                : null;
         return Transaction.fromJson(map);
       } catch (e) {
         debugPrint('Error parsing transaction: $e');

@@ -23,6 +23,19 @@ void _ensureSqlite() {
   }
 }
 
+/// `transactions` as v20 shipped it, without `others_share` / `reimburses_id`.
+/// The hand-built old databases below carry it, because the v21 step alters it.
+// ponytail: by hand, as for the other old shapes here (drift has no "open at
+// version N" without schema-dump tooling).
+const _v20Transactions = 'CREATE TABLE transactions ('
+    'id TEXT NOT NULL, user_id TEXT NULL, account_id TEXT NULL, '
+    'to_account_id TEXT NULL, amount REAL NOT NULL, '
+    'description TEXT NOT NULL, category TEXT NOT NULL, '
+    "type TEXT NOT NULL DEFAULT 'expense', date INTEGER NOT NULL, "
+    'tags TEXT NULL, installment_id TEXT NULL, '
+    'is_deleted INTEGER NOT NULL DEFAULT 0, last_updated INTEGER NULL, '
+    'PRIMARY KEY (id))';
+
 void main() {
   setUpAll(_ensureSqlite);
 
@@ -74,6 +87,7 @@ void main() {
           "status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL, "
           'duplicate_of_id TEXT NULL, duplicate_score REAL NULL, '
           'PRIMARY KEY (id))');
+      raw.execute(_v20Transactions);
       // A real v16 database also has categories (v17 shape: no color_slot), which
       // the v18 step alters.
       raw.execute('CREATE TABLE categories ('
@@ -113,6 +127,7 @@ void main() {
           'type TEXT NOT NULL, description TEXT NULL, '
           'is_deleted INTEGER NOT NULL DEFAULT 0, last_updated INTEGER NULL, '
           'PRIMARY KEY (id))');
+      raw.execute(_v20Transactions);
       raw.execute('INSERT INTO categories (id, name, icon_code, color_hex, type) '
           "VALUES ('c1', 'Groceries', 1, 2, 'expense')");
       raw.execute('PRAGMA user_version = 17');
@@ -139,6 +154,7 @@ void main() {
           'type TEXT NOT NULL, description TEXT NULL, '
           'is_deleted INTEGER NOT NULL DEFAULT 0, last_updated INTEGER NULL, '
           'color_slot INTEGER NULL, PRIMARY KEY (id))');
+      raw.execute(_v20Transactions);
       raw.execute('INSERT INTO categories (id, name, icon_code, color_hex, type, '
           "color_slot) VALUES ('c1', 'Groceries', 1, 2, 'expense', 3)");
       raw.execute('PRAGMA user_version = 18');
@@ -204,6 +220,7 @@ void main() {
     final db = AppDatabase.forExecutor(NativeDatabase.memory(setup: (raw) {
       // ponytail: v19's piva_profiles by hand (the shape that shipped, without
       // declared_income), as in the v16 test above.
+      raw.execute(_v20Transactions);
       raw.execute('CREATE TABLE piva_profiles ('
           'id TEXT NOT NULL, user_id TEXT NULL, '
           "ateco_code TEXT NOT NULL DEFAULT '', "
@@ -270,6 +287,53 @@ void main() {
     expect(declared, {'2025': 40000.0, '2024': null});
   });
 
+  // v21: a transaction can be shared (others_share, euros the others owe) and an
+  // income can pay one back (reimburses_id). Both start "not shared" / null, so
+  // every row already on a phone keeps counting its whole amount.
+  test('v20 -> v21 aggiunge others_share (0) e reimburses_id (NULL), riga '
+      'intatta', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory(setup: (raw) {
+      raw.execute(_v20Transactions);
+      raw.execute('INSERT INTO transactions (id, user_id, account_id, amount, '
+          'description, category, type, date, installment_id, last_updated) '
+          "VALUES ('tx', 'u', 'acc', -12.5, 'Coffee', 'Dining', 'expense', "
+          "1750000000, 'plan', 1750000001)");
+      raw.execute('PRAGMA user_version = 20');
+    }));
+    addTearDown(db.close);
+
+    final columns = (await db.customSelect('PRAGMA table_info(transactions)').get())
+        .map((r) => r.read<String>('name'))
+        .toSet();
+    final row = (await db.select(db.transactions).get()).single;
+
+    expect(columns, containsAll(['others_share', 'reimburses_id']));
+    expect(row.othersShare, 0.0);
+    expect(row.reimbursesId, isNull);
+    expect((
+      row.id,
+      row.userId,
+      row.accountId,
+      row.amount,
+      row.description,
+      row.category,
+      row.type,
+      row.date.millisecondsSinceEpoch,
+      row.installmentId,
+      row.isDeleted,
+      row.lastUpdated?.millisecondsSinceEpoch,
+    ), (
+      'tx', 'u', 'acc', -12.5, 'Coffee', 'Dining', 'expense', 1750000000000,
+      'plan', false, 1750000001000,
+    ));
+
+    // The new columns take a write.
+    await db.update(db.transactions).write(const TransactionsCompanion(
+        othersShare: Value(7.5), reimbursesId: Value('exp')));
+    final written = (await db.select(db.transactions).get()).single;
+    expect((written.othersShare, written.reimbursesId), (7.5, 'exp'));
+  });
+
   // The converter and its reader. PocketBase hands a whole number back as an
   // integer with the keys sorted; the reader must take that, and anything else,
   // without ever throwing — an exception in the sync pull freezes the cursors.
@@ -317,7 +381,7 @@ void main() {
   // already there: "duplicate column name" and a database that never opens. Every
   // `from < N` step has to be safe to run twice.
   group('re-upgrading a database an older build had opened', () {
-    /// A current (v20) database file holding one row of everything the upgrade
+    /// A current (v21) database file holding one row of everything the upgrade
     /// steps touch, closed and ready to be tampered with.
     Future<File> currentDb() async {
       final dir = await Directory.systemTemp.createTemp('budgetti_downgrade_');
@@ -337,7 +401,18 @@ void main() {
           amount: -12.5,
           description: 'Coffee',
           category: 'Dining',
+          othersShare: const Value(7.5),
           date: DateTime(2026, 6, 24)));
+      await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'back',
+          userId: const Value('u'),
+          accountId: const Value('acc'),
+          amount: 7.5,
+          description: 'Refund',
+          category: 'Dining',
+          type: const Value('income'),
+          reimbursesId: const Value('tx'),
+          date: DateTime(2026, 6, 25)));
       for (final (id, dismissed) in [('kept', true), ('plain', false)]) {
         await db.into(db.pendingTransactions).insert(
               PendingTransactionsCompanion.insert(
@@ -386,7 +461,7 @@ void main() {
         'tags': [for (final t in await db.select(db.tags).get()) t.name],
         'transactions': [
           for (final t in await db.select(db.transactions).get())
-            (t.description, t.amount)
+            (t.description, t.amount, t.othersShare, t.reimbursesId)
         ],
         'pending': {
           for (final p in await db.select(db.pendingTransactions).get())
@@ -420,7 +495,7 @@ void main() {
       'accounts': ['Widiba'],
       'categories': ['Dining'],
       'tags': ['Trip'],
-      'transactions': [('Coffee', -12.5)],
+      'transactions': [('Coffee', -12.5, 7.5, null), ('Refund', 7.5, 0.0, 'tx')],
       'pending': {'kept': ('tx', 0.8, true), 'plain': ('tx', 0.8, false)},
       'pivaProfiles': ['prof'],
       'incomeCategories': [
@@ -441,22 +516,31 @@ void main() {
       return v;
     }
 
-    test('v20 schema, user_version 16 (the QA-4 brick): opens, data intact',
+    test('v21 schema, user_version 16 (the QA-4 brick): opens, data intact',
         () async {
       final file = await currentDb();
       tamper(file, (raw) => raw.execute('PRAGMA user_version = 16'));
 
       expect(await reopen(file), intact);
-      expect(userVersion(file), 20);
+      expect(userVersion(file), 21);
     });
 
-    test('v20 schema, user_version 1: every step re-runs over what exists',
+    test('v21 schema, user_version 1: every step re-runs over what exists',
         () async {
       final file = await currentDb();
       tamper(file, (raw) => raw.execute('PRAGMA user_version = 1'));
 
       expect(await reopen(file), intact);
-      expect(userVersion(file), 20);
+      expect(userVersion(file), 21);
+    });
+
+    test('v21 schema, user_version 20: the newest step re-runs over its own '
+        'columns', () async {
+      final file = await currentDb();
+      tamper(file, (raw) => raw.execute('PRAGMA user_version = 20'));
+
+      expect(await reopen(file), intact);
+      expect(userVersion(file), 21);
     });
 
     // The old steps wrapped their addColumn pairs in one swallow-all try: the
@@ -524,7 +608,7 @@ void main() {
       expect(columns('tags'), containsAll(['user_id', 'is_deleted', 'last_updated']));
       expect(columns('accounts'), containsAll(['is_default', 'initial_balance_date']));
       expect(columns('transactions'),
-          containsAll(['to_account_id', 'type', 'installment_id']));
+          containsAll(['to_account_id', 'type', 'installment_id', 'others_share', 'reimburses_id']));
       expect(columns('pending_transactions'), containsAll(
           ['duplicate_of_id', 'duplicate_score', 'source', 'duplicate_dismissed']));
       raw.dispose();

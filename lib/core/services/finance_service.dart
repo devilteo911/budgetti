@@ -378,6 +378,8 @@ class FinanceService {
         date: t.date,
         tags: t.tags ?? [],
         installmentId: t.installmentId,
+        othersShare: t.othersShare,
+        reimbursesId: (t.reimbursesId ?? '').isEmpty ? null : t.reimbursesId,
       );
 
   /// Drift row → engine profile. The engine class has no `id`/`isDeleted`, and
@@ -619,7 +621,24 @@ class FinanceService {
     return clauses.join(' AND ');
   }
 
+  /// The two split columns as they may be stored: a share only on an expense,
+  /// clamped to [0, |amount|] (the server rejects a negative one); a
+  /// reimbursement id only on an income. [addTransaction] and
+  /// [updateTransaction] both take it, so a type changed behind the editor's
+  /// back (`copyWith(type:)` in the quick edit) clears what no longer applies.
+  ({double share, String? reimburses}) _splitColumns(
+    model_txn.Transaction t,
+  ) =>
+      (
+        share: t.type == 'expense' ? clampShare(t.othersShare, t.amount) : 0.0,
+        reimburses:
+            t.type == 'income' && t.amount > 0 && (t.reimbursesId ?? '').isNotEmpty
+                ? t.reimbursesId
+                : null,
+      );
+
   Future<void> addTransaction(model_txn.Transaction transaction) async {
+    final split = _splitColumns(transaction);
     await _db.into(_db.transactions).insert(TransactionsCompanion.insert(
       id: transaction.id.isEmpty ? const Uuid().v4() : transaction.id,
       accountId: Value(transaction.accountId),
@@ -631,12 +650,15 @@ class FinanceService {
       date: transaction.date,
       tags: Value(transaction.tags),
             installmentId: Value(transaction.installmentId),
+            othersShare: Value(split.share),
+            reimbursesId: Value(split.reimburses),
             userId: Value(_userId),
       lastUpdated: Value(DateTime.now()),
     ));
   }
 
   Future<void> updateTransaction(model_txn.Transaction transaction) async {
+    final split = _splitColumns(transaction);
     await (_db.update(_db.transactions)..where((t) => t.id.equals(transaction.id))).write(TransactionsCompanion(
       accountId: Value(transaction.accountId),
         toAccountId: Value(transaction.toAccountId),
@@ -647,6 +669,8 @@ class FinanceService {
       date: Value(transaction.date),
       tags: Value(transaction.tags),
       installmentId: Value(transaction.installmentId),
+      othersShare: Value(split.share),
+      reimbursesId: Value(split.reimburses),
       lastUpdated: Value(DateTime.now()),
     ));
   }
@@ -1016,6 +1040,18 @@ class FinanceService {
           ..where((t) => t.id.equals(transactionId)))
         .write(TransactionsCompanion(
       installmentId: Value(installmentId),
+      lastUpdated: Value(DateTime.now()),
+    ));
+  }
+
+  /// Point the income [incomeId] at the shared expense it pays back, or detach
+  /// it with a null (or empty) [expenseId], stored as null. One field, so the
+  /// link/unlink flow from either side — the expense's picker or the income's —
+  /// is this call.
+  Future<void> linkReimbursement(String incomeId, String? expenseId) async {
+    await (_db.update(_db.transactions)..where((t) => t.id.equals(incomeId)))
+        .write(TransactionsCompanion(
+      reimbursesId: Value((expenseId ?? '').isEmpty ? null : expenseId),
       lastUpdated: Value(DateTime.now()),
     ));
   }

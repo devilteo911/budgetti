@@ -59,6 +59,8 @@ void main() {
     double amount = -10,
     String type = 'expense',
     String category = 'Dining',
+    double othersShare = 0,
+    String? reimbursesId,
   }) =>
       Transaction(
         id: 't1',
@@ -68,6 +70,8 @@ void main() {
         description: 'Coffee',
         category: category,
         type: type,
+        othersShare: othersShare,
+        reimbursesId: reimbursesId,
       );
 
   /// The sheet as a routed page (its save pops through GoRouter), over the real
@@ -487,6 +491,44 @@ void main() {
       expect(shown, 'transfer');
       expect(untouched(saved), (30.0, 'Transfer', 'w1', day));
       expect((saved.type, saved.toAccountId), ('transfer', 'w2'));
+    });
+  });
+
+  // The sheet has no split fields yet (#38): an edit builds a brand-new
+  // Transaction from the form, which would write othersShare 0 over a split
+  // marked on the web. It carries the row's own values over instead.
+  group('editing a split row keeps its split', () {
+    Future<Transaction> editDescription(
+        WidgetTester tester, Transaction existing) async {
+      Transaction? saved;
+      await pump(tester, transaction: existing, onSave: (t) async => saved = t);
+      await tester.enterText(find.byType(TextFormField).at(1), 'Dinner, edited');
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+      return saved!;
+    }
+
+    testWidgets('a shared expense keeps its othersShare', (tester) async {
+      final saved = await editDescription(
+          tester, tx(amount: -100, othersShare: 75, category: 'Dining'));
+
+      expect(saved.description, 'Dinner, edited');
+      expect((saved.amount, saved.othersShare, saved.reimbursesId),
+          (-100.0, 75.0, null));
+    });
+
+    testWidgets('a reimbursement keeps its reimbursesId', (tester) async {
+      final saved = await editDescription(
+          tester,
+          tx(
+              amount: 75,
+              type: 'income',
+              category: 'Salary',
+              reimbursesId: 'exp'));
+
+      expect(saved.description, 'Dinner, edited');
+      expect((saved.amount, saved.othersShare, saved.reimbursesId),
+          (75.0, 0.0, 'exp'));
     });
   });
 
