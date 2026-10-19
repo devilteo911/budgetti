@@ -146,8 +146,49 @@ rows with `others_share > 0` or a non-empty `reimburses_id`, raw, no date window
 through `shareTransactionsProvider`. `receivablesProvider` (expense id →
 `Receivable`: owed / received / outstanding) and `toReceiveProvider` (the shared
 expenses with money outstanding, newest first, and the total still owed in whole
-cents — an over-paid one never lowers it) are the data #38's badge and "To
-receive" card consume; there is no screen for the split yet.
+cents — an over-paid one never lowers it) are what the row badges and the
+"To receive" card read.
+
+**The screens.** The English wording is the web's (`web/src/components`, #15), word
+for word; Italian is the app's own. Every text of a share comes from two builders
+in `features/transactions/widgets/receivable_badge.dart`, `receivableBadge` and
+`reimbursementMarker` (plus their `…Short` forms), with the web's half-cent
+thresholds (`stillOwed`: settled under 0.005, still owed from 0.005, over-paid
+from −0.005); rows, the editor and the card all call them.
+
+- **Editor** (`add_transaction_modal.dart`). An expense has a SHARED row
+  (`LedgerFieldRow`, "Shared — others owe") opening a sheet: type what the others
+  owe, or pick "Split in" 2–12 (`splitShare` fills the field; the dropdown goes
+  back to empty). More than the amount is refused (`txShareTooMuch`, in the sheet
+  and again at save if the amount was lowered under the share), never clamped
+  silently. An income has a PAYS BACK row whose picker lists the shared expenses
+  (newest first, 60 at most, the linked one always kept); picking one prefills a
+  blank amount with what is outstanding, "Not a reimbursement" unlinks, and a link
+  to an expense that is not there reads "Linked to an expense that is not there".
+  Both rows are hidden in the inbox's edit-and-approve (`prefill != null`): a split
+  is set after approval, from the saved row (#36). `_typed` includes both fields,
+  so the discard guard asks before dropping a split or a link.
+- **From the expense.** The shared sheet of an *existing* expense also lists the
+  incomes linked to it (Unlink writes at once through `linkReimbursement`) and
+  offers "Attach a reimbursement": a dropdown of unlinked incomes plus an explicit
+  **Attach** button — choosing writes nothing, so a mis-tap links nothing.
+- **Ledger rows.** `shareTag` reads a row's badge or marker from
+  `receivablesProvider`: "€75.00 to receive · €25.00 received", "settled",
+  "received €5.00 more", "pays back", "pays back · expense missing" ("missing" is
+  "the id is not among the shared expenses", so a share lowered to 0 reads missing
+  too — the web looks the id up in the whole ledger). `TransactionLedgerItem`
+  (exactly `kLedgerRowHeight`) and the dashboard's recent rows draw it through
+  `ShareTagLine`, which falls back to the web's short form ("€50.00 due", "+€5.00",
+  "↩ pays back", "↩ missing") when the full text does not fit; the full text is
+  always the accessibility label. The stats `TransactionLedgerRow` keeps the full
+  text. Badges read `receivablesProvider`, never the windowed list.
+- **Quick edit** (title and amount only) refuses to lower a shared expense below
+  what the others owe (`txShareTooMuch`), as the web does, instead of letting
+  `updateTransaction` clamp the share down silently.
+- **`ToReceiveCard`** (dashboard, after `InstallmentsCard`) lists every expense
+  with money outstanding under the total still owed, hides itself when there is
+  none, and a tap opens the expense in the editor. It reads `toReceiveProvider`
+  and `receivablesProvider`; it has no cap on the list (few are expected).
 
 ### Partita IVA
 
@@ -449,7 +490,7 @@ while the amount is an estimate and plain once it is the accountant's. A tap ope
 
 ### Transaction types
 
-Three types: income, expense, and transfer (moves money between accounts via `toAccountId`). Expenses are stored as negative amounts.
+Three types: income, expense, and transfer (moves money between accounts via `toAccountId`). Expenses are stored as negative amounts. An expense can be shared (`othersShare`) and an income can be the reimbursement of one (`reimbursesId`): see "Shared expenses".
 
 ### E2E: injecting Revolut pushes
 
