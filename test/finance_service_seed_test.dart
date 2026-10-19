@@ -338,6 +338,122 @@ void _migrationTests() {
     );
   });
 
+  // `receivable` sums every reimbursement of an expense, and an old dinner can
+  // still be owed: the shared rows come with no date window and their raw
+  // amounts (the own view would show 25 and drop the 50).
+  test('watchShareRelevant emits an old shared expense and its reimbursement, raw',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    final now = DateTime.now();
+    final dinnerDay = DateTime(now.year, now.month - 14, 10);
+    await service.addTransaction(model.Transaction(
+      id: 'dinner',
+      accountId: 'user-a_main',
+      amount: -100,
+      date: dinnerDay,
+      description: 'dinner',
+      category: 'Eating out',
+      othersShare: 75,
+    ));
+    await service.addTransaction(model.Transaction(
+      id: 'back',
+      accountId: 'user-a_main',
+      amount: 50,
+      date: DateTime(now.year, now.month - 1, 5),
+      description: 'back',
+      category: 'Eating out',
+      type: 'income',
+      reimbursesId: 'dinner',
+    ));
+
+    // The 12-month window the dashboard providers use misses the dinner.
+    final windowed = await service
+        .watchTransactions(startDate: DateTime(now.year, now.month - 11, 1))
+        .first;
+    expect(windowed.map((t) => t.id), ['back']);
+
+    final rows = await service.watchShareRelevant().first;
+    expect(rows.map((t) => t.id), ['back', 'dinner'], reason: 'newest first');
+    expect(rows.map((t) => t.amount), [50.0, -100.0]);
+    expect(rows.last.othersShare, 75.0);
+    expect(rows.first.reimbursesId, 'dinner');
+  });
+
+  test('watchShareRelevant emits a reimbursement whose expense is not there',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    await service.addTransaction(model.Transaction(
+      id: 'orphan',
+      accountId: 'user-a_main',
+      amount: 20,
+      date: DateTime(2026, 3, 1),
+      description: 'orphan',
+      category: 'x',
+      type: 'income',
+      reimbursesId: 'gone',
+    ));
+
+    final rows = await service.watchShareRelevant().first;
+    expect(rows.map((t) => t.id), ['orphan']);
+  });
+
+  test('watchShareRelevant leaves out plain rows, deleted ones and other users',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    Future<void> add(
+      FinanceService s,
+      String id,
+      double amount,
+      String type, {
+      double othersShare = 0,
+      String? reimbursesId,
+    }) =>
+        s.addTransaction(model.Transaction(
+          id: id,
+          accountId: 'user-a_main',
+          amount: amount,
+          date: DateTime(2026, 3, 1),
+          description: id,
+          category: 'x',
+          type: type,
+          othersShare: othersShare,
+          reimbursesId: reimbursesId,
+        ));
+    await add(service, 'plain-expense', -10, 'expense');
+    await add(service, 'plain-income', 50, 'income');
+    await add(service, 'gone-dinner', -100, 'expense', othersShare: 75);
+    await service.deleteTransactions(['gone-dinner']);
+    await add(FinanceService(db, 'user-b'), 'theirs', -100, 'expense',
+        othersShare: 75);
+    // A backup-imported income carries `''`, which is no link.
+    await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'empty-link',
+          userId: const Value('user-a'),
+          amount: 30,
+          description: 'empty-link',
+          category: 'x',
+          type: const Value('income'),
+          date: DateTime(2026, 3, 1),
+          reimbursesId: const Value(''),
+        ));
+    await add(service, 'kept', -100, 'expense', othersShare: 75);
+
+    final rows = await service.watchShareRelevant().first;
+    expect(rows.map((t) => t.id), ['kept']);
+  });
+
   // A wallet's view filtered on accountId only, so the top-up that arrived in
   // Revolut (accountId = Widiba, toAccountId = Revolut) was missing from its
   // own history while still counting in its balance.

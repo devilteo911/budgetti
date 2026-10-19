@@ -328,6 +328,47 @@ final installmentTransactionsProvider = StreamProvider<List<Transaction>>((
   return ref.watch(financeServiceProvider).watchInstallmentRelevant();
 });
 
+/// Shared expenses and reimbursements, raw and with no date window — the one
+/// source of the receivables ([transactionsProvider] is a 12-month window, and
+/// `ownView` would drop the reimbursements they sum).
+final shareTransactionsProvider = StreamProvider<List<Transaction>>((ref) {
+  return ref.watch(financeServiceProvider).watchShareRelevant();
+});
+
+/// What the others owe on each shared expense, by expense id: owed, received,
+/// outstanding. An over-paid expense is in it with a negative outstanding.
+final receivablesProvider = Provider<AsyncValue<Map<String, Receivable>>>((
+  ref,
+) {
+  return ref.watch(shareTransactionsProvider).whenData((rows) => {
+    // ponytail: rescans the rows per expense; a map by reimbursesId if the
+    // shared rows of one person ever grow past a few hundred.
+    for (final t in rows)
+      if (t.isExpense && t.othersShare > 0) t.id: receivable(t, rows),
+  });
+});
+
+/// The data of the "To receive" panel: the shared expenses with money still
+/// outstanding, newest first (the stream's order), and the total still owed.
+/// An over-paid expense is left out and never lowers the total.
+final toReceiveProvider =
+    Provider<AsyncValue<({double total, List<Transaction> expenses})>>((ref) {
+      final rows = ref.watch(shareTransactionsProvider).value ?? const [];
+      return ref.watch(receivablesProvider).whenData((byId) {
+        final expenses = [
+          for (final t in rows)
+            if ((byId[t.id]?.outstanding ?? 0) > 0) t,
+        ];
+        // Whole cents: the outstanding figures are already round2, so their
+        // integer sum / 100 is exactly the round2 of the float sum.
+        final cents = expenses.fold<int>(
+          0,
+          (s, t) => s + (byId[t.id]!.outstanding * 100).round(),
+        );
+        return (total: cents / 100, expenses: expenses);
+      });
+    });
+
 final categoriesProvider = StreamProvider<List<Category>>((ref) {
   return ref.watch(financeServiceProvider).watchCategories();
 });

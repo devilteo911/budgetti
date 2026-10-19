@@ -482,6 +482,27 @@ class FinanceService {
     return query.watch().map((result) => result.map(_toModelTx).toList());
   }
 
+  /// The raw source of `receivable` (finance_math.dart): every shared expense
+  /// (`others_share > 0`) and every reimbursement (non-empty `reimburses_id`,
+  /// `''` counts as none), with their stored amounts. No date window: an old
+  /// dinner can still be owed and its reimbursement can arrive months later, so
+  /// a windowed list would miss either half. Not `ownView`ed — that drops
+  /// exactly the rows `receivable` sums.
+  Stream<List<model_txn.Transaction>> watchShareRelevant() {
+    final query = _db.select(_db.transactions)
+      ..where((tbl) =>
+          tbl.isDeleted.equals(false) &
+          tbl.userId.equals(_userId) &
+          (tbl.othersShare.isBiggerThanValue(0) |
+              (tbl.reimbursesId.isNotNull() &
+                  tbl.reimbursesId.equals('').not())))
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+        (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),
+      ]);
+    return query.watch().map((result) => result.map(_toModelTx).toList());
+  }
+
   /// Every income row of the ledger, whatever the date: the Partita IVA figures
   /// read the whole history (the acconti of a year look at the years before
   /// it), so no window. Same rule as `Transaction.isIncome` — a non-transfer
