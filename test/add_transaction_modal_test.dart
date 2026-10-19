@@ -1029,6 +1029,29 @@ void main() {
       .focusNode
       .hasFocus;
 
+  // The field is typed into, so it reads like the other amount fields (two
+  // decimals), not like a Dart double ("100.0").
+  group('an existing transaction opens with its amount as two decimals', () {
+    Future<String> shown(WidgetTester tester, double amount) async {
+      await pump(tester, transaction: tx(amount: amount));
+      return tester
+          .widget<EditableText>(find.descendant(
+              of: find.byType(AmountHeroField),
+              matching: find.byType(EditableText)))
+          .controller
+          .text;
+    }
+
+    testWidgets('a whole amount has no ".0"', (tester) async {
+      expect(await shown(tester, -100), '100.00');
+    });
+
+    testWidgets('cents are kept', (tester) async {
+      expect(await shown(tester, -12.5), '12.50');
+      expect(await shown(tester, -12.34), '12.34');
+    });
+  });
+
   // The common case is a fresh amount to type: the keyboard should already be up.
   group('the amount field takes focus only on a blank new sheet', () {
     testWidgets('a new sheet', (tester) async {

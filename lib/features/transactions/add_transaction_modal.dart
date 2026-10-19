@@ -122,9 +122,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     final isPrefill = widget.transaction == null && widget.prefill != null;
     final t = widget.transaction ?? widget.prefill;
     if (t != null) {
-      _amountController.text = !isPrefill
-          ? t.amount.abs().toString()
-          : (t.amount == 0 ? '' : t.amount.abs().toStringAsFixed(2));
+      _amountController.text =
+          isPrefill && t.amount == 0 ? '' : t.amount.abs().toStringAsFixed(2);
       _descriptionController.text = t.description;
       // A prefill leaves what it doesn't know empty, for the defaults below to
       // fill. An existing row keeps exactly what it has, empty or not.
