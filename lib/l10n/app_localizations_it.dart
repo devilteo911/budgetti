@@ -2036,6 +2036,54 @@ class AppLocalizationsIt extends AppLocalizations {
       'Gli altri non possono dovere più dell\'intera spesa.';
 
   @override
+  String get txPaysBack => 'Rimborsa';
+
+  @override
+  String get txNotAReimbursement => 'Non è un rimborso';
+
+  @override
+  String get txLinkedMissing => 'Collegato a una spesa che non c\'è';
+
+  @override
+  String get txReimbursements => 'Rimborsi';
+
+  @override
+  String get txAttachReimbursement => 'Collega un rimborso';
+
+  @override
+  String get txAttach => 'Collega';
+
+  @override
+  String get txUnlink => 'Scollega';
+
+  @override
+  String get txNoUnlinkedIncomes => 'Nessuna entrata da collegare.';
+
+  @override
+  String txToReceive(String owed) {
+    return '$owed da ricevere';
+  }
+
+  @override
+  String txToReceiveReceived(String owed, String received) {
+    return '$owed da ricevere · $received ricevuti';
+  }
+
+  @override
+  String get txSettled => 'saldata';
+
+  @override
+  String txReceivedMore(String amount) {
+    return 'ricevuti $amount in più';
+  }
+
+  @override
+  String get txPaysBackMarker => 'rimborso';
+
+  @override
+  String get txPaysBackMissing => 'rimborso · spesa mancante';
+
+  @override
   String get txInvalidAmount => 'Non valido';
 
   @override

@@ -2023,6 +2023,54 @@ class AppLocalizationsEn extends AppLocalizations {
       'The others can\'t owe more than the whole expense.';
 
   @override
+  String get txPaysBack => 'Pays back';
+
+  @override
+  String get txNotAReimbursement => 'Not a reimbursement';
+
+  @override
+  String get txLinkedMissing => 'Linked to an expense that is not there';
+
+  @override
+  String get txReimbursements => 'Reimbursements';
+
+  @override
+  String get txAttachReimbursement => 'Attach a reimbursement';
+
+  @override
+  String get txAttach => 'Attach';
+
+  @override
+  String get txUnlink => 'Unlink';
+
+  @override
+  String get txNoUnlinkedIncomes => 'No unlinked incomes to attach.';
+
+  @override
+  String txToReceive(String owed) {
+    return '$owed to receive';
+  }
+
+  @override
+  String txToReceiveReceived(String owed, String received) {
+    return '$owed to receive · $received received';
+  }
+
+  @override
+  String get txSettled => 'settled';
+
+  @override
+  String txReceivedMore(String amount) {
+    return 'received $amount more';
+  }
+
+  @override
+  String get txPaysBackMarker => 'pays back';
+
+  @override
+  String get txPaysBackMissing => 'pays back · expense missing';
+
+  @override
   String get txInvalidAmount => 'Invalid';
 
   @override

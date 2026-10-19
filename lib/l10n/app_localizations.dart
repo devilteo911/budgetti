@@ -3584,6 +3584,90 @@ abstract class AppLocalizations {
   /// **'The others can\'t owe more than the whole expense.'**
   String get txShareTooMuch;
 
+  /// No description provided for @txPaysBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Pays back'**
+  String get txPaysBack;
+
+  /// No description provided for @txNotAReimbursement.
+  ///
+  /// In en, this message translates to:
+  /// **'Not a reimbursement'**
+  String get txNotAReimbursement;
+
+  /// No description provided for @txLinkedMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked to an expense that is not there'**
+  String get txLinkedMissing;
+
+  /// No description provided for @txReimbursements.
+  ///
+  /// In en, this message translates to:
+  /// **'Reimbursements'**
+  String get txReimbursements;
+
+  /// No description provided for @txAttachReimbursement.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach a reimbursement'**
+  String get txAttachReimbursement;
+
+  /// No description provided for @txAttach.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach'**
+  String get txAttach;
+
+  /// No description provided for @txUnlink.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlink'**
+  String get txUnlink;
+
+  /// No description provided for @txNoUnlinkedIncomes.
+  ///
+  /// In en, this message translates to:
+  /// **'No unlinked incomes to attach.'**
+  String get txNoUnlinkedIncomes;
+
+  /// No description provided for @txToReceive.
+  ///
+  /// In en, this message translates to:
+  /// **'{owed} to receive'**
+  String txToReceive(String owed);
+
+  /// No description provided for @txToReceiveReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'{owed} to receive · {received} received'**
+  String txToReceiveReceived(String owed, String received);
+
+  /// No description provided for @txSettled.
+  ///
+  /// In en, this message translates to:
+  /// **'settled'**
+  String get txSettled;
+
+  /// No description provided for @txReceivedMore.
+  ///
+  /// In en, this message translates to:
+  /// **'received {amount} more'**
+  String txReceivedMore(String amount);
+
+  /// No description provided for @txPaysBackMarker.
+  ///
+  /// In en, this message translates to:
+  /// **'pays back'**
+  String get txPaysBackMarker;
+
+  /// No description provided for @txPaysBackMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'pays back · expense missing'**
+  String get txPaysBackMissing;
+
   /// No description provided for @txInvalidAmount.
   ///
   /// In en, this message translates to:

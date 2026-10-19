@@ -581,6 +581,20 @@
   "txEnterAmountFirst": "Enter the amount first.",
   "txShareInvalid": "Enter what the others owe as an amount, or leave it empty.",
   "txShareTooMuch": "The others can't owe more than the whole expense.",
+  "txPaysBack": "Pays back",
+  "txNotAReimbursement": "Not a reimbursement",
+  "txLinkedMissing": "Linked to an expense that is not there",
+  "txReimbursements": "Reimbursements",
+  "txAttachReimbursement": "Attach a reimbursement",
+  "txAttach": "Attach",
+  "txUnlink": "Unlink",
+  "txNoUnlinkedIncomes": "No unlinked incomes to attach.",
+  "txToReceive": "{owed} to receive",
+  "txToReceiveReceived": "{owed} to receive · {received} received",
+  "txSettled": "settled",
+  "txReceivedMore": "received {amount} more",
+  "txPaysBackMarker": "pays back",
+  "txPaysBackMissing": "pays back · expense missing",
   "txInvalidAmount": "Invalid",
   "txIsSameExpense": "Is this the same expense?",
   "txLast30Days": "Last 30 Days",
@@ -1419,6 +1433,30 @@
     }
   },
   "@txOthersOwe": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@txToReceive": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      }
+    }
+  },
+  "@txToReceiveReceived": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      }
+    }
+  },
+  "@txReceivedMore": {
     "placeholders": {
       "amount": {
         "type": "String"

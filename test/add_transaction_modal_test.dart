@@ -83,6 +83,9 @@ void main() {
     Transaction? prefill,
     List<Transaction> history = const [],
     List<Transaction> shared = const [],
+    // Read the shared rows from the database (seed them) instead of [shared],
+    // for the cases that write a link and watch the sheet follow.
+    bool liveShare = false,
     List<Account>? accounts,
     Future<void> Function(AppDatabase db)? seed,
     Future<void> Function(Transaction)? onSave,
@@ -124,7 +127,9 @@ void main() {
         databaseProvider.overrideWithValue(db),
         transactionsProvider(null)
             .overrideWith((ref) => Stream.value(history)),
-        shareTransactionsProvider.overrideWith((ref) => Stream.value(shared)),
+        if (!liveShare)
+          shareTransactionsProvider
+              .overrideWith((ref) => Stream.value(shared)),
         currencyProvider.overrideWithValue(
             NumberFormat.simpleCurrency(name: 'EUR', locale: 'en_US')),
         financeServiceProvider.overrideWithValue(FinanceService(db, 'u')),
@@ -741,6 +746,280 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Discard changes?'), findsOneWidget);
+    });
+  });
+
+  // The two ends of one link: an income's PAYS BACK row (saved with the form) and
+  // the reimbursements of a shared expense (written to the other row at once).
+  group('linking a reimbursement', () {
+    Transaction dinner() => Transaction(
+          id: 'dinner',
+          accountId: 'w1',
+          amount: -100,
+          date: DateTime(2026, 6, 10),
+          description: 'Dinner',
+          category: 'Dining',
+          othersShare: 75,
+        );
+
+    Transaction back(
+      double amount, {
+      String id = 'back',
+      String description = 'Back',
+      String? reimbursesId = 'dinner',
+    }) =>
+        Transaction(
+          id: id,
+          accountId: 'w1',
+          amount: amount,
+          date: DateTime(2026, 6, 11),
+          description: description,
+          category: 'Salary',
+          type: 'income',
+          reimbursesId: reimbursesId,
+        );
+
+    late AppDatabase db;
+
+    /// Seeds [rows] as the owner's, and keeps the database for [linkOf].
+    Future<void> Function(AppDatabase) seedRows(List<Transaction> rows) =>
+        (d) async {
+          db = d;
+          for (final t in rows) {
+            await d.into(d.transactions).insert(TransactionsCompanion.insert(
+                  id: t.id,
+                  userId: const Value('u'),
+                  accountId: Value(t.accountId),
+                  amount: t.amount,
+                  description: t.description,
+                  category: t.category,
+                  type: Value(t.type),
+                  date: t.date,
+                  othersShare: Value(t.othersShare),
+                  reimbursesId: Value(t.reimbursesId),
+                ));
+          }
+        };
+
+    /// The `reimbursesId` the database holds for [id].
+    Future<String?> linkOf(WidgetTester tester, String id) async =>
+        (await tester.runAsync(() =>
+                (db.select(db.transactions)..where((t) => t.id.equals(id)))
+                    .getSingle()))!
+            .reimbursesId;
+
+    String amountText(WidgetTester tester) => tester
+        .widget<EditableText>(find.descendant(
+            of: find.byType(AmountHeroField),
+            matching: find.byType(EditableText)))
+        .controller
+        .text;
+
+    /// A live (database) stream closes on a zero-length timer once its widgets
+    /// go away; unmounting by hand runs it before the framework looks for
+    /// timers still pending at the end of the test.
+    Future<void> unmount(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox());
+      // A duration, or the fake clock does not move and the timer stays queued.
+      await tester.pump(const Duration(milliseconds: 1));
+    }
+
+    Future<void> openPicker(WidgetTester tester) async {
+      await tester.tap(find.text('PAYS BACK'));
+      await tester.pumpAndSettle();
+    }
+
+    group('from the income', () {
+      testWidgets('the picker lists the shared expense, a blank amount takes '
+          'what is left and saving writes the link', (tester) async {
+        Transaction? saved;
+        await pump(tester,
+            shared: [dinner(), back(25)], onSave: (t) async => saved = t);
+        await tester.tap(find.text('INCOME'));
+        await tester.pumpAndSettle();
+        expect(find.text('Not a reimbursement'), findsOneWidget); // the row
+
+        await openPicker(tester);
+        expect(find.text('Dinner'), findsOneWidget);
+        expect(find.text('Jun 10 · €75.00 to receive · €25.00 received'),
+            findsOneWidget);
+        await tester.tap(find.text('Dinner'));
+        await tester.pumpAndSettle();
+
+        expect(amountText(tester), '50.00');
+        await tester.enterText(find.byType(TextFormField).at(1), 'Back');
+        await tester.tap(find.text('SAVE'));
+        await tester.pumpAndSettle();
+        expect((saved?.type, saved?.amount, saved?.reimbursesId),
+            ('income', 50.0, 'dinner'));
+      });
+
+      testWidgets('a typed amount is kept', (tester) async {
+        await pump(tester, shared: [dinner()]);
+        await tester.tap(find.text('INCOME'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField).at(0), '10');
+
+        await openPicker(tester);
+        await tester.tap(find.text('Dinner'));
+        await tester.pumpAndSettle();
+
+        expect(amountText(tester), '10');
+      });
+
+      testWidgets('the same income switched to expense saves no link',
+          (tester) async {
+        Transaction? saved;
+        await pump(tester,
+            transaction: back(25),
+            shared: [dinner()],
+            onSave: (t) async => saved = t);
+        expect(find.text('Dinner'), findsOneWidget); // the row names it
+
+        await tester.tap(find.text('EXPENSE'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('UPDATE'));
+        await tester.pumpAndSettle();
+
+        expect((saved?.amount, saved?.reimbursesId), (-25.0, null));
+      });
+
+      testWidgets('a link to an expense that is not there says so and '
+          '"Not a reimbursement" drops it', (tester) async {
+        Transaction? saved;
+        await pump(tester,
+            transaction: back(25, reimbursesId: 'gone'),
+            onSave: (t) async => saved = t);
+        expect(find.text('Linked to an expense that is not there'),
+            findsOneWidget);
+
+        await openPicker(tester);
+        await tester.tap(find.text('Not a reimbursement'));
+        await tester.pumpAndSettle();
+        expect(find.text('Linked to an expense that is not there'),
+            findsNothing);
+        await tester.tap(find.text('UPDATE'));
+        await tester.pumpAndSettle();
+
+        expect(saved?.reimbursesId, isNull);
+      });
+
+      testWidgets('the row is offered only when there is something to pay back',
+          (tester) async {
+        await pump(tester);
+        await tester.tap(find.text('INCOME'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('PAYS BACK'), findsNothing);
+      });
+
+      testWidgets('and never the expense being edited', (tester) async {
+        await pump(tester, transaction: dinner(), shared: [dinner()]);
+
+        await tester.tap(find.text('INCOME'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('PAYS BACK'), findsNothing);
+      });
+
+      testWidgets('and not in the inbox approval (a prefill)', (tester) async {
+        await pump(tester,
+            prefill: back(25, reimbursesId: null), shared: [dinner()]);
+
+        expect(find.text('PAYS BACK'), findsNothing);
+      });
+    });
+
+    group('from the expense', () {
+      testWidgets('a new expense has no reimbursements yet', (tester) async {
+        await pump(tester, shared: [dinner(), back(25)]);
+
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('REIMBURSEMENTS'), findsNothing);
+      });
+
+      testWidgets('lists the linked income and Unlink clears the link in the '
+          'database', (tester) async {
+        await pump(tester,
+            transaction: dinner(),
+            liveShare: true,
+            seed: seedRows([dinner(), back(25)]));
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('REIMBURSEMENTS'), findsOneWidget);
+        expect(find.text('€75.00 to receive · €25.00 received'),
+            findsOneWidget);
+        expect(find.text('Jun 11, 2026 · €25.00 · Back'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Unlink'));
+        await tester.pumpAndSettle();
+
+        expect(await linkOf(tester, 'back'), isNull);
+        expect(find.text('Jun 11, 2026 · €25.00 · Back'), findsNothing);
+        expect(find.text('€75.00 to receive'), findsOneWidget);
+        await unmount(tester);
+      });
+
+      testWidgets('choosing an income writes nothing, Attach writes the link',
+          (tester) async {
+        final spare = back(25,
+            id: 'spare', description: 'Refund', reimbursesId: null);
+        await pump(tester,
+            transaction: dinner(),
+            history: [spare],
+            liveShare: true,
+            seed: seedRows([dinner(), spare]));
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+        final attach = find.widgetWithText(TextButton, 'Attach');
+        expect(tester.widget<TextButton>(attach).onPressed, isNull);
+
+        await tester.tap(find.byType(DropdownButtonFormField<String>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Jun 11, 2026 · €25.00 · Refund').last);
+        await tester.pumpAndSettle();
+
+        expect(await linkOf(tester, 'spare'), isNull);
+        expect(tester.widget<TextButton>(attach).onPressed, isNotNull);
+
+        await tester.tap(attach);
+        await tester.pumpAndSettle();
+
+        expect(await linkOf(tester, 'spare'), 'dinner');
+        expect(find.text('€75.00 to receive · €25.00 received'),
+            findsOneWidget);
+        expect(find.byTooltip('Unlink'), findsOneWidget);
+        await unmount(tester);
+      });
+
+      testWidgets('with no unlinked income there is nothing to attach',
+          (tester) async {
+        await pump(tester, transaction: dinner(), shared: [dinner()]);
+
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('No unlinked incomes to attach.'), findsOneWidget);
+        expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+      });
+
+      testWidgets('an expense whose share was lowered to 0 still lists its '
+          'reimbursements, but offers none to attach', (tester) async {
+        await pump(tester,
+            transaction: dinner().copyWith(othersShare: 0),
+            shared: [back(25)],
+            history: [back(10, id: 'spare', reimbursesId: null)]);
+
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('Unlink'), findsOneWidget);
+        expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+        expect(find.text('No unlinked incomes to attach.'), findsNothing);
+      });
     });
   });
 

@@ -581,6 +581,20 @@
   "txEnterAmountFirst": "Inserisci prima l'importo.",
   "txShareInvalid": "Inserisci quanto devono gli altri come importo, o lascia vuoto.",
   "txShareTooMuch": "Gli altri non possono dovere più dell'intera spesa.",
+  "txPaysBack": "Rimborsa",
+  "txNotAReimbursement": "Non è un rimborso",
+  "txLinkedMissing": "Collegato a una spesa che non c'è",
+  "txReimbursements": "Rimborsi",
+  "txAttachReimbursement": "Collega un rimborso",
+  "txAttach": "Collega",
+  "txUnlink": "Scollega",
+  "txNoUnlinkedIncomes": "Nessuna entrata da collegare.",
+  "txToReceive": "{owed} da ricevere",
+  "txToReceiveReceived": "{owed} da ricevere · {received} ricevuti",
+  "txSettled": "saldata",
+  "txReceivedMore": "ricevuti {amount} in più",
+  "txPaysBackMarker": "rimborso",
+  "txPaysBackMissing": "rimborso · spesa mancante",
   "txInvalidAmount": "Non valido",
   "txIsSameExpense": "È la stessa spesa?",
   "txLast30Days": "Ultimi 30 giorni",
@@ -1225,6 +1239,30 @@
     }
   },
   "@txOthersOwe": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@txToReceive": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      }
+    }
+  },
+  "@txToReceiveReceived": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      }
+    }
+  },
+  "@txReceivedMore": {
     "placeholders": {
       "amount": {
         "type": "String"
