@@ -319,6 +319,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dashToReceive => 'To receive';
+
+  @override
+  String dashOwedReceived(String owed, String received) {
+    return '$owed owed · $received received';
+  }
+
+  @override
+  String dashOpenToReceive(String title, String amount) {
+    return 'Open $title, $amount to receive';
+  }
+
+  @override
   String get budgetScreenTitle => 'Budgets';
 
   @override

@@ -656,6 +656,24 @@ abstract class AppLocalizations {
   /// **'{days}D'**
   String dashDaysAgoShort(int days);
 
+  /// No description provided for @dashToReceive.
+  ///
+  /// In en, this message translates to:
+  /// **'To receive'**
+  String get dashToReceive;
+
+  /// No description provided for @dashOwedReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'{owed} owed · {received} received'**
+  String dashOwedReceived(String owed, String received);
+
+  /// No description provided for @dashOpenToReceive.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {title}, {amount} to receive'**
+  String dashOpenToReceive(String title, String amount);
+
   /// No description provided for @budgetScreenTitle.
   ///
   /// In en, this message translates to:

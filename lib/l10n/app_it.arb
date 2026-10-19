@@ -93,6 +93,9 @@
   "dashNoTransactions": "Ancora nessuna transazione",
   "dashYesterdayShort": "IERI",
   "dashDaysAgoShort": "{days}G",
+  "dashToReceive": "Da ricevere",
+  "dashOwedReceived": "{owed} dovuti · {received} ricevuti",
+  "dashOpenToReceive": "Apri {title}, {amount} da ricevere",
   "budgetScreenTitle": "Budget",
   "budgetSortUtilization": "Utilizzo",
   "budgetSortAlphabetical": "Alfabetico",
@@ -754,6 +757,26 @@
     "placeholders": {
       "days": {
         "type": "int"
+      }
+    }
+  },
+  "@dashOwedReceived": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      }
+    }
+  },
+  "@dashOpenToReceive": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
       }
     }
   },

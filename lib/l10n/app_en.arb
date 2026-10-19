@@ -93,6 +93,9 @@
   "dashNoTransactions": "No transactions yet",
   "dashYesterdayShort": "YDA",
   "dashDaysAgoShort": "{days}D",
+  "dashToReceive": "To receive",
+  "dashOwedReceived": "{owed} owed · {received} received",
+  "dashOpenToReceive": "Open {title}, {amount} to receive",
   "budgetScreenTitle": "Budgets",
   "budgetSortUtilization": "Utilization",
   "budgetSortAlphabetical": "Alphabetical",
@@ -754,6 +757,26 @@
     "placeholders": {
       "days": {
         "type": "int"
+      }
+    }
+  },
+  "@dashOwedReceived": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      }
+    }
+  },
+  "@dashOpenToReceive": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
       }
     }
   },
