@@ -1638,11 +1638,18 @@ class AppLocalizationsIt extends AppLocalizations {
       'Crea bozze dalle notifiche push di Revolut';
 
   @override
+  String get setSyncPayPalNotifications => 'Sincronizza notifiche PayPal';
+
+  @override
+  String get setSyncPayPalNotificationsSubtitle =>
+      'Crea bozze dai soldi ricevuti su PayPal';
+
+  @override
   String get setNotificationAccess => 'Accesso alle notifiche';
 
   @override
   String get setNotificationAccessBody =>
-      'Per leggere le notifiche di Revolut, Budgetti ha bisogno dell\'accesso alle notifiche di sistema. Aprire le impostazioni?';
+      'Per leggere le notifiche di Revolut e PayPal, Budgetti ha bisogno dell\'accesso alle notifiche di sistema. Aprire le impostazioni?';
 
   @override
   String get setLater => 'Più tardi';
@@ -1665,7 +1672,7 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get setNoNewRevolutNotifications => 'Nessuna nuova notifica Revolut';
+  String get setNoNewNotifications => 'Nessuna nuova notifica';
 
   @override
   String get setNotificationAccessMissing =>

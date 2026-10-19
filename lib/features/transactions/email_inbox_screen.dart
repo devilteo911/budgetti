@@ -16,9 +16,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 /// Review inbox for transaction drafts captured from the bank: Widiba
-/// notification emails and Revolut push notifications. Approving a draft creates
-/// a real transaction, mapped to the wallet matching the draft's source; SEPA
-/// transfers ask whether they're an expense or a wallet-to-wallet transfer.
+/// notification emails, Revolut push notifications and PayPal credits (also a
+/// push). Approving a draft creates a real transaction, mapped to the wallet
+/// matching the draft's source; SEPA transfers ask whether they're an expense or
+/// a wallet-to-wallet transfer.
 class EmailInboxScreen extends ConsumerWidget {
   const EmailInboxScreen({super.key});
 
@@ -113,10 +114,11 @@ String draftAmountLabel(PendingTransaction d, NumberFormat currency) {
   return '${d.parsedAmount < 0 ? '−' : '+'}${foreign.amount} ${foreign.currency}';
 }
 
-/// Only a Revolut push has a snippet worth reading on the card: a Widiba
-/// draft's is the email greeting, a statement row's (`revcsv_` id) a CSV line.
+/// Only a push (anything but a Widiba e-mail) has a snippet worth reading on the
+/// card: a Widiba draft's is the email greeting, a statement row's (`revcsv_`
+/// id) a CSV line.
 bool _showsSnippet(PendingTransaction d) =>
-    d.source == 'revolut' &&
+    d.source != 'widiba' &&
     !d.gmailMessageId.startsWith('revcsv_') &&
     d.rawSnippet.isNotEmpty;
 
@@ -124,6 +126,7 @@ bool _showsSnippet(PendingTransaction d) =>
 /// wallet a draft will land in before approving it.
 String sourceLabel(String source) => switch (source) {
   'revolut' => 'Revolut',
+  'paypal' => 'PayPal',
   'widiba' => 'Widiba',
   _ => source,
 };
@@ -497,7 +500,7 @@ class _SkippedCard extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(
             context.l10n.txUnreadableMessage(
-              item.source == 'revolut'
+              item.source != 'widiba'
                   ? context.l10n.txNotification
                   : context.l10n.txEmail,
               sourceLabel(item.source),

@@ -1626,11 +1626,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Create drafts from Revolut push notifications';
 
   @override
+  String get setSyncPayPalNotifications => 'Sync PayPal notifications';
+
+  @override
+  String get setSyncPayPalNotificationsSubtitle =>
+      'Creates drafts from money received on PayPal';
+
+  @override
   String get setNotificationAccess => 'Notification access';
 
   @override
   String get setNotificationAccessBody =>
-      'To read Revolut notifications, Budgetti needs access to system notifications. Open settings?';
+      'To read Revolut and PayPal notifications, Budgetti needs access to system notifications. Open settings?';
 
   @override
   String get setLater => 'Later';
@@ -1653,7 +1660,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get setNoNewRevolutNotifications => 'No new Revolut notifications';
+  String get setNoNewNotifications => 'No new notifications';
 
   @override
   String get setNotificationAccessMissing => 'Notification access not granted';

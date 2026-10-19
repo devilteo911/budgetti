@@ -2900,6 +2900,18 @@ abstract class AppLocalizations {
   /// **'Create drafts from Revolut push notifications'**
   String get setSyncRevolutNotificationsSubtitle;
 
+  /// No description provided for @setSyncPayPalNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync PayPal notifications'**
+  String get setSyncPayPalNotifications;
+
+  /// No description provided for @setSyncPayPalNotificationsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Creates drafts from money received on PayPal'**
+  String get setSyncPayPalNotificationsSubtitle;
+
   /// No description provided for @setNotificationAccess.
   ///
   /// In en, this message translates to:
@@ -2909,7 +2921,7 @@ abstract class AppLocalizations {
   /// No description provided for @setNotificationAccessBody.
   ///
   /// In en, this message translates to:
-  /// **'To read Revolut notifications, Budgetti needs access to system notifications. Open settings?'**
+  /// **'To read Revolut and PayPal notifications, Budgetti needs access to system notifications. Open settings?'**
   String get setNotificationAccessBody;
 
   /// No description provided for @setLater.
@@ -2948,11 +2960,11 @@ abstract class AppLocalizations {
   /// **'{count} unrecognized notifications'**
   String setUnreadNotifications(int count);
 
-  /// No description provided for @setNoNewRevolutNotifications.
+  /// No description provided for @setNoNewNotifications.
   ///
   /// In en, this message translates to:
-  /// **'No new Revolut notifications'**
-  String get setNoNewRevolutNotifications;
+  /// **'No new notifications'**
+  String get setNoNewNotifications;
 
   /// No description provided for @setNotificationAccessMissing.
   ///

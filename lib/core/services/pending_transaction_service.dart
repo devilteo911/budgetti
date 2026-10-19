@@ -264,10 +264,10 @@ class PendingTransactionService {
 /// sheet shows an empty field), its receipt date and its subject as the note.
 /// [accountId] and the category are empty when unknown, for the sheet to default.
 ///
-/// An unreadable Revolut push is described by its BODY, not its title: the title
-/// ("Revolut") says nothing, and the raw text is `title ⟂ body` (or the body
-/// alone when the push had no title). Other sources keep their own description:
-/// a Widiba snippet is the email greeting.
+/// An unreadable push (Revolut, PayPal) is described by its BODY, not its title:
+/// the title ("Revolut") says nothing, and the raw text is `title ⟂ body` (or
+/// the body alone when the push had no title). A Widiba draft keeps its own
+/// description: its snippet is the email greeting.
 model.Transaction draftPrefill(PendingTransaction d, {String? accountId}) {
   final type = d.suggestedType == 'income' || d.suggestedType == 'transfer'
       ? d.suggestedType
@@ -289,7 +289,7 @@ model.Transaction draftPrefill(PendingTransaction d, {String? accountId}) {
 }
 
 String _prefillDescription(PendingTransaction d) {
-  if (d.status != 'skipped' || d.source != 'revolut') return d.parsedDescription;
+  if (d.status != 'skipped' || d.source == 'widiba') return d.parsedDescription;
   const separator = ' ⟂ ';
   final at = d.rawSnippet.indexOf(separator);
   var body = at >= 0
