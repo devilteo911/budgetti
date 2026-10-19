@@ -247,7 +247,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     .sync(days: persistence.getEmailSyncWindowDays()),
               );
             }
-            if (persistence.getRevolutSyncEnabled()) {
+            if (persistence.notificationSyncEnabled) {
               tasks.add(ref.read(bankSyncServiceProvider).syncNotifications());
             }
             await Future.wait(tasks);

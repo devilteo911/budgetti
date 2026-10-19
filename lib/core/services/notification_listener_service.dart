@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// A Revolut push notification captured by the native
+/// A Revolut or PayPal push notification captured by the native
 /// [RevolutNotificationListener], awaiting parsing into a pending draft.
 class RawNotification {
   final String key;
@@ -34,20 +34,26 @@ class RawNotification {
 
 /// Bridges the native Android NotificationListenerService.
 ///
-/// Captured notifications are buffered to a file by the listener; [pull] reads
-/// and clears it. Reading the file directly (not via a MethodChannel) keeps
-/// pulls working from the workmanager background isolate, where the
-/// MainActivity channel handler isn't alive. The channel is reserved for the
-/// foreground-only permission check and settings deep-link.
+/// Captured notifications are buffered to a file by the listener, one file per
+/// source (`revolut_notifications.json`, `paypal_notifications.json`); [pull]
+/// and [pullPayPal] read and clear theirs. Reading the file directly (not via a
+/// MethodChannel) keeps pulls working from the workmanager background isolate,
+/// where the MainActivity channel handler isn't alive. The channel is reserved
+/// for the foreground-only permission check and settings deep-link.
 class NotificationListenerService {
   const NotificationListenerService();
 
   static const _channel = MethodChannel('budgetti/notifications');
   static const _bufferFile = 'revolut_notifications.json';
+  static const _payPalBufferFile = 'paypal_notifications.json';
 
-  Future<List<RawNotification>> pull() async {
+  Future<List<RawNotification>> pull() => _pull(_bufferFile);
+
+  Future<List<RawNotification>> pullPayPal() => _pull(_payPalBufferFile);
+
+  Future<List<RawNotification>> _pull(String name) async {
     final dir = await getApplicationSupportDirectory();
-    return drain(File('${dir.path}/$_bufferFile'));
+    return drain(File('${dir.path}/$name'));
   }
 
   /// Takes everything out of the listener's [buffer] file.

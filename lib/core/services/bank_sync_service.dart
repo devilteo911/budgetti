@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/services/gmail_service.dart';
 import 'package:budgetti/core/services/notification_listener_service.dart';
+import 'package:budgetti/core/services/paypal_notification_parser.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:budgetti/core/services/revolut_notification_parser.dart';
 import 'package:budgetti/core/services/revolut_statement_parser.dart';
@@ -15,7 +16,8 @@ import 'package:flutter/foundation.dart';
 /// review. Two capture paths, one review inbox:
 ///
 ///   - [sync] pulls Widiba notification emails over Gmail.
-///   - [syncNotifications] drains Revolut's Android push notifications.
+///   - [syncNotifications] drains Revolut's and PayPal's Android push
+///     notifications (PayPal: money received only).
 ///
 /// Both de-duplicate against already-seen external ids, flag likely repeats of
 /// existing transactions, and surface anything unreadable rather than dropping
@@ -24,13 +26,14 @@ import 'package:flutter/foundation.dart';
 ///
 /// Note the column names: `gmailMessageId` is the generic external id (a Gmail
 /// message id or a notification content hash) and `emailSubject` /
-/// `emailReceivedAt` hold the notification title / post time for the Revolut
-/// path. They predate the second source; `source` is what tells the rows apart.
+/// `emailReceivedAt` hold the notification title / post time for the push
+/// paths. They predate the second source; `source` is what tells the rows apart.
 class BankSyncService {
   final AppDatabase _db;
   final GmailService _gmail;
   final WidibaEmailParser _parser;
   final RevolutNotificationParser _revolutParser;
+  final PayPalNotificationParser _paypalParser;
   final NotificationListenerService _notifications;
   final String _userId;
   final PersistenceService? _persistence;
@@ -41,10 +44,12 @@ class BankSyncService {
     this._userId, {
     WidibaEmailParser parser = const WidibaEmailParser(),
     RevolutNotificationParser revolutParser = const RevolutNotificationParser(),
+    PayPalNotificationParser paypalParser = const PayPalNotificationParser(),
     NotificationListenerService notifications = const NotificationListenerService(),
     PersistenceService? persistence,
   })  : _parser = parser,
         _revolutParser = revolutParser,
+        _paypalParser = paypalParser,
         _notifications = notifications,
         _persistence = persistence;
 
@@ -193,8 +198,10 @@ class BankSyncService {
     return _rowsById(insertedIds);
   }
 
-  /// Drains the Revolut notification buffer into drafts. Same review inbox,
-  /// dedup ledger and duplicate flagging as the email path.
+  /// Drains the notification buffers into drafts: Revolut's when
+  /// `revolut_sync_enabled` is set, PayPal's when `paypal_sync_enabled` is set.
+  /// Without a persistence service (no prefs to read) it drains Revolut only.
+  /// Same review inbox, dedup ledger and duplicate flagging as the email path.
   ///
   /// One difference from [sync]: a drained notification is gone from the buffer
   /// for good, so there is no retry pass. Notifications the parser can't read
@@ -214,23 +221,66 @@ class BankSyncService {
   static Future<List<PendingTransaction>>? _notificationsInFlight;
 
   Future<List<PendingTransaction>> _syncNotifications() async {
-    final notifications = await _notifications.pull();
+    // ponytail: sequential, errors propagate. A Revolut drain that throws
+    // leaves the PayPal buffer for the next pass (a file, nothing is lost).
+    // Isolate the two if one source's failures ever starve the other.
+    final persistence = _persistence;
+    final insertedIds = <String>[];
+
+    if (persistence == null || persistence.getRevolutSyncEnabled()) {
+      insertedIds.addAll(await _draftNotifications(
+        await _notifications.pull(),
+        source: 'revolut',
+        idPrefix: 'rev',
+        fallbackTitle: 'Notifica Revolut',
+        parse: (n) =>
+            _revolutParser.parse(title: n.title, text: n.text, when: n.when),
+        looksTransactional: (n) =>
+            _revolutParser.looksTransactional(n.title, n.text),
+      ));
+    }
+    if (persistence != null && persistence.getPayPalSyncEnabled()) {
+      insertedIds.addAll(await _draftNotifications(
+        await _notifications.pullPayPal(),
+        source: 'paypal',
+        idPrefix: 'pp',
+        fallbackTitle: 'Notifica PayPal',
+        parse: (n) =>
+            _paypalParser.parse(title: n.title, text: n.text, when: n.when),
+        looksTransactional: (n) =>
+            _paypalParser.looksTransactional(n.title, n.text),
+      ));
+    }
+
+    if (insertedIds.isEmpty) return const [];
+    return _rowsById(insertedIds);
+  }
+
+  /// Turns one source's drained pushes into inbox rows and returns the ids of
+  /// the ones worth showing (drafts and surfaced unreadable pushes).
+  Future<List<String>> _draftNotifications(
+    List<RawNotification> notifications, {
+    required String source,
+    required String idPrefix,
+    required String fallbackTitle,
+    required ParsedBankDraft? Function(RawNotification n) parse,
+    required bool Function(RawNotification n) looksTransactional,
+  }) async {
     if (notifications.isEmpty) return const [];
 
     final existingIds = await _existingGmailIds();
     final insertedIds = <String>[];
 
     for (final n in notifications) {
-      final externalId = _notificationId(n);
+      final externalId = _notificationId(n, idPrefix);
       if (existingIds.contains(externalId)) continue;
       existingIds.add(externalId);
 
-      final title = n.title.trim().isEmpty ? 'Notifica Revolut' : n.title.trim();
-      final parsed =
-          _revolutParser.parse(title: n.title, text: n.text, when: n.when);
+      final title = n.title.trim().isEmpty ? fallbackTitle : n.title.trim();
+      final parsed = parse(n);
 
       if (parsed == null) {
-        final surfaced = _revolutParser.looksTransactional(n.title, n.text);
+        final surfaced = looksTransactional(n);
         final raw = [n.title.trim(), n.text.trim()]
             .where((s) => s.isNotEmpty)
             .join(' ⟂ ');
@@ -239,7 +289,7 @@ class BankSyncService {
                 id: 'pending_$externalId',
                 userId: Value(_userId),
                 gmailMessageId: externalId,
-                source: const Value('revolut'),
+                source: Value(source),
                 emailSubject: title,
                 emailReceivedAt: n.when.toLocal(),
                 parsedAmount: 0,
@@ -253,7 +303,7 @@ class BankSyncService {
               mode: InsertMode.insertOrIgnore,
             );
         if (surfaced) insertedIds.add('pending_$externalId');
-        if (!surfaced) debugPrint('RevolutSync: ignored "$title"');
+        if (!surfaced) debugPrint('NotificationSync($source): ignored "$title"');
         continue;
       }
 
@@ -262,7 +312,7 @@ class BankSyncService {
         amount: parsed.amount,
         description: parsed.description,
         date: parsed.date,
-        incomeIntoAccountId: await _incomeWallet(parsed.amount, 'revolut'),
+        incomeIntoAccountId: await _incomeWallet(parsed.amount, source),
       );
 
       await _db.into(_db.pendingTransactions).insert(
@@ -270,7 +320,7 @@ class BankSyncService {
               id: 'pending_$externalId',
               userId: Value(_userId),
               gmailMessageId: externalId,
-              source: const Value('revolut'),
+              source: Value(source),
               emailSubject: title,
               emailReceivedAt: n.when.toLocal(),
               parsedAmount: parsed.amount,
@@ -289,8 +339,7 @@ class BankSyncService {
       insertedIds.add('pending_$externalId');
     }
 
-    if (insertedIds.isEmpty) return const [];
-    return _rowsById(insertedIds);
+    return insertedIds;
   }
 
   /// Turns Revolut's "Estratto conto" CSV into drafts. Same review inbox as the
@@ -412,11 +461,13 @@ class BankSyncService {
   /// the same millisecond — same merchant, same amount, same instant. If real
   /// double-charges start going missing, add the notification key back as a
   /// tiebreaker.
-  String _notificationId(RawNotification n) {
+  ///
+  /// [prefix] keeps the sources' ids apart ('rev' keeps the ids already stored).
+  String _notificationId(RawNotification n, String prefix) {
     final digest = sha1.convert(utf8.encode(
       '${n.title}|${n.text}|${n.when.millisecondsSinceEpoch}',
     ));
-    return 'rev_${digest.toString().substring(0, 16)}';
+    return '${prefix}_${digest.toString().substring(0, 16)}';
   }
 
   Future<List<PendingTransaction>> _rowsById(List<String> ids) {
@@ -644,10 +695,11 @@ Future<String?> learnedCategory(
   String description, {
   required bool income,
 }) async {
-  // Every push with no merchant shares the fallback text (possibly with a
-  // foreign-currency cue after it): not an identity.
+  // Every push with no merchant (or payer) shares the fallback text (possibly
+  // with a foreign-currency cue after it): not an identity.
   if (description.trim().isEmpty ||
-      description.startsWith(revolutFallbackDescription)) {
+      description.startsWith(revolutFallbackDescription) ||
+      description.startsWith(paypalFallbackDescription)) {
     return null;
   }
   final rows = await (db.select(db.transactions)

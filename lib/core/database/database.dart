@@ -264,8 +264,8 @@ class PivaPayments extends Table {
 }
 
 /// Draft transactions awaiting review — captured from Widiba bank emails or
-/// Revolut Android notifications. [source] distinguishes them so the inbox
-/// resolves the correct wallet on approval. The row is kept after
+/// Revolut or PayPal Android notifications. [source] distinguishes them so the
+/// inbox resolves the correct wallet on approval. The row is kept after
 /// approval/rejection so [gmailMessageId] acts as a permanent
 /// de-duplication ledger across re-syncs.
 class PendingTransactions extends Table {
@@ -273,7 +273,7 @@ class PendingTransactions extends Table {
   TextColumn get userId => text().nullable()();
   TextColumn get gmailMessageId => text()();
   TextColumn get source =>
-      text().withDefault(const Constant('widiba'))(); // widiba | revolut
+      text().withDefault(const Constant('widiba'))(); // widiba | revolut | paypal
   TextColumn get emailSubject => text()();
   DateTimeColumn get emailReceivedAt => dateTime()();
 
