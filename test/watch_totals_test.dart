@@ -31,7 +31,14 @@ void main() {
   late AppDatabase db;
   late FinanceService service;
 
-  Future<void> insert(String id, String account, double amount, String type) =>
+  Future<void> insert(
+    String id,
+    String account,
+    double amount,
+    String type, {
+    double othersShare = 0,
+    String? reimbursesId,
+  }) =>
       db.into(db.transactions).insert(TransactionsCompanion.insert(
             id: id,
             userId: const Value('user-a'),
@@ -41,6 +48,8 @@ void main() {
             category: 'x',
             type: Value(type),
             date: DateTime(2026, 8, 1),
+            othersShare: Value(othersShare),
+            reimbursesId: Value(reimbursesId),
           ));
 
   setUp(() {
@@ -72,6 +81,30 @@ void main() {
     expect(await service.watchTotals(accountId: 'a1').first, (100.0, 0.0, 1));
     expect(await service.watchTotals(accountId: 'a2').first, (0.0, 0.0, 0));
     expect(await service.watchTotals(accountId: 'nobody').first, (0.0, 0.0, 0));
+  });
+
+  // The hero's ENTRATA/SPESA are the owner's share, the rule of `ownView` in
+  // SQL: a reimbursement is no income, a shared expense counts what the others
+  // do not owe. The count stays a count of the rows the list shows.
+  test('totals count the owner share of a shared expense, not its reimbursement',
+      () async {
+    await insert('dinner', 'a1', -100, 'expense', othersShare: 75);
+    await insert('back', 'a1', 50, 'income', reimbursesId: 'dinner');
+    // A backup-imported row: `''` is no link, so it is income.
+    await insert('gift', 'a1', 30, 'income', reimbursesId: '');
+    await insert('pay', 'a1', 1000, 'income');
+    await insert('food', 'a1', -40, 'expense');
+    await insert('move', 'a1', 500, 'transfer');
+
+    expect(await service.watchTotals().first, (1030.0, 65.0, 5));
+  });
+
+  test('a fully paid-back expense adds nothing to the spending, never less',
+      () async {
+    await insert('all', 'a1', -100, 'expense', othersShare: 100);
+    await insert('over', 'a1', -40, 'expense', othersShare: 80);
+
+    expect(await service.watchTotals().first, (0.0, 0.0, 2));
   });
 
   test('the hero provider follows the ledger down to zero', () async {

@@ -1,6 +1,7 @@
 import 'dart:ffi';
 
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart' show Value;
@@ -177,6 +178,30 @@ void _migrationTests() {
       ));
     }
 
+    // A shared expense (the others owe 75) and the 50 that came back for it:
+    // the totals read the owner's share, so t7 weighs 25 and t8 is no income.
+    await service.addTransaction(model.Transaction(
+      id: 't7',
+      accountId: 'user-a_main',
+      amount: -100,
+      date: base.add(const Duration(days: 5)),
+      description: 't7',
+      category: 'Food',
+      tags: ['Groceries'],
+      othersShare: 75,
+    ));
+    await service.addTransaction(model.Transaction(
+      id: 't8',
+      accountId: 'user-a_main',
+      amount: 50,
+      date: base.add(const Duration(days: 6)),
+      description: 't8',
+      category: 'Food',
+      type: 'income',
+      tags: ['Groceries'],
+      reimbursesId: 't7',
+    ));
+
     Future<(double, double, int)> totals() async {
       final list = await service
           .watchTotals(
@@ -190,19 +215,50 @@ void _migrationTests() {
     }
 
     final (income, expense, count) = await totals();
-    // Only t2 and t6 match (in-range, category, tag); the transfer never counts.
+    // Only t2, t6, t7 and t8 match (in-range, category, tag); the transfer never
+    // counts. t7 is 25 of spending, t8 a reimbursement: no income, still a row.
     expect(income, 0.0);
-    expect(expense, 60.0);
-    expect(count, 2);
+    expect(expense, 85.0);
+    expect(count, 4);
 
-    // Unfiltered totals: t1+t2+t3+t6 count, t5 is out of range, transfer t4
-    // excluded from income/expense but… transfers are skipped entirely by the
+    // Unfiltered totals: t1+t2+t3+t6+t7+t8 count, t5 is out of range, transfer
+    // t4 excluded from income/expense but… transfers are skipped entirely by the
     // old in-memory loop, so count must skip them too.
     final (allIncome, allExpense, allCount) =
         await service.watchTotals(startDate: DateTime(2026, 1, 1)).first;
     expect(allIncome, 100.0);
-    expect(allExpense, 120.0);
-    expect(allCount, 4);
+    expect(allExpense, 145.0);
+    expect(allCount, 6);
+
+    // The same figures from the model: `ownView` + isIncome/isExpense over the
+    // very rows the list shows (the count is a count of those raw rows).
+    (double, double, int) fromModel(List<model.Transaction> listed) {
+      final view = ownView(listed);
+      return (
+        view.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount),
+        view.where((t) => t.isExpense).fold(0.0, (s, t) => s - t.amount),
+        listed.where((t) => t.type != 'transfer').length,
+      );
+    }
+
+    final listed = await service
+        .watchTransactions(
+          startDate: DateTime(2026, 1, 1),
+          endDate: DateTime(2026, 12, 31, 23, 59, 59, 999),
+          categories: ['Food', 'Bills'],
+          tags: ['Groceries'],
+        )
+        .first;
+    final (mIncome, mExpense, mCount) = fromModel(listed);
+    expect(income, closeTo(mIncome, 0.001));
+    expect(expense, closeTo(mExpense, 0.001));
+    expect(count, mCount);
+
+    final all = await service.watchTransactions(startDate: DateTime(2026, 1, 1)).first;
+    final (mAllIncome, mAllExpense, mAllCount) = fromModel(all);
+    expect(allIncome, closeTo(mAllIncome, 0.001));
+    expect(allExpense, closeTo(mAllExpense, 0.001));
+    expect(allCount, mAllCount);
   });
 
   test('watchInstallmentRelevant returns linked rows and unlinked expenses',

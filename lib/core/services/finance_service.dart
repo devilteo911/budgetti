@@ -524,6 +524,12 @@ class FinanceService {
   /// aggregate watched on the transactions table, instead of re-watching and
   /// re-mapping the whole ledger on the UI isolate. Classification mirrors
   /// the model: income/expense = non-transfer by sign, transfers excluded.
+  ///
+  /// Income and expense are the owner's share, the `ownView` rule of
+  /// `finance_math.dart` written in SQL (it cannot call Dart): a reimbursement
+  /// (non-empty `reimburses_id`) is no income, and a shared expense counts what
+  /// the others do not owe, never below 0. The count stays a count of rows —
+  /// the shared expense and its reimbursement are both rows the list shows.
   Stream<(double, double, int)> watchTotals({
     String? accountId,
     DateTime? startDate,
@@ -559,8 +565,8 @@ class FinanceService {
     return _db
         .customSelect(
           'SELECT '
-          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount > 0 THEN amount ELSE 0 END), 0) AS income, '
-          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount < 0 THEN -amount ELSE 0 END), 0) AS expense, '
+          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount > 0 AND COALESCE(reimburses_id, \'\') = \'\' THEN amount ELSE 0 END), 0) AS income, '
+          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount < 0 THEN MAX(0, ROUND(-amount - others_share, 2)) ELSE 0 END), 0) AS expense, '
           // COALESCE all three: SUM over no rows is NULL, and an unwrapped
           // count threw on an empty filter, leaving the UI on stale totals.
           'COALESCE(SUM(CASE WHEN type != \'transfer\' THEN 1 ELSE 0 END), 0) AS count '

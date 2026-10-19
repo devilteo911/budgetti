@@ -53,6 +53,7 @@ Transaction fattura(
   DateTime date, {
   String category = 'Fatture',
   String type = 'income',
+  String? reimbursesId,
 }) => Transaction(
   id: id,
   accountId: 'a1',
@@ -61,6 +62,7 @@ Transaction fattura(
   description: '',
   category: category,
   type: type,
+  reimbursesId: reimbursesId,
 );
 
 const _unset = Object();
@@ -356,6 +358,16 @@ void main() {
     expect(pivaIncome(txns, profile()).map((t) => t.id), ['inc', 'qif'], reason: 'categorie del profilo');
     expect(txns.map((t) => t.id), ['inc', 'salary', 'out', 'xfer', 'qif'], reason: 'input non mutato');
     expect(pivaIncome(txns, profile(incomeCategories: [])), isEmpty, reason: 'incomeCategories vuoto');
+  });
+
+  test('pivaIncome: il rimborso di una spesa condivisa non è un compenso', () {
+    final f1 = fattura('f1', 1000, at(2026, 6, 10));
+    final r1 = fattura('r1', 30, at(2026, 6, 12), reimbursesId: 'cena');
+    final r2 = fattura('r2', 20, at(2026, 6, 15), reimbursesId: 'gone'); // spesa già sparita
+    final txns = [f1, r1, r2];
+    expect(pivaIncome(txns, profile()).map((t) => t.id), ['f1'], reason: 'solo il compenso');
+    expect(incomeByMonth(txns, profile(), 2026)[5], 1000.0, reason: 'giugno');
+    expect(compensiForYear(profile(), txns, 2026), 1000.0, reason: 'compensi 2026');
   });
 
   test('incomeByMonth: 12 mesi, per giorno locale', () {
