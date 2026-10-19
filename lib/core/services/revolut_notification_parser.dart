@@ -37,7 +37,7 @@ class RevolutNotificationParser {
     final haystack = _haystack(title, text);
     if (_isNoise(haystack)) return null;
 
-    final match = _amountRe.firstMatch(haystack);
+    final match = bankAmountRe.firstMatch(haystack);
     if (match == null) return null;
 
     // ponytail: first amount wins. On an FX card payment Revolut may show both
@@ -52,7 +52,7 @@ class RevolutNotificationParser {
 
     final counterparty = _counterparty(haystack, match.end, title);
     final type = _type(haystack, title, text);
-    final currency = _currencyCode(match.group(1) ?? match.group(4)!);
+    final currency = currencyCodeOf(match.group(1) ?? match.group(4)!);
 
     return ParsedBankDraft(
       amount: type == 'income' ? amount : -amount,
@@ -74,7 +74,7 @@ class RevolutNotificationParser {
   bool looksTransactional(String title, String text) {
     final haystack = _haystack(title, text);
     if (_isNoise(haystack)) return false;
-    if (_amountRe.hasMatch(haystack)) return true;
+    if (bankAmountRe.hasMatch(haystack)) return true;
     return [
       ..._incomeVerbs,
       ..._expenseVerbs,
@@ -82,12 +82,6 @@ class RevolutNotificationParser {
       ..._expenseHints,
     ].any(haystack.contains);
   }
-
-  static String _currencyCode(String symbolOrCode) => switch (symbolOrCode.toLowerCase()) {
-        '\$' || 'usd' => 'USD',
-        '£' || 'gbp' => 'GBP',
-        _ => 'EUR',
-      };
 
   /// Lowercased title + text, space-padded so ' at '/' to ' markers can be
   /// matched with their delimiters instead of hitting substrings of words.
@@ -119,7 +113,7 @@ class RevolutNotificationParser {
   /// ricevuti" keeps its verb.
   String _type(String haystack, String title, String text) {
     final body = _haystack('', text);
-    final amountEnd = _amountRe.firstMatch(body)?.end ?? 0;
+    final amountEnd = bankAmountRe.firstMatch(body)?.end ?? 0;
     final marker = _merchantMarkerRe.firstMatch(body.substring(amountEnd));
     final sentence =
         marker == null ? body : body.substring(0, amountEnd + marker.start);
@@ -158,7 +152,7 @@ class RevolutNotificationParser {
     if (t.isEmpty || _genericTitles.contains(t.toLowerCase())) return null;
     // A title that is itself the sentence carrying the amount is no better
     // than the fallback description.
-    if (_amountRe.hasMatch(' ${t.toLowerCase()} ')) return null;
+    if (bankAmountRe.hasMatch(' ${t.toLowerCase()} ')) return null;
     return t;
   }
 
@@ -169,7 +163,7 @@ class RevolutNotificationParser {
   String _merchantOnly(String raw) {
     final cut = [
       RegExp(r'\b(saldo|balance)\b').firstMatch(raw)?.start,
-      _amountRe.firstMatch(raw)?.start,
+      bankAmountRe.firstMatch(raw)?.start,
     ].whereType<int>().fold(raw.length, (a, b) => b < a ? b : a);
     return raw.substring(0, cut).replaceAll(_edgeJunkRe, '');
   }
@@ -187,13 +181,6 @@ class RevolutNotificationParser {
           ? w
           : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
       .join(' ');
-
-  /// Amount with the currency on either side: "€12,50", "12.50 EUR", "£1,234.56".
-  static final _amountRe = RegExp(
-    r'(?:([€$£]|eur|usd|gbp)\s*(\d[\d.,]*\d|\d)'
-    r'|(\d[\d.,]*\d|\d)\s*([€$£]|eur|usd|gbp))',
-    caseSensitive: false,
-  );
 }
 
 const _genericTitles = <String>{'revolut', 'revolut pay', 'revolut business'};
