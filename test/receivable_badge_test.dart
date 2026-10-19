@@ -97,10 +97,11 @@ void main() {
     });
 
     test('the two markers', () {
-      expect(reimbursementMarkerShort(en, true), '↩ pays back');
-      expect(reimbursementMarkerShort(en, false), '↩ missing');
-      expect(reimbursementMarkerShort(it, true), '↩ rimborso');
-      expect(reimbursementMarkerShort(it, false), '↩ mancante');
+      // U+FE0E after the arrow: without it Android draws "↩" as a colour emoji.
+      expect(reimbursementMarkerShort(en, true), '↩\u{FE0E} pays back');
+      expect(reimbursementMarkerShort(en, false), '↩\u{FE0E} missing');
+      expect(reimbursementMarkerShort(it, true), '↩\u{FE0E} rimborso');
+      expect(reimbursementMarkerShort(it, false), '↩\u{FE0E} mancante');
     });
   });
 
@@ -209,7 +210,7 @@ void main() {
       await noOverflowAt64(tester);
 
       await pumpRow(tester, paid, {}, width: 320);
-      expect(find.textContaining('↩ missing'), findsOneWidget);
+      expect(find.textContaining('↩\u{FE0E} missing'), findsOneWidget);
       expect(await spoken(tester), contains('pays back · expense missing'));
       await noOverflowAt64(tester);
     });

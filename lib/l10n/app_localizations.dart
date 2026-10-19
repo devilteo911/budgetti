@@ -3701,13 +3701,13 @@ abstract class AppLocalizations {
   /// No description provided for @txPaysBackShort.
   ///
   /// In en, this message translates to:
-  /// **'↩ pays back'**
+  /// **'↩︎ pays back'**
   String get txPaysBackShort;
 
   /// No description provided for @txPaysBackMissingShort.
   ///
   /// In en, this message translates to:
-  /// **'↩ missing'**
+  /// **'↩︎ missing'**
   String get txPaysBackMissingShort;
 
   /// No description provided for @txInvalidAmount.

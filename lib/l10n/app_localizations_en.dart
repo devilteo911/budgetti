@@ -2094,10 +2094,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get txPaysBackShort => '↩ pays back';
+  String get txPaysBackShort => '↩︎ pays back';
 
   @override
-  String get txPaysBackMissingShort => '↩ missing';
+  String get txPaysBackMissingShort => '↩︎ missing';
 
   @override
   String get txInvalidAmount => 'Invalid';

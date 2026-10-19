@@ -2107,10 +2107,10 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get txPaysBackShort => '↩ rimborso';
+  String get txPaysBackShort => '↩︎ rimborso';
 
   @override
-  String get txPaysBackMissingShort => '↩ mancante';
+  String get txPaysBackMissingShort => '↩︎ mancante';
 
   @override
   String get txInvalidAmount => 'Non valido';
