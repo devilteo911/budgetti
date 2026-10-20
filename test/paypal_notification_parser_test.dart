@@ -1,16 +1,34 @@
 import 'package:budgetti/core/services/paypal_notification_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// PayPal's notification templates are not captured yet, so these samples are
+/// One real push has been captured (the first group); the other samples are
 /// generic Italian/English wordings rather than ground truth. When a real push
 /// lands in the review inbox as "unreadable", copy its raw text in here as a new
-/// case and make it pass — that's the intended way this parser grows.
+/// case and make it pass — that's the intended way this parser grows. The repo
+/// is public: a real payer's name is always replaced by a placeholder here.
 void main() {
   const parser = PayPalNotificationParser();
   final when = DateTime.utc(2026, 10, 19, 9, 30);
 
   ParsedBankDraft? run(String title, String text) =>
       parser.parse(title: title, text: text, when: when);
+
+  group('a real push (captured 20/10/2026)', () {
+    // The notification shade shows the app label "PayPal" above them; neither
+    // field holds it. The amount is in the title and the payer, three words, is
+    // alone in the text — so title and text are read together, not one by one.
+    test('the amount in the title, the payer in the text', () {
+      final r = run('Hai ricevuto 8,50 € EUR', 'da Mario Rossi Bianchi');
+
+      expect(r, isNotNull);
+      expect(r!.type, 'income');
+      expect(r.amount, 8.5);
+      expect(r.counterparty, 'Mario Rossi Bianchi');
+      // EUR: nothing about a foreign amount is added to the description.
+      expect(r.description, 'Mario Rossi Bianchi');
+      expect(r.rawSnippet, 'Hai ricevuto 8,50 € EUR ⟂ da Mario Rossi Bianchi');
+    });
+  });
 
   group('incoming, the name after the amount', () {
     test('italian: received from a person', () {

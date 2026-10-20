@@ -15,10 +15,11 @@
 ///   [PayPalNotificationParser.looksTransactional], so the review inbox shows
 ///   its raw text.
 ///
-/// No real PayPal text was available when this was written: the wordings are
-/// generic Italian/English ones, and the inbox is how the real templates get
-/// discovered. A false positive costs one "Ignora" tap; a missed reimbursement
-/// is the failure this parser exists to avoid.
+/// One real push is covered (20/10/2026: the amount in the title, "da `Name`"
+/// alone in the text); the other wordings are generic Italian/English ones, and
+/// the inbox is how the real templates get discovered. A false positive costs
+/// one "Ignora" tap; a missed reimbursement is the failure this parser exists to
+/// avoid.
 library;
 
 import 'package:budgetti/core/finance_math.dart';
