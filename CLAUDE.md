@@ -44,7 +44,7 @@ Drift SQLite + PocketBase (data layer)
 
 ### Database schema (Drift)
 
-Tables: Categories, Tags, Accounts, Transactions, Budgets, Installments, PivaProfiles, PivaPayments. All synced tables have `userId`, `isDeleted` (soft delete), and `lastUpdated` (sync tracking) fields.
+Tables: Categories, Tags, Accounts, Transactions, Budgets, Installments, PivaProfiles, PivaPayments. All synced tables have `userId`, `isDeleted` (soft delete), and `lastUpdated` (sync tracking) fields. Schema 21: `Transactions` also carries `othersShare` (REAL, `0` = not shared) and `reimbursesId` (nullable text), see "Shared expenses".
 
 **Cross-isolate writes.** Drift only notifies streams about writes made in their
 own isolate, and the `workmanager` tasks (bank capture, PocketBase sync) run in
@@ -83,6 +83,71 @@ FK — sync delivers rows in any order, so a dangling id just reads as unlinked)
 Set it from the transaction editor's INSTALLMENT row or from the plan sheet's
 linked-payments list. The links are evidence, not arithmetic: they never change
 what the plan says you owe, they only expose a rate nobody recorded.
+
+### Shared expenses
+
+An expense paid for others too (a 100 € dinner of which the others owe 75) counts
+only the owner's part everywhere it is analysed; the money that comes back is not
+income. Two columns on `Transactions` (schema 21), no table:
+
+- `othersShare` — euros the others owe, `0` = not shared, never negative, never
+  above `|amount|`. Only on an expense (`type == 'expense'`), `0` on every other type.
+- `reimbursesId` — the id of the shared expense an income pays back. Plain text,
+  no FK, like `installmentId` (rows arrive from sync in any order). Only on an
+  income with `amount > 0`; `''` and null both mean none, read with `isNotEmpty`.
+
+**Invariants live where every write converges**: `FinanceService.addTransaction` /
+`updateTransaction` write both columns through one helper (`clampShare` on an
+expense, `0` / null on the wrong type), so the editors, the quick edit
+(`transaction_page.dart` re-types a row through `copyWith`) and the review-inbox
+approval cannot break them. The backup import normalises the keys before the
+generated `fromJson` (absent, the web's `0` / `null`, or the app's own export all
+read), and the push clamps once more for a row written before the writes did. The
+server rejects a negative share, which would dead-letter the row. `linkReimbursement`
+is the one single-column write of the link (bumps `lastUpdated`), the call #38's
+pickers use from either side. Until #38 puts the fields in the form, `_submit` of
+`add_transaction_modal.dart` carries them over from the row being edited, so
+editing a description on the phone cannot erase a split marked on the web.
+
+**The rule** is in `lib/core/finance_math.dart`, the mirror of `web/src/finance.ts`
+(**change one, change both**): `ownShare(t)`, `ownView(txns)`, `receivable(expense,
+txns)`, `splitShare` (the editor's "split in N", never stored) and `clampShare`.
+`test/finance_math_test.dart` (group `shared expenses (mirror: web/src/finance.test.ts)`)
+ports the web's cases 1–12 under the same names and figures to the cent; the web
+quantities with no Dart twin are noted under each case ("web only, not ported").
+`dashboardStats: totals at the own share, recent rows raw` is not in the web suite.
+`ownShare` of a fully paid-back expense is `0.0`, never `-0.0` (it would format
+"-0,00"), and `_round2` here is the twin of `piva.dart`'s (JavaScript rounding).
+
+**Own or raw.** Own (through `ownView`, applied **once**, on a raw list — the copy
+keeps `othersShare`, so a second pass would read a −25 row that still carries 75 as
+0): dashboard totals and 30-day net flow, the summary sparkline, budgets, stats,
+charts, the category screen's totals / trend / budget, the budget alert, and the
+Partita IVA income. Raw: balances (the 100 € left, the 75 € came back), every row
+list (the dashboard's recent rows, the ledger, the category's rows), search by
+amount, the colour slots, the Sheets export and the import preview. Details:
+
+- `dashboardStats` takes the raw list and splits it itself: the totals loop over
+  `ownView(transactions)`, `recentTransactions` stays `transactions.take(n)`.
+- The ledger hero's `watchTotals` is the rule in SQL (it cannot call Dart): income
+  skips `COALESCE(reimburses_id, '') != ''`, expense is
+  `MAX(0, ROUND(-amount - others_share, 2))`; the count stays a count of rows.
+- `pivaIncome` leaves out any row with a `reimbursesId`: a reimbursement is never
+  compensi, even when its expense is gone (`_pivaIncomeQuery` stays unfiltered:
+  the engine is the one filter, as on the web).
+- A reimbursement whose expense does not exist (dangling id) still never counts
+  as income.
+
+**`ownView` is window-safe, `receivable` is not.** `ownView` depends only on each
+row, so the 12-month `transactionsProvider` and the one-year
+`periodTransactionsProvider` can feed it. `receivable` must see every
+reimbursement of an expense, however old: it reads `watchShareRelevant()` (the
+rows with `others_share > 0` or a non-empty `reimburses_id`, raw, no date window),
+through `shareTransactionsProvider`. `receivablesProvider` (expense id →
+`Receivable`: owed / received / outstanding) and `toReceiveProvider` (the shared
+expenses with money outstanding, newest first, and the total still owed in whole
+cents — an over-paid one never lowers it) are the data #38's badge and "To
+receive" card consume; there is no screen for the split yet.
 
 ### Partita IVA
 
@@ -143,6 +208,12 @@ local value when the record has no such key (a server without
 never returns it back). The server migration does not touch `updated`, so the
 upgrade makes one sync re-pull `piva_profile` from epoch: `pb_piva_profile_repulled`
 (a pref next to the cursors, default false, set by the sync once that pull ran).
+`transactions` has the same one-shot for the split fields, `pb_transactions_repulled`
+(schema 21): the migration `1751000014_transaction_split.js` does not touch
+`updated` either, so a row marked as shared on the web, pulled earlier by a build
+that dropped the two fields, would sit behind the cursor for good. A server
+without `1751000014` returns neither key, and a record without them reads as not
+shared (`othersShare` 0, `reimbursesId` null).
 `savePivaProfile` writes the map as given and `PivaProfileInput.declaredIncome`
 is required, so a save can never forget it; the profile sheet builds it with
 `declaredFromForm` and the banner's "derive it" answer writes it as `{...map,
@@ -184,6 +255,11 @@ two `deadlines … dichiarato …` calendars) are here under the same names, and
 the eighth, `declaredFromForm: il campo dell'anno prima segue la regola del form`
 (its `null`/absent rows are `{}` here: a NULL column reads `{}`). Every fiscal figure lives in the one year-keyed table
 at the top of the file, with its source; a new year is one new row.
+
+`pivaIncome` leaves out any income with a `reimbursesId`: the reimbursement of a
+shared expense is never compensi (nor the tax base), even when its expense is gone.
+It mirrors `piva.ts`, and the case `pivaIncome: il rimborso di una spesa condivisa
+non è un compenso` is the web's, under the same name and figures.
 
 No Drift, no Flutter, no I/O, and no `DateTime.now()`: `now` and `today` are
 always injected. Days are local `DateTime?` of which only year, month and day

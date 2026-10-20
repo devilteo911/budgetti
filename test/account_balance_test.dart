@@ -136,4 +136,63 @@ void main() {
         transfer.copyWith(category: 'Salary', type: 'income'));
     expect(await total(), 1100);
   });
+
+  // Mirror of web/src/finance.test.ts (case 9, balances): a balance is the money
+  // in the bank — the 100 € that left and the 25 € that came back twice both
+  // count whole. The split only changes what the analytics read.
+  test('transfers and balances stay raw', () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    for (final id in ['a1', 'a2']) {
+      await db.into(db.accounts).insert(AccountsCompanion.insert(
+            id: id,
+            userId: const Value('user-a'),
+            name: id,
+            balance: const Value(0),
+          ));
+    }
+    final service = FinanceService(db, 'user-a');
+
+    model.Transaction tx(
+      String id,
+      double amount,
+      DateTime date, {
+      String type = 'expense',
+      String? toAccountId,
+      double othersShare = 0,
+      String? reimbursesId,
+    }) =>
+        model.Transaction(
+          id: id,
+          accountId: 'a1',
+          toAccountId: toAccountId,
+          amount: amount,
+          date: date,
+          description: id,
+          category: 'x',
+          type: type,
+          othersShare: othersShare,
+          reimbursesId: reimbursesId,
+        );
+
+    for (final t in [
+      tx('pay', 2000, DateTime(2026, 6, 1, 12), type: 'income'),
+      tx('food', -50, DateTime(2026, 6, 5, 12)),
+      tx('dinner', -100, DateTime(2026, 6, 10, 12), othersShare: 75),
+      tx('back1', 25, DateTime(2026, 6, 12, 12),
+          type: 'income', reimbursesId: 'dinner'),
+      tx('back2', 25, DateTime(2026, 7, 3, 12),
+          type: 'income', reimbursesId: 'dinner'),
+      tx('move', 300, DateTime(2026, 6, 20, 12),
+          type: 'transfer', toAccountId: 'a2'),
+    ]) {
+      await service.addTransaction(t);
+    }
+
+    final balances = {
+      for (final a in await service.getAccounts()) a.id: a.balance,
+    };
+    expect(balances['a1'], 1600); // 2000 - 50 - 100 + 25 + 25 - 300
+    expect(balances['a2'], 300);
+  });
 }

@@ -14,6 +14,12 @@ class Transaction {
   /// Id of the installment plan this charge pays a rate of, if any.
   final String? installmentId;
 
+  /// Euros the others owe on this expense, `0` = not shared. Expenses only.
+  final double othersShare;
+
+  /// Id of the shared expense this income pays back, null = none. Incomes only.
+  final String? reimbursesId;
+
   /// Income/expense aggregates skip transfers — a wallet-to-wallet move is
   /// neither. Sign decides within the rest, so legacy/imported rows whose
   /// `type` disagrees with their sign still classify consistently everywhere.
@@ -31,6 +37,8 @@ class Transaction {
     this.type = 'expense',
     this.tags = const [],
     this.installmentId,
+    this.othersShare = 0,
+    this.reimbursesId,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -99,6 +107,9 @@ class Transaction {
     List<String>? tags,
     String? installmentId,
     bool clearInstallment = false,
+    double? othersShare,
+    String? reimbursesId,
+    bool clearReimburses = false,
   }) {
     return Transaction(
       id: id ?? this.id,
@@ -112,6 +123,9 @@ class Transaction {
       tags: tags ?? this.tags,
       installmentId:
           clearInstallment ? null : (installmentId ?? this.installmentId),
+      othersShare: othersShare ?? this.othersShare,
+      reimbursesId:
+          clearReimburses ? null : (reimbursesId ?? this.reimbursesId),
     );
   }
 }

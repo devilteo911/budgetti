@@ -285,9 +285,12 @@ double? declaredFor(PivaProfileData profile, int year) {
 
 /// The ledger income of the profile's categories, as banked (integrativo
 /// included). The sign decides, like everywhere else: [Transaction.isIncome].
+/// A reimbursement of a shared expense (`reimbursesId`) is never compensi, even
+/// when its expense is gone (rule of devilteo911/budgetti#36; mirror: web/src/piva.ts).
 /// The model has no `isDeleted`: deleted rows never reach it.
-List<Transaction> pivaIncome(List<Transaction> txns, PivaProfileData profile) =>
-    txns.where((t) => t.isIncome && profile.incomeCategories.contains(t.category)).toList();
+List<Transaction> pivaIncome(List<Transaction> txns, PivaProfileData profile) => txns
+    .where((t) => t.isIncome && (t.reimbursesId ?? '').isEmpty && profile.incomeCategories.contains(t.category))
+    .toList();
 
 /// 12 monthly *compensi* of [year] (local calendar month of `t.date`): each
 /// month is summed as banked, then divided, then rounded.

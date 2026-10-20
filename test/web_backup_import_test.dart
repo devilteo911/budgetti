@@ -58,6 +58,21 @@ final _webExportWithPiva = jsonEncode({
 ]'''),
 });
 
+/// The same export once the web marks splits (budgetti-web#14): `toBackupRow`
+/// always writes `othersShare` as a number (0 when unset) and `reimbursesId` as
+/// `null` when empty. `e2e-tx-1` is a 100 dinner the others owe 75 of,
+/// `e2e-tx-3` the income that pays it back, `e2e-tx-4` a plain income whose
+/// `reimbursesId` is an empty string (PocketBase's unset text).
+final _webExportWithSplit = jsonEncode({
+  ...jsonDecode(_webExport) as Map<String, dynamic>,
+  'transactions': jsonDecode('''
+[
+  {"id": "e2e-tx-1", "userId": "u", "accountId": "e2e-acc-1", "toAccountId": "", "amount": -100, "description": "Dinner", "category": "Groceries", "type": "expense", "date": 1784673381901, "tags": [], "othersShare": 75, "reimbursesId": null, "isDeleted": false, "lastUpdated": 1784673381901},
+  {"id": "e2e-tx-3", "userId": "u", "accountId": "e2e-acc-1", "toAccountId": "", "amount": 75, "description": "Paid back", "category": "Groceries", "type": "income", "date": 1784673381901, "tags": [], "othersShare": 0, "reimbursesId": "e2e-tx-1", "isDeleted": false, "lastUpdated": 1784673381901},
+  {"id": "e2e-tx-4", "userId": "u", "accountId": "e2e-acc-1", "toAccountId": "", "amount": 20, "description": "Gift", "category": "Salary", "type": "income", "date": 1784673381901, "tags": [], "othersShare": 0, "reimbursesId": "", "isDeleted": false, "lastUpdated": 1784673381901}
+]'''),
+});
+
 void main() {
   test('a backup exported by the web dashboard imports into the app', () async {
     _ensureSqlite();
@@ -79,6 +94,9 @@ void main() {
     expect(lunch.tags, ['Work']);
     // Drift stores DateTime at second precision — sub-second millis truncate.
     expect(lunch.date.millisecondsSinceEpoch, 1784673381000);
+    // No split keys at all (an old backup, or the web's omitted ones).
+    expect(lunch.othersShare, 0.0);
+    expect(lunch.reimbursesId, isNull);
 
     expect((await db.select(db.categories).get()).single.name, 'Groceries');
     expect((await db.select(db.accounts).get()).single.balance, 100);
@@ -147,5 +165,35 @@ void main() {
     expect(zero.amount, 0.0);
     expect(zero.paidDate!.millisecondsSinceEpoch, 1782817200000);
     expect(zero.note, 'acconto non dovuto');
+  });
+
+  test('a web backup with a shared expense and its reimbursement imports into '
+      'the app', () async {
+    _ensureSqlite();
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final backupService =
+        BackupService(db, GoogleDriveService(GoogleAuthService()), GoogleAuthService());
+
+    final file = File(
+        '${Directory.systemTemp.path}/web_backup_split_${DateTime.now().microsecondsSinceEpoch}.json');
+    await file.writeAsString(_webExportWithSplit);
+    addTearDown(() => file.delete());
+
+    await backupService.importDatabase(file);
+
+    final txs = {
+      for (final t in await db.select(db.transactions).get()) t.id: t
+    };
+    expect(txs.length, 3);
+    // An integer 75 reads as 75.0, and the web's null as no link.
+    expect(txs['e2e-tx-1']!.amount, -100.0);
+    expect(txs['e2e-tx-1']!.othersShare, 75.0);
+    expect(txs['e2e-tx-1']!.reimbursesId, isNull);
+    expect(txs['e2e-tx-3']!.othersShare, 0.0);
+    expect(txs['e2e-tx-3']!.reimbursesId, 'e2e-tx-1');
+    expect(txs['e2e-tx-4']!.othersShare, 0.0);
+    expect(txs['e2e-tx-4']!.reimbursesId, isNull,
+        reason: "an empty string is not a link to ''");
   });
 }

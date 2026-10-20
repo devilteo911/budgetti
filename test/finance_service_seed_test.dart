@@ -1,6 +1,7 @@
 import 'dart:ffi';
 
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart' show Value;
@@ -177,6 +178,30 @@ void _migrationTests() {
       ));
     }
 
+    // A shared expense (the others owe 75) and the 50 that came back for it:
+    // the totals read the owner's share, so t7 weighs 25 and t8 is no income.
+    await service.addTransaction(model.Transaction(
+      id: 't7',
+      accountId: 'user-a_main',
+      amount: -100,
+      date: base.add(const Duration(days: 5)),
+      description: 't7',
+      category: 'Food',
+      tags: ['Groceries'],
+      othersShare: 75,
+    ));
+    await service.addTransaction(model.Transaction(
+      id: 't8',
+      accountId: 'user-a_main',
+      amount: 50,
+      date: base.add(const Duration(days: 6)),
+      description: 't8',
+      category: 'Food',
+      type: 'income',
+      tags: ['Groceries'],
+      reimbursesId: 't7',
+    ));
+
     Future<(double, double, int)> totals() async {
       final list = await service
           .watchTotals(
@@ -190,19 +215,50 @@ void _migrationTests() {
     }
 
     final (income, expense, count) = await totals();
-    // Only t2 and t6 match (in-range, category, tag); the transfer never counts.
+    // Only t2, t6, t7 and t8 match (in-range, category, tag); the transfer never
+    // counts. t7 is 25 of spending, t8 a reimbursement: no income, still a row.
     expect(income, 0.0);
-    expect(expense, 60.0);
-    expect(count, 2);
+    expect(expense, 85.0);
+    expect(count, 4);
 
-    // Unfiltered totals: t1+t2+t3+t6 count, t5 is out of range, transfer t4
-    // excluded from income/expense but… transfers are skipped entirely by the
+    // Unfiltered totals: t1+t2+t3+t6+t7+t8 count, t5 is out of range, transfer
+    // t4 excluded from income/expense but… transfers are skipped entirely by the
     // old in-memory loop, so count must skip them too.
     final (allIncome, allExpense, allCount) =
         await service.watchTotals(startDate: DateTime(2026, 1, 1)).first;
     expect(allIncome, 100.0);
-    expect(allExpense, 120.0);
-    expect(allCount, 4);
+    expect(allExpense, 145.0);
+    expect(allCount, 6);
+
+    // The same figures from the model: `ownView` + isIncome/isExpense over the
+    // very rows the list shows (the count is a count of those raw rows).
+    (double, double, int) fromModel(List<model.Transaction> listed) {
+      final view = ownView(listed);
+      return (
+        view.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount),
+        view.where((t) => t.isExpense).fold(0.0, (s, t) => s - t.amount),
+        listed.where((t) => t.type != 'transfer').length,
+      );
+    }
+
+    final listed = await service
+        .watchTransactions(
+          startDate: DateTime(2026, 1, 1),
+          endDate: DateTime(2026, 12, 31, 23, 59, 59, 999),
+          categories: ['Food', 'Bills'],
+          tags: ['Groceries'],
+        )
+        .first;
+    final (mIncome, mExpense, mCount) = fromModel(listed);
+    expect(income, closeTo(mIncome, 0.001));
+    expect(expense, closeTo(mExpense, 0.001));
+    expect(count, mCount);
+
+    final all = await service.watchTransactions(startDate: DateTime(2026, 1, 1)).first;
+    final (mAllIncome, mAllExpense, mAllCount) = fromModel(all);
+    expect(allIncome, closeTo(mAllIncome, 0.001));
+    expect(allExpense, closeTo(mAllExpense, 0.001));
+    expect(allCount, mAllCount);
   });
 
   test('watchInstallmentRelevant returns linked rows and unlinked expenses',
@@ -280,6 +336,122 @@ void _migrationTests() {
       unorderedEquals(
           ['real-expense', 'income-typed-outgoing', 'linked-income-typed']),
     );
+  });
+
+  // `receivable` sums every reimbursement of an expense, and an old dinner can
+  // still be owed: the shared rows come with no date window and their raw
+  // amounts (the own view would show 25 and drop the 50).
+  test('watchShareRelevant emits an old shared expense and its reimbursement, raw',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    final now = DateTime.now();
+    final dinnerDay = DateTime(now.year, now.month - 14, 10);
+    await service.addTransaction(model.Transaction(
+      id: 'dinner',
+      accountId: 'user-a_main',
+      amount: -100,
+      date: dinnerDay,
+      description: 'dinner',
+      category: 'Eating out',
+      othersShare: 75,
+    ));
+    await service.addTransaction(model.Transaction(
+      id: 'back',
+      accountId: 'user-a_main',
+      amount: 50,
+      date: DateTime(now.year, now.month - 1, 5),
+      description: 'back',
+      category: 'Eating out',
+      type: 'income',
+      reimbursesId: 'dinner',
+    ));
+
+    // The 12-month window the dashboard providers use misses the dinner.
+    final windowed = await service
+        .watchTransactions(startDate: DateTime(now.year, now.month - 11, 1))
+        .first;
+    expect(windowed.map((t) => t.id), ['back']);
+
+    final rows = await service.watchShareRelevant().first;
+    expect(rows.map((t) => t.id), ['back', 'dinner'], reason: 'newest first');
+    expect(rows.map((t) => t.amount), [50.0, -100.0]);
+    expect(rows.last.othersShare, 75.0);
+    expect(rows.first.reimbursesId, 'dinner');
+  });
+
+  test('watchShareRelevant emits a reimbursement whose expense is not there',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    await service.addTransaction(model.Transaction(
+      id: 'orphan',
+      accountId: 'user-a_main',
+      amount: 20,
+      date: DateTime(2026, 3, 1),
+      description: 'orphan',
+      category: 'x',
+      type: 'income',
+      reimbursesId: 'gone',
+    ));
+
+    final rows = await service.watchShareRelevant().first;
+    expect(rows.map((t) => t.id), ['orphan']);
+  });
+
+  test('watchShareRelevant leaves out plain rows, deleted ones and other users',
+      () async {
+    final db = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(db.close);
+    final service = FinanceService(db, 'user-a');
+    await service.getAccounts();
+
+    Future<void> add(
+      FinanceService s,
+      String id,
+      double amount,
+      String type, {
+      double othersShare = 0,
+      String? reimbursesId,
+    }) =>
+        s.addTransaction(model.Transaction(
+          id: id,
+          accountId: 'user-a_main',
+          amount: amount,
+          date: DateTime(2026, 3, 1),
+          description: id,
+          category: 'x',
+          type: type,
+          othersShare: othersShare,
+          reimbursesId: reimbursesId,
+        ));
+    await add(service, 'plain-expense', -10, 'expense');
+    await add(service, 'plain-income', 50, 'income');
+    await add(service, 'gone-dinner', -100, 'expense', othersShare: 75);
+    await service.deleteTransactions(['gone-dinner']);
+    await add(FinanceService(db, 'user-b'), 'theirs', -100, 'expense',
+        othersShare: 75);
+    // A backup-imported income carries `''`, which is no link.
+    await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'empty-link',
+          userId: const Value('user-a'),
+          amount: 30,
+          description: 'empty-link',
+          category: 'x',
+          type: const Value('income'),
+          date: DateTime(2026, 3, 1),
+          reimbursesId: const Value(''),
+        ));
+    await add(service, 'kept', -100, 'expense', othersShare: 75);
+
+    final rows = await service.watchShareRelevant().first;
+    expect(rows.map((t) => t.id), ['kept']);
   });
 
   // A wallet's view filtered on accountId only, so the top-up that arrived in

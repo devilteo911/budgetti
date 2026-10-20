@@ -151,6 +151,16 @@ class Transactions extends Table {
   /// integrity is enforced nowhere and a dangling id just reads as unlinked.
   TextColumn get installmentId => text().nullable()();
 
+  /// Euros the others owe on this expense (a shared bill the owner paid in
+  /// full), positive; `0` = not shared. Meaningful only on `type = 'expense'`,
+  /// 0 on every other type. The analytics count `|amount| − othersShare`.
+  RealColumn get othersShare => real().withDefault(const Constant(0.0))();
+
+  /// Id of the shared expense this income pays back, null = not a
+  /// reimbursement. Meaningful only on an income. Not a real FK, for the same
+  /// reason as [installmentId]: rows arrive from sync in any order.
+  TextColumn get reimbursesId => text().nullable()();
+
   // Sync fields
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastUpdated => dateTime().nullable()();
@@ -363,7 +373,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forExecutor(super.e);
 
   @override
-  int get schemaVersion => 20; // v20: piva_profiles.declared_income
+  int get schemaVersion => 21; // v21: transactions.others_share + reimburses_id
 
   /// Every index the schema declares, as full CREATE statements. Drift's
   /// codegen only picks up `@TableIndex` annotations — the plain
@@ -495,6 +505,10 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 20) {
         await _addColumnIfMissing(m, pivaProfiles, pivaProfiles.declaredIncome);
+      }
+      if (from < 21) {
+        await _addColumnIfMissing(m, transactions, transactions.othersShare);
+        await _addColumnIfMissing(m, transactions, transactions.reimbursesId);
       }
     },
   );

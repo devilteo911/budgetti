@@ -217,6 +217,28 @@ void main() {
           isDeleted: const Value(true),
           lastUpdated: Value(t),
         ));
+    // A shared expense (the others owe 75) and the income that pays it back.
+    await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'tx-dinner',
+          userId: const Value('user-a'),
+          accountId: const Value('acc1'),
+          amount: -100,
+          description: 'Cena',
+          category: 'Dining',
+          date: t,
+          othersShare: const Value(75.0),
+        ));
+    await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'tx-back',
+          userId: const Value('user-a'),
+          accountId: const Value('acc1'),
+          amount: 75,
+          description: 'Rimborso',
+          category: 'Dining',
+          type: const Value('income'),
+          date: t,
+          reimbursesId: const Value('tx-dinner'),
+        ));
 
     Future<Map<String, List<Map<String, dynamic>>>> snapshot(AppDatabase d) async {
       Future<List<Map<String, dynamic>>> js(Future<List<DataClass>> rows) async =>
@@ -251,6 +273,51 @@ void main() {
     expect(tx.tags, ['eating out', 'x']);
     expect(tx.installmentId, 'inst1');
     expect(tx.isDeleted, isTrue);
+    // The split and its link survive on their own, not only inside the snapshot.
+    final restored = {
+      for (final r in await fresh.select(fresh.transactions).get()) r.id: r
+    };
+    expect(restored['tx-dinner']!.othersShare, 75.0);
+    expect(restored['tx-dinner']!.reimbursesId, isNull);
+    expect(restored['tx-back']!.othersShare, 0.0);
+    expect(restored['tx-back']!.reimbursesId, 'tx-dinner');
+  });
+
+  // The server rejects a negative `othersShare`, and a share above the amount
+  // makes no sense: a hand-edited or foreign backup is clamped on the way in,
+  // and the split only means something on an expense (a reimbursement only on
+  // an income), so any other row reads as neither.
+  test('a backup with a negative, oversized or misplaced split imports '
+      'clamped', () async {
+    final base = (await db.select(db.transactions).get()).single.toJson();
+    Map<String, dynamic> row(String id, Map<String, dynamic> over) =>
+        {...base, 'id': id, ...over};
+    final file = File('${dir.path}/split.json');
+    await file.writeAsString(jsonEncode({
+      'accounts': const [],
+      'transactions': [
+        row('neg', {'amount': -100.0, 'othersShare': -5}),
+        row('over', {'amount': -100.0, 'othersShare': 150}),
+        row('inc', {'amount': 40.0, 'type': 'income', 'othersShare': 30}),
+        row('exp-link', {'amount': -10.0, 'reimbursesId': 'over'}),
+      ],
+      'categories': const [],
+      'tags': const [],
+      'budgets': const [],
+    }));
+
+    final fresh = AppDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(fresh.close);
+    await serviceFor(fresh).importDatabase(file);
+
+    final byId = {
+      for (final r in await fresh.select(fresh.transactions).get()) r.id: r
+    };
+    expect(byId['neg']!.othersShare, 0.0);
+    expect(byId['over']!.othersShare, 100.0);
+    expect(byId['inc']!.othersShare, 0.0, reason: 'a share on an income is 0');
+    expect(byId['exp-link']!.reimbursesId, isNull,
+        reason: 'only an income reimburses');
   });
 
   // The web (budgetti-web) reads and writes this shape: collection names as

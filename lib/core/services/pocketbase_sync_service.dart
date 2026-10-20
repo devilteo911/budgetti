@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:budgetti/core/database/database.dart';
+import 'package:budgetti/core/finance_math.dart' show clampShare;
 import 'package:budgetti/core/services/color_slots.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
 import 'package:drift/drift.dart';
@@ -552,10 +553,12 @@ class PocketBaseSyncService {
   /// One shared cursor mixed device wall-clock stamps with server stamps, so
   /// a fast device clock diverged the pull filter permanently.
   ///
-  /// `piva_profile` is the one collection pulled from epoch regardless of the
-  /// cursor, once, until a run with [pull] has pulled it without an exception
-  /// (`pb_piva_profile_repulled`): the upgrade that added `declaredIncome` must
-  /// reach profiles whose `updated` the server migration did not touch.
+  /// `piva_profile` and `transactions` are the two collections pulled from epoch
+  /// regardless of the cursor, once each, until a run with [pull] has pulled
+  /// them without an exception (`pb_piva_profile_repulled`,
+  /// `pb_transactions_repulled`): the upgrades that added `declaredIncome` and
+  /// `othersShare` / `reimbursesId` must reach rows whose `updated` the server
+  /// migration did not touch.
   ///
   /// A sync with no session at all (the client holds no user) returns at once.
   Future<SyncSummary> sync({
@@ -603,10 +606,14 @@ class PocketBaseSyncService {
       var collectionFailed = false;
 
       for (final spec in _specs) {
-        // One-shot, see [PersistenceService.getPivaProfileRepulled]: until the
-        // profile has been pulled once from epoch, the cursor does not apply.
-        final repull = spec.collection == 'piva_profile' &&
-            !_persistence.getPivaProfileRepulled();
+        // One-shot, see [PersistenceService.getPivaProfileRepulled] and
+        // [PersistenceService.getTransactionsRepulled]: until the collection has
+        // been pulled once from epoch, the cursor does not apply.
+        final repull = switch (spec.collection) {
+          'piva_profile' => !_persistence.getPivaProfileRepulled(),
+          'transactions' => !_persistence.getTransactionsRepulled(),
+          _ => false,
+        };
         try {
           // --- PULL (server `updated` > pull cursor) ---
           final applied = <String>{};
@@ -648,7 +655,11 @@ class PocketBaseSyncService {
             }
             // Reached only when the pull above did not throw: an auth expiry or
             // a failed collection skips it, and the next sync tries again.
-            if (repull) await _persistence.setPivaProfileRepulled(true);
+            if (repull) {
+              await (spec.collection == 'transactions'
+                  ? _persistence.setTransactionsRepulled(true)
+                  : _persistence.setPivaProfileRepulled(true));
+            }
           }
 
           if (spec.collection == 'categories') {
@@ -1033,6 +1044,13 @@ class PocketBaseSyncService {
               'date': _toIso(t.date),
               'tags': t.tags ?? const <String>[],
               'installmentId': t.installmentId,
+              // The server rejects a negative `othersShare` (min 0), which would
+              // dead-letter the row: clamp here too, as a last guard for a row
+              // written before the write paths did (or by hand). A null
+              // `reimbursesId` is stored by PocketBase as '', like `installmentId`.
+              'othersShare':
+                  t.type == 'expense' ? clampShare(t.othersShare, t.amount) : 0.0,
+              'reimbursesId': t.reimbursesId,
               'isDeleted': t.isDeleted,
               'lastUpdated': _toIso(t.lastUpdated ?? now),
             });
@@ -1061,6 +1079,11 @@ class PocketBaseSyncService {
                       // PocketBase stores an unset text field as '' — keep
                       // that as "unlinked" rather than a dangling empty id.
                       installmentId: Value(_emptyToNull(r['installmentId'])),
+                      // A server without `1751000014_transaction_split.js` returns
+                      // neither key: the row reads as not shared, as before. The
+                      // server guarantees `othersShare` >= 0, so the pull only reads.
+                      othersShare: Value(_toDouble(r['othersShare'])),
+                      reimbursesId: Value(_emptyToNull(r['reimbursesId'])),
                       isDeleted: Value(_toBool(r['isDeleted'])),
                       lastUpdated: Value(_fromIso(r['lastUpdated'])),
                     ),

@@ -285,6 +285,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       // Only an expense can be a rate; switching type away from expense drops
       // a link the user made before switching.
       installmentId: _type == 'expense' ? _selectedInstallmentId : null,
+      // The split is not in this form yet (#38 puts its fields here), so an
+      // edit carries over what the row already holds: saving a description
+      // must not erase a split marked elsewhere. The service clears them if
+      // the type changed.
+      othersShare: widget.transaction?.othersShare ?? 0,
+      reimbursesId: widget.transaction?.reimbursesId,
     );
 
     final service = ref.read(financeServiceProvider);

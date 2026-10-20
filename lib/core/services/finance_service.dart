@@ -378,6 +378,8 @@ class FinanceService {
         date: t.date,
         tags: t.tags ?? [],
         installmentId: t.installmentId,
+        othersShare: t.othersShare,
+        reimbursesId: (t.reimbursesId ?? '').isEmpty ? null : t.reimbursesId,
       );
 
   /// Drift row → engine profile. The engine class has no `id`/`isDeleted`, and
@@ -480,6 +482,27 @@ class FinanceService {
     return query.watch().map((result) => result.map(_toModelTx).toList());
   }
 
+  /// The raw source of `receivable` (finance_math.dart): every shared expense
+  /// (`others_share > 0`) and every reimbursement (non-empty `reimburses_id`,
+  /// `''` counts as none), with their stored amounts. No date window: an old
+  /// dinner can still be owed and its reimbursement can arrive months later, so
+  /// a windowed list would miss either half. Not `ownView`ed — that drops
+  /// exactly the rows `receivable` sums.
+  Stream<List<model_txn.Transaction>> watchShareRelevant() {
+    final query = _db.select(_db.transactions)
+      ..where((tbl) =>
+          tbl.isDeleted.equals(false) &
+          tbl.userId.equals(_userId) &
+          (tbl.othersShare.isBiggerThanValue(0) |
+              (tbl.reimbursesId.isNotNull() &
+                  tbl.reimbursesId.equals('').not())))
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+        (t) => OrderingTerm(expression: t.lastUpdated, mode: OrderingMode.desc),
+      ]);
+    return query.watch().map((result) => result.map(_toModelTx).toList());
+  }
+
   /// Every income row of the ledger, whatever the date: the Partita IVA figures
   /// read the whole history (the acconti of a year look at the years before
   /// it), so no window. Same rule as `Transaction.isIncome` — a non-transfer
@@ -522,6 +545,12 @@ class FinanceService {
   /// aggregate watched on the transactions table, instead of re-watching and
   /// re-mapping the whole ledger on the UI isolate. Classification mirrors
   /// the model: income/expense = non-transfer by sign, transfers excluded.
+  ///
+  /// Income and expense are the owner's share, the `ownView` rule of
+  /// `finance_math.dart` written in SQL (it cannot call Dart): a reimbursement
+  /// (non-empty `reimburses_id`) is no income, and a shared expense counts what
+  /// the others do not owe, never below 0. The count stays a count of rows —
+  /// the shared expense and its reimbursement are both rows the list shows.
   Stream<(double, double, int)> watchTotals({
     String? accountId,
     DateTime? startDate,
@@ -557,8 +586,8 @@ class FinanceService {
     return _db
         .customSelect(
           'SELECT '
-          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount > 0 THEN amount ELSE 0 END), 0) AS income, '
-          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount < 0 THEN -amount ELSE 0 END), 0) AS expense, '
+          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount > 0 AND COALESCE(reimburses_id, \'\') = \'\' THEN amount ELSE 0 END), 0) AS income, '
+          'COALESCE(SUM(CASE WHEN type != \'transfer\' AND amount < 0 THEN MAX(0, ROUND(-amount - others_share, 2)) ELSE 0 END), 0) AS expense, '
           // COALESCE all three: SUM over no rows is NULL, and an unwrapped
           // count threw on an empty filter, leaving the UI on stale totals.
           'COALESCE(SUM(CASE WHEN type != \'transfer\' THEN 1 ELSE 0 END), 0) AS count '
@@ -619,7 +648,24 @@ class FinanceService {
     return clauses.join(' AND ');
   }
 
+  /// The two split columns as they may be stored: a share only on an expense,
+  /// clamped to [0, |amount|] (the server rejects a negative one); a
+  /// reimbursement id only on an income. [addTransaction] and
+  /// [updateTransaction] both take it, so a type changed behind the editor's
+  /// back (`copyWith(type:)` in the quick edit) clears what no longer applies.
+  ({double share, String? reimburses}) _splitColumns(
+    model_txn.Transaction t,
+  ) =>
+      (
+        share: t.type == 'expense' ? clampShare(t.othersShare, t.amount) : 0.0,
+        reimburses:
+            t.type == 'income' && t.amount > 0 && (t.reimbursesId ?? '').isNotEmpty
+                ? t.reimbursesId
+                : null,
+      );
+
   Future<void> addTransaction(model_txn.Transaction transaction) async {
+    final split = _splitColumns(transaction);
     await _db.into(_db.transactions).insert(TransactionsCompanion.insert(
       id: transaction.id.isEmpty ? const Uuid().v4() : transaction.id,
       accountId: Value(transaction.accountId),
@@ -631,12 +677,15 @@ class FinanceService {
       date: transaction.date,
       tags: Value(transaction.tags),
             installmentId: Value(transaction.installmentId),
+            othersShare: Value(split.share),
+            reimbursesId: Value(split.reimburses),
             userId: Value(_userId),
       lastUpdated: Value(DateTime.now()),
     ));
   }
 
   Future<void> updateTransaction(model_txn.Transaction transaction) async {
+    final split = _splitColumns(transaction);
     await (_db.update(_db.transactions)..where((t) => t.id.equals(transaction.id))).write(TransactionsCompanion(
       accountId: Value(transaction.accountId),
         toAccountId: Value(transaction.toAccountId),
@@ -647,6 +696,8 @@ class FinanceService {
       date: Value(transaction.date),
       tags: Value(transaction.tags),
       installmentId: Value(transaction.installmentId),
+      othersShare: Value(split.share),
+      reimbursesId: Value(split.reimburses),
       lastUpdated: Value(DateTime.now()),
     ));
   }
@@ -1016,6 +1067,18 @@ class FinanceService {
           ..where((t) => t.id.equals(transactionId)))
         .write(TransactionsCompanion(
       installmentId: Value(installmentId),
+      lastUpdated: Value(DateTime.now()),
+    ));
+  }
+
+  /// Point the income [incomeId] at the shared expense it pays back, or detach
+  /// it with a null (or empty) [expenseId], stored as null. One field, so the
+  /// link/unlink flow from either side — the expense's picker or the income's —
+  /// is this call.
+  Future<void> linkReimbursement(String incomeId, String? expenseId) async {
+    await (_db.update(_db.transactions)..where((t) => t.id.equals(incomeId)))
+        .write(TransactionsCompanion(
+      reimbursesId: Value((expenseId ?? '').isEmpty ? null : expenseId),
       lastUpdated: Value(DateTime.now()),
     ));
   }

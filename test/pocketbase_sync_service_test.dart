@@ -117,6 +117,10 @@ class _FakeClient extends SyncClient {
     if (authExpired) throw const SyncAuthExpired();
     pushAttempts[id] = (pushAttempts[id] ?? 0) + 1;
     if (reject.contains(id)) throw Exception('rejected: $id');
+    // The `min: 0` of transactions.othersShare (1751000014_transaction_split.js).
+    if (c == 'transactions' && ((body['othersShare'] as num?) ?? 0) < 0) {
+      throw Exception('400: othersShare must be >= 0');
+    }
     if (onBeforeUpsert != null) onBeforeUpsert!(c, id);
     final stored = _store[c]?[id];
     if (enforceLww && stored != null) {
@@ -532,6 +536,63 @@ void main() {
     expect(tx?.installmentId, 'ins1');
   });
 
+  test('a shared expense and its reimbursement round-trip push → pull',
+      () async {
+    final (db, _, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    // A 100 dinner the others owe 75 of, and the income that pays it back.
+    await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'dinner',
+          userId: const Value('u1'),
+          amount: -100,
+          description: 'Cena',
+          category: 'Dining',
+          date: t1,
+          othersShare: const Value(75.0),
+          lastUpdated: Value(t1),
+        ));
+    await db.into(db.transactions).insert(TransactionsCompanion.insert(
+          id: 'back',
+          userId: const Value('u1'),
+          amount: 75,
+          description: 'Rimborso',
+          category: 'Dining',
+          type: const Value('income'),
+          date: t1,
+          reimbursesId: const Value('dinner'),
+          lastUpdated: Value(t1),
+        ));
+
+    await service.sync();
+
+    // Exactly the PocketBase field names of 1751000014_transaction_split.js — a
+    // typo here syncs silently wrong data.
+    final dinner = client._store['transactions']!['dinner']!;
+    expect(dinner, containsPair('othersShare', 75));
+    expect(dinner, containsPair('reimbursesId', null));
+    final back = client._store['transactions']!['back']!;
+    expect(back, containsPair('othersShare', 0));
+    expect(back, containsPair('reimbursesId', 'dinner'));
+
+    // A fresh device pulls them back with the same values.
+    SharedPreferences.setMockInitialValues({});
+    final prefs2 = await SharedPreferences.getInstance();
+    final db2 = AppDatabase.forExecutor(NativeDatabase.memory());
+    await db2.delete(db2.transactions).go();
+    final service2 = PocketBaseSyncService(
+        client, db2, PersistenceService(prefs2), 'u1');
+
+    await service2.sync(push: false);
+
+    final rows = {
+      for (final r in await db2.select(db2.transactions).get()) r.id: r
+    };
+    expect(rows['dinner']!.othersShare, 75.0);
+    expect(rows['dinner']!.reimbursesId, isNull);
+    expect(rows['back']!.othersShare, 0.0);
+    expect(rows['back']!.reimbursesId, 'dinner');
+  });
+
   test('an unlinked transaction stays unlinked through PocketBase', () async {
     // PB stores an unset text field as '', not null — pulled back naively that
     // becomes an empty plan id, which reads as "linked to nothing".
@@ -562,6 +623,68 @@ void main() {
         .getSingleOrNull();
     expect(tx, isNotNull);
     expect(tx!.installmentId, isNull);
+  });
+
+  test("a pulled record reads PB's '' as no reimbursement, and a server without "
+      'the split fields as not shared', () async {
+    final t1 = DateTime(2026, 7, 1, 10);
+    Map<String, dynamic> record(Map<String, dynamic> split) => {
+          'accountId': 'acc1',
+          'amount': -20.0,
+          'description': 'Coffee',
+          'category': 'Dining',
+          'type': 'expense',
+          'date': t1.toUtc().toIso8601String(),
+          'tags': <String>[],
+          'installmentId': '',
+          'isDeleted': false,
+          'lastUpdated': t1.toUtc().toIso8601String(),
+          'updated': t1.toUtc().toIso8601String(),
+          ...split,
+        };
+    final (db, _, _, service) = await _harness(initialStore: {
+      'transactions': {
+        // A server without 1751000014_transaction_split.js: neither key.
+        'tx-old': record({}),
+        // One with it: PB's empty text, and a real split.
+        'tx-empty': record({'othersShare': 0, 'reimbursesId': ''}),
+        'tx-split': record({'othersShare': 15, 'reimbursesId': ''}),
+      },
+    });
+
+    final summary = await service.sync(full: true, push: false);
+
+    expect(summary.skipped, 0);
+    expect(summary.pulled, 3);
+    final rows = {
+      for (final r in await db.select(db.transactions).get()) r.id: r
+    };
+    expect(rows['tx-old']!.othersShare, 0.0);
+    expect(rows['tx-old']!.reimbursesId, isNull);
+    expect(rows['tx-empty']!.othersShare, 0.0);
+    expect(rows['tx-empty']!.reimbursesId, isNull);
+    expect(rows['tx-split']!.othersShare, 15.0);
+    expect(rows['tx-split']!.reimbursesId, isNull);
+  });
+
+  test('a local row holding a negative othersShare is pushed as 0, not rejected',
+      () async {
+    final (db, _, client, service) = await _harness();
+    final t1 = DateTime(2026, 7, 1, 10);
+    final secs = t1.millisecondsSinceEpoch ~/ 1000;
+    // Raw SQL, to stand for a row written by hand (or by a build whose write
+    // paths did not clamp): the server's `min: 0` would reject it as it is.
+    await db.customStatement(
+        'INSERT INTO transactions (id, user_id, amount, description, category, '
+        'type, date, others_share, last_updated) '
+        "VALUES ('tx-neg', 'u1', -100, 'Cena', 'Dining', 'expense', ?, -5, ?)",
+        [secs, secs]);
+
+    final summary = await service.sync();
+
+    expect(summary.pushed, 1);
+    expect(summary.skipped, 0);
+    expect(client._store['transactions']!['tx-neg']!['othersShare'], 0);
   });
 
   test('a collection the server does not have yet cannot break the others',
@@ -1104,6 +1227,140 @@ void main() {
       expect(slot, isNotNull, reason: 'pulled with no slot, then backfilled');
       expect(client._store['categories']!['c1']!['colorSlot'], slot! + 1,
           reason: 'the backfill re-stamped the row, so the push must not skip it');
+    });
+  });
+
+  // The server migration that adds othersShare / reimbursesId leaves `updated`
+  // alone on the rows it finds, and a build without them drops both fields from
+  // a row it pulls: a split marked on the web would sit behind this phone's
+  // pull cursor for good. `pb_transactions_repulled` makes its first sync pull
+  // that one collection from epoch (the same device state as the
+  // `piva_profile` group below, which this mirrors).
+  group('the one-shot re-pull of transactions', () {
+    final t1 = DateTime(2026, 7, 1, 10);
+    String iso(DateTime d) => d.toUtc().toIso8601String();
+
+    Future<double> share(AppDatabase db) async {
+      final row = await (db.select(db.transactions)
+            ..where((t) => t.id.equals('dinner')))
+          .getSingle();
+      return row.othersShare;
+    }
+
+    /// A phone upgraded behind its cursors: it synced everything long ago (both
+    /// cursors past the row), its copy has the same `lastUpdated` as the
+    /// server's and no split, and the server row holds one (75 of 100) but its
+    /// `updated` predates the pull cursor. The `piva_profile` flag is already
+    /// set, so only the transactions' own flag is under test.
+    Future<(AppDatabase, PersistenceService, _FakeClient, PocketBaseSyncService)>
+        upgradedPhone() async {
+      final h = await _harness(initialStore: {
+        'transactions': {
+          'dinner': {
+            'accountId': 'acc1',
+            'amount': -100.0,
+            'description': 'Cena',
+            'category': 'Dining',
+            'type': 'expense',
+            'date': iso(t1),
+            'tags': <String>[],
+            'installmentId': '',
+            'othersShare': 75,
+            'reimbursesId': '',
+            'isDeleted': false,
+            'lastUpdated': iso(t1),
+            'updated': iso(t1),
+          },
+        },
+      });
+      final (db, persistence, _, _) = h;
+      await persistence.setPullSyncAt(DateTime(2026, 7, 10));
+      await persistence.setLastSyncAt(DateTime(2026, 7, 10));
+      await persistence.setPivaProfileRepulled(true);
+      await db.into(db.transactions).insert(TransactionsCompanion.insert(
+            id: 'dinner',
+            userId: const Value('u1'),
+            amount: -100,
+            description: 'Cena',
+            category: 'Dining',
+            date: t1,
+            lastUpdated: Value(t1),
+          ));
+      return h;
+    }
+
+    test('with the flag unset the first sync gets the split and sets it, the '
+        'second does not pull again', () async {
+      final (db, persistence, client, service) = await upgradedPhone();
+      expect(persistence.getTransactionsRepulled(), isFalse);
+
+      final first = await service.sync();
+
+      expect(first.skipped, 0);
+      expect(first.pulled, 1);
+      expect(await share(db), 75.0);
+      expect(persistence.getTransactionsRepulled(), isTrue);
+
+      // The server share changes without moving `updated`: a normal pull
+      // cannot see it, and the re-pull does not run twice.
+      client._store['transactions']!['dinner']!['othersShare'] = 50;
+      final second = await service.sync();
+      expect(second.pulled, 0);
+      expect(await share(db), 75.0);
+      expect(persistence.getPivaProfileRepulled(), isTrue,
+          reason: 'the other flag is not touched');
+    });
+
+    test('with the flag already set the first sync does not see the split — '
+        'what the re-pull is for', () async {
+      final (db, persistence, _, service) = await upgradedPhone();
+      await persistence.setTransactionsRepulled(true);
+
+      final first = await service.sync();
+
+      expect(first.pulled, 0, reason: 'behind the pull cursor');
+      expect(await share(db), 0.0);
+      expect(persistence.getPivaProfileRepulled(), isTrue);
+    });
+
+    test('a push-only run, an expired session and a failed collection leave '
+        'the flag unset', () async {
+      final (db, persistence, client, service) = await upgradedPhone();
+
+      await service.sync(pull: false);
+      expect(persistence.getTransactionsRepulled(), isFalse,
+          reason: 'push-only: the collection was not pulled');
+
+      client.authExpired = true;
+      await service.sync();
+      expect(persistence.getTransactionsRepulled(), isFalse,
+          reason: 'auth expiry aborts before any collection is pulled');
+      client.authExpired = false;
+
+      client.failCollections.add('transactions');
+      await service.sync();
+      expect(persistence.getTransactionsRepulled(), isFalse,
+          reason: 'the collection failed, so the next sync tries again');
+      client.failCollections.clear();
+
+      expect(persistence.getPivaProfileRepulled(), isTrue);
+      await service.sync();
+      expect(persistence.getTransactionsRepulled(), isTrue);
+      expect(await share(db), 75.0);
+      expect(persistence.getPivaProfileRepulled(), isTrue);
+    });
+
+    test('the two re-pull flags are independent', () async {
+      final (db, persistence, _, service) = await upgradedPhone();
+      await persistence.setTransactionsRepulled(true);
+      await persistence.setPivaProfileRepulled(false);
+
+      await service.sync();
+
+      expect(persistence.getPivaProfileRepulled(), isTrue);
+      expect(persistence.getTransactionsRepulled(), isTrue);
+      expect(await share(db), 0.0,
+          reason: 'the profile flag never re-pulls transactions');
     });
   });
 

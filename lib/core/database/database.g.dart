@@ -1782,6 +1782,29 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _othersShareMeta = const VerificationMeta(
+    'othersShare',
+  );
+  @override
+  late final GeneratedColumn<double> othersShare = GeneratedColumn<double>(
+    'others_share',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _reimbursesIdMeta = const VerificationMeta(
+    'reimbursesId',
+  );
+  @override
+  late final GeneratedColumn<String> reimbursesId = GeneratedColumn<String>(
+    'reimburses_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -1821,6 +1844,8 @@ class $TransactionsTable extends Transactions
     date,
     tags,
     installmentId,
+    othersShare,
+    reimbursesId,
     isDeleted,
     lastUpdated,
   ];
@@ -1912,6 +1937,24 @@ class $TransactionsTable extends Transactions
         ),
       );
     }
+    if (data.containsKey('others_share')) {
+      context.handle(
+        _othersShareMeta,
+        othersShare.isAcceptableOrUnknown(
+          data['others_share']!,
+          _othersShareMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reimburses_id')) {
+      context.handle(
+        _reimbursesIdMeta,
+        reimbursesId.isAcceptableOrUnknown(
+          data['reimburses_id']!,
+          _reimbursesIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -1982,6 +2025,14 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}installment_id'],
       ),
+      othersShare: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}others_share'],
+      )!,
+      reimbursesId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reimburses_id'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -2020,6 +2071,16 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   /// Not a real FK: rows arrive from sync in any order, so referential
   /// integrity is enforced nowhere and a dangling id just reads as unlinked.
   final String? installmentId;
+
+  /// Euros the others owe on this expense (a shared bill the owner paid in
+  /// full), positive; `0` = not shared. Meaningful only on `type = 'expense'`,
+  /// 0 on every other type. The analytics count `|amount| − othersShare`.
+  final double othersShare;
+
+  /// Id of the shared expense this income pays back, null = not a
+  /// reimbursement. Meaningful only on an income. Not a real FK, for the same
+  /// reason as [installmentId]: rows arrive from sync in any order.
+  final String? reimbursesId;
   final bool isDeleted;
   final DateTime? lastUpdated;
   const Transaction({
@@ -2034,6 +2095,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     required this.date,
     this.tags,
     this.installmentId,
+    required this.othersShare,
+    this.reimbursesId,
     required this.isDeleted,
     this.lastUpdated,
   });
@@ -2063,6 +2126,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     if (!nullToAbsent || installmentId != null) {
       map['installment_id'] = Variable<String>(installmentId);
     }
+    map['others_share'] = Variable<double>(othersShare);
+    if (!nullToAbsent || reimbursesId != null) {
+      map['reimburses_id'] = Variable<String>(reimbursesId);
+    }
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || lastUpdated != null) {
       map['last_updated'] = Variable<DateTime>(lastUpdated);
@@ -2091,6 +2158,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       installmentId: installmentId == null && nullToAbsent
           ? const Value.absent()
           : Value(installmentId),
+      othersShare: Value(othersShare),
+      reimbursesId: reimbursesId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reimbursesId),
       isDeleted: Value(isDeleted),
       lastUpdated: lastUpdated == null && nullToAbsent
           ? const Value.absent()
@@ -2115,6 +2186,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       date: serializer.fromJson<DateTime>(json['date']),
       tags: serializer.fromJson<List<String>?>(json['tags']),
       installmentId: serializer.fromJson<String?>(json['installmentId']),
+      othersShare: serializer.fromJson<double>(json['othersShare']),
+      reimbursesId: serializer.fromJson<String?>(json['reimbursesId']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       lastUpdated: serializer.fromJson<DateTime?>(json['lastUpdated']),
     );
@@ -2134,6 +2207,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'date': serializer.toJson<DateTime>(date),
       'tags': serializer.toJson<List<String>?>(tags),
       'installmentId': serializer.toJson<String?>(installmentId),
+      'othersShare': serializer.toJson<double>(othersShare),
+      'reimbursesId': serializer.toJson<String?>(reimbursesId),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'lastUpdated': serializer.toJson<DateTime?>(lastUpdated),
     };
@@ -2151,6 +2226,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     DateTime? date,
     Value<List<String>?> tags = const Value.absent(),
     Value<String?> installmentId = const Value.absent(),
+    double? othersShare,
+    Value<String?> reimbursesId = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> lastUpdated = const Value.absent(),
   }) => Transaction(
@@ -2167,6 +2244,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     installmentId: installmentId.present
         ? installmentId.value
         : this.installmentId,
+    othersShare: othersShare ?? this.othersShare,
+    reimbursesId: reimbursesId.present ? reimbursesId.value : this.reimbursesId,
     isDeleted: isDeleted ?? this.isDeleted,
     lastUpdated: lastUpdated.present ? lastUpdated.value : this.lastUpdated,
   );
@@ -2189,6 +2268,12 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       installmentId: data.installmentId.present
           ? data.installmentId.value
           : this.installmentId,
+      othersShare: data.othersShare.present
+          ? data.othersShare.value
+          : this.othersShare,
+      reimbursesId: data.reimbursesId.present
+          ? data.reimbursesId.value
+          : this.reimbursesId,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       lastUpdated: data.lastUpdated.present
           ? data.lastUpdated.value
@@ -2210,6 +2295,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('date: $date, ')
           ..write('tags: $tags, ')
           ..write('installmentId: $installmentId, ')
+          ..write('othersShare: $othersShare, ')
+          ..write('reimbursesId: $reimbursesId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated')
           ..write(')'))
@@ -2229,6 +2316,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     date,
     tags,
     installmentId,
+    othersShare,
+    reimbursesId,
     isDeleted,
     lastUpdated,
   );
@@ -2247,6 +2336,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.date == this.date &&
           other.tags == this.tags &&
           other.installmentId == this.installmentId &&
+          other.othersShare == this.othersShare &&
+          other.reimbursesId == this.reimbursesId &&
           other.isDeleted == this.isDeleted &&
           other.lastUpdated == this.lastUpdated);
 }
@@ -2263,6 +2354,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<DateTime> date;
   final Value<List<String>?> tags;
   final Value<String?> installmentId;
+  final Value<double> othersShare;
+  final Value<String?> reimbursesId;
   final Value<bool> isDeleted;
   final Value<DateTime?> lastUpdated;
   final Value<int> rowid;
@@ -2278,6 +2371,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.date = const Value.absent(),
     this.tags = const Value.absent(),
     this.installmentId = const Value.absent(),
+    this.othersShare = const Value.absent(),
+    this.reimbursesId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2294,6 +2389,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     required DateTime date,
     this.tags = const Value.absent(),
     this.installmentId = const Value.absent(),
+    this.othersShare = const Value.absent(),
+    this.reimbursesId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lastUpdated = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2314,6 +2411,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<DateTime>? date,
     Expression<String>? tags,
     Expression<String>? installmentId,
+    Expression<double>? othersShare,
+    Expression<String>? reimbursesId,
     Expression<bool>? isDeleted,
     Expression<DateTime>? lastUpdated,
     Expression<int>? rowid,
@@ -2330,6 +2429,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (date != null) 'date': date,
       if (tags != null) 'tags': tags,
       if (installmentId != null) 'installment_id': installmentId,
+      if (othersShare != null) 'others_share': othersShare,
+      if (reimbursesId != null) 'reimburses_id': reimbursesId,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (lastUpdated != null) 'last_updated': lastUpdated,
       if (rowid != null) 'rowid': rowid,
@@ -2348,6 +2449,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<DateTime>? date,
     Value<List<String>?>? tags,
     Value<String?>? installmentId,
+    Value<double>? othersShare,
+    Value<String?>? reimbursesId,
     Value<bool>? isDeleted,
     Value<DateTime?>? lastUpdated,
     Value<int>? rowid,
@@ -2364,6 +2467,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       date: date ?? this.date,
       tags: tags ?? this.tags,
       installmentId: installmentId ?? this.installmentId,
+      othersShare: othersShare ?? this.othersShare,
+      reimbursesId: reimbursesId ?? this.reimbursesId,
       isDeleted: isDeleted ?? this.isDeleted,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       rowid: rowid ?? this.rowid,
@@ -2408,6 +2513,12 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (installmentId.present) {
       map['installment_id'] = Variable<String>(installmentId.value);
     }
+    if (othersShare.present) {
+      map['others_share'] = Variable<double>(othersShare.value);
+    }
+    if (reimbursesId.present) {
+      map['reimburses_id'] = Variable<String>(reimbursesId.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -2434,6 +2545,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('date: $date, ')
           ..write('tags: $tags, ')
           ..write('installmentId: $installmentId, ')
+          ..write('othersShare: $othersShare, ')
+          ..write('reimbursesId: $reimbursesId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lastUpdated: $lastUpdated, ')
           ..write('rowid: $rowid')
@@ -7794,6 +7907,8 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       required DateTime date,
       Value<List<String>?> tags,
       Value<String?> installmentId,
+      Value<double> othersShare,
+      Value<String?> reimbursesId,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -7811,6 +7926,8 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<DateTime> date,
       Value<List<String>?> tags,
       Value<String?> installmentId,
+      Value<double> othersShare,
+      Value<String?> reimbursesId,
       Value<bool> isDeleted,
       Value<DateTime?> lastUpdated,
       Value<int> rowid,
@@ -7878,6 +7995,16 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get installmentId => $composableBuilder(
     column: $table.installmentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get othersShare => $composableBuilder(
+    column: $table.othersShare,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reimbursesId => $composableBuilder(
+    column: $table.reimbursesId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7956,6 +8083,16 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get othersShare => $composableBuilder(
+    column: $table.othersShare,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reimbursesId => $composableBuilder(
+    column: $table.reimbursesId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -8015,6 +8152,16 @@ class $$TransactionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get othersShare => $composableBuilder(
+    column: $table.othersShare,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reimbursesId => $composableBuilder(
+    column: $table.reimbursesId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
@@ -8066,6 +8213,8 @@ class $$TransactionsTableTableManager
                 Value<DateTime> date = const Value.absent(),
                 Value<List<String>?> tags = const Value.absent(),
                 Value<String?> installmentId = const Value.absent(),
+                Value<double> othersShare = const Value.absent(),
+                Value<String?> reimbursesId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -8081,6 +8230,8 @@ class $$TransactionsTableTableManager
                 date: date,
                 tags: tags,
                 installmentId: installmentId,
+                othersShare: othersShare,
+                reimbursesId: reimbursesId,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,
@@ -8098,6 +8249,8 @@ class $$TransactionsTableTableManager
                 required DateTime date,
                 Value<List<String>?> tags = const Value.absent(),
                 Value<String?> installmentId = const Value.absent(),
+                Value<double> othersShare = const Value.absent(),
+                Value<String?> reimbursesId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> lastUpdated = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -8113,6 +8266,8 @@ class $$TransactionsTableTableManager
                 date: date,
                 tags: tags,
                 installmentId: installmentId,
+                othersShare: othersShare,
+                reimbursesId: reimbursesId,
                 isDeleted: isDeleted,
                 lastUpdated: lastUpdated,
                 rowid: rowid,

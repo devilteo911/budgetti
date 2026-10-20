@@ -44,9 +44,9 @@ class NotificationLogic {
 
     if (budget == null || budget.limit <= 0) return;
 
-    // 2. Calculate current month spending for this category
+    // 2. Calculate current month spending for this category (the owner's share)
     final transactions = await _financeService.getTransactions();
-    final currentMonthSpending = transactions
+    final currentMonthSpending = ownView(transactions)
         .where((t) =>
             t.category == categoryName &&
             t.date.year == now.year &&

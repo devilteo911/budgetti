@@ -42,6 +42,75 @@ double? parseAmount(String raw) {
   return v == null ? null : sign * v;
 }
 
+/// JavaScript's `Math.round(x * 100) / 100`: halves go towards +∞ (-12.5 → -12),
+/// where Dart's own `round()` moves them away from zero (-13).
+// ponytail: twin of `_round2` in `models/piva.dart` (that file is mirrored line by
+// line with piva.ts, so it keeps its own copy); merge both when a third caller appears.
+double _round2(double x) {
+  final v = x * 100;
+  final f = v.floorToDouble();
+  return (v - f >= 0.5 ? f + 1 : f) / 100;
+}
+
+/// The others' share of an expense, kept in [0, |amount|] to the cent: the
+/// server rejects a negative `othersShare`, so every write path goes through
+/// here. Mirror of `clampShare` in `web/src/finance.ts` — change one, change both.
+double clampShare(double share, double amount) {
+  if (!share.isFinite) return 0.0;
+  final capped = _round2(amount.abs());
+  final v = _round2(share);
+  return v <= 0 ? 0.0 : (v > capped ? capped : v); // `<=`: never a -0.0
+}
+
+/// The owner's part of a row: a shared expense counts only what the others do
+/// not owe, a reimbursement nothing, anything else its amount. Mirror of
+/// `ownShare` in `web/src/finance.ts` — change one, change both.
+double ownShare(Transaction t) {
+  if (t.isExpense && t.othersShare > 0) {
+    // Fully paid back or over-paid: 0, and never a -0.0 that formats "-0,00".
+    final own = _round2(t.amount.abs() - t.othersShare);
+    return own > 0 ? -own : 0.0;
+  }
+  if (t.isIncome && (t.reimbursesId ?? '').isNotEmpty) return 0.0;
+  return t.amount;
+}
+
+/// The list every analytic reads: shared expenses at their [ownShare], every
+/// row with a `reimbursesId` dropped (even when its expense is gone), the rest
+/// untouched — transfers included, the very same objects. Never mutates.
+///
+/// Apply it **once, on a raw list**: the copy keeps `othersShare`, so a list
+/// that already went through it would read a −25 row that still carries 75 as 0.
+/// Mirror of `ownView` in `web/src/finance.ts` — change one, change both.
+List<Transaction> ownView(List<Transaction> txns) => [
+  for (final t in txns)
+    if ((t.reimbursesId ?? '').isEmpty)
+      t.isExpense && t.othersShare > 0 ? t.copyWith(amount: ownShare(t)) : t,
+];
+
+/// What the others owe on an expense, what came back and what is still out.
+typedef Receivable = ({double owed, double received, double outstanding});
+
+/// [expense]'s [Receivable]: `received` sums the incomes whose `reimbursesId` is
+/// its id; a negative `outstanding` means more came back than was owed. [txns]
+/// must be the **raw** list — [ownView] drops exactly the rows this sums.
+/// Mirror of `receivable` in `web/src/finance.ts` — change one, change both.
+Receivable receivable(Transaction expense, List<Transaction> txns) {
+  var sum = 0.0;
+  for (final t in txns) {
+    if (t.isIncome && t.reimbursesId == expense.id) sum += t.amount;
+  }
+  final owed = _round2(expense.othersShare);
+  final received = _round2(sum);
+  return (owed: owed, received: received, outstanding: _round2(owed - received));
+}
+
+/// "Split in N", the editor's shortcut: the others owe (N − 1)/N of the amount.
+/// Never stored. Mirror of `splitShare` in `web/src/finance.ts` — change one,
+/// change both.
+double splitShare(double amount, int n) =>
+    n > 1 ? _round2(amount.abs() * (n - 1) / n) : 0.0;
+
 /// `2026-08` for a date — the key both clients use for a month bucket.
 String monthKey(DateTime d) => DateFormat(_monthKeyFormat).format(d);
 
@@ -75,7 +144,11 @@ class DashboardStats {
 /// Balance across all wallets, this calendar month's income and expenses, the
 /// rolling 30-day net flow, and the newest [recentCount] rows.
 ///
-/// [transactions] must already be newest-first — the caller's query orders it.
+/// The totals are the owner's share ([ownView], applied here); the rows are
+/// raw — the dashboard lists a 100 € dinner as 100 € beside its reimbursement.
+///
+/// [transactions] must be the raw list, already newest-first — the caller's
+/// query orders it.
 DashboardStats dashboardStats(
   List<Transaction> transactions,
   List<Account> accounts, {
@@ -88,7 +161,7 @@ DashboardStats dashboardStats(
   var monthlyIncome = 0.0;
   var monthlyExpenses = 0.0;
   var netFlow = 0.0;
-  for (final t in transactions) {
+  for (final t in ownView(transactions)) {
     if (t.date.year == ref.year && t.date.month == ref.month) {
       if (t.isIncome) {
         monthlyIncome += t.amount;

@@ -238,6 +238,20 @@ class PersistenceService {
   Future<void> setPivaProfileRepulled(bool v) =>
       _prefs.setBool(_pbPivaProfileRepulledKey, v);
 
+  /// One-shot, the same as [getPivaProfileRepulled] for `transactions`: has this
+  /// install re-pulled them from epoch since `othersShare` / `reimbursesId`
+  /// arrived (schema 21)? The server migration that adds the columns does not
+  /// touch `updated`, and a build without them drops both fields from a row it
+  /// pulls, so a row marked as shared on the web would sit behind this phone's
+  /// pull cursor for good. While this is false the sync pulls that collection
+  /// from epoch; only the sync sets it, once that pull ran. It is the biggest
+  /// collection, but pulled from epoch only once, as "Pull everything" does.
+  static const _pbTransactionsRepulledKey = 'pb_transactions_repulled';
+  bool getTransactionsRepulled() =>
+      _prefs.getBool(_pbTransactionsRepulledKey) ?? false;
+  Future<void> setTransactionsRepulled(bool v) =>
+      _prefs.setBool(_pbTransactionsRepulledKey, v);
+
   String getServerUrl() => _prefs.getString(_pbServerUrlKey) ?? '';
   Future<void> setServerUrl(String url) =>
       _prefs.setString(_pbServerUrlKey, url);
