@@ -322,7 +322,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String dashLastCount(int count) {
-    return 'Ultimi $count';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ultimi $count',
+      one: 'Ultima',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -471,7 +477,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String instLinkedCount(int count) {
-    return '· $count collegati';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '· $count collegati',
+      one: '· 1 collegato',
+    );
+    return '$_temp0';
   }
 
   @override

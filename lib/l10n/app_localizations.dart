@@ -1823,7 +1823,7 @@ abstract class AppLocalizations {
   /// No description provided for @importSuccess.
   ///
   /// In en, this message translates to:
-  /// **'Successfully imported {count} transactions'**
+  /// **'{count, plural, =1 {Successfully imported 1 transaction} other {Successfully imported {count} transactions}}'**
   String importSuccess(int count);
 
   /// No description provided for @importError.

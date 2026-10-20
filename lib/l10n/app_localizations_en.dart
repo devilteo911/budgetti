@@ -1056,7 +1056,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String importSuccess(int count) {
-    return 'Successfully imported $count transactions';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Successfully imported $count transactions',
+      one: 'Successfully imported 1 transaction',
+    );
+    return '$_temp0';
   }
 
   @override

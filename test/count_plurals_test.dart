@@ -57,6 +57,19 @@ void main() {
         'Push all local data to the server (2 transactions)');
   });
 
+  test('import, linked payments and the recent list', () {
+    expect(en.importSuccess(1), 'Successfully imported 1 transaction');
+    expect(en.importSuccess(2), 'Successfully imported 2 transactions');
+    expect(it.importSuccess(1), 'Transazioni importate: 1');
+    expect(it.instLinkedCount(1), '· 1 collegato');
+    expect(it.instLinkedCount(2), '· 2 collegati');
+    expect(en.instLinkedCount(1), '· 1 linked');
+    expect(it.dashLastCount(1), 'Ultima');
+    expect(it.dashLastCount(5), 'Ultimi 5');
+    expect(en.dashLastCount(1), 'Last 1');
+    expect(en.dashLastCount(5), 'Last 5');
+  });
+
   test('zero is plural', () {
     expect(it.setNewDrafts(0), '0 nuove transazioni da rivedere');
     expect(en.setNewDrafts(0), '0 new transactions to review');
