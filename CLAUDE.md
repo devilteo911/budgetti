@@ -179,7 +179,8 @@ from −0.005); rows, the editor and the card all call them.
   too — the web looks the id up in the whole ledger). `TransactionLedgerItem`
   (exactly `kLedgerRowHeight`) and the dashboard's recent rows draw it through
   `ShareTagLine`, which falls back to the web's short form ("€50.00 due", "+€5.00",
-  "↩ pays back", "↩ missing") when the full text does not fit; the full text is
+  "← pays back", "← missing" — a plain arrow: Android draws the web's "↩" as a colour
+  emoji, even with U+FE0E) when the full text does not fit; the full text is
   always the accessibility label. The stats `TransactionLedgerRow` keeps the full
   text. Badges read `receivablesProvider`, never the windowed list.
 - **Quick edit** (title and amount only) refuses to lower a shared expense below

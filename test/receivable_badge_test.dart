@@ -97,11 +97,24 @@ void main() {
     });
 
     test('the two markers', () {
-      // U+FE0E after the arrow: without it Android draws "↩" as a colour emoji.
-      expect(reimbursementMarkerShort(en, true), '↩\u{FE0E} pays back');
-      expect(reimbursementMarkerShort(en, false), '↩\u{FE0E} missing');
-      expect(reimbursementMarkerShort(it, true), '↩\u{FE0E} rimborso');
-      expect(reimbursementMarkerShort(it, false), '↩\u{FE0E} mancante');
+      expect(reimbursementMarkerShort(en, true), '← pays back');
+      expect(reimbursementMarkerShort(en, false), '← missing');
+      expect(reimbursementMarkerShort(it, true), '← rimborso');
+      expect(reimbursementMarkerShort(it, false), '← mancante');
+    });
+
+    test('the arrow has no emoji form', () {
+      // Android draws "↩" (U+21A9) as a colour emoji, with or without U+FE0E
+      // (seen on the test phone at normal text size); "←" (U+2190) has none.
+      for (final l10n in [en, it]) {
+        for (final t in [
+          reimbursementMarkerShort(l10n, true),
+          reimbursementMarkerShort(l10n, false),
+        ]) {
+          expect(t.contains('\u21A9'), isFalse, reason: t);
+          expect(t.contains('\uFE0F'), isFalse, reason: t);
+        }
+      }
     });
   });
 
@@ -210,7 +223,7 @@ void main() {
       await noOverflowAt64(tester);
 
       await pumpRow(tester, paid, {}, width: 320);
-      expect(find.textContaining('↩\u{FE0E} missing'), findsOneWidget);
+      expect(find.textContaining('← missing'), findsOneWidget);
       expect(await spoken(tester), contains('pays back · expense missing'));
       await noOverflowAt64(tester);
     });
