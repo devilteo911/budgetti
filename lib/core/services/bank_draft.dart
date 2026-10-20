@@ -1,5 +1,5 @@
 /// A transaction draft extracted from a bank message, whatever the source
-/// (Widiba emails, Revolut push notifications). Shared so the dedup,
+/// (Widiba emails, Revolut and PayPal push notifications). Shared so the dedup,
 /// duplicate-flagging and category-guessing in `bank_sync_service.dart` work
 /// the same way for every capture path.
 library;
@@ -45,3 +45,19 @@ String withForeignAmount(String description, String amount, String currency) =>
 }
 
 final _foreignSuffix = RegExp(r' · (\d[\d.,]*\d|\d) ((?!EUR)[A-Z]{3})$');
+
+/// Amount with the currency on either side: "€12,50", "12.50 EUR", "£1,234.56".
+/// The push-notification parsers are amount-first and share it: groups 1 + 2
+/// are currency-then-number, groups 3 + 4 number-then-currency.
+final bankAmountRe = RegExp(
+  r'(?:([€$£]|eur|usd|gbp)\s*(\d[\d.,]*\d|\d)'
+  r'|(\d[\d.,]*\d|\d)\s*([€$£]|eur|usd|gbp))',
+  caseSensitive: false,
+);
+
+/// The ISO code of the symbol or code a [bankAmountRe] match carries.
+String currencyCodeOf(String symbolOrCode) => switch (symbolOrCode.toLowerCase()) {
+      '\$' || 'usd' => 'USD',
+      '£' || 'gbp' => 'GBP',
+      _ => 'EUR',
+    };

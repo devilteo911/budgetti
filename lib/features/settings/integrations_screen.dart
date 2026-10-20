@@ -359,7 +359,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     );
   }
 
-  // ---------- Bank notification capture (Revolut) ----------
+  // ---------- Bank notification capture (Revolut, PayPal) ----------
 
   Future<void> _refreshNotificationAccess() async {
     final granted =
@@ -367,8 +367,10 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     if (mounted) setState(() => _notificationAccess = granted);
   }
 
-  /// The switch shows whether capture is actually working — switched on AND
+  /// A capture switch (Revolut's, PayPal's: one listener, one access grant, so
+  /// one logic) shows whether capture is actually working — switched on AND
   /// allowed — so it never reads ON while the row below says access is missing.
+  /// [isOn] / [save] are the source's own pref.
   ///
   /// Turning it on without Android's notification access stores the wish, sends
   /// the user to the system screen that grants it, and leaves the switch off;
@@ -376,11 +378,14 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
   /// back and the switch follows. A tap on a switch that shows off but is still
   /// waiting for access cancels the wait instead of re-arming it (the "not
   /// granted" row is the way back to the system screen).
-  Future<void> _toggleRevolutSync(bool enabled) async {
-    final persistence = ref.read(persistenceServiceProvider);
-    final waiting = persistence.getRevolutSyncEnabled() && !_notificationAccess;
+  Future<void> _toggleNotificationSync(
+    bool enabled, {
+    required bool Function() isOn,
+    required Future<void> Function(bool) save,
+  }) async {
+    final waiting = isOn() && !_notificationAccess;
     if (waiting) enabled = false;
-    await persistence.setRevolutSyncEnabled(enabled);
+    await save(enabled);
     await ref.read(notificationLogicProvider).updateBankSyncSchedule();
     if (mounted) setState(() {});
 
@@ -412,7 +417,8 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     }
   }
 
-  Future<void> _syncRevolutNow() async {
+  /// Drains every enabled push source (the service reads both prefs itself).
+  Future<void> _syncNotificationsNow() async {
     setState(() => _isLoading = true);
     try {
       await _refreshNotificationAccess();
@@ -429,7 +435,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
           SnackBar(
             content: Text(parts.isEmpty
                 ? _notificationAccess
-                    ? context.l10n.setNoNewRevolutNotifications
+                    ? context.l10n.setNoNewNotifications
                     : context.l10n.setNotificationAccessMissing
                 : parts.join(' · ')),
           ),
@@ -779,8 +785,8 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
               ],
             ],
           ),
-        // Outside the Google gate on purpose: reading Revolut's notifications
-        // needs Android notification access, not a Google account.
+        // Outside the Google gate on purpose: reading Revolut's and PayPal's
+        // notifications needs Android notification access, not a Google account.
         SettingsSection(
           title: context.l10n.setBankNotificationSync,
           children: [
@@ -791,10 +797,28 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
               subtitle: context.l10n.setSyncRevolutNotificationsSubtitle,
               trailing: Switch(
                 value: persistence.getRevolutSyncEnabled() && _notificationAccess,
-                onChanged: _toggleRevolutSync,
+                onChanged: (v) => _toggleNotificationSync(
+                  v,
+                  isOn: persistence.getRevolutSyncEnabled,
+                  save: persistence.setRevolutSyncEnabled,
+                ),
               ),
             ),
-            if (persistence.getRevolutSyncEnabled()) ...[
+            SettingsTile(
+              icon: Icons.notifications_active_outlined,
+              iconColor: scheme.primary,
+              title: context.l10n.setSyncPayPalNotifications,
+              subtitle: context.l10n.setSyncPayPalNotificationsSubtitle,
+              trailing: Switch(
+                value: persistence.getPayPalSyncEnabled() && _notificationAccess,
+                onChanged: (v) => _toggleNotificationSync(
+                  v,
+                  isOn: persistence.getPayPalSyncEnabled,
+                  save: persistence.setPayPalSyncEnabled,
+                ),
+              ),
+            ),
+            if (persistence.notificationSyncEnabled) ...[
               SettingsTile(
                 icon: _notificationAccess
                     ? Icons.verified_user_outlined
@@ -811,7 +835,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
                 icon: Icons.sync,
                 iconColor: scheme.primary,
                 title: context.l10n.setReadNotificationsNow,
-                onTap: _isLoading ? null : _syncRevolutNow,
+                onTap: _isLoading ? null : _syncNotificationsNow,
               ),
             ],
             // Outside the switch: the CSV works with notification capture off,

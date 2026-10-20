@@ -29,6 +29,7 @@ class PersistenceService {
   static const _emailSyncEnabledKey = 'email_sync_enabled';
   static const _emailSyncWindowDaysKey = 'email_sync_window_days';
   static const _revolutSyncEnabledKey = 'revolut_sync_enabled';
+  static const _paypalSyncEnabledKey = 'paypal_sync_enabled';
 
   bool getNotificationsEnabled() =>
       _prefs.getBool(_notificationsEnabledKey) ?? true;
@@ -81,6 +82,18 @@ class PersistenceService {
       _prefs.getBool(_revolutSyncEnabledKey) ?? false;
   Future<void> setRevolutSyncEnabled(bool enabled) =>
       _prefs.setBool(_revolutSyncEnabledKey, enabled);
+
+  // PayPal notification capture (money received only). Same listener and access
+  // grant as Revolut, its own switch and its own buffer file.
+  bool getPayPalSyncEnabled() =>
+      _prefs.getBool(_paypalSyncEnabledKey) ?? false;
+  Future<void> setPayPalSyncEnabled(bool enabled) =>
+      _prefs.setBool(_paypalSyncEnabledKey, enabled);
+
+  /// Whether either push source is on: what every drain, schedule and
+  /// network constraint guards on.
+  bool get notificationSyncEnabled =>
+      getRevolutSyncEnabled() || getPayPalSyncEnabled();
 
   // Bank-capture source -> wallet the owner books it into, when the wallet's
   // name can't say so. Only written when the owner chose against the name match

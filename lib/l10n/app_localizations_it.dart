@@ -133,7 +133,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String authServerHasData(int count) {
-    return 'Il server ha già dati per questo account ($count transazioni).';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transazioni',
+      one: '1 transazione',
+    );
+    return 'Il server ha già dati per questo account ($_temp0).';
   }
 
   @override
@@ -148,7 +154,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String authUseServerDataSubtitle(int count) {
-    return 'Scarica tutto su questo dispositivo ($count transazioni)';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transazioni',
+      one: '1 transazione',
+    );
+    return 'Scarica tutto su questo dispositivo ($_temp0)';
   }
 
   @override
@@ -156,7 +168,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String authUploadDeviceDataSubtitle(int count) {
-    return 'Invia tutti i dati locali al server ($count transazioni)';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transazioni',
+      one: '1 transazione',
+    );
+    return 'Invia tutti i dati locali al server ($_temp0)';
   }
 
   @override
@@ -304,7 +322,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String dashLastCount(int count) {
-    return 'Ultimi $count';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ultimi $count',
+      one: 'Ultima',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -466,7 +490,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String instLinkedCount(int count) {
-    return '· $count collegati';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '· $count collegati',
+      one: '· 1 collegato',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1610,7 +1640,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String setDaysCount(int count) {
-    return '$count giorni';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count giorni',
+      one: '1 giorno',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1624,12 +1660,24 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String setNewDrafts(int count) {
-    return '$count nuove transazioni da rivedere';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count nuove transazioni da rivedere',
+      one: '1 nuova transazione da rivedere',
+    );
+    return '$_temp0';
   }
 
   @override
   String setUnreadEmails(int count) {
-    return '$count email non riconosciute';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count email non riconosciute',
+      one: '1 email non riconosciuta',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1651,11 +1699,18 @@ class AppLocalizationsIt extends AppLocalizations {
       'Crea bozze dalle notifiche push di Revolut';
 
   @override
+  String get setSyncPayPalNotifications => 'Sincronizza notifiche PayPal';
+
+  @override
+  String get setSyncPayPalNotificationsSubtitle =>
+      'Crea bozze dai soldi ricevuti su PayPal';
+
+  @override
   String get setNotificationAccess => 'Accesso alle notifiche';
 
   @override
   String get setNotificationAccessBody =>
-      'Per leggere le notifiche di Revolut, Budgetti ha bisogno dell\'accesso alle notifiche di sistema. Aprire le impostazioni?';
+      'Per leggere le notifiche di Revolut e PayPal, Budgetti ha bisogno dell\'accesso alle notifiche di sistema. Aprire le impostazioni?';
 
   @override
   String get setLater => 'Più tardi';
@@ -1674,11 +1729,17 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String setUnreadNotifications(int count) {
-    return '$count notifiche non riconosciute';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count notifiche non riconosciute',
+      one: '1 notifica non riconosciuta',
+    );
+    return '$_temp0';
   }
 
   @override
-  String get setNoNewRevolutNotifications => 'Nessuna nuova notifica Revolut';
+  String get setNoNewNotifications => 'Nessuna nuova notifica';
 
   @override
   String get setNotificationAccessMissing =>
@@ -1703,12 +1764,24 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String setCountAlreadyPresent(int count) {
-    return '$count già presenti';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count già presenti',
+      one: '1 già presente',
+    );
+    return '$_temp0';
   }
 
   @override
   String setCountUnreadableRows(int count) {
-    return '$count righe illeggibili';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count righe illeggibili',
+      one: '1 riga illeggibile',
+    );
+    return '$_temp0';
   }
 
   @override

@@ -133,7 +133,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String authServerHasData(int count) {
-    return 'The server already has data for this account ($count transactions).';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transactions',
+      one: '1 transaction',
+    );
+    return 'The server already has data for this account ($_temp0).';
   }
 
   @override
@@ -147,7 +153,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String authUseServerDataSubtitle(int count) {
-    return 'Download everything to this device ($count transactions)';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transactions',
+      one: '1 transaction',
+    );
+    return 'Download everything to this device ($_temp0)';
   }
 
   @override
@@ -155,7 +167,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String authUploadDeviceDataSubtitle(int count) {
-    return 'Push all local data to the server ($count transactions)';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transactions',
+      one: '1 transaction',
+    );
+    return 'Push all local data to the server ($_temp0)';
   }
 
   @override
@@ -1051,7 +1069,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String importSuccess(int count) {
-    return 'Successfully imported $count transactions';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Successfully imported $count transactions',
+      one: 'Successfully imported 1 transaction',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1598,7 +1622,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String setDaysCount(int count) {
-    return '$count days';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1612,12 +1642,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String setNewDrafts(int count) {
-    return '$count new transactions to review';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new transactions to review',
+      one: '1 new transaction to review',
+    );
+    return '$_temp0';
   }
 
   @override
   String setUnreadEmails(int count) {
-    return '$count unrecognized emails';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unrecognized emails',
+      one: '1 unrecognized email',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1639,11 +1681,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Create drafts from Revolut push notifications';
 
   @override
+  String get setSyncPayPalNotifications => 'Sync PayPal notifications';
+
+  @override
+  String get setSyncPayPalNotificationsSubtitle =>
+      'Creates drafts from money received on PayPal';
+
+  @override
   String get setNotificationAccess => 'Notification access';
 
   @override
   String get setNotificationAccessBody =>
-      'To read Revolut notifications, Budgetti needs access to system notifications. Open settings?';
+      'To read Revolut and PayPal notifications, Budgetti needs access to system notifications. Open settings?';
 
   @override
   String get setLater => 'Later';
@@ -1662,11 +1711,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String setUnreadNotifications(int count) {
-    return '$count unrecognized notifications';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unrecognized notifications',
+      one: '1 unrecognized notification',
+    );
+    return '$_temp0';
   }
 
   @override
-  String get setNoNewRevolutNotifications => 'No new Revolut notifications';
+  String get setNoNewNotifications => 'No new notifications';
 
   @override
   String get setNotificationAccessMissing => 'Notification access not granted';
@@ -1695,7 +1750,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String setCountUnreadableRows(int count) {
-    return '$count unreadable rows';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unreadable rows',
+      one: '1 unreadable row',
+    );
+    return '$_temp0';
   }
 
   @override

@@ -65,8 +65,8 @@ void callbackDispatcher() {
       final prefs = await SharedPreferences.getInstance();
       final persistence = PersistenceService(prefs);
       final emailEnabled = persistence.getEmailSyncEnabled();
-      final revolutEnabled = persistence.getRevolutSyncEnabled();
-      if (!emailEnabled && !revolutEnabled) return Future.value(true);
+      final pushEnabled = persistence.notificationSyncEnabled;
+      if (!emailEnabled && !pushEnabled) return Future.value(true);
 
       final db = AppDatabase();
       final authService = GoogleAuthService();
@@ -100,11 +100,11 @@ void callbackDispatcher() {
             debugPrint('Error in background gmail sync: $e');
           }
         }
-        if (revolutEnabled) {
+        if (pushEnabled) {
           try {
             newDrafts.addAll(await sync.syncNotifications());
           } catch (e) {
-            debugPrint('Error in background revolut drain: $e');
+            debugPrint('Error in background notification drain: $e');
           }
         }
 
@@ -252,18 +252,19 @@ Future<void> main() async {
   // relaunched. Re-run every open query instead.
   // (The listener registers itself with WidgetsBinding, which keeps it alive.)
   //
-  // Also drain the Revolut buffer on resume: a push captured while the app was
-  // in the background otherwise waits for the 15-minute task or a relaunch. The
-  // pass joins one already in flight (see BankSyncService.syncNotifications).
+  // Also drain the Revolut and PayPal buffers on resume: a push captured while
+  // the app was in the background otherwise waits for the 15-minute task or a
+  // relaunch. The pass joins one already in flight (see
+  // BankSyncService.syncNotifications).
   AppLifecycleListener(onResume: () async {
     db.markTablesUpdated(db.allTables);
     unawaited(persistence.setSystemLanguage(
         PlatformDispatcher.instance.locale.languageCode));
-    if (!persistence.getRevolutSyncEnabled()) return;
+    if (!persistence.notificationSyncEnabled) return;
     try {
       await container.read(bankSyncServiceProvider).syncNotifications();
     } catch (e) {
-      debugPrint('Resume revolut drain failed: $e');
+      debugPrint('Resume notification drain failed: $e');
     }
   });
 
@@ -326,11 +327,11 @@ Future<void> main() async {
         debugPrint('Foreground gmail sync failed: $e');
       }
     }
-    if (persistence.getRevolutSyncEnabled()) {
+    if (persistence.notificationSyncEnabled) {
       try {
         await container.read(bankSyncServiceProvider).syncNotifications();
       } catch (e) {
-        debugPrint('Foreground revolut drain failed: $e');
+        debugPrint('Foreground notification drain failed: $e');
       }
     }
 

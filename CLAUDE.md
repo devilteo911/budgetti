@@ -494,12 +494,40 @@ while the amount is an estimate and plain once it is the accountant's. A tap ope
 
 Three types: income, expense, and transfer (moves money between accounts via `toAccountId`). Expenses are stored as negative amounts. An expense can be shared (`othersShare`) and an income can be the reimbursement of one (`reimbursesId`): see "Shared expenses".
 
-### E2E: injecting Revolut pushes
+### Bank capture sources
 
-A debug build accepts notifications posted from the adb shell as if they were
-Revolut's, so the whole capture path runs without a real payment:
-`adb shell cmd notification post -S bigtext -t 'Revolut' <unique-tag> 'Hai pagato 10,00 € presso LO CHEF'`
-(a unique tag per push — the listener dedupes on the notification key). Needs
+A `PendingTransactions` draft's `source` is `widiba` (Gmail e-mail), `revolut` or
+`paypal` (Android push notifications). Anything that is not `widiba` is a push:
+the inbox, `_prefillDescription` and the snippet logic test `source != 'widiba'`,
+so a new push source needs no edit there. **PayPal is incoming money only**
+("Sincronizza notifiche PayPal"): a PayPal payment is funded by the card or bank,
+which already notifies it, so capturing it from PayPal too would double-count it;
+outgoing pushes and noise (codes, promos) never reach the inbox (they leave only
+an `ignored` dedup row, invisible), and an
+unknown wording with an amount surfaces as an unreadable notification with its raw
+text. A credit books into the wallet named "PayPal" (the inbox asks once and
+remembers it), and the owner links it to the shared expense afterwards.
+
+One listener, one buffer per source: `RevolutNotificationListener` keeps its
+Revolut-era name because Android stores the notification-access grant per component
+name (only the manifest label changed, to "Budgetti bank sync"), and writes
+`revolut_notifications.json` for `com.revolut*` and `paypal_notifications.json` for
+`com.paypal*`. Each switch (`revolut_sync_enabled`, `paypal_sync_enabled`) drains only
+its own file; every capture trigger guards with `notificationSyncEnabled` (either on).
+
+### E2E: injecting bank pushes
+
+A debug build accepts notifications posted from the adb shell, so the whole capture
+path runs without a real payment. A shell push stands in for Revolut, or for PayPal
+when its **tag** starts with `paypal`:
+`adb shell "cmd notification post -S bigtext -t 'Revolut' <unique-tag> 'Hai pagato 10,00 € presso LO CHEF'"`
+`adb shell "cmd notification post -S bigtext -t 'PayPal' paypal-<n> 'Hai ricevuto 20,00 € EUR da Mario Rossi'"`
+(a unique tag per push — the listener dedupes on the notification key). **Quote the
+whole remote command**, as above: `adb shell` joins its arguments and the phone's
+shell splits them again, so without the outer quotes the notification text is just
+its first word ("Hai") and the parser rightly ignores it. PayPal's real push has the
+amount in the *title* and the payer alone in the text:
+`-t 'Hai ricevuto 8,50 € EUR' paypal-<n> 'da Mario Rossi Bianchi'`. Needs
 notification access granted to the app, and a debug APK signed with the same
 cert as the installed build with an equal versionCode (`flutter build apk --debug
 --build-number=2003`, then `adb install -r`). The hook is `BuildConfig.DEBUG`-gated

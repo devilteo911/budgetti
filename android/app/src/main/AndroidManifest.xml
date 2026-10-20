@@ -52,12 +52,14 @@
             android:name="flutterEmbedding"
             android:value="2" />
         
-        <!-- Captures Revolut transaction notifications into a buffer for sync.
-             Inert until the user grants Notification access in system settings. -->
+        <!-- Captures Revolut and PayPal transaction notifications into one buffer
+             per source for sync. Inert until the user grants Notification access
+             in system settings. The class keeps its Revolut name: the access
+             grant is stored per component name, so only the label changes. -->
         <service
             android:name=".RevolutNotificationListener"
             android:exported="false"
-            android:label="Budgetti Revolut sync"
+            android:label="Budgetti bank sync"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

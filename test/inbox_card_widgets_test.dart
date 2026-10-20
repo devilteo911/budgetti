@@ -13,6 +13,7 @@ import 'package:budgetti/features/transactions/add_transaction_modal.dart';
 import 'package:budgetti/features/transactions/email_inbox_screen.dart';
 import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
 import 'package:budgetti/l10n/app_localizations.dart';
+import 'package:budgetti/l10n/app_localizations_en.dart';
 import 'package:budgetti/models/account.dart';
 import 'package:budgetti/models/category.dart';
 import 'package:budgetti/models/installment.dart';
@@ -50,6 +51,7 @@ void main() {
 
   final currency = NumberFormat.simpleCurrency(name: 'EUR', locale: 'en_US');
   final day = DateTime(2026, 6, 24, 19, 3);
+  final l10n = AppLocalizationsEn();
 
   Category category(String name) => Category(
         id: 'cat_$name',
@@ -212,6 +214,37 @@ void main() {
 
       final text = tester.widget<Text>(find.textContaining('Revolut · lungo'));
       expect((text.maxLines, text.overflow), (2, TextOverflow.ellipsis));
+    });
+
+    testWidgets('a PayPal credit is labelled PayPal and shows its text too',
+        (tester) async {
+      await pumpInbox(tester,
+          source: 'paypal',
+          type: 'income',
+          amount: 20,
+          description: 'Mario Rossi',
+          gmailMessageId: 'pp_ab12',
+          rawSnippet: 'PayPal ⟂ Hai ricevuto 20,00 € EUR da Mario Rossi');
+
+      expect(find.text('${l10n.txCredit} · PayPal'), findsOneWidget);
+      expect(find.text('PayPal · Hai ricevuto 20,00 € EUR da Mario Rossi'),
+          findsOneWidget);
+    });
+
+    testWidgets('an unreadable PayPal push is a notification, not an e-mail',
+        (tester) async {
+      await pumpInbox(tester,
+          status: 'skipped',
+          amount: 0,
+          type: 'undecided',
+          source: 'paypal',
+          rawSnippet: 'PayPal ⟂ Pagamento di 15,00 € EUR completato');
+
+      expect(
+        find.text(l10n.txUnreadableMessage(
+            l10n.txNotification, 'PayPal', DateFormat('dd MMM yyyy').format(day))),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a statement row shows no snippet', (tester) async {

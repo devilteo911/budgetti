@@ -530,6 +530,14 @@ void main() {
         );
       });
 
+      test('a PayPal push opens with its body too', () async {
+        expect(
+          await descriptionOf('PayPal ⟂ Pagamento di 15,00 € EUR completato',
+              title: 'PayPal', source: 'paypal'),
+          'Pagamento di 15,00 € EUR completato',
+        );
+      });
+
       test('a long body is cut, on one line', () async {
         final d = await descriptionOf('Revolut ⟂ ${'parola ' * 30}\nfine');
 
