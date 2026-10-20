@@ -5,9 +5,11 @@ import 'package:budgetti/core/services/bank_sync_service.dart' show learnedCateg
 import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
+import 'package:budgetti/core/theme/ledger_style.dart' show incomeInk;
 import 'package:budgetti/core/widgets/category_picker_sheet.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
 import 'package:budgetti/features/transactions/widgets/amount_hero_field.dart';
+import 'package:budgetti/features/transactions/widgets/receivable_badge.dart';
 import 'package:budgetti/features/transactions/widgets/sheet_parts.dart';
 import 'package:budgetti/features/transactions/widgets/ledger_field_row.dart';
 import 'package:budgetti/features/transactions/widgets/type_selector.dart';
@@ -53,7 +55,7 @@ class AddTransactionModal extends ConsumerStatefulWidget {
 
 class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     with SingleTickerProviderStateMixin {
-  static const _itemCount = 9;
+  static const _itemCount = 10;
 
   late final AnimationController _animation;
   late final List<Animation<double>> _itemAnimations;
@@ -71,6 +73,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
   String? _selectedAccountId;
   String? _selectedToAccountId;
   String? _selectedInstallmentId;
+
+  /// What the others owe on this expense, 0 = not shared; and the shared expense
+  /// this income pays back, null = none. Kept across a type switch like
+  /// [_selectedInstallmentId]; the type rule is applied at save.
+  double _othersShare = 0;
+  String? _reimbursesId;
 
   /// The owner chose the category (or arrived with one from the inbox): the
   /// description no longer suggests one. A type switch re-arms it.
@@ -90,8 +98,9 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
 
   /// Only what the user typed. Wallet and category are auto-filled after the
   /// first frame, so including them would make an untouched sheet look dirty.
-  String get _typed =>
-      '${_amountController.text}|${_descriptionController.text}|$_selectedTags';
+  /// The split and the link are the owner's too: abandoning one must ask.
+  String get _typed => '${_amountController.text}|${_descriptionController.text}'
+      '|$_selectedTags|$_othersShare|$_reimbursesId';
   late final String _openedWith;
 
   @override
@@ -113,9 +122,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     final isPrefill = widget.transaction == null && widget.prefill != null;
     final t = widget.transaction ?? widget.prefill;
     if (t != null) {
-      _amountController.text = !isPrefill
-          ? t.amount.abs().toString()
-          : (t.amount == 0 ? '' : t.amount.abs().toStringAsFixed(2));
+      _amountController.text =
+          isPrefill && t.amount == 0 ? '' : t.amount.abs().toStringAsFixed(2);
       _descriptionController.text = t.description;
       // A prefill leaves what it doesn't know empty, for the defaults below to
       // fill. An existing row keeps exactly what it has, empty or not.
@@ -132,6 +140,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       _selectedAccountId = isPrefill && t.accountId.isEmpty ? null : t.accountId;
       _selectedToAccountId = t.toAccountId;
       _selectedInstallmentId = t.installmentId;
+      _othersShare = t.othersShare;
+      _reimbursesId = t.reimbursesId;
     }
     _openedWith = _typed;
     _autofocusAmount = widget.transaction == null &&
@@ -270,6 +280,12 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     }
 
     final amount = double.parse(_amountController.text.replaceAll(',', '.'));
+    // The service would clamp an oversize share down without a word; the owner
+    // lowered the amount under it, so say so instead.
+    if (_type == 'expense' && _othersShare > amount.abs()) {
+      _say(context.l10n.txShareTooMuch);
+      return;
+    }
     final transaction = Transaction(
       id: widget.transaction?.id ?? const Uuid().v4(),
       accountId: _selectedAccountId!,
@@ -285,12 +301,11 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       // Only an expense can be a rate; switching type away from expense drops
       // a link the user made before switching.
       installmentId: _type == 'expense' ? _selectedInstallmentId : null,
-      // The split is not in this form yet (#38 puts its fields here), so an
-      // edit carries over what the row already holds: saving a description
-      // must not erase a split marked elsewhere. The service clears them if
-      // the type changed.
-      othersShare: widget.transaction?.othersShare ?? 0,
-      reimbursesId: widget.transaction?.reimbursesId,
+      // Only an expense can be shared and only an income can pay one back;
+      // switching type drops what the user set before switching. The service
+      // guards it again.
+      othersShare: _type == 'expense' ? _othersShare : 0,
+      reimbursesId: _type == 'income' ? _reimbursesId : null,
     );
 
     final service = ref.read(financeServiceProvider);
@@ -414,6 +429,8 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     final scheme = Theme.of(context).colorScheme;
     final currency = ref.watch(currencyProvider);
     final isEdit = widget.transaction != null;
+    final sharedExpenses =
+        _type == 'income' ? _sharedExpenses : const <Transaction>[];
 
     return DiscardGuard(
       isDirty: () => _typed != _openedWith,
@@ -476,7 +493,20 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
                   _staggered(7, _buildInstallmentRow()),
                   const LedgerDivider(),
                 ],
-                _staggered(8, _buildTagsSection()),
+                // Not in the inbox's edit-and-approve: a split and a link are
+                // set after approval, from the editor of the saved row (#36).
+                // An expense and an income never show together: one slot.
+                if (_type == 'expense' && widget.prefill == null) ...[
+                  _staggered(8, _buildSharedRow(currency)),
+                  const LedgerDivider(),
+                ],
+                if (_type == 'income' &&
+                    widget.prefill == null &&
+                    (sharedExpenses.isNotEmpty || _reimbursesId != null)) ...[
+                  _staggered(8, _buildPaysBackRow(sharedExpenses)),
+                  const LedgerDivider(),
+                ],
+                _staggered(9, _buildTagsSection()),
                 InlineSheetMessage(_message, isError: _messageIsError),
                 const SizedBox(height: 28),
                 Row(
@@ -711,6 +741,128 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     );
   }
 
+  Widget _buildSharedRow(NumberFormat currency) {
+    return LedgerFieldRow(
+      kicker: context.l10n.txShared.toUpperCase(),
+      value: _othersShare > 0
+          ? context.l10n.txOthersOwe(currency.format(_othersShare))
+          : null,
+      placeholder: context.l10n.txNotShared,
+      leadingIcon: Icons.group_outlined,
+      onTap: _showSharedSheet,
+    );
+  }
+
+  /// Shared expenses this income may pay back: the newest 60 with something
+  /// owed, minus the row being edited, plus whichever one [_reimbursesId]
+  /// already names (so an old link stays visible and removable past the cap).
+  ///
+  /// ponytail: no amount/date matching, as the plan sheet's attach list; add a
+  /// "still owed first" order if scrolling it gets annoying. The expense a link
+  /// names is looked up here, not in the whole ledger, so one whose share was
+  /// lowered to 0 reads "not there" too — the rare state is not worth watching
+  /// every row for.
+  List<Transaction> get _sharedExpenses {
+    final all = _newestFirst([
+      for (final t
+          in ref.watch(shareTransactionsProvider).value ?? const <Transaction>[])
+        if (t.isExpense &&
+            t.othersShare > 0 &&
+            t.id != widget.transaction?.id)
+          t,
+    ]);
+    return [
+      ...all.take(60),
+      ...all.skip(60).where((t) => t.id == _reimbursesId),
+    ];
+  }
+
+  Widget _buildPaysBackRow(List<Transaction> expenses) {
+    final linked = expenses.where((t) => t.id == _reimbursesId).firstOrNull;
+    return LedgerFieldRow(
+      kicker: context.l10n.txPaysBack.toUpperCase(),
+      value: linked != null
+          ? _title(linked)
+          : (_reimbursesId != null ? context.l10n.txLinkedMissing : null),
+      placeholder: context.l10n.txNotAReimbursement,
+      leadingIcon: Icons.undo,
+      onTap: () => _showPaysBackPicker(expenses),
+    );
+  }
+
+  /// "Not a reimbursement" first (also the way to drop a link to an expense
+  /// that is not there), then one tile per shared expense with what is left to
+  /// receive on it. Picking writes nothing until the form is saved.
+  void _showPaysBackPicker(List<Transaction> expenses) {
+    final l10n = context.l10n;
+    final currency = ref.read(currencyProvider);
+    final receivables = ref.read(receivablesProvider).value;
+    showAppSheet(
+      context,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          children: [
+            ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: Text(l10n.txNotAReimbursement),
+              selected: _reimbursesId == null,
+              onTap: () {
+                setState(() => _reimbursesId = null);
+                Navigator.pop(sheetContext);
+              },
+            ),
+            for (final e in expenses)
+              ListTile(
+                leading: const Icon(Icons.undo),
+                title: Text(_title(e), overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  [
+                    DateFormat.MMMd().format(e.date),
+                    if (receivables?[e.id] case final r?)
+                      receivableBadge(l10n, currency, r),
+                  ].join(' · '),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                selected: _reimbursesId == e.id,
+                onTap: () {
+                  setState(() {
+                    _reimbursesId = e.id;
+                    // What is still owed is known — prefill it when the field
+                    // is still empty, as a rate's amount is.
+                    final owed = receivables?[e.id]?.outstanding ?? 0;
+                    if (owed > 0 && _amountController.text.trim().isEmpty) {
+                      _amountController.text = owed.toStringAsFixed(2);
+                    }
+                  });
+                  Navigator.pop(sheetContext);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showSharedSheet() async {
+    final share = await showAppSheet<double>(
+      context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _SharedSheet(
+        transaction: widget.transaction,
+        initial: _othersShare,
+        // The amount cannot change while the sheet is open, so it goes in as a
+        // value; blank or unparseable is null.
+        amount: double.tryParse(_amountController.text.replaceAll(',', '.'))
+            ?.abs(),
+        currencySymbol: ref.read(currencyProvider).currencySymbol,
+      ),
+    );
+    if (share != null && mounted) setState(() => _othersShare = share);
+  }
+
   Widget _buildTagsSection() {
     final tagsAsync = ref.watch(tagsProvider);
     final tagColors = ref.watch(tagColorCacheProvider);
@@ -761,6 +913,274 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
     );
   }
 }
+
+/// "Shared — others owe": what the others owe on the expense being edited,
+/// typed or from the "Split in N" shortcut (never stored, it only fills the
+/// field). Pops the share, `0` meaning not shared, or null when dismissed; the
+/// editor owns the value and applies it with the rest of the form.
+///
+/// Editing an existing expense, it also lists the reimbursements already linked
+/// to it (Unlink) and attaches one more (choose, then Attach). Those are writes
+/// to the OTHER rows and happen at once, not with the form's Save, as in the
+/// plan sheet's linked payments.
+class _SharedSheet extends ConsumerStatefulWidget {
+  const _SharedSheet({
+    required this.transaction,
+    required this.initial,
+    required this.amount,
+    required this.currencySymbol,
+  });
+
+  /// The expense being edited, null for a new one (nothing to link to yet).
+  final Transaction? transaction;
+  final double initial;
+
+  /// The editor's amount, null while blank or not a number.
+  final double? amount;
+  final String currencySymbol;
+
+  @override
+  ConsumerState<_SharedSheet> createState() => _SharedSheetState();
+}
+
+class _SharedSheetState extends ConsumerState<_SharedSheet> {
+  late final _field = TextEditingController(
+    text: widget.initial > 0 ? widget.initial.toStringAsFixed(2) : '',
+  );
+  String? _message;
+
+  /// "Split in" goes back to empty after each pick: a new key rebuilds it.
+  int _picks = 0;
+
+  /// The income chosen in "Attach a reimbursement": choosing writes nothing, the
+  /// Attach button does. A new key empties the dropdown once it has.
+  String? _attachId;
+  int _attached = 0;
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  void _say(String text) => setState(() => _message = text);
+
+  void _split(int? n) {
+    if (n == null) return;
+    final amount = widget.amount ?? 0;
+    setState(() {
+      _picks++;
+      if (amount > 0) {
+        _field.text = splitShare(amount, n).toStringAsFixed(2);
+        _message = null;
+      } else {
+        _message = context.l10n.txEnterAmountFirst;
+      }
+    });
+  }
+
+  void _apply() {
+    final raw = _field.text.trim();
+    final share = raw.isEmpty ? 0.0 : double.tryParse(raw.replaceAll(',', '.'));
+    if (share == null || !share.isFinite || share < 0) {
+      return _say(context.l10n.txShareInvalid);
+    }
+    // ponytail: a plain compare, as the web does (no cent tolerance).
+    if (widget.amount != null && share > widget.amount!) {
+      return _say(context.l10n.txShareTooMuch);
+    }
+    Navigator.pop(context, share <= 0 ? 0.0 : share);
+  }
+
+  /// Points [incomeId] at [expenseId] (null unlinks) right now. A failed write
+  /// is said in the sheet, which stays open; true when it went through.
+  Future<bool> _link(String incomeId, String? expenseId) async {
+    setState(() => _message = null);
+    try {
+      await ref
+          .read(financeServiceProvider)
+          .linkReimbursement(incomeId, expenseId);
+      return true;
+    } catch (e, st) {
+      if (mounted) _say(context.l10n.txError(errorText(context, e, st)));
+      return false;
+    }
+  }
+
+  Future<void> _attach(String incomeId, String expenseId) async {
+    if (await _link(incomeId, expenseId) && mounted) {
+      setState(() {
+        _attachId = null;
+        _attached++;
+      });
+    }
+  }
+
+  /// The reimbursements of the expense being edited, modelled on the plan
+  /// sheet's `_LinkedPayments`. Offered while the stored row is shared; the
+  /// linked list stays whenever there are links, even if the share was since
+  /// lowered to 0.
+  ///
+  /// ponytail: the attach list is the unlinked incomes of the 12-month ledger,
+  /// newest first, capped at 60 — a reimbursement comes soon after the expense.
+  Widget _reimbursements(Transaction expense) {
+    final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    final currency = ref.watch(currencyProvider);
+    final linked = _newestFirst([
+      for (final t
+          in ref.watch(shareTransactionsProvider).value ?? const <Transaction>[])
+        if (t.isIncome && t.reimbursesId == expense.id) t,
+    ]);
+    final stored = expense.othersShare > 0;
+    if (!stored && linked.isEmpty) return const SizedBox.shrink();
+
+    // Only a row stored as shared has an entry.
+    final status = ref.watch(receivablesProvider).value?[expense.id];
+    final candidates = _newestFirst([
+      for (final t
+          in ref.watch(transactionsProvider(null)).value ?? const <Transaction>[])
+        if (t.isIncome && (t.reimbursesId ?? '').isEmpty) t,
+    ]).take(60).toList();
+    String line(Transaction t) => '${DateFormat.yMMMd().format(t.date)} · '
+        '${currency.format(t.amount)} · ${_title(t)}';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l10n.txReimbursements.toUpperCase(),
+            style: GoogleFonts.jetBrainsMono(
+              color: scheme.onSurfaceVariant,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
+            ),
+          ),
+          if (status != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              receivableBadge(l10n, currency, status),
+              style: TextStyle(
+                color: stillOwed(status)
+                    ? incomeInk(scheme.brightness)
+                    : scheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          for (final t in linked)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(line(t), overflow: TextOverflow.ellipsis),
+              trailing: IconButton(
+                icon: const Icon(Icons.link_off, size: 18),
+                tooltip: l10n.txUnlink,
+                onPressed: () => _link(t.id, null),
+              ),
+            ),
+          if (stored)
+            candidates.isEmpty
+                ? Text(
+                    l10n.txNoUnlinkedIncomes,
+                    style: TextStyle(
+                        color: scheme.onSurfaceVariant, fontSize: 12),
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          key: ValueKey(_attached),
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                              labelText: l10n.txAttachReimbursement),
+                          items: [
+                            for (final t in candidates)
+                              DropdownMenuItem(
+                                value: t.id,
+                                child: Text(line(t),
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                          ],
+                          onChanged: (id) => setState(() => _attachId = id),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: _attachId == null
+                            ? null
+                            : () => _attach(_attachId!, expense.id),
+                        child: Text(l10n.txAttach),
+                      ),
+                    ],
+                  ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 4),
+            TextField(
+              controller: _field,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) {
+                if (_message != null) setState(() => _message = null);
+              },
+              decoration: InputDecoration(
+                labelText: context.l10n.txSharedOthersOwe,
+                prefixText: '${widget.currencySymbol} ',
+              ),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              key: ValueKey(_picks),
+              isExpanded: true,
+              decoration: InputDecoration(labelText: context.l10n.txSplitIn),
+              items: [
+                for (var n = 2; n <= 12; n++)
+                  DropdownMenuItem(value: n, child: Text('$n')),
+              ],
+              onChanged: _split,
+            ),
+            if (widget.transaction != null) _reimbursements(widget.transaction!),
+            InlineSheetMessage(_message),
+            const SizedBox(height: 24),
+            SaveButton(
+              label: context.l10n.commonSave.toUpperCase(),
+              color: scheme.primary,
+              onColor: scheme.onPrimary,
+              onTap: _apply,
+            ),
+            const SizedBox(height: 20),
+            const KeyboardSpacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+List<Transaction> _newestFirst(Iterable<Transaction> txns) =>
+    txns.toList()..sort((a, b) => b.date.compareTo(a.date));
+
+/// How a row reads in a list: its description, else its category.
+String _title(Transaction t) =>
+    t.description.trim().isEmpty ? t.category : t.description;
 
 class _TopBar extends StatelessWidget {
   final String title;

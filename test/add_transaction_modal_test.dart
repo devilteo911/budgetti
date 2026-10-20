@@ -82,6 +82,10 @@ void main() {
     Transaction? transaction,
     Transaction? prefill,
     List<Transaction> history = const [],
+    List<Transaction> shared = const [],
+    // Read the shared rows from the database (seed them) instead of [shared],
+    // for the cases that write a link and watch the sheet follow.
+    bool liveShare = false,
     List<Account>? accounts,
     Future<void> Function(AppDatabase db)? seed,
     Future<void> Function(Transaction)? onSave,
@@ -123,6 +127,9 @@ void main() {
         databaseProvider.overrideWithValue(db),
         transactionsProvider(null)
             .overrideWith((ref) => Stream.value(history)),
+        if (!liveShare)
+          shareTransactionsProvider
+              .overrideWith((ref) => Stream.value(shared)),
         currencyProvider.overrideWithValue(
             NumberFormat.simpleCurrency(name: 'EUR', locale: 'en_US')),
         financeServiceProvider.overrideWithValue(FinanceService(db, 'u')),
@@ -494,9 +501,9 @@ void main() {
     });
   });
 
-  // The sheet has no split fields yet (#38): an edit builds a brand-new
-  // Transaction from the form, which would write othersShare 0 over a split
-  // marked on the web. It carries the row's own values over instead.
+  // An edit builds a brand-new Transaction from the form, which would write
+  // othersShare 0 over a split marked on the web. The editor holds the split in
+  // its own state, seeded from the row, and writes it back unchanged.
   group('editing a split row keeps its split', () {
     Future<Transaction> editDescription(
         WidgetTester tester, Transaction existing) async {
@@ -532,11 +539,518 @@ void main() {
     });
   });
 
+  // The SHARED row and its sheet: what the others owe, typed or split in N.
+  group('marking an expense as shared', () {
+    final sharedField = find.widgetWithText(TextField, 'Shared — others owe');
+    const tooMuch = "The others can't owe more than the whole expense.";
+
+    Future<void> openSharedSheet(WidgetTester tester) async {
+      await tester.tap(find.text('SHARED'));
+      await tester.pumpAndSettle();
+    }
+
+    /// The sheet's own Save is the last one on screen (the editor has one too).
+    Future<void> applySharedSheet(WidgetTester tester) async {
+      await tester.tap(find.text('SAVE').last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> splitIn(WidgetTester tester, int n) async {
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('$n').last);
+      await tester.pumpAndSettle();
+    }
+
+    String sharedFieldText(WidgetTester tester) =>
+        tester.widget<TextField>(sharedField).controller!.text;
+
+    Future<void> typeAmount(WidgetTester tester, String amount) async {
+      await tester.enterText(find.byType(TextFormField).at(0), amount);
+      await tester.enterText(find.byType(TextFormField).at(1), 'Dinner');
+    }
+
+    /// A new expense of [amount], shared through [fill] (which drives the sheet),
+    /// saved: what the editor handed to `onSave`.
+    Future<Transaction> saveShared(
+      WidgetTester tester,
+      String amount,
+      Future<void> Function() fill,
+    ) async {
+      Transaction? saved;
+      await pump(tester, onSave: (t) async => saved = t);
+      await typeAmount(tester, amount);
+      await openSharedSheet(tester);
+      await fill();
+      await applySharedSheet(tester);
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+      return saved!;
+    }
+
+    testWidgets('the row is offered for an expense only', (tester) async {
+      await pump(tester);
+
+      expect(find.text('SHARED'), findsOneWidget);
+      expect(find.text('Not shared'), findsOneWidget);
+
+      await tester.tap(find.text('INCOME'));
+      await tester.pumpAndSettle();
+      expect(find.text('SHARED'), findsNothing);
+
+      await tester.tap(find.text('TRANSFER'));
+      await tester.pumpAndSettle();
+      expect(find.text('SHARED'), findsNothing);
+    });
+
+    testWidgets('and not in the inbox approval (a prefill)', (tester) async {
+      await pump(tester, prefill: tx());
+
+      expect(find.text('SHARED'), findsNothing);
+    });
+
+    testWidgets('100 split in 4 saves 75 and the row says so', (tester) async {
+      Transaction? saved;
+      await pump(tester, onSave: (t) async => saved = t);
+      await typeAmount(tester, '100');
+      await openSharedSheet(tester);
+      await splitIn(tester, 4);
+
+      expect(sharedFieldText(tester), '75.00');
+
+      await applySharedSheet(tester);
+      expect(find.text('others owe €75.00'), findsOneWidget);
+
+      await tester.tap(find.text('SAVE'));
+      await tester.pumpAndSettle();
+      expect((saved?.amount, saved?.othersShare), (-100.0, 75.0));
+    });
+
+    testWidgets('10 split in 3 saves 6.67', (tester) async {
+      final saved = await saveShared(tester, '10', () => splitIn(tester, 3));
+
+      expect(saved.othersShare, 6.67);
+    });
+
+    testWidgets('a typed figure is saved as typed', (tester) async {
+      final saved = await saveShared(tester, '100',
+          () => tester.enterText(sharedField, '30'));
+
+      expect(saved.othersShare, 30);
+    });
+
+    testWidgets('a comma works as the decimal separator', (tester) async {
+      final saved = await saveShared(tester, '100',
+          () => tester.enterText(sharedField, '12,5'));
+
+      expect(saved.othersShare, 12.5);
+    });
+
+    testWidgets('an emptied field is "not shared"', (tester) async {
+      Transaction? saved;
+      await pump(tester,
+          transaction: tx(amount: -100, othersShare: 75),
+          onSave: (t) async => saved = t);
+      await openSharedSheet(tester);
+      expect(sharedFieldText(tester), '75.00');
+
+      await tester.enterText(sharedField, '');
+      await applySharedSheet(tester);
+      expect(find.text('Not shared'), findsOneWidget);
+
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+      expect(saved?.othersShare, 0);
+    });
+
+    testWidgets('more than the whole expense is refused in the sheet',
+        (tester) async {
+      await pump(tester);
+      await typeAmount(tester, '100');
+      await openSharedSheet(tester);
+      await tester.enterText(sharedField, '120');
+
+      await applySharedSheet(tester);
+
+      expect(find.text(tooMuch), findsOneWidget);
+      expect(sharedField, findsOneWidget); // still open
+      expect(find.text('Not shared'), findsOneWidget); // nothing was applied
+    });
+
+    testWidgets('something that is not an amount is refused in the sheet',
+        (tester) async {
+      await pump(tester);
+      await typeAmount(tester, '100');
+      await openSharedSheet(tester);
+      await tester.enterText(sharedField, 'abc');
+
+      await applySharedSheet(tester);
+
+      expect(
+          find.text(
+              'Enter what the others owe as an amount, or leave it empty.'),
+          findsOneWidget);
+      expect(sharedField, findsOneWidget);
+    });
+
+    testWidgets('"Split in" with no amount asks for it and writes nothing',
+        (tester) async {
+      await pump(tester);
+      await openSharedSheet(tester);
+
+      await splitIn(tester, 4);
+
+      expect(find.text('Enter the amount first.'), findsOneWidget);
+      expect(sharedFieldText(tester), '');
+    });
+
+    testWidgets('an amount lowered below the share is refused at save',
+        (tester) async {
+      var saves = 0;
+      await pump(tester,
+          transaction: tx(amount: -100, othersShare: 75),
+          onSave: (_) async => saves++);
+
+      await tester.enterText(find.byType(TextFormField).at(0), '50');
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      expect(inlineMessage(tooMuch), findsOneWidget);
+      expect(find.byType(AddTransactionModal), findsOneWidget);
+      expect(saves, 0);
+    });
+
+    testWidgets('an edited shared expense switched to income saves no share',
+        (tester) async {
+      Transaction? saved;
+      await pump(tester,
+          transaction: tx(amount: -100, othersShare: 75),
+          onSave: (t) async => saved = t);
+
+      await tester.tap(find.text('INCOME'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('UPDATE'));
+      await tester.pumpAndSettle();
+
+      expect((saved?.amount, saved?.othersShare), (100.0, 0.0));
+    });
+
+    testWidgets('an unsaved split makes the sheet ask before it closes',
+        (tester) async {
+      await pump(tester);
+      await openSharedSheet(tester);
+      await tester.enterText(sharedField, '30');
+      await applySharedSheet(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+    });
+  });
+
+  // The two ends of one link: an income's PAYS BACK row (saved with the form) and
+  // the reimbursements of a shared expense (written to the other row at once).
+  group('linking a reimbursement', () {
+    Transaction dinner() => Transaction(
+          id: 'dinner',
+          accountId: 'w1',
+          amount: -100,
+          date: DateTime(2026, 6, 10),
+          description: 'Dinner',
+          category: 'Dining',
+          othersShare: 75,
+        );
+
+    Transaction back(
+      double amount, {
+      String id = 'back',
+      String description = 'Back',
+      String? reimbursesId = 'dinner',
+    }) =>
+        Transaction(
+          id: id,
+          accountId: 'w1',
+          amount: amount,
+          date: DateTime(2026, 6, 11),
+          description: description,
+          category: 'Salary',
+          type: 'income',
+          reimbursesId: reimbursesId,
+        );
+
+    late AppDatabase db;
+
+    /// Seeds [rows] as the owner's, and keeps the database for [linkOf].
+    Future<void> Function(AppDatabase) seedRows(List<Transaction> rows) =>
+        (d) async {
+          db = d;
+          for (final t in rows) {
+            await d.into(d.transactions).insert(TransactionsCompanion.insert(
+                  id: t.id,
+                  userId: const Value('u'),
+                  accountId: Value(t.accountId),
+                  amount: t.amount,
+                  description: t.description,
+                  category: t.category,
+                  type: Value(t.type),
+                  date: t.date,
+                  othersShare: Value(t.othersShare),
+                  reimbursesId: Value(t.reimbursesId),
+                ));
+          }
+        };
+
+    /// The `reimbursesId` the database holds for [id].
+    Future<String?> linkOf(WidgetTester tester, String id) async =>
+        (await tester.runAsync(() =>
+                (db.select(db.transactions)..where((t) => t.id.equals(id)))
+                    .getSingle()))!
+            .reimbursesId;
+
+    String amountText(WidgetTester tester) => tester
+        .widget<EditableText>(find.descendant(
+            of: find.byType(AmountHeroField),
+            matching: find.byType(EditableText)))
+        .controller
+        .text;
+
+    /// A live (database) stream closes on a zero-length timer once its widgets
+    /// go away; unmounting by hand runs it before the framework looks for
+    /// timers still pending at the end of the test.
+    Future<void> unmount(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox());
+      // A duration, or the fake clock does not move and the timer stays queued.
+      await tester.pump(const Duration(milliseconds: 1));
+    }
+
+    Future<void> openPicker(WidgetTester tester) async {
+      await tester.tap(find.text('PAYS BACK'));
+      await tester.pumpAndSettle();
+    }
+
+    group('from the income', () {
+      testWidgets('the picker lists the shared expense, a blank amount takes '
+          'what is left and saving writes the link', (tester) async {
+        Transaction? saved;
+        await pump(tester,
+            shared: [dinner(), back(25)], onSave: (t) async => saved = t);
+        await tester.tap(find.text('INCOME'));
+        await tester.pumpAndSettle();
+        expect(find.text('Not a reimbursement'), findsOneWidget); // the row
+
+        await openPicker(tester);
+        expect(find.text('Dinner'), findsOneWidget);
+        expect(find.text('Jun 10 · €75.00 to receive · €25.00 received'),
+            findsOneWidget);
+        await tester.tap(find.text('Dinner'));
+        await tester.pumpAndSettle();
+
+        expect(amountText(tester), '50.00');
+        await tester.enterText(find.byType(TextFormField).at(1), 'Back');
+        await tester.tap(find.text('SAVE'));
+        await tester.pumpAndSettle();
+        expect((saved?.type, saved?.amount, saved?.reimbursesId),
+            ('income', 50.0, 'dinner'));
+      });
+
+      testWidgets('a typed amount is kept', (tester) async {
+        await pump(tester, shared: [dinner()]);
+        await tester.tap(find.text('INCOME'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField).at(0), '10');
+
+        await openPicker(tester);
+        await tester.tap(find.text('Dinner'));
+        await tester.pumpAndSettle();
+
+        expect(amountText(tester), '10');
+      });
+
+      testWidgets('the same income switched to expense saves no link',
+          (tester) async {
+        Transaction? saved;
+        await pump(tester,
+            transaction: back(25),
+            shared: [dinner()],
+            onSave: (t) async => saved = t);
+        expect(find.text('Dinner'), findsOneWidget); // the row names it
+
+        await tester.tap(find.text('EXPENSE'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('UPDATE'));
+        await tester.pumpAndSettle();
+
+        expect((saved?.amount, saved?.reimbursesId), (-25.0, null));
+      });
+
+      testWidgets('a link to an expense that is not there says so and '
+          '"Not a reimbursement" drops it', (tester) async {
+        Transaction? saved;
+        await pump(tester,
+            transaction: back(25, reimbursesId: 'gone'),
+            onSave: (t) async => saved = t);
+        expect(find.text('Linked to an expense that is not there'),
+            findsOneWidget);
+
+        await openPicker(tester);
+        await tester.tap(find.text('Not a reimbursement'));
+        await tester.pumpAndSettle();
+        expect(find.text('Linked to an expense that is not there'),
+            findsNothing);
+        await tester.tap(find.text('UPDATE'));
+        await tester.pumpAndSettle();
+
+        expect(saved?.reimbursesId, isNull);
+      });
+
+      testWidgets('the row is offered only when there is something to pay back',
+          (tester) async {
+        await pump(tester);
+        await tester.tap(find.text('INCOME'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('PAYS BACK'), findsNothing);
+      });
+
+      testWidgets('and never the expense being edited', (tester) async {
+        await pump(tester, transaction: dinner(), shared: [dinner()]);
+
+        await tester.tap(find.text('INCOME'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('PAYS BACK'), findsNothing);
+      });
+
+      testWidgets('and not in the inbox approval (a prefill)', (tester) async {
+        await pump(tester,
+            prefill: back(25, reimbursesId: null), shared: [dinner()]);
+
+        expect(find.text('PAYS BACK'), findsNothing);
+      });
+    });
+
+    group('from the expense', () {
+      testWidgets('a new expense has no reimbursements yet', (tester) async {
+        await pump(tester, shared: [dinner(), back(25)]);
+
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('REIMBURSEMENTS'), findsNothing);
+      });
+
+      testWidgets('lists the linked income and Unlink clears the link in the '
+          'database', (tester) async {
+        await pump(tester,
+            transaction: dinner(),
+            liveShare: true,
+            seed: seedRows([dinner(), back(25)]));
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('REIMBURSEMENTS'), findsOneWidget);
+        expect(find.text('€75.00 to receive · €25.00 received'),
+            findsOneWidget);
+        expect(find.text('Jun 11, 2026 · €25.00 · Back'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Unlink'));
+        await tester.pumpAndSettle();
+
+        expect(await linkOf(tester, 'back'), isNull);
+        expect(find.text('Jun 11, 2026 · €25.00 · Back'), findsNothing);
+        expect(find.text('€75.00 to receive'), findsOneWidget);
+        await unmount(tester);
+      });
+
+      testWidgets('choosing an income writes nothing, Attach writes the link',
+          (tester) async {
+        final spare = back(25,
+            id: 'spare', description: 'Refund', reimbursesId: null);
+        await pump(tester,
+            transaction: dinner(),
+            history: [spare],
+            liveShare: true,
+            seed: seedRows([dinner(), spare]));
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+        final attach = find.widgetWithText(TextButton, 'Attach');
+        expect(tester.widget<TextButton>(attach).onPressed, isNull);
+
+        await tester.tap(find.byType(DropdownButtonFormField<String>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Jun 11, 2026 · €25.00 · Refund').last);
+        await tester.pumpAndSettle();
+
+        expect(await linkOf(tester, 'spare'), isNull);
+        expect(tester.widget<TextButton>(attach).onPressed, isNotNull);
+
+        await tester.tap(attach);
+        await tester.pumpAndSettle();
+
+        expect(await linkOf(tester, 'spare'), 'dinner');
+        expect(find.text('€75.00 to receive · €25.00 received'),
+            findsOneWidget);
+        expect(find.byTooltip('Unlink'), findsOneWidget);
+        await unmount(tester);
+      });
+
+      testWidgets('with no unlinked income there is nothing to attach',
+          (tester) async {
+        await pump(tester, transaction: dinner(), shared: [dinner()]);
+
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('No unlinked incomes to attach.'), findsOneWidget);
+        expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+      });
+
+      testWidgets('an expense whose share was lowered to 0 still lists its '
+          'reimbursements, but offers none to attach', (tester) async {
+        await pump(tester,
+            transaction: dinner().copyWith(othersShare: 0),
+            shared: [back(25)],
+            history: [back(10, id: 'spare', reimbursesId: null)]);
+
+        await tester.tap(find.text('SHARED'));
+        await tester.pumpAndSettle();
+
+        expect(find.byTooltip('Unlink'), findsOneWidget);
+        expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+        expect(find.text('No unlinked incomes to attach.'), findsNothing);
+      });
+    });
+  });
+
   bool amountFocused(WidgetTester tester) => tester
       .widget<EditableText>(find.descendant(
           of: find.byType(AmountHeroField), matching: find.byType(EditableText)))
       .focusNode
       .hasFocus;
+
+  // The field is typed into, so it reads like the other amount fields (two
+  // decimals), not like a Dart double ("100.0").
+  group('an existing transaction opens with its amount as two decimals', () {
+    Future<String> shown(WidgetTester tester, double amount) async {
+      await pump(tester, transaction: tx(amount: amount));
+      return tester
+          .widget<EditableText>(find.descendant(
+              of: find.byType(AmountHeroField),
+              matching: find.byType(EditableText)))
+          .controller
+          .text;
+    }
+
+    testWidgets('a whole amount has no ".0"', (tester) async {
+      expect(await shown(tester, -100), '100.00');
+    });
+
+    testWidgets('cents are kept', (tester) async {
+      expect(await shown(tester, -12.5), '12.50');
+      expect(await shown(tester, -12.34), '12.34');
+    });
+  });
 
   // The common case is a fresh amount to type: the keyboard should already be up.
   group('the amount field takes focus only on a blank new sheet', () {

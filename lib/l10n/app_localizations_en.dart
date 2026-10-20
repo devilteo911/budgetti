@@ -319,6 +319,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dashToReceive => 'To receive';
+
+  @override
+  String dashOwedReceived(String owed, String received) {
+    return '$owed owed · $received received';
+  }
+
+  @override
+  String dashOpenToReceive(String title, String amount) {
+    return 'Open $title, $amount to receive';
+  }
+
+  @override
   String get budgetScreenTitle => 'Budgets';
 
   @override
@@ -1993,6 +2006,98 @@ class AppLocalizationsEn extends AppLocalizations {
   String txInstallmentOption(String amount, int count, int paid) {
     return '$amount × $count · $paid due so far';
   }
+
+  @override
+  String get txShared => 'Shared';
+
+  @override
+  String get txSharedOthersOwe => 'Shared — others owe';
+
+  @override
+  String get txNotShared => 'Not shared';
+
+  @override
+  String txOthersOwe(String amount) {
+    return 'others owe $amount';
+  }
+
+  @override
+  String get txSplitIn => 'Split in';
+
+  @override
+  String get txEnterAmountFirst => 'Enter the amount first.';
+
+  @override
+  String get txShareInvalid =>
+      'Enter what the others owe as an amount, or leave it empty.';
+
+  @override
+  String get txShareTooMuch =>
+      'The others can\'t owe more than the whole expense.';
+
+  @override
+  String get txPaysBack => 'Pays back';
+
+  @override
+  String get txNotAReimbursement => 'Not a reimbursement';
+
+  @override
+  String get txLinkedMissing => 'Linked to an expense that is not there';
+
+  @override
+  String get txReimbursements => 'Reimbursements';
+
+  @override
+  String get txAttachReimbursement => 'Attach a reimbursement';
+
+  @override
+  String get txAttach => 'Attach';
+
+  @override
+  String get txUnlink => 'Unlink';
+
+  @override
+  String get txNoUnlinkedIncomes => 'No unlinked incomes to attach.';
+
+  @override
+  String txToReceive(String owed) {
+    return '$owed to receive';
+  }
+
+  @override
+  String txToReceiveReceived(String owed, String received) {
+    return '$owed to receive · $received received';
+  }
+
+  @override
+  String get txSettled => 'settled';
+
+  @override
+  String txReceivedMore(String amount) {
+    return 'received $amount more';
+  }
+
+  @override
+  String get txPaysBackMarker => 'pays back';
+
+  @override
+  String get txPaysBackMissing => 'pays back · expense missing';
+
+  @override
+  String txDueShort(String amount) {
+    return '$amount due';
+  }
+
+  @override
+  String txMoreShort(String amount) {
+    return '+$amount';
+  }
+
+  @override
+  String get txPaysBackShort => '← pays back';
+
+  @override
+  String get txPaysBackMissingShort => '← missing';
 
   @override
   String get txInvalidAmount => 'Invalid';

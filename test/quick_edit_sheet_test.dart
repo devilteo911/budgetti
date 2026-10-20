@@ -98,6 +98,33 @@ void main() {
     expect([result()!.amount, result()!.type], [55, 'transfer']);
   });
 
+  group('a shared expense (100, the others owe 75)', () {
+    final tooMuch = lookupAppLocalizations(const Locale('en')).txShareTooMuch;
+    Transaction dinner() => tx(amount: -100).copyWith(othersShare: 75);
+
+    testWidgets('lowered to 90, it keeps what the others owe', (tester) async {
+      final result = await open(tester, dinner());
+      await fill(tester, amount: '90');
+      final t = result()!;
+      expect([t.amount, t.othersShare], [-90, 75]);
+      expect(find.text(tooMuch), findsNothing);
+    });
+
+    testWidgets('lowered to 50, it is refused and the sheet stays open',
+        (tester) async {
+      final result = await open(tester, dinner());
+      await fill(tester, amount: '50');
+      expect(find.byType(QuickEditSheet), findsOneWidget);
+      expect(find.text(tooMuch), findsOneWidget);
+      expect(() => result(), throwsA(isA<TestFailure>()));
+
+      // Any edit takes the message back.
+      await tester.enterText(find.byType(TextFormField).first, '80');
+      await tester.pump();
+      expect(find.text(tooMuch), findsNothing);
+    });
+  });
+
   testWidgets('a blank title or a non-number keeps the sheet open', (tester) async {
     final result = await open(tester, tx());
     await fill(tester, title: '   ');

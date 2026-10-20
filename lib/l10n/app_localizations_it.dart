@@ -322,6 +322,19 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String get dashToReceive => 'Da ricevere';
+
+  @override
+  String dashOwedReceived(String owed, String received) {
+    return '$owed dovuti · $received ricevuti';
+  }
+
+  @override
+  String dashOpenToReceive(String title, String amount) {
+    return 'Apri $title, $amount da ricevere';
+  }
+
+  @override
   String get budgetScreenTitle => 'Budget';
 
   @override
@@ -2006,6 +2019,98 @@ class AppLocalizationsIt extends AppLocalizations {
   String txInstallmentOption(String amount, int count, int paid) {
     return '$amount × $count · $paid pagate finora';
   }
+
+  @override
+  String get txShared => 'Condivisa';
+
+  @override
+  String get txSharedOthersOwe => 'Condivisa — gli altri devono';
+
+  @override
+  String get txNotShared => 'Non condivisa';
+
+  @override
+  String txOthersOwe(String amount) {
+    return 'gli altri devono $amount';
+  }
+
+  @override
+  String get txSplitIn => 'Dividi in';
+
+  @override
+  String get txEnterAmountFirst => 'Inserisci prima l\'importo.';
+
+  @override
+  String get txShareInvalid =>
+      'Inserisci quanto devono gli altri come importo, o lascia vuoto.';
+
+  @override
+  String get txShareTooMuch =>
+      'Gli altri non possono dovere più dell\'intera spesa.';
+
+  @override
+  String get txPaysBack => 'Rimborsa';
+
+  @override
+  String get txNotAReimbursement => 'Non è un rimborso';
+
+  @override
+  String get txLinkedMissing => 'Collegato a una spesa che non c\'è';
+
+  @override
+  String get txReimbursements => 'Rimborsi';
+
+  @override
+  String get txAttachReimbursement => 'Collega un rimborso';
+
+  @override
+  String get txAttach => 'Collega';
+
+  @override
+  String get txUnlink => 'Scollega';
+
+  @override
+  String get txNoUnlinkedIncomes => 'Nessuna entrata da collegare.';
+
+  @override
+  String txToReceive(String owed) {
+    return '$owed da ricevere';
+  }
+
+  @override
+  String txToReceiveReceived(String owed, String received) {
+    return '$owed da ricevere · $received ricevuti';
+  }
+
+  @override
+  String get txSettled => 'saldata';
+
+  @override
+  String txReceivedMore(String amount) {
+    return 'ricevuti $amount in più';
+  }
+
+  @override
+  String get txPaysBackMarker => 'rimborso';
+
+  @override
+  String get txPaysBackMissing => 'rimborso · spesa mancante';
+
+  @override
+  String txDueShort(String amount) {
+    return '$amount dovuti';
+  }
+
+  @override
+  String txMoreShort(String amount) {
+    return '+$amount';
+  }
+
+  @override
+  String get txPaysBackShort => '← rimborso';
+
+  @override
+  String get txPaysBackMissingShort => '← mancante';
 
   @override
   String get txInvalidAmount => 'Non valido';

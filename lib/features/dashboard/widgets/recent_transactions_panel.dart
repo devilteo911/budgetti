@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
+import 'package:budgetti/core/theme/ledger_style.dart';
+import 'package:budgetti/features/transactions/widgets/receivable_badge.dart';
 import 'package:budgetti/models/transaction.dart';
 
 /// Brutalist-style recent transactions panel for the dashboard.
@@ -20,6 +22,8 @@ class RecentTransactionsPanel extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final currency = ref.watch(currencyProvider);
     final catColors = ref.watch(categoryColorCacheProvider(Theme.of(context).colorScheme.brightness));
+    final receivables = ref.watch(receivablesProvider).value ??
+        const <String, Receivable>{};
 
     final border = BorderSide(color: scheme.outline.withValues(alpha: 0.12));
     final rowBorder = BorderSide(color: scheme.outline.withValues(alpha: 0.06));
@@ -96,6 +100,7 @@ class RecentTransactionsPanel extends ConsumerWidget {
                 border: rowBorder,
                 stripeColor: catColors[items[i].category] ?? scheme.primary,
                 currency: currency,
+                tag: shareTag(context.l10n, currency, items[i], receivables),
               ),
         ],
       ),
@@ -110,6 +115,7 @@ class _Row extends StatelessWidget {
     required this.border,
     required this.stripeColor,
     required this.currency,
+    required this.tag,
   });
 
   final Transaction t;
@@ -117,6 +123,9 @@ class _Row extends StatelessWidget {
   final BorderSide border;
   final Color stripeColor;
   final dynamic currency;
+
+  /// What is owed on a shared expense, or the expense an income pays back.
+  final ShareTag? tag;
 
   @override
   Widget build(BuildContext context) {
@@ -131,6 +140,12 @@ class _Row extends StatelessWidget {
             ? scheme.primary
             : scheme.onSurface;
     final sign = isTransfer ? '' : (isIncome ? '+' : '−');
+    final tag = this.tag;
+    final caption = GoogleFonts.jetBrainsMono(
+      color: scheme.onSurfaceVariant,
+      fontSize: 11,
+      letterSpacing: 0.8,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -158,14 +173,23 @@ class _Row extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  t.category.toUpperCase(),
-                  style: GoogleFonts.jetBrainsMono(
-                    color: scheme.onSurfaceVariant,
-                    fontSize: 11,
-                    letterSpacing: 0.8,
+                // Still the one caption line: "CATEGORY · €75.00 to receive".
+                if (tag != null)
+                  ShareTagLine(
+                    lead: t.category.toUpperCase(),
+                    tag: tag,
+                    style: caption,
+                    tagColor: tag.owed
+                        ? incomeInk(scheme.brightness)
+                        : scheme.onSurfaceVariant,
+                  )
+                else
+                  Text(
+                    t.category.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: caption,
                   ),
-                ),
               ],
             ),
           ),

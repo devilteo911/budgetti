@@ -93,6 +93,9 @@
   "dashNoTransactions": "Ancora nessuna transazione",
   "dashYesterdayShort": "IERI",
   "dashDaysAgoShort": "{days}G",
+  "dashToReceive": "Da ricevere",
+  "dashOwedReceived": "{owed} dovuti · {received} ricevuti",
+  "dashOpenToReceive": "Apri {title}, {amount} da ricevere",
   "budgetScreenTitle": "Budget",
   "budgetSortUtilization": "Utilizzo",
   "budgetSortAlphabetical": "Alfabetico",
@@ -573,6 +576,32 @@
   "txIgnore": "Ignora",
   "txInstallment": "Rata",
   "txInstallmentOption": "{amount} × {count} · {paid} pagate finora",
+  "txShared": "Condivisa",
+  "txSharedOthersOwe": "Condivisa — gli altri devono",
+  "txNotShared": "Non condivisa",
+  "txOthersOwe": "gli altri devono {amount}",
+  "txSplitIn": "Dividi in",
+  "txEnterAmountFirst": "Inserisci prima l'importo.",
+  "txShareInvalid": "Inserisci quanto devono gli altri come importo, o lascia vuoto.",
+  "txShareTooMuch": "Gli altri non possono dovere più dell'intera spesa.",
+  "txPaysBack": "Rimborsa",
+  "txNotAReimbursement": "Non è un rimborso",
+  "txLinkedMissing": "Collegato a una spesa che non c'è",
+  "txReimbursements": "Rimborsi",
+  "txAttachReimbursement": "Collega un rimborso",
+  "txAttach": "Collega",
+  "txUnlink": "Scollega",
+  "txNoUnlinkedIncomes": "Nessuna entrata da collegare.",
+  "txToReceive": "{owed} da ricevere",
+  "txToReceiveReceived": "{owed} da ricevere · {received} ricevuti",
+  "txSettled": "saldata",
+  "txReceivedMore": "ricevuti {amount} in più",
+  "txPaysBackMarker": "rimborso",
+  "txPaysBackMissing": "rimborso · spesa mancante",
+  "txDueShort": "{amount} dovuti",
+  "txMoreShort": "+{amount}",
+  "txPaysBackShort": "← rimborso",
+  "txPaysBackMissingShort": "← mancante",
   "txInvalidAmount": "Non valido",
   "txIsSameExpense": "È la stessa spesa?",
   "txLast30Days": "Ultimi 30 giorni",
@@ -728,6 +757,26 @@
     "placeholders": {
       "days": {
         "type": "int"
+      }
+    }
+  },
+  "@dashOwedReceived": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      }
+    }
+  },
+  "@dashOpenToReceive": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
       }
     }
   },
@@ -1213,6 +1262,51 @@
       },
       "paid": {
         "type": "int"
+      }
+    }
+  },
+  "@txOthersOwe": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@txToReceive": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      }
+    }
+  },
+  "@txToReceiveReceived": {
+    "placeholders": {
+      "owed": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      }
+    }
+  },
+  "@txReceivedMore": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@txDueShort": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "@txMoreShort": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
       }
     }
   },

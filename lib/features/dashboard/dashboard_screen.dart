@@ -4,6 +4,7 @@ import 'package:budgetti/features/dashboard/widgets/dashboard_skeletons.dart';
 import 'package:budgetti/features/dashboard/widgets/budget_overview_card.dart';
 import 'package:budgetti/features/dashboard/widgets/installments_card.dart';
 import 'package:budgetti/features/dashboard/widgets/piva_card.dart';
+import 'package:budgetti/features/dashboard/widgets/to_receive_card.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_header.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_carousel.dart';
 import 'package:budgetti/features/dashboard/widgets/dashboard_stat_grid.dart';
@@ -152,6 +153,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           const DashboardStatGrid(),
                           const BudgetOverviewCard(),
                           const InstallmentsCard(),
+                          const ToReceiveCard(),
                           const PivaCard(),
                           const SizedBox(height: 14),
                           RepaintBoundary(
