@@ -335,7 +335,7 @@ abstract class AppLocalizations {
   /// No description provided for @authServerHasData.
   ///
   /// In en, this message translates to:
-  /// **'The server already has data for this account ({count} transactions).'**
+  /// **'The server already has data for this account ({count, plural, =1 {1 transaction} other {{count} transactions}}).'**
   String authServerHasData(int count);
 
   /// No description provided for @authServerNoData.
@@ -359,7 +359,7 @@ abstract class AppLocalizations {
   /// No description provided for @authUseServerDataSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Download everything to this device ({count} transactions)'**
+  /// **'Download everything to this device ({count, plural, =1 {1 transaction} other {{count} transactions}})'**
   String authUseServerDataSubtitle(int count);
 
   /// No description provided for @authUploadDeviceData.
@@ -371,7 +371,7 @@ abstract class AppLocalizations {
   /// No description provided for @authUploadDeviceDataSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Push all local data to the server ({count} transactions)'**
+  /// **'Push all local data to the server ({count, plural, =1 {1 transaction} other {{count} transactions}})'**
   String authUploadDeviceDataSubtitle(int count);
 
   /// No description provided for @authRestoreBackup.
@@ -2837,7 +2837,7 @@ abstract class AppLocalizations {
   /// No description provided for @setDaysCount.
   ///
   /// In en, this message translates to:
-  /// **'{count} days'**
+  /// **'{count, plural, =1 {1 day} other {{count} days}}'**
   String setDaysCount(int count);
 
   /// No description provided for @setCustom.
@@ -2861,13 +2861,13 @@ abstract class AppLocalizations {
   /// No description provided for @setNewDrafts.
   ///
   /// In en, this message translates to:
-  /// **'{count} new transactions to review'**
+  /// **'{count, plural, =1 {1 new transaction to review} other {{count} new transactions to review}}'**
   String setNewDrafts(int count);
 
   /// No description provided for @setUnreadEmails.
   ///
   /// In en, this message translates to:
-  /// **'{count} unrecognized emails'**
+  /// **'{count, plural, =1 {1 unrecognized email} other {{count} unrecognized emails}}'**
   String setUnreadEmails(int count);
 
   /// No description provided for @setNoNewTransactions.
@@ -2957,7 +2957,7 @@ abstract class AppLocalizations {
   /// No description provided for @setUnreadNotifications.
   ///
   /// In en, this message translates to:
-  /// **'{count} unrecognized notifications'**
+  /// **'{count, plural, =1 {1 unrecognized notification} other {{count} unrecognized notifications}}'**
   String setUnreadNotifications(int count);
 
   /// No description provided for @setNoNewNotifications.
@@ -3005,7 +3005,7 @@ abstract class AppLocalizations {
   /// No description provided for @setCountUnreadableRows.
   ///
   /// In en, this message translates to:
-  /// **'{count} unreadable rows'**
+  /// **'{count, plural, =1 {1 unreadable row} other {{count} unreadable rows}}'**
   String setCountUnreadableRows(int count);
 
   /// No description provided for @setNoTransactionsInFile.
