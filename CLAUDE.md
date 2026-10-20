@@ -104,10 +104,11 @@ approval cannot break them. The backup import normalises the keys before the
 generated `fromJson` (absent, the web's `0` / `null`, or the app's own export all
 read), and the push clamps once more for a row written before the writes did. The
 server rejects a negative share, which would dead-letter the row. `linkReimbursement`
-is the one single-column write of the link (bumps `lastUpdated`), the call #38's
-pickers use from either side. Until #38 puts the fields in the form, `_submit` of
-`add_transaction_modal.dart` carries them over from the row being edited, so
-editing a description on the phone cannot erase a split marked on the web.
+is the one single-column write of the link (bumps `lastUpdated`): the shared sheet's
+Unlink and Attach call it at once, while the income's PAYS BACK picker only sets the
+form's `_reimbursesId` and saves with the row. The editor holds `othersShare` and
+`reimbursesId` as state seeded from the row being edited and writes them back in
+`_submit`, so editing a description on the phone cannot erase a split marked on the web.
 
 **The rule** is in `lib/core/finance_math.dart`, the mirror of `web/src/finance.ts`
 (**change one, change both**): `ownShare(t)`, `ownView(txns)`, `receivable(expense,
@@ -166,7 +167,7 @@ from −0.005); rows, the editor and the card all call them.
   blank amount with what is outstanding, "Not a reimbursement" unlinks, and a link
   to an expense that is not there reads "Linked to an expense that is not there".
   Both rows are hidden in the inbox's edit-and-approve (`prefill != null`): a split
-  is set after approval, from the saved row (#36). `_typed` includes both fields,
+  is set after approval, from the saved row. `_typed` includes both fields,
   so the discard guard asks before dropping a split or a link.
 - **From the expense.** The shared sheet of an *existing* expense also lists the
   incomes linked to it (Unlink writes at once through `linkReimbursement`) and
