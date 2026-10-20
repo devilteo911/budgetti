@@ -401,9 +401,14 @@ its own file; every capture trigger guards with `notificationSyncEnabled` (eithe
 A debug build accepts notifications posted from the adb shell, so the whole capture
 path runs without a real payment. A shell push stands in for Revolut, or for PayPal
 when its **tag** starts with `paypal`:
-`adb shell cmd notification post -S bigtext -t 'Revolut' <unique-tag> 'Hai pagato 10,00 € presso LO CHEF'`
-`adb shell cmd notification post -S bigtext -t 'PayPal' paypal-<n> 'Hai ricevuto 20,00 € EUR da Mario Rossi'`
-(a unique tag per push — the listener dedupes on the notification key). Needs
+`adb shell "cmd notification post -S bigtext -t 'Revolut' <unique-tag> 'Hai pagato 10,00 € presso LO CHEF'"`
+`adb shell "cmd notification post -S bigtext -t 'PayPal' paypal-<n> 'Hai ricevuto 20,00 € EUR da Mario Rossi'"`
+(a unique tag per push — the listener dedupes on the notification key). **Quote the
+whole remote command**, as above: `adb shell` joins its arguments and the phone's
+shell splits them again, so without the outer quotes the notification text is just
+its first word ("Hai") and the parser rightly ignores it. PayPal's real push has the
+amount in the *title* and the payer alone in the text:
+`-t 'Hai ricevuto 8,50 € EUR' paypal-<n> 'da Mario Rossi Bianchi'`. Needs
 notification access granted to the app, and a debug APK signed with the same
 cert as the installed build with an equal versionCode (`flutter build apk --debug
 --build-number=2003`, then `adb install -r`). The hook is `BuildConfig.DEBUG`-gated
