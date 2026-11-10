@@ -587,6 +587,9 @@ void main() {
       expect(t.amount, 0); // the stored figure is dollars read as euros
       expect(t.description, 'Starbucks · 12,50 USD');
       expect(t.type, 'expense');
+
+      // With a euro estimate at hand the sheet opens on it, signed as an expense.
+      expect(draftPrefill(await draft(db), euroAmount: 11.17).amount, -11.17);
     });
 
     test('an unknown wallet or category is empty, for the sheet to default',

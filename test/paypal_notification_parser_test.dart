@@ -1,7 +1,7 @@
 import 'package:budgetti/core/services/paypal_notification_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// One real push has been captured (the first group); the other samples are
+/// Two real pushes have been captured (the groups named so); the other samples are
 /// generic Italian/English wordings rather than ground truth. When a real push
 /// lands in the review inbox as "unreadable", copy its raw text in here as a new
 /// case and make it pass — that's the intended way this parser grows. The repo
@@ -182,28 +182,61 @@ void main() {
     });
   });
 
-  // Outgoing money is funded by the card or bank, which notifies it already.
-  group('outgoing is neither parsed nor surfaced', () {
+  group('a real outgoing push (captured 10/11/2026)', () {
+    // Unlike the incoming one, the title is the app name and the whole
+    // sentence, payee included, is in the text.
+    test('money sent to a person is an expense draft', () {
+      final r = run('PayPal', 'Hai inviato 20,00 € EUR a Mario Rossi');
+
+      expect(r, isNotNull);
+      expect(r!.type, 'expense');
+      expect(r.amount, -20.0);
+      expect(r.counterparty, 'Mario Rossi');
+      expect(r.description, 'Mario Rossi');
+      expect(r.rawSnippet, 'PayPal ⟂ Hai inviato 20,00 € EUR a Mario Rossi');
+    });
+  });
+
+  // A payment funded by a captured card arrives from the bank too; the inbox,
+  // not the parser, is where that twin is dropped.
+  group('outgoing is an expense draft', () {
     const outgoing = [
-      ('PayPal', 'Hai pagato 25,00 € EUR a Amazon'),
-      ('PayPal', 'Hai inviato 20,00 € a Mario Rossi'),
-      ('PayPal', 'Hai speso 9,99 € presso Spotify'),
-      ('PayPal', 'Pagamento a Spotify di 9,99 €'),
-      ('PayPal', 'You paid \$25.00 USD to Amazon'),
-      ('PayPal', 'You sent €20.00 to Jane Doe'),
-      ('PayPal', "You've sent €20.00 to Jane Doe"),
-      ('PayPal', 'Payment to Spotify: €9.99'),
-      ('PayPal', 'Hai rimborsato 10,00 € a Mario Rossi'),
+      ('Hai pagato 25,00 € EUR a Amazon', -25.0, 'Amazon'),
+      ('Hai speso 9,99 € presso Spotify', -9.99, 'Spotify'),
+      ('You sent €20.00 to Jane Doe', -20.0, 'Jane Doe'),
+      ("You've sent €20.00 to Jane Doe", -20.0, 'Jane Doe'),
+      ('Hai rimborsato 10,00 € a Mario Rossi', -10.0, 'Mario Rossi'),
       // The payee's name holds an incoming word, the sentence says it is out.
-      ('PayPal', 'Hai pagato 10,00 € a Rimborso Spese Srl'),
+      ('Hai pagato 10,00 € a Rimborso Spese Srl', -10.0, 'Rimborso Spese Srl'),
+      // The name comes before the amount: not read, the fallback stands in.
+      ('Pagamento a Spotify di 9,99 €', -9.99, paypalFallbackDescription),
+      ('Payment to Spotify: €9.99', -9.99, paypalFallbackDescription),
     ];
 
-    for (final (title, text) in outgoing) {
+    for (final (text, amount, description) in outgoing) {
       test(text, () {
-        expect(run(title, text), isNull);
-        expect(parser.looksTransactional(title, text), isFalse);
+        final r = run('PayPal', text);
+
+        expect(r!.type, 'expense');
+        expect(r.amount, amount);
+        expect(r.description, description);
       });
     }
+
+    test('a foreign payment keeps its currency in the description', () {
+      final r = run('PayPal', 'You paid \$25.00 USD to Amazon');
+
+      expect(r!.amount, -25.0);
+      expect(r.description, 'Amazon · 25.00 USD');
+      expect(r.counterparty, 'Amazon');
+    });
+
+    test('outgoing wording with no amount is shown, not invented', () {
+      const text = 'Hai inviato un pagamento a Mario Rossi';
+
+      expect(run('PayPal', text), isNull);
+      expect(parser.looksTransactional('PayPal', text), isTrue);
+    });
   });
 
   // The payer's own note rides in the push and may quote a noise word; incoming

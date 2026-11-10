@@ -83,7 +83,7 @@ class PersistenceService {
   Future<void> setRevolutSyncEnabled(bool enabled) =>
       _prefs.setBool(_revolutSyncEnabledKey, enabled);
 
-  // PayPal notification capture (money received only). Same listener and access
+  // PayPal notification capture (money received and sent). Same listener and access
   // grant as Revolut, its own switch and its own buffer file.
   bool getPayPalSyncEnabled() =>
       _prefs.getBool(_paypalSyncEnabledKey) ?? false;

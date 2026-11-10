@@ -268,15 +268,24 @@ class PendingTransactionService {
 /// the title ("Revolut") says nothing, and the raw text is `title ⟂ body` (or
 /// the body alone when the push had no title). A Widiba draft keeps its own
 /// description: its snippet is the email greeting.
-model.Transaction draftPrefill(PendingTransaction d, {String? accountId}) {
+///
+/// [euroAmount] is the euro estimate of a foreign-currency draft (see
+/// `fx_rates.dart`), when one could be had.
+model.Transaction draftPrefill(
+  PendingTransaction d, {
+  String? accountId,
+  double? euroAmount,
+}) {
   final type = d.suggestedType == 'income' || d.suggestedType == 'transfer'
       ? d.suggestedType
       : 'expense';
   // A foreign-currency push stored its foreign figure as if it were euros: the
-  // sheet starts empty for the owner to type the real euro amount (the original
-  // stays visible in the description).
-  final amount =
-      foreignAmountOf(d.parsedDescription) != null ? 0.0 : d.parsedAmount.abs();
+  // sheet starts on the euro estimate, or empty when there is none, for the
+  // owner to set the real euro amount (the original stays visible in the
+  // description).
+  final amount = foreignAmountOf(d.parsedDescription) != null
+      ? (euroAmount ?? 0.0)
+      : d.parsedAmount.abs();
   return model.Transaction(
     id: '',
     accountId: accountId ?? '',
