@@ -8,6 +8,42 @@ import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+/// What approving a draft still needs from the owner, or how it ended.
+enum ApprovalStatus {
+  /// A foreign-currency draft: its euro amount comes from "edit and approve".
+  needsEuroAmount,
+
+  /// An undecided draft: expense or transfer?
+  needsKind,
+
+  /// A transfer with no destination wallet yet.
+  needsDestination,
+
+  /// The draft's source matches no wallet.
+  needsWallet,
+
+  /// A transfer into its own source wallet: refused, it moves nothing.
+  movesNothing,
+
+  /// A twin showed up in the ledger since capture: the draft is now flagged.
+  duplicate,
+
+  /// Approved or rejected meanwhile (double tap, another screen).
+  alreadyHandled,
+
+  /// In the ledger: the only status that carries [Approval.transaction], and
+  /// the only one after which the follow-up of a write was started.
+  booked,
+}
+
+/// The answer of [PendingTransactionService.tryApprove]; [transaction] is what
+/// reached the ledger, set only when [status] is [ApprovalStatus.booked].
+class Approval {
+  const Approval(this.status, [this.transaction]);
+  final ApprovalStatus status;
+  final model.Transaction? transaction;
+}
+
 /// Reads and resolves email-derived transaction drafts ([PendingTransactions]).
 /// Approval converts a draft into a real [Transactions] row; the draft is then
 /// marked (not deleted) so its Gmail id stays in the de-duplication ledger.
@@ -69,9 +105,54 @@ class PendingTransactionService {
         source, accountId == deduced ? null : accountId);
   }
 
+  /// Approving [draft] as one decision: books it when nothing is missing, else
+  /// says what to ask the owner, to be called again with the answer. [type]
+  /// answers [ApprovalStatus.needsKind] (a draft that already knows its type
+  /// keeps it), [accountId] answers [ApprovalStatus.needsWallet], [toAccountId]
+  /// answers [ApprovalStatus.needsDestination].
+  Future<Approval> tryApprove(
+    PendingTransaction draft, {
+    String? type,
+    String? accountId,
+    String? toAccountId,
+  }) async {
+    if (draftForeignAmount(draft) != null) {
+      return const Approval(ApprovalStatus.needsEuroAmount);
+    }
+    if (draft.suggestedType != 'undecided') type = draft.suggestedType;
+    if (type == null) return const Approval(ApprovalStatus.needsKind);
+    if (type == 'transfer' && toAccountId == null) {
+      return const Approval(ApprovalStatus.needsDestination);
+    }
+    accountId ??= await resolveAccountIdForSource(draft.source);
+    if (accountId == null) return const Approval(ApprovalStatus.needsWallet);
+    if (type == 'transfer' && toAccountId == accountId) {
+      return const Approval(ApprovalStatus.movesNothing);
+    }
+
+    final tx = await approve(
+      draft,
+      type: type,
+      accountId: accountId,
+      toAccountId: toAccountId,
+      category: draft.suggestedCategory,
+    );
+    if (tx != null) return Approval(ApprovalStatus.booked, tx);
+    // Nothing booked: the recheck flagged a twin (the draft is still pending),
+    // or someone handled the draft first.
+    final pending = await _claim(draft.id, const ['pending']) != null;
+    return Approval(
+        pending ? ApprovalStatus.duplicate : ApprovalStatus.alreadyHandled);
+  }
+
   /// Converts a draft into a real transaction and marks it approved. Mirrors the
   /// sign and category conventions of the add-transaction modal: expenses are
   /// negative, income/transfer positive, transfers use the "Transfer" category.
+  ///
+  /// The booking under [tryApprove], which is the door for a screen: here the
+  /// answers are taken as given. Throws, booking nothing, for a foreign-currency
+  /// draft (its parsed figure is not euros, so [approveWith] is its only door)
+  /// and for a transfer that moves nothing (see [_book]).
   ///
   /// Returns the booked transaction, or null when nothing was booked: the draft
   /// was already handled (double-tap, crash retry), or — new — a twin showed up
@@ -142,7 +223,10 @@ class PendingTransactionService {
 
       return _book(still, tx);
     });
-    if (booked != null) await _rememberWallet(draft.source, accountId);
+    if (booked != null) {
+      await _rememberWallet(draft.source, accountId);
+      _finance.afterTransactionWrite(booked);
+    }
     return booked;
   }
 
@@ -155,14 +239,15 @@ class PendingTransactionService {
   /// No duplicate recheck, unlike [approve]: the owner has looked at the
   /// numbers and chose them.
   Future<bool> approveWith(String draftId, model.Transaction edited) async {
-    final source = await _db.transaction(() async {
+    final done = await _db.transaction(() async {
       final still = await _claim(draftId, const ['pending', 'skipped']);
       if (still == null) return null;
-      await _book(still, edited);
-      return still.source;
+      return (still.source, await _book(still, edited, confirmed: true));
     });
-    if (source == null) return false;
+    if (done == null) return false;
+    final (source, booked) = done;
     await _rememberWallet(source, edited.accountId);
+    _finance.afterTransactionWrite(booked);
     return true;
   }
 
@@ -176,22 +261,38 @@ class PendingTransactionService {
   /// the caller's DB transaction, so a refused booking leaves the draft pending.
   /// Returns what is now in the ledger: [tx], or [tx] under the id of the income
   /// it took over (see [_creditLeg]).
+  ///
+  /// [confirmed] says the owner set [tx]'s amount (edit and approve), as opposed
+  /// to the draft's parsed figure.
+  ///
+  /// The writes are plain: the budget check and the Sheets sync that follow a
+  /// write are run by the callers once the DB transaction has committed, so
+  /// they never see, or outlive, a booking that is rolled back.
   Future<model.Transaction> _book(
-      PendingTransaction draft, model.Transaction tx) async {
-    // A transfer to itself moves nothing, and one with no destination loses the
-    // money: the add sheet blocks both, this is the last line for every door.
-    if (tx.type == 'transfer' &&
-        (tx.toAccountId == null || tx.toAccountId == tx.accountId)) {
-      throw ArgumentError('A transfer needs a destination other than its source');
+    PendingTransaction draft,
+    model.Transaction tx, {
+    bool confirmed = false,
+  }) async {
+    // A foreign-currency draft holds its foreign figure as if it were euros:
+    // only an amount the owner confirmed may be booked for it.
+    if (!confirmed && draftForeignAmount(draft) != null) {
+      throw ArgumentError(
+          'A foreign-currency draft needs a euro amount confirmed by the owner');
+    }
+    // A transfer with no destination loses the money. The write refuses one
+    // into its own source but lets this through (the Sheets import has no
+    // destination to give), so a draft is stopped here.
+    if (tx.type == 'transfer' && tx.toAccountId == null) {
+      throw ArgumentError('A transfer needs a destination');
     }
     // The Revolut push of a Widiba recharge may already be booked as income: the
     // transfer replaces it instead of standing beside it as a debit and a credit.
     final leg = tx.type == 'transfer' ? await _creditLeg(tx) : null;
     if (leg == null) {
-      await _finance.addTransaction(tx);
+      await _finance.addTransaction(tx, followUp: false);
     } else {
       tx = tx.copyWith(id: leg);
-      await _finance.updateTransaction(tx);
+      await _finance.updateTransaction(tx, followUp: false);
     }
     await _markStatus(draft.id, 'approved');
     return tx;
@@ -259,6 +360,13 @@ class PendingTransactionService {
   }
 }
 
+/// The original amount and currency of a foreign-currency draft ("12,50",
+/// "USD"), null for a euro one. Its stored amount is that figure read as euros,
+/// so nothing may show or book it as euros. The cue lives in the description
+/// (see `bank_draft.dart`); screens ask here instead of parsing it.
+({String amount, String currency})? draftForeignAmount(PendingTransaction d) =>
+    foreignAmountOf(d.parsedDescription);
+
 /// What the edit-and-approve sheet opens with. An undecided draft (Widiba's
 /// SEPA out) starts as an expense; a skipped raw message has no amount (0 — the
 /// sheet shows an empty field), its receipt date and its subject as the note.
@@ -283,7 +391,7 @@ model.Transaction draftPrefill(
   // sheet starts on the euro estimate, or empty when there is none, for the
   // owner to set the real euro amount (the original stays visible in the
   // description).
-  final amount = foreignAmountOf(d.parsedDescription) != null
+  final amount = draftForeignAmount(d) != null
       ? (euroAmount ?? 0.0)
       : d.parsedAmount.abs();
   return model.Transaction(

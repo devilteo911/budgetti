@@ -3,11 +3,9 @@ import 'package:budgetti/core/database/database.dart'
 import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/services/bank_draft.dart' show foreignAmountOf;
 import 'package:budgetti/core/services/fx_rates.dart';
-import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart'
-    show draftPrefill;
+    show ApprovalStatus, draftForeignAmount, draftPrefill;
 import 'package:budgetti/core/widgets/app_sheet.dart';
 import 'package:budgetti/core/widgets/category_picker_sheet.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
@@ -89,7 +87,7 @@ Future<void> _editAndApprove(
   // Captured before any await: the card may be gone once the draft is booked.
   final service = ref.read(pendingTransactionServiceProvider);
   final accountId = await service.resolveAccountIdForSource(draft.source);
-  final foreign = foreignAmountOf(draft.parsedDescription);
+  final foreign = draftForeignAmount(draft);
   final euroAmount = foreign == null
       ? null
       : await euroEstimate(draft.parsedAmount.abs(), foreign.currency);
@@ -118,7 +116,7 @@ Future<void> _editAndApprove(
 /// foreign push keeps its original figure ("−12,50 USD"), because the stored
 /// amount is that figure read as euros and showing it as euros would be a lie.
 String draftAmountLabel(PendingTransaction d, NumberFormat currency) {
-  final foreign = foreignAmountOf(d.parsedDescription);
+  final foreign = draftForeignAmount(d);
   if (foreign == null) return currency.format(d.parsedAmount);
   return '${d.parsedAmount < 0 ? '−' : '+'}${foreign.amount} ${foreign.currency}';
 }
@@ -333,79 +331,56 @@ class _DraftCard extends ConsumerWidget {
   Future<void> _reject(WidgetRef ref) =>
       ref.read(pendingTransactionServiceProvider).reject(draft.id);
 
+  /// Asks the service until the draft is booked or the owner gives up: every
+  /// rule is the service's, the card owns the questions and the messages.
   Future<void> _approve(BuildContext context, WidgetRef ref) async {
-    // A foreign-currency draft has no euro amount to book: the owner sets it in
-    // the edit sheet, which opens on the ECB estimate (empty when offline).
-    if (foreignAmountOf(draft.parsedDescription) != null) {
-      return _editAndApprove(context, ref, draft);
-    }
     final service = ref.read(pendingTransactionServiceProvider);
+    String? type, accountId, toAccountId;
 
-    var type = draft.suggestedType;
-    String? toAccountId;
-
-    if (type == 'undecided') {
-      final choice = await _askExpenseOrTransfer(context);
-      if (choice == null) return;
-      type = choice;
-      if (type == 'transfer') {
-        if (!context.mounted) return;
-        toAccountId = await _pickDestinationAccount(context, ref);
-        if (toAccountId == null) return;
-      }
-    }
-
-    var sourceId = await service.resolveAccountIdForSource(draft.source);
-    if (sourceId == null) {
+    void say(String Function(BuildContext) message) {
       if (!context.mounted) return;
-      sourceId = await _pickSourceAccount(context, ref);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message(context))),
+      );
     }
-    if (sourceId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.txNoWalletSelected)),
-        );
+
+    while (true) {
+      final approval = await service.tryApprove(
+        draft,
+        type: type,
+        accountId: accountId,
+        toAccountId: toAccountId,
+      );
+      switch (approval.status) {
+        case ApprovalStatus.needsEuroAmount:
+          // The owner sets it in the edit sheet, which opens on the ECB
+          // estimate (empty when offline).
+          if (!context.mounted) return;
+          return _editAndApprove(context, ref, draft);
+        case ApprovalStatus.needsKind:
+          if (!context.mounted) return;
+          type = await _askExpenseOrTransfer(context);
+          if (type == null) return;
+        case ApprovalStatus.needsDestination:
+          if (!context.mounted) return;
+          toAccountId = await _pickDestinationAccount(context, ref);
+          if (toAccountId == null) return;
+        case ApprovalStatus.needsWallet:
+          if (!context.mounted) return;
+          accountId = await _pickSourceAccount(context, ref);
+          if (accountId == null) return say((c) => c.l10n.txNoWalletSelected);
+        case ApprovalStatus.movesNothing:
+          return say((c) => c.l10n.txPleaseSelectOtherWallet);
+        case ApprovalStatus.duplicate:
+        case ApprovalStatus.alreadyHandled:
+          // The card re-renders with the amber notice (or goes away) via the
+          // watchPending stream.
+          return say((c) => c.l10n.txNowLooksDuplicate);
+        case ApprovalStatus.booked:
+          // Balances, ledger and budgets are live queries: nothing to refresh.
+          return;
       }
-      return;
     }
-
-    // A transfer from a wallet to itself moves nothing: same guard as the add
-    // sheet. (approve() refuses it too; this is the friendly version.)
-    if (type == 'transfer' && toAccountId == sourceId) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.txPleaseSelectOtherWallet)),
-        );
-      }
-      return;
-    }
-
-    final tx = await service.approve(
-      draft,
-      type: type,
-      accountId: sourceId,
-      toAccountId: toAccountId,
-      category: draft.suggestedCategory,
-    );
-
-    if (tx == null) {
-      // A twin appeared since capture, or the draft was already handled. The
-      // card re-renders with the amber notice via the watchPending stream.
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.txNowLooksDuplicate)),
-        );
-      }
-      return;
-    }
-
-    ref.invalidate(accountsProvider);
-    ref.invalidate(transactionsProvider(null));
-    if (type != 'transfer') {
-      ref.invalidate(budgetsProvider);
-      ref.read(notificationLogicProvider).checkBudgetAlerts(tx);
-    }
-    performSheetsSync(ref);
   }
 
   Future<String?> _askExpenseOrTransfer(BuildContext context) {

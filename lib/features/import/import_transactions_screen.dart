@@ -59,15 +59,10 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
       final financeService = ref.read(financeServiceProvider);
       
       // Update transaction Account IDs and import
-      for (var txn in _transactions) {
-        final finalTxn = txn.copyWith(accountId: _selectedWalletId);
-        await financeService.addTransaction(finalTxn);
-      }
-
-      // Refresh providers
-      ref.invalidate(accountsProvider);
-      ref.invalidate(transactionsProvider(_selectedWalletId));
-      ref.invalidate(transactionsProvider(null));
+      await financeService.addTransactions([
+        for (final txn in _transactions)
+          txn.copyWith(accountId: _selectedWalletId),
+      ]);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

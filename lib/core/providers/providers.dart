@@ -25,6 +25,7 @@ import 'package:budgetti/core/theme/app_theme.dart';
 import 'package:budgetti/core/theme/ledger_style.dart';
 
 import 'package:budgetti/core/services/backup_service.dart';
+import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/google_auth_service.dart';
 import 'package:budgetti/core/services/google_drive_service.dart';
@@ -67,35 +68,6 @@ final sheetsSyncServiceProvider = Provider<SheetsSyncService>((ref) {
   final persistence = ref.watch(persistenceServiceProvider);
   return SheetsSyncService(authService, persistence);
 });
-
-/// Perform a full bidirectional sync with Google Sheets.
-/// Safe to call from anywhere — no-ops if not signed in or already syncing.
-Future<SyncResult> performSheetsSync(WidgetRef ref) async {
-  final syncService = ref.read(sheetsSyncServiceProvider);
-  final financeService = ref.read(financeServiceProvider);
-
-  final accounts = await financeService.getAccounts();
-  final accountNameToId = <String, String>{};
-  final accountIdToName = <String, String>{};
-  for (final a in accounts) {
-    accountNameToId[a.name] = a.id;
-    accountIdToName[a.id] = a.name;
-  }
-
-  final appTransactions = await financeService.getTransactions();
-
-  return syncService.sync(
-    appTransactions: appTransactions,
-    accountNameToId: accountNameToId,
-    accountIdToName: accountIdToName,
-    onDeleteFromApp: (ids) => financeService.deleteTransactions(ids),
-    onImportToApp: (txs) async {
-      for (final tx in txs) {
-        await financeService.addTransaction(tx);
-      }
-    },
-  );
-}
 
 final backupServiceProvider = Provider<BackupService>((ref) {
   final db = ref.watch(databaseProvider);
@@ -207,7 +179,19 @@ final financeServiceProvider = Provider<FinanceService>((ref) {
   final db = ref.watch(databaseProvider);
   // Watch currentUserIdProvider so this recreates when user changes
   final userId = ref.watch(currentUserIdProvider);
-  return FinanceService(db, userId);
+  return FinanceService(
+    db,
+    userId,
+    // Its own NotificationLogic over a plain service (the check only reads):
+    // notificationLogicProvider watches this provider, so reading it from
+    // here would be a cycle.
+    checkBudget: NotificationLogic(
+      ref.watch(notificationServiceProvider),
+      FinanceService(db, userId),
+      ref.watch(persistenceServiceProvider),
+    ).checkBudgetAlerts,
+    sheets: ref.watch(sheetsSyncServiceProvider),
+  );
 });
 
 final gmailServiceProvider = Provider<GmailService>((ref) {

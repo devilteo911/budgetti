@@ -13,6 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart' as sqlite3open;
 
+import 'fake_sheets_sync.dart';
+
 // `flutter test` runs in the VM without sqlite3_flutter_libs' bundled native,
 // so point the FFI loader at the system library (.so.0 — no -dev symlink here).
 void _ensureSqlite() {
@@ -697,6 +699,39 @@ void main() {
     expect((await _draft(db)).status, 'pending');
   });
 
+  // A foreign push stores its figure as if it were euros (the cue is the
+  // " · 25,00 USD" suffix). The inbox sends such a draft to the edit sheet, but
+  // the service is the last line: no door books 25 dollars as 25 euros.
+  group('a foreign-currency draft', () {
+    const foreign = 'Amazon · 25,00 USD';
+
+    test('plain approval books nothing and leaves the draft pending', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db, amount: -25, description: foreign);
+
+      await expectLater(
+        service.approve(await _draft(db), type: 'expense', accountId: 'wallet'),
+        throwsArgumentError,
+      );
+
+      expect(await db.select(db.transactions).get(), isEmpty);
+      expect((await _draft(db)).status, 'pending');
+    });
+
+    test('edit and approve, with a euro amount, books it', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db, amount: -25, description: foreign);
+
+      final ok = await service.approveWith(
+          'pending_x', _edited(amount: -23.4, description: foreign));
+
+      expect(ok, isTrue);
+      final booked = await db.select(db.transactions).getSingle();
+      expect(booked.amount, -23.4);
+      expect((await _draft(db)).status, 'approved');
+    });
+  });
+
   // Widiba -> Revolut, seen at approval: the top-up draft was captured before the
   // owner booked the transfer, so it carries no flag; the recheck must catch it.
   // (Ceiling: approve the Widiba transfer FIRST — a top-up approved before it
@@ -892,5 +927,239 @@ void main() {
     await _insertTx(db, isDeleted: true);
 
     expect(await service.getTransactionById('tx-existing'), isNull);
+  });
+
+  // What Approva still needs from the owner, and how it ended: the inbox card
+  // only asks the questions and shows the messages.
+  group('approving a draft as one decision', () {
+    test('an undecided draft needs the expense-or-transfer choice', () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db, type: 'undecided');
+
+      final a = await service.tryApprove(await _draft(db));
+
+      expect(a.status, ApprovalStatus.needsKind);
+      expect(await db.select(db.transactions).get(), isEmpty);
+    });
+    test('chosen as a transfer, it needs a destination; given one, it books',
+        () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertDraft(db, type: 'undecided');
+
+      final asked = await service.tryApprove(await _draft(db), type: 'transfer');
+      expect(asked.status, ApprovalStatus.needsDestination);
+      expect(await db.select(db.transactions).get(), isEmpty);
+
+      final a = await service.tryApprove(await _draft(db),
+          type: 'transfer', toAccountId: 'rev');
+
+      expect(a.status, ApprovalStatus.booked);
+      final booked = await db.select(db.transactions).getSingle();
+      expect((booked.type, booked.accountId, booked.toAccountId, booked.amount),
+          ('transfer', 'wallet', 'rev', 10.0));
+      expect(a.transaction!.id, booked.id);
+      expect((await _draft(db)).status, 'approved');
+    });
+    test('a source that matches no wallet needs one, and the pick is remembered',
+        () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'other', 'Pocket');
+      await _insertDraft(db, source: 'revolut');
+
+      final asked = await service.tryApprove(await _draft(db));
+      expect(asked.status, ApprovalStatus.needsWallet);
+      expect(await db.select(db.transactions).get(), isEmpty);
+
+      final a = await service.tryApprove(await _draft(db), accountId: 'other');
+
+      expect(a.status, ApprovalStatus.booked);
+      expect((await db.select(db.transactions).getSingle()).accountId, 'other');
+      expect(prefs.getSourceWalletId('revolut'), 'other');
+    });
+
+    test('the obvious wallet is used without asking and never written down',
+        () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertAccount(db, 'other', 'Pocket');
+      await _insertDraft(db, source: 'revolut');
+
+      final a = await service.tryApprove(await _draft(db));
+
+      expect(a.status, ApprovalStatus.booked);
+      expect((await db.select(db.transactions).getSingle()).accountId, 'rev');
+      expect(prefs.getSourceWalletId('revolut'), isNull);
+    });
+    test('a transfer into its own wallet is refused: it moves nothing', () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db, type: 'undecided');
+
+      final a = await service.tryApprove(await _draft(db),
+          type: 'transfer', toAccountId: 'wallet');
+
+      expect(a.status, ApprovalStatus.movesNothing);
+      expect(await db.select(db.transactions).get(), isEmpty);
+      expect((await _draft(db)).status, 'pending');
+    });
+    test('a twin found at approval stops the booking and flags the draft',
+        () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db);
+      await _insertTx(db); // logged by hand after capture
+
+      final a = await service.tryApprove(await _draft(db));
+
+      expect(a.status, ApprovalStatus.duplicate);
+      expect(a.transaction, isNull);
+      expect(await db.select(db.transactions).get(), hasLength(1));
+      final d = await _draft(db);
+      expect((d.status, d.duplicateOfId), ('pending', 'tx-existing'));
+    });
+
+    test('a draft already ruled on is booked, not flagged again', () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db);
+      await _insertTx(db);
+      await service.clearDuplicateFlag('pending_x'); // "No, it's a different one"
+
+      final a = await service.tryApprove(await _draft(db));
+
+      expect(a.status, ApprovalStatus.booked);
+      expect(await db.select(db.transactions).get(), hasLength(2));
+      expect((await _draft(db)).duplicateOfId, isNull);
+    });
+
+    test('a second approval of the same draft books nothing', () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db);
+      final draft = await _draft(db); // the card's stale copy, tapped twice
+
+      final first = await service.tryApprove(draft);
+      final second = await service.tryApprove(draft);
+
+      expect(first.status, ApprovalStatus.booked);
+      expect(second.status, ApprovalStatus.alreadyHandled);
+      expect(second.transaction, isNull);
+      expect(await db.select(db.transactions).get(), hasLength(1));
+    });
+    test('a foreign-currency draft needs a euro amount, whatever else is given',
+        () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db, amount: -25, description: 'Amazon · 25,00 USD');
+
+      final a = await service.tryApprove(await _draft(db), accountId: 'wallet');
+
+      expect(a.status, ApprovalStatus.needsEuroAmount);
+      expect(await db.select(db.transactions).get(), isEmpty);
+      expect((await _draft(db)).status, 'pending');
+    });
+  });
+
+  // The budget check and the Sheets sync belong to the write, not to the inbox
+  // card or the edit sheet: every door of an approval gets them, once, after
+  // the booking is complete.
+  group('what follows a booking', () {
+    late AppDatabase db;
+    late PendingTransactionService service;
+    late FinanceService finance;
+    // The draft's status each time a Sheets sync started: the follow-up of a
+    // booking must find the booking finished.
+    late List<String> statusAtStart;
+    late List<String> checked;
+
+    setUp(() async {
+      db = AppDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(db.close);
+      statusAtStart = [];
+      checked = [];
+      finance = FinanceService(
+        db,
+        'user-a',
+        checkBudget: (tx) async => checked.add(tx.category),
+        sheets: FakeSheetsSync(
+          onStart: () async => statusAtStart.add((await _draft(db)).status),
+        ),
+      );
+      service = PendingTransactionService(db, finance);
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertCategory(db, 'Dining');
+    });
+
+    test('a plain approval checks the budget and starts one Sheets sync',
+        () async {
+      await _insertDraft(db, suggestedCategory: 'Dining');
+
+      final a = await service.tryApprove(await _draft(db));
+      await finance.followUpsDone;
+
+      expect(a.status, ApprovalStatus.booked);
+      expect(checked, ['Dining']);
+      expect(statusAtStart, ['approved']);
+    });
+
+    test('edit and approve checks the budget of what the owner saved',
+        () async {
+      await _insertDraft(db, suggestedCategory: 'Dining');
+
+      await service.approveWith('pending_x', _edited());
+      await finance.followUpsDone;
+
+      expect(checked, ['Treats']);
+      expect(statusAtStart, ['approved']);
+    });
+
+    test('a transfer starts the Sheets sync and checks no budget', () async {
+      await _insertDraft(db, type: 'undecided');
+
+      await service.tryApprove(await _draft(db),
+          type: 'transfer', toAccountId: 'rev');
+      await finance.followUpsDone;
+
+      expect(checked, isEmpty);
+      expect(statusAtStart, ['approved']);
+    });
+
+    test('a transfer that takes over an income is followed up once', () async {
+      await _insertDraft(db, amount: -100, type: 'undecided');
+      await db.into(db.transactions).insert(TransactionsCompanion.insert(
+            id: 'credit',
+            userId: const Value('user-a'),
+            accountId: const Value('rev'),
+            amount: 100,
+            description: 'Pagamento ricevuto',
+            category: 'Uncategorized',
+            type: const Value('income'),
+            date: _day,
+          ));
+
+      await service.tryApprove(await _draft(db),
+          type: 'transfer', toAccountId: 'rev');
+      await finance.followUpsDone;
+
+      expect(checked, isEmpty);
+      expect(statusAtStart, ['approved']);
+    });
+
+    test('an approval that books nothing is followed by nothing', () async {
+      await _insertDraft(db);
+      await _insertTx(db); // the twin
+
+      final a = await service.tryApprove(await _draft(db));
+      await service.approveWith('no-such-draft', _edited());
+      await finance.followUpsDone;
+
+      expect(a.status, ApprovalStatus.duplicate);
+      expect(checked, isEmpty);
+      expect(statusAtStart, isEmpty);
+    });
   });
 }

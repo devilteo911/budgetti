@@ -91,8 +91,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         setState(() {
           _selectedIds.clear();
         });
-        ref.invalidate(accountsProvider);
-        ref.invalidate(transactionsProvider(null));
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -231,10 +229,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             final notifier = ref.read(paginatedTransactionsProvider.notifier);
-            ref.invalidate(accountsProvider);
             final tasks = <Future>[
               notifier.refresh(),
-              performSheetsSync(ref),
+              ref.read(financeServiceProvider).syncSheets(),
               // The pull is what brings in the other device's rows; the
               // notifier hears about them through the table listener.
               performPocketBaseSync(ref),
