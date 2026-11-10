@@ -719,6 +719,19 @@ class FinanceService {
     if (followUp) await afterTransactionWrite(transaction);
   }
 
+  /// Adds [transactions] as one batch (an import): all the rows or none, then
+  /// the follow-up once for the lot, one budget check per category touched and
+  /// one Sheets sync ([afterTransactionWrites]).
+  Future<void> addTransactions(List<model_txn.Transaction> transactions) async {
+    if (transactions.isEmpty) return;
+    await _db.transaction(() async {
+      for (final t in transactions) {
+        await addTransaction(t, followUp: false);
+      }
+    });
+    await afterTransactionWrites(transactions);
+  }
+
   /// As [addTransaction], for a row that exists.
   Future<void> updateTransaction(
     model_txn.Transaction transaction, {
@@ -743,12 +756,19 @@ class FinanceService {
     if (followUp) await afterTransactionWrite(transaction);
   }
 
-  Future<void> deleteTransactions(List<String> ids) async {
+  /// Deletes the rows [ids] and starts one Sheets sync for the lot, with no
+  /// budget check: money was removed, not spent. `followUp` as in
+  /// [addTransaction].
+  Future<void> deleteTransactions(
+    List<String> ids, {
+    bool followUp = true,
+  }) async {
     if (ids.isEmpty) return;
     await (_db.update(_db.transactions)..where((t) => t.id.isIn(ids))).write(TransactionsCompanion(
       isDeleted: const Value(true),
       lastUpdated: Value(DateTime.now()),
     ));
+    if (followUp) await afterTransactionWrite();
   }
 
   /// What follows a transaction write that succeeded: the budget check of
@@ -756,10 +776,22 @@ class FinanceService {
   /// nothing after a delete) and one Google Sheets sync. The check is awaited,
   /// the sync (network) only started. A failure of either is logged and never
   /// reaches the caller: the row is saved whatever happens here.
-  Future<void> afterTransactionWrite([model_txn.Transaction? written]) async {
-    if (written != null && written.type != 'transfer') {
+  Future<void> afterTransactionWrite([model_txn.Transaction? written]) =>
+      afterTransactionWrites([if (written != null) written]);
+
+  /// [afterTransactionWrite] for a batch: one budget check per distinct
+  /// category of [written] (the check reads only the category, so the first
+  /// row of each stands for the rest) and one Sheets sync for the lot.
+  Future<void> afterTransactionWrites(
+    Iterable<model_txn.Transaction> written,
+  ) async {
+    final perCategory = <String, model_txn.Transaction>{};
+    for (final t in written) {
+      if (t.type != 'transfer') perCategory.putIfAbsent(t.category, () => t);
+    }
+    for (final t in perCategory.values) {
       try {
-        await _checkBudget?.call(written);
+        await _checkBudget?.call(t);
       } catch (e, s) {
         debugPrint('Budget check after a write failed: $e\n$s');
       }
@@ -782,7 +814,7 @@ class FinanceService {
       appTransactions: await getTransactions(),
       accountNameToId: {for (final a in accounts) a.name: a.id},
       accountIdToName: {for (final a in accounts) a.id: a.name},
-      onDeleteFromApp: (ids) => deleteTransactions(ids),
+      onDeleteFromApp: (ids) => deleteTransactions(ids, followUp: false),
       onImportToApp: (txs) async {
         for (final tx in txs) {
           await addTransaction(tx, followUp: false);

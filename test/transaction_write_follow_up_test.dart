@@ -160,6 +160,103 @@ void main() {
     expect(sheets.runs, 1);
   });
 
+  test('a bulk delete starts one Sheets sync and raises no budget alert',
+      () async {
+    await service.addTransaction(tx(id: 't1'), followUp: false);
+    await service.addTransaction(tx(id: 't2'), followUp: false);
+    await service.addTransaction(tx(id: 't3'), followUp: false);
+
+    await service.deleteTransactions(['t1', 't2']);
+    await settle();
+
+    expect(await ledger(), ['t3']);
+    expect(notifier.alerts, isEmpty);
+    expect(sheets.runs, 1);
+  });
+
+  test('a delete of nothing starts no Sheets sync', () async {
+    await service.deleteTransactions([]);
+    await settle();
+
+    expect(sheets.runs, 0);
+  });
+
+  group('a batch of adds', () {
+    // Counts the checks themselves: an alert is raised once per category and
+    // month whatever the number of checks, so the alerts cannot tell K from N.
+    late List<String> checked;
+    late FinanceService batch;
+
+    setUp(() {
+      checked = [];
+      batch = FinanceService(
+        db,
+        'user-a',
+        checkBudget: (t) async => checked.add(t.category),
+        sheets: sheets,
+      );
+    });
+
+    test('checks each category once and starts one Sheets sync', () async {
+      await batch.addTransactions([
+        tx(id: 't1', category: 'Dining'),
+        tx(id: 't2', category: 'Groceries'),
+        tx(id: 't3', category: 'Dining'),
+        tx(id: 't4', category: 'Dining'),
+        tx(id: 't5', type: 'income', amount: 900, category: 'Salary'),
+      ]);
+      await settle();
+
+      expect(await ledger(), unorderedEquals(['t1', 't2', 't3', 't4', 't5']));
+      expect(checked, unorderedEquals(['Dining', 'Groceries', 'Salary']));
+      expect(sheets.runs, 1);
+    });
+
+    test('checks no budget for its transfers', () async {
+      await batch.addTransactions([
+        tx(id: 't1', category: 'Dining'),
+        tx(
+            id: 't2',
+            type: 'transfer',
+            amount: 50,
+            category: 'Transfer',
+            toAccountId: 'a2'),
+      ]);
+      await settle();
+
+      expect(checked, ['Dining']);
+      expect(sheets.runs, 1);
+    });
+
+    test('with a row that is refused writes nothing and runs no follow-up',
+        () async {
+      // The same id twice: the second insert is refused.
+      await expectLater(
+        batch.addTransactions([tx(id: 't1'), tx(id: 't1')]),
+        throwsA(anything),
+      );
+      await settle();
+
+      expect(await ledger(), isEmpty);
+      expect(checked, isEmpty);
+      expect(sheets.runs, 0);
+    });
+
+    test('of nothing runs no follow-up', () async {
+      await batch.addTransactions([]);
+      await settle();
+
+      expect(sheets.runs, 0);
+    });
+
+    test('over a budget raises its alert', () async {
+      await service.addTransactions([tx(id: 't1'), tx(id: 't2')]);
+      await settle();
+
+      expect(notifier.alerts, ['Dining']);
+    });
+  });
+
   test('a write that fails runs no follow-up', () async {
     await service.addTransaction(tx(), followUp: false);
 
