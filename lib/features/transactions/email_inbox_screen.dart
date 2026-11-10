@@ -4,7 +4,6 @@ import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/fx_rates.dart';
-import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart'
     show ApprovalStatus, draftForeignAmount, draftPrefill;
 import 'package:budgetti/core/widgets/app_sheet.dart';
@@ -381,11 +380,7 @@ class _DraftCard extends ConsumerWidget {
           final tx = approval.transaction!;
           ref.invalidate(accountsProvider);
           ref.invalidate(transactionsProvider(null));
-          if (tx.type != 'transfer') {
-            ref.invalidate(budgetsProvider);
-            ref.read(notificationLogicProvider).checkBudgetAlerts(tx);
-          }
-          performSheetsSync(ref);
+          if (tx.type != 'transfer') ref.invalidate(budgetsProvider);
           return;
       }
     }

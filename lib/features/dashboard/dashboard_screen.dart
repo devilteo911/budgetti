@@ -28,7 +28,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     super.initState();
     _checkPermissions();
     // Sync with Google Sheets on app start
-    Future.microtask(() => performSheetsSync(ref));
+    Future.microtask(() => ref.read(financeServiceProvider).syncSheets());
   }
 
   Future<void> _checkPermissions() async {

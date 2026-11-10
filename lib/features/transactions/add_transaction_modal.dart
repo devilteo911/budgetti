@@ -4,7 +4,6 @@ import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/services/bank_sync_service.dart' show learnedCategory;
 import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/providers/providers.dart';
-import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/theme/ledger_style.dart' show incomeInk;
 import 'package:budgetti/core/widgets/category_picker_sheet.dart';
 import 'package:budgetti/core/widgets/wallet_picker_sheet.dart';
@@ -328,7 +327,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       if (mounted) setState(() => _saving = false);
     }
 
-    ref.read(notificationLogicProvider).checkBudgetAlerts(transaction);
     ref.invalidate(accountsProvider);
     ref.invalidate(transactionsProvider(null));
     ref.invalidate(transactionsProvider(_selectedAccountId));
@@ -336,7 +334,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       ref.invalidate(transactionsProvider(_selectedToAccountId));
     }
     if (_type != 'transfer') ref.invalidate(budgetsProvider);
-    performSheetsSync(ref);
 
     if (!mounted) return;
     context.pop();

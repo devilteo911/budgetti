@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:budgetti/core/database/database.dart';
 import 'package:budgetti/core/finance_math.dart';
 import 'package:budgetti/core/services/color_slots.dart';
+import 'package:budgetti/core/services/sheets_sync_service.dart';
 import 'package:budgetti/models/account.dart' as model_account;
 import 'package:budgetti/models/category.dart' as model;
 import 'package:budgetti/models/transaction.dart' as model_txn;
@@ -43,7 +46,21 @@ class FinanceService {
     (name: 'Gift', color: 0xFFFF5722),
   ];
 
-  FinanceService(this._db, this._userId);
+  /// What follows a transaction write (see [afterTransactionWrite]): the
+  /// budget check of a category and the Google Sheets sync. Both are absent in
+  /// the background isolate and in most tests, where a write is only a write.
+  /// The budget check is a function, not a `NotificationLogic`, because that
+  /// class reads the ledger through this one.
+  final Future<void> Function(model_txn.Transaction)? _checkBudget;
+  final SheetsSyncService? _sheets;
+
+  FinanceService(
+    this._db,
+    this._userId, {
+    Future<void> Function(model_txn.Transaction)? checkBudget,
+    SheetsSyncService? sheets,
+  })  : _checkBudget = checkBudget,
+        _sheets = sheets;
 
 
   /// True when the database already holds an account, a category or a tag —
@@ -664,7 +681,24 @@ class FinanceService {
                 : null,
       );
 
-  Future<void> addTransaction(model_txn.Transaction transaction) async {
+  /// A transfer into its own wallet moves nothing: the last line for every
+  /// caller, the screens say it more kindly before saving. A transfer with no
+  /// destination is not refused here: the Google Sheets import has none to give.
+  void _refuseSelfTransfer(model_txn.Transaction t) {
+    if (t.type == 'transfer' && t.toAccountId == t.accountId) {
+      throw ArgumentError('A transfer needs a destination other than its source');
+    }
+  }
+
+  /// Adds [transaction] and runs what follows a write ([afterTransactionWrite]).
+  /// `followUp: false` is the plain write, for a caller that is itself the
+  /// follow-up (the Sheets sync) or that writes inside a database transaction
+  /// and follows up once it has committed (approving a draft).
+  Future<void> addTransaction(
+    model_txn.Transaction transaction, {
+    bool followUp = true,
+  }) async {
+    _refuseSelfTransfer(transaction);
     final split = _splitColumns(transaction);
     await _db.into(_db.transactions).insert(TransactionsCompanion.insert(
       id: transaction.id.isEmpty ? const Uuid().v4() : transaction.id,
@@ -682,9 +716,15 @@ class FinanceService {
             userId: Value(_userId),
       lastUpdated: Value(DateTime.now()),
     ));
+    if (followUp) await afterTransactionWrite(transaction);
   }
 
-  Future<void> updateTransaction(model_txn.Transaction transaction) async {
+  /// As [addTransaction], for a row that exists.
+  Future<void> updateTransaction(
+    model_txn.Transaction transaction, {
+    bool followUp = true,
+  }) async {
+    _refuseSelfTransfer(transaction);
     final split = _splitColumns(transaction);
     await (_db.update(_db.transactions)..where((t) => t.id.equals(transaction.id))).write(TransactionsCompanion(
       accountId: Value(transaction.accountId),
@@ -700,6 +740,7 @@ class FinanceService {
       reimbursesId: Value(split.reimburses),
       lastUpdated: Value(DateTime.now()),
     ));
+    if (followUp) await afterTransactionWrite(transaction);
   }
 
   Future<void> deleteTransactions(List<String> ids) async {
@@ -708,6 +749,46 @@ class FinanceService {
       isDeleted: const Value(true),
       lastUpdated: Value(DateTime.now()),
     ));
+  }
+
+  /// What follows a transaction write that succeeded: the budget check of
+  /// [written]'s category (an expense or an income, never a transfer; pass
+  /// nothing after a delete) and one Google Sheets sync. The check is awaited,
+  /// the sync (network) only started. A failure of either is logged and never
+  /// reaches the caller: the row is saved whatever happens here.
+  Future<void> afterTransactionWrite([model_txn.Transaction? written]) async {
+    if (written != null && written.type != 'transfer') {
+      try {
+        await _checkBudget?.call(written);
+      } catch (e, s) {
+        debugPrint('Budget check after a write failed: $e\n$s');
+      }
+    }
+    unawaited(syncSheets().then<void>(
+      (_) {},
+      onError: (Object e, StackTrace s) =>
+          debugPrint('Sheets sync after a write failed: $e\n$s'),
+    ));
+  }
+
+  /// A full bidirectional sync with Google Sheets; a no-op when not signed in
+  /// or already syncing. What the sheet adds or deletes reaches the ledger
+  /// through the plain write, so a sync never starts another one.
+  Future<SyncResult> syncSheets() async {
+    final sheets = _sheets;
+    if (sheets == null) return SyncResult();
+    final accounts = await getAccounts();
+    return sheets.sync(
+      appTransactions: await getTransactions(),
+      accountNameToId: {for (final a in accounts) a.name: a.id},
+      accountIdToName: {for (final a in accounts) a.id: a.name},
+      onDeleteFromApp: (ids) => deleteTransactions(ids),
+      onImportToApp: (txs) async {
+        for (final tx in txs) {
+          await addTransaction(tx, followUp: false);
+        }
+      },
+    );
   }
 
   MultiSelectable<Category> _categoriesQuery() =>

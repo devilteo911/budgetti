@@ -6,6 +6,7 @@ import 'package:budgetti/core/services/bank_sync_service.dart'
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
+import 'package:budgetti/core/services/sheets_sync_service.dart';
 import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
@@ -149,6 +150,29 @@ model.Transaction _edited({
       category: 'Treats',
       type: type,
     );
+
+/// A Sheets sync that only notes, each time it is started, what the draft's
+/// status was: the follow-up of a booking must find the booking finished.
+class _Sheets implements SheetsSyncService {
+  _Sheets(this._db);
+  final AppDatabase _db;
+  final statusAtStart = <String>[];
+
+  @override
+  bool get isSyncing => false;
+
+  @override
+  Future<SyncResult> sync({
+    required List<model.Transaction> appTransactions,
+    required Map<String, String> accountNameToId,
+    required Map<String, String> accountIdToName,
+    required Future<void> Function(List<String> ids) onDeleteFromApp,
+    required Future<void> Function(List<model.Transaction> txs) onImportToApp,
+  }) async {
+    statusAtStart.add((await _draft(_db)).status);
+    return SyncResult();
+  }
+}
 
 void main() {
   setUpAll(_ensureSqlite);
@@ -1058,6 +1082,103 @@ void main() {
       expect(a.status, ApprovalStatus.needsEuroAmount);
       expect(await db.select(db.transactions).get(), isEmpty);
       expect((await _draft(db)).status, 'pending');
+    });
+  });
+
+  // The budget check and the Sheets sync belong to the write, not to the inbox
+  // card or the edit sheet: every door of an approval gets them, once, after
+  // the booking is complete.
+  group('what follows a booking', () {
+    late AppDatabase db;
+    late PendingTransactionService service;
+    late _Sheets sheets;
+    late List<String> checked;
+
+    setUp(() async {
+      db = AppDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(db.close);
+      sheets = _Sheets(db);
+      checked = [];
+      service = PendingTransactionService(
+        db,
+        FinanceService(
+          db,
+          'user-a',
+          checkBudget: (tx) async => checked.add(tx.category),
+          sheets: sheets,
+        ),
+      );
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertCategory(db, 'Dining');
+    });
+
+    test('a plain approval checks the budget and starts one Sheets sync',
+        () async {
+      await _insertDraft(db, suggestedCategory: 'Dining');
+
+      final a = await service.tryApprove(await _draft(db));
+      await pumpEventQueue();
+
+      expect(a.status, ApprovalStatus.booked);
+      expect(checked, ['Dining']);
+      expect(sheets.statusAtStart, ['approved']);
+    });
+
+    test('edit and approve checks the budget of what the owner saved',
+        () async {
+      await _insertDraft(db, suggestedCategory: 'Dining');
+
+      await service.approveWith('pending_x', _edited());
+      await pumpEventQueue();
+
+      expect(checked, ['Treats']);
+      expect(sheets.statusAtStart, ['approved']);
+    });
+
+    test('a transfer starts the Sheets sync and checks no budget', () async {
+      await _insertDraft(db, type: 'undecided');
+
+      await service.tryApprove(await _draft(db),
+          type: 'transfer', toAccountId: 'rev');
+      await pumpEventQueue();
+
+      expect(checked, isEmpty);
+      expect(sheets.statusAtStart, ['approved']);
+    });
+
+    test('a transfer that takes over an income is followed up once', () async {
+      await _insertDraft(db, amount: -100, type: 'undecided');
+      await db.into(db.transactions).insert(TransactionsCompanion.insert(
+            id: 'credit',
+            userId: const Value('user-a'),
+            accountId: const Value('rev'),
+            amount: 100,
+            description: 'Pagamento ricevuto',
+            category: 'Uncategorized',
+            type: const Value('income'),
+            date: _day,
+          ));
+
+      await service.tryApprove(await _draft(db),
+          type: 'transfer', toAccountId: 'rev');
+      await pumpEventQueue();
+
+      expect(checked, isEmpty);
+      expect(sheets.statusAtStart, ['approved']);
+    });
+
+    test('an approval that books nothing is followed by nothing', () async {
+      await _insertDraft(db);
+      await _insertTx(db); // the twin
+
+      final a = await service.tryApprove(await _draft(db));
+      await service.approveWith('no-such-draft', _edited());
+      await pumpEventQueue();
+
+      expect(a.status, ApprovalStatus.duplicate);
+      expect(checked, isEmpty);
+      expect(sheets.statusAtStart, isEmpty);
     });
   });
 }

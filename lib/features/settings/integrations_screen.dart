@@ -184,7 +184,7 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
   Future<void> _syncSheets() async {
     setState(() => _isLoading = true);
     try {
-      final result = await performSheetsSync(ref);
+      final result = await ref.read(financeServiceProvider).syncSheets();
       if (mounted) {
         ref.invalidate(accountsProvider);
         ref.invalidate(transactionsProvider(null));

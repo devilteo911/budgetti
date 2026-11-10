@@ -61,7 +61,8 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
       // Update transaction Account IDs and import
       for (var txn in _transactions) {
         final finalTxn = txn.copyWith(accountId: _selectedWalletId);
-        await financeService.addTransaction(finalTxn);
+        // Plain write, as before: the import gets the follow-up with #48.
+        await financeService.addTransaction(finalTxn, followUp: false);
       }
 
       // Refresh providers

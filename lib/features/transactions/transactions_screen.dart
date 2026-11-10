@@ -234,7 +234,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ref.invalidate(accountsProvider);
             final tasks = <Future>[
               notifier.refresh(),
-              performSheetsSync(ref),
+              ref.read(financeServiceProvider).syncSheets(),
               // The pull is what brings in the other device's rows; the
               // notifier hears about them through the table listener.
               performPocketBaseSync(ref),

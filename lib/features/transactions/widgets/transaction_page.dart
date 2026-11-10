@@ -31,7 +31,10 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
 
   /// Persist an edit and let every list that shows this row hear about it.
   Future<void> _save(Transaction updated, {bool balancesChanged = true}) async {
-    await ref.read(financeServiceProvider).updateTransaction(updated);
+    // Plain write, as before: the quick edit gets the follow-up with #48.
+    await ref
+        .read(financeServiceProvider)
+        .updateTransaction(updated, followUp: false);
     widget.onTransactionUpdated(updated);
     ref.invalidate(transactionsProvider(null));
     if (balancesChanged) ref.invalidate(accountsProvider);

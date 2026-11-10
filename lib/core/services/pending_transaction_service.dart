@@ -221,7 +221,10 @@ class PendingTransactionService {
 
       return _book(still, tx);
     });
-    if (booked != null) await _rememberWallet(draft.source, accountId);
+    if (booked != null) {
+      await _rememberWallet(draft.source, accountId);
+      await _finance.afterTransactionWrite(booked);
+    }
     return booked;
   }
 
@@ -234,14 +237,15 @@ class PendingTransactionService {
   /// No duplicate recheck, unlike [approve]: the owner has looked at the
   /// numbers and chose them.
   Future<bool> approveWith(String draftId, model.Transaction edited) async {
-    final source = await _db.transaction(() async {
+    final done = await _db.transaction(() async {
       final still = await _claim(draftId, const ['pending', 'skipped']);
       if (still == null) return null;
-      await _book(still, edited, confirmed: true);
-      return still.source;
+      return (still.source, await _book(still, edited, confirmed: true));
     });
-    if (source == null) return false;
+    if (done == null) return false;
+    final (source, booked) = done;
     await _rememberWallet(source, edited.accountId);
+    await _finance.afterTransactionWrite(booked);
     return true;
   }
 
@@ -258,6 +262,10 @@ class PendingTransactionService {
   ///
   /// [confirmed] says the owner set [tx]'s amount (edit and approve), as opposed
   /// to the draft's parsed figure.
+  ///
+  /// The writes are plain: the budget check and the Sheets sync that follow a
+  /// write are run by the callers once the DB transaction has committed, so
+  /// they never see, or outlive, a booking that is rolled back.
   Future<model.Transaction> _book(
     PendingTransaction draft,
     model.Transaction tx, {
@@ -279,10 +287,10 @@ class PendingTransactionService {
     // transfer replaces it instead of standing beside it as a debit and a credit.
     final leg = tx.type == 'transfer' ? await _creditLeg(tx) : null;
     if (leg == null) {
-      await _finance.addTransaction(tx);
+      await _finance.addTransaction(tx, followUp: false);
     } else {
       tx = tx.copyWith(id: leg);
-      await _finance.updateTransaction(tx);
+      await _finance.updateTransaction(tx, followUp: false);
     }
     await _markStatus(draft.id, 'approved');
     return tx;
