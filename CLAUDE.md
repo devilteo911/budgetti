@@ -499,14 +499,23 @@ Three types: income, expense, and transfer (moves money between accounts via `to
 A `PendingTransactions` draft's `source` is `widiba` (Gmail e-mail), `revolut` or
 `paypal` (Android push notifications). Anything that is not `widiba` is a push:
 the inbox, `_prefillDescription` and the snippet logic test `source != 'widiba'`,
-so a new push source needs no edit there. **PayPal is incoming money only**
-("Sincronizza notifiche PayPal"): a PayPal payment is funded by the card or bank,
-which already notifies it, so capturing it from PayPal too would double-count it;
-outgoing pushes and noise (codes, promos) never reach the inbox (they leave only
-an `ignored` dedup row, invisible), and an
-unknown wording with an amount surfaces as an unreadable notification with its raw
-text. A credit books into the wallet named "PayPal" (the inbox asks once and
-remembers it), and the owner links it to the shared expense afterwards.
+so a new push source needs no edit there. **PayPal captures money received and
+money sent** ("Sincronizza notifiche PayPal"). A payment funded by a card or bank
+that is captured too arrives **twice**, once per source — a push never names the
+funding source, so the parser cannot tell: the owner drops the twin in the inbox
+(the "Forse già registrata" flag helps once one of the two is approved). Only a
+payment from the PayPal balance has no other witness, which is why outgoing pushes
+are captured at all. Noise (codes, promos) never reaches the inbox (it leaves only
+an `ignored` dedup row, invisible), and an unknown wording with an amount surfaces
+as an unreadable notification with its raw text. A PayPal draft books into the
+wallet named "PayPal" (the inbox asks once and remembers it); the owner links a
+credit to the shared expense afterwards.
+
+**Foreign currency.** A push in USD/GBP (any source) keeps its original figure in
+the description (" · 12,50 USD") and approving it opens the edit sheet, prefilled
+with the euro estimate at the ECB daily reference rate (`fx_rates.dart`: free, no
+key; empty when offline). An estimate — PayPal and the card networks add their own
+spread — so the owner corrects it against the real debit.
 
 One listener, one buffer per source: `RevolutNotificationListener` keeps its
 Revolut-era name because Android stores the notification-access grant per component

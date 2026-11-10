@@ -4,6 +4,7 @@ import 'package:budgetti/core/error_text.dart';
 import 'package:budgetti/core/l10n.dart';
 import 'package:budgetti/core/providers/providers.dart';
 import 'package:budgetti/core/services/bank_draft.dart' show foreignAmountOf;
+import 'package:budgetti/core/services/fx_rates.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart'
     show draftPrefill;
@@ -16,7 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 /// Review inbox for transaction drafts captured from the bank: Widiba
-/// notification emails, Revolut push notifications and PayPal credits (also a
+/// notification emails, Revolut push notifications and PayPal movements (also a
 /// push). Approving a draft creates a real transaction, mapped to the wallet
 /// matching the draft's source; SEPA transfers ask whether they're an expense or
 /// a wallet-to-wallet transfer.
@@ -88,13 +89,21 @@ Future<void> _editAndApprove(
   // Captured before any await: the card may be gone once the draft is booked.
   final service = ref.read(pendingTransactionServiceProvider);
   final accountId = await service.resolveAccountIdForSource(draft.source);
+  final foreign = foreignAmountOf(draft.parsedDescription);
+  final euroAmount = foreign == null
+      ? null
+      : await euroEstimate(draft.parsedAmount.abs(), foreign.currency);
   if (!context.mounted) return;
   await showAppSheet<void>(
     context,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (_) => AddTransactionModal(
-      prefill: draftPrefill(draft, accountId: accountId),
+      prefill: draftPrefill(
+        draft,
+        accountId: accountId,
+        euroAmount: euroAmount,
+      ),
       onSave: (tx) async {
         // False = handled meanwhile: fail loudly rather than pretend it booked.
         if (!await service.approveWith(draft.id, tx)) {
@@ -325,8 +334,8 @@ class _DraftCard extends ConsumerWidget {
       ref.read(pendingTransactionServiceProvider).reject(draft.id);
 
   Future<void> _approve(BuildContext context, WidgetRef ref) async {
-    // A foreign-currency draft has no euro amount to book: the owner types it in
-    // the edit sheet, which opens on the draft with the amount left empty.
+    // A foreign-currency draft has no euro amount to book: the owner sets it in
+    // the edit sheet, which opens on the ECB estimate (empty when offline).
     if (foreignAmountOf(draft.parsedDescription) != null) {
       return _editAndApprove(context, ref, draft);
     }
