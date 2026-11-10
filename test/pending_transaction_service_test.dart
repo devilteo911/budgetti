@@ -926,4 +926,138 @@ void main() {
 
     expect(await service.getTransactionById('tx-existing'), isNull);
   });
+
+  // What Approva still needs from the owner, and how it ended: the inbox card
+  // only asks the questions and shows the messages.
+  group('approving a draft as one decision', () {
+    test('an undecided draft needs the expense-or-transfer choice', () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db, type: 'undecided');
+
+      final a = await service.tryApprove(await _draft(db));
+
+      expect(a.status, ApprovalStatus.needsKind);
+      expect(await db.select(db.transactions).get(), isEmpty);
+    });
+    test('chosen as a transfer, it needs a destination; given one, it books',
+        () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertDraft(db, type: 'undecided');
+
+      final asked = await service.tryApprove(await _draft(db), type: 'transfer');
+      expect(asked.status, ApprovalStatus.needsDestination);
+      expect(await db.select(db.transactions).get(), isEmpty);
+
+      final a = await service.tryApprove(await _draft(db),
+          type: 'transfer', toAccountId: 'rev');
+
+      expect(a.status, ApprovalStatus.booked);
+      final booked = await db.select(db.transactions).getSingle();
+      expect((booked.type, booked.accountId, booked.toAccountId, booked.amount),
+          ('transfer', 'wallet', 'rev', 10.0));
+      expect(a.transaction!.id, booked.id);
+      expect((await _draft(db)).status, 'approved');
+    });
+    test('a source that matches no wallet needs one, and the pick is remembered',
+        () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'other', 'Pocket');
+      await _insertDraft(db, source: 'revolut');
+
+      final asked = await service.tryApprove(await _draft(db));
+      expect(asked.status, ApprovalStatus.needsWallet);
+      expect(await db.select(db.transactions).get(), isEmpty);
+
+      final a = await service.tryApprove(await _draft(db), accountId: 'other');
+
+      expect(a.status, ApprovalStatus.booked);
+      expect((await db.select(db.transactions).getSingle()).accountId, 'other');
+      expect(prefs.getSourceWalletId('revolut'), 'other');
+    });
+
+    test('the obvious wallet is used without asking and never written down',
+        () async {
+      final (db, service, prefs) = await _setupWithPrefs();
+      await _insertAccount(db, 'rev', 'Revolut');
+      await _insertAccount(db, 'other', 'Pocket');
+      await _insertDraft(db, source: 'revolut');
+
+      final a = await service.tryApprove(await _draft(db));
+
+      expect(a.status, ApprovalStatus.booked);
+      expect((await db.select(db.transactions).getSingle()).accountId, 'rev');
+      expect(prefs.getSourceWalletId('revolut'), isNull);
+    });
+    test('a transfer into its own wallet is refused: it moves nothing', () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db, type: 'undecided');
+
+      final a = await service.tryApprove(await _draft(db),
+          type: 'transfer', toAccountId: 'wallet');
+
+      expect(a.status, ApprovalStatus.movesNothing);
+      expect(await db.select(db.transactions).get(), isEmpty);
+      expect((await _draft(db)).status, 'pending');
+    });
+    test('a twin found at approval stops the booking and flags the draft',
+        () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db);
+      await _insertTx(db); // logged by hand after capture
+
+      final a = await service.tryApprove(await _draft(db));
+
+      expect(a.status, ApprovalStatus.duplicate);
+      expect(a.transaction, isNull);
+      expect(await db.select(db.transactions).get(), hasLength(1));
+      final d = await _draft(db);
+      expect((d.status, d.duplicateOfId), ('pending', 'tx-existing'));
+    });
+
+    test('a draft already ruled on is booked, not flagged again', () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db);
+      await _insertTx(db);
+      await service.clearDuplicateFlag('pending_x'); // "No, it's a different one"
+
+      final a = await service.tryApprove(await _draft(db));
+
+      expect(a.status, ApprovalStatus.booked);
+      expect(await db.select(db.transactions).get(), hasLength(2));
+      expect((await _draft(db)).duplicateOfId, isNull);
+    });
+
+    test('a second approval of the same draft books nothing', () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db);
+      final draft = await _draft(db); // the card's stale copy, tapped twice
+
+      final first = await service.tryApprove(draft);
+      final second = await service.tryApprove(draft);
+
+      expect(first.status, ApprovalStatus.booked);
+      expect(second.status, ApprovalStatus.alreadyHandled);
+      expect(second.transaction, isNull);
+      expect(await db.select(db.transactions).get(), hasLength(1));
+    });
+    test('a foreign-currency draft needs a euro amount, whatever else is given',
+        () async {
+      final (db, service) = _setup();
+      await _insertAccount(db, 'wallet', 'Widiba');
+      await _insertDraft(db, amount: -25, description: 'Amazon · 25,00 USD');
+
+      final a = await service.tryApprove(await _draft(db), accountId: 'wallet');
+
+      expect(a.status, ApprovalStatus.needsEuroAmount);
+      expect(await db.select(db.transactions).get(), isEmpty);
+      expect((await _draft(db)).status, 'pending');
+    });
+  });
 }
