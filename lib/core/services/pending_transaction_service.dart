@@ -73,6 +73,9 @@ class PendingTransactionService {
   /// sign and category conventions of the add-transaction modal: expenses are
   /// negative, income/transfer positive, transfers use the "Transfer" category.
   ///
+  /// Throws, booking nothing, for a foreign-currency draft: its parsed figure is
+  /// not euros, so [approveWith] is its only door (see [_book]).
+  ///
   /// Returns the booked transaction, or null when nothing was booked: the draft
   /// was already handled (double-tap, crash retry), or — new — a twin showed up
   /// since capture. A draft that was never flagged or dismissed is re-checked
@@ -158,7 +161,7 @@ class PendingTransactionService {
     final source = await _db.transaction(() async {
       final still = await _claim(draftId, const ['pending', 'skipped']);
       if (still == null) return null;
-      await _book(still, edited);
+      await _book(still, edited, confirmed: true);
       return still.source;
     });
     if (source == null) return false;
@@ -176,8 +179,20 @@ class PendingTransactionService {
   /// the caller's DB transaction, so a refused booking leaves the draft pending.
   /// Returns what is now in the ledger: [tx], or [tx] under the id of the income
   /// it took over (see [_creditLeg]).
+  ///
+  /// [confirmed] says the owner set [tx]'s amount (edit and approve), as opposed
+  /// to the draft's parsed figure.
   Future<model.Transaction> _book(
-      PendingTransaction draft, model.Transaction tx) async {
+    PendingTransaction draft,
+    model.Transaction tx, {
+    bool confirmed = false,
+  }) async {
+    // A foreign-currency draft holds its foreign figure as if it were euros:
+    // only an amount the owner confirmed may be booked for it.
+    if (!confirmed && foreignAmountOf(draft.parsedDescription) != null) {
+      throw ArgumentError(
+          'A foreign-currency draft needs a euro amount confirmed by the owner');
+    }
     // A transfer to itself moves nothing, and one with no destination loses the
     // money: the add sheet blocks both, this is the last line for every door.
     if (tx.type == 'transfer' &&

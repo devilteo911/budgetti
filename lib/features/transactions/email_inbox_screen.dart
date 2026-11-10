@@ -336,6 +336,7 @@ class _DraftCard extends ConsumerWidget {
   Future<void> _approve(BuildContext context, WidgetRef ref) async {
     // A foreign-currency draft has no euro amount to book: the owner sets it in
     // the edit sheet, which opens on the ECB estimate (empty when offline).
+    // (approve() refuses it too; this is the friendly version.)
     if (foreignAmountOf(draft.parsedDescription) != null) {
       return _editAndApprove(context, ref, draft);
     }

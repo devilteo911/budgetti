@@ -697,6 +697,39 @@ void main() {
     expect((await _draft(db)).status, 'pending');
   });
 
+  // A foreign push stores its figure as if it were euros (the cue is the
+  // " · 25,00 USD" suffix). The inbox sends such a draft to the edit sheet, but
+  // the service is the last line: no door books 25 dollars as 25 euros.
+  group('a foreign-currency draft', () {
+    const foreign = 'Amazon · 25,00 USD';
+
+    test('plain approval books nothing and leaves the draft pending', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db, amount: -25, description: foreign);
+
+      await expectLater(
+        service.approve(await _draft(db), type: 'expense', accountId: 'wallet'),
+        throwsArgumentError,
+      );
+
+      expect(await db.select(db.transactions).get(), isEmpty);
+      expect((await _draft(db)).status, 'pending');
+    });
+
+    test('edit and approve, with a euro amount, books it', () async {
+      final (db, service) = _setup();
+      await _insertDraft(db, amount: -25, description: foreign);
+
+      final ok = await service.approveWith(
+          'pending_x', _edited(amount: -23.4, description: foreign));
+
+      expect(ok, isTrue);
+      final booked = await db.select(db.transactions).getSingle();
+      expect(booked.amount, -23.4);
+      expect((await _draft(db)).status, 'approved');
+    });
+  });
+
   // Widiba -> Revolut, seen at approval: the top-up draft was captured before the
   // owner booked the transfer, so it carries no flag; the recheck must catch it.
   // (Ceiling: approve the Widiba transfer FIRST — a top-up approved before it
