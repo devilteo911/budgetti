@@ -716,7 +716,7 @@ class FinanceService {
             userId: Value(_userId),
       lastUpdated: Value(DateTime.now()),
     ));
-    if (followUp) await afterTransactionWrite(transaction);
+    if (followUp) afterTransactionWrite(transaction);
   }
 
   /// Adds [transactions] as one batch (an import): all the rows or none, then
@@ -729,7 +729,7 @@ class FinanceService {
         await addTransaction(t, followUp: false);
       }
     });
-    await afterTransactionWrites(transactions);
+    afterTransactionWrites(transactions);
   }
 
   /// As [addTransaction], for a row that exists.
@@ -753,7 +753,7 @@ class FinanceService {
       reimbursesId: Value(split.reimburses),
       lastUpdated: Value(DateTime.now()),
     ));
-    if (followUp) await afterTransactionWrite(transaction);
+    if (followUp) afterTransactionWrite(transaction);
   }
 
   /// Deletes the rows [ids] and starts one Sheets sync for the lot, with no
@@ -768,39 +768,47 @@ class FinanceService {
       isDeleted: const Value(true),
       lastUpdated: Value(DateTime.now()),
     ));
-    if (followUp) await afterTransactionWrite();
+    if (followUp) afterTransactionWrite();
   }
 
-  /// What follows a transaction write that succeeded: the budget check of
-  /// [written]'s category (an expense or an income, never a transfer; pass
-  /// nothing after a delete) and one Google Sheets sync. The check is awaited,
-  /// the sync (network) only started. A failure of either is logged and never
-  /// reaches the caller: the row is saved whatever happens here.
-  Future<void> afterTransactionWrite([model_txn.Transaction? written]) =>
+  /// Starts what follows a transaction write that succeeded: the budget check
+  /// of [written]'s category (an expense or an income, never a transfer; pass
+  /// nothing after a delete), then one Google Sheets sync. Nothing here is
+  /// awaited by the caller: the row is saved, and the screen that saved it
+  /// must not wait on ledger reads, the notification plugin and the network.
+  /// A failure of either is logged and never reaches the caller.
+  void afterTransactionWrite([model_txn.Transaction? written]) =>
       afterTransactionWrites([if (written != null) written]);
 
   /// [afterTransactionWrite] for a batch: one budget check per distinct
   /// category of [written] (the check reads only the category, so the first
   /// row of each stands for the rest) and one Sheets sync for the lot.
-  Future<void> afterTransactionWrites(
-    Iterable<model_txn.Transaction> written,
-  ) async {
+  void afterTransactionWrites(Iterable<model_txn.Transaction> written) {
     final perCategory = <String, model_txn.Transaction>{};
     for (final t in written) {
       if (t.type != 'transfer') perCategory.putIfAbsent(t.category, () => t);
     }
-    for (final t in perCategory.values) {
+    _followUps = Future.wait([_followUps, _followUp(perCategory.values)]);
+  }
+
+  /// Completes when every follow-up started so far has ended, whatever became
+  /// of it: what a test waits on, since no write does.
+  Future<void> get followUpsDone => _followUps;
+  Future<void> _followUps = Future.value();
+
+  Future<void> _followUp(Iterable<model_txn.Transaction> toCheck) async {
+    for (final t in toCheck) {
       try {
         await _checkBudget?.call(t);
       } catch (e, s) {
         debugPrint('Budget check after a write failed: $e\n$s');
       }
     }
-    unawaited(syncSheets().then<void>(
-      (_) {},
-      onError: (Object e, StackTrace s) =>
-          debugPrint('Sheets sync after a write failed: $e\n$s'),
-    ));
+    try {
+      await syncSheets();
+    } catch (e, s) {
+      debugPrint('Sheets sync after a write failed: $e\n$s');
+    }
   }
 
   /// A full bidirectional sync with Google Sheets; a no-op when not signed in

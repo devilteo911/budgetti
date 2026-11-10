@@ -110,6 +110,23 @@ form's `_reimbursesId` and saves with the row. The editor holds `othersShare` an
 `reimbursesId` as state seeded from the row being edited and writes them back in
 `_submit`, so editing a description on the phone cannot erase a split marked on the web.
 
+**What follows a write lives there too.** `addTransaction`, `updateTransaction`,
+`deleteTransactions` and `addTransactions` (the CSV import: one DB transaction, one
+check per category, one sync) start the follow-up themselves, `afterTransactionWrite(s)`:
+the budget check, then the Google Sheets sync (a delete checks no budget). It is started,
+never awaited, and its failures are logged: the write returns once the row is saved, and
+a test waits on `followUpsDone`. `followUp: false` is the plain write, for the Sheets
+sync's own imports and deletes (or a sync would start a sync) and for the draft booking,
+which follows up once after its DB transaction commits. The PocketBase sync, the backup
+restore and the background isolate are **not** callers: they write elsewhere, or build
+the service without the two collaborators. The write also refuses a transfer into its
+own wallet; the screens say it first (`txPleaseSelectOtherWallet`). A list that is a
+live query (`accountsProvider`, `transactionsProvider`, the budgets) is **not** refreshed
+by hand after a write. Approving a draft goes through `PendingTransactionService.tryApprove`,
+which answers what it still needs or how it ended (`ApprovalStatus`; `booked` is the only
+one that reached the ledger, with the `Approval.transaction`) and holds the refusal to
+book a foreign-currency draft with its parsed figure.
+
 **The rule** is in `lib/core/finance_math.dart`, the mirror of `web/src/finance.ts`
 (**change one, change both**): `ownShare(t)`, `ownView(txns)`, `receivable(expense,
 txns)`, `splitShare` (the editor's "split in N", never stored) and `clampShare`.

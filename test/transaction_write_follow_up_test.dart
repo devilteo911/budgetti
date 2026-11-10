@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi';
 
 import 'package:budgetti/core/database/database.dart' show AppDatabase;
@@ -6,7 +7,6 @@ import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/notification_logic.dart';
 import 'package:budgetti/core/services/notification_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
-import 'package:budgetti/core/services/sheets_sync_service.dart';
 import 'package:budgetti/models/budget.dart';
 import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/native.dart' show NativeDatabase;
@@ -14,6 +14,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart' as sqlite3open;
+
+import 'fake_sheets_sync.dart';
 
 // See finance_service_seed_test.dart for why the FFI loader is overridden.
 void _ensureSqlite() {
@@ -44,33 +46,6 @@ class _Notifier extends NotificationService {
   }
 }
 
-/// The Sheets sync: counts its runs and, like the real one, hands the ledger
-/// the rows the sheet added ([imports]) and the ids it deleted ([deletes]).
-class _Sheets implements SheetsSyncService {
-  int runs = 0;
-  bool fail = false;
-  var imports = <model.Transaction>[];
-  var deletes = <String>[];
-
-  @override
-  bool get isSyncing => false;
-
-  @override
-  Future<SyncResult> sync({
-    required List<model.Transaction> appTransactions,
-    required Map<String, String> accountNameToId,
-    required Map<String, String> accountIdToName,
-    required Future<void> Function(List<String> ids) onDeleteFromApp,
-    required Future<void> Function(List<model.Transaction> txs) onImportToApp,
-  }) async {
-    runs++;
-    if (fail) throw StateError('sheet unreachable');
-    await onImportToApp(imports);
-    await onDeleteFromApp(deletes);
-    return SyncResult(imported: imports.length, deletedFromApp: deletes.length);
-  }
-}
-
 /// What follows a transaction write: the budget check of its category and one
 /// Google Sheets sync, asserted through the write itself.
 void main() {
@@ -78,14 +53,14 @@ void main() {
 
   late AppDatabase db;
   late _Notifier notifier;
-  late _Sheets sheets;
+  late FakeSheetsSync sheets;
   late FinanceService service;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     db = AppDatabase.forExecutor(NativeDatabase.memory());
     notifier = _Notifier();
-    sheets = _Sheets();
+    sheets = FakeSheetsSync();
     final logic = NotificationLogic(
       notifier,
       FinanceService(db, 'user-a'),
@@ -121,8 +96,8 @@ void main() {
         type: type,
       );
 
-  /// The Sheets sync is started, not awaited, by the write: let it finish.
-  Future<void> settle() => pumpEventQueue();
+  /// The follow-up is started, not awaited, by the write: let it finish.
+  Future<void> settle() => service.followUpsDone;
 
   Future<List<String>> ledger() async =>
       [for (final t in await service.getTransactions()) t.id];
@@ -205,7 +180,7 @@ void main() {
         tx(id: 't4', category: 'Dining'),
         tx(id: 't5', type: 'income', amount: 900, category: 'Salary'),
       ]);
-      await settle();
+      await batch.followUpsDone;
 
       expect(await ledger(), unorderedEquals(['t1', 't2', 't3', 't4', 't5']));
       expect(checked, unorderedEquals(['Dining', 'Groceries', 'Salary']));
@@ -222,7 +197,7 @@ void main() {
             category: 'Transfer',
             toAccountId: 'a2'),
       ]);
-      await settle();
+      await batch.followUpsDone;
 
       expect(checked, ['Dining']);
       expect(sheets.runs, 1);
@@ -235,7 +210,7 @@ void main() {
         batch.addTransactions([tx(id: 't1'), tx(id: 't1')]),
         throwsA(anything),
       );
-      await settle();
+      await batch.followUpsDone;
 
       expect(await ledger(), isEmpty);
       expect(checked, isEmpty);
@@ -244,7 +219,7 @@ void main() {
 
     test('of nothing runs no follow-up', () async {
       await batch.addTransactions([]);
-      await settle();
+      await batch.followUpsDone;
 
       expect(sheets.runs, 0);
     });
@@ -255,6 +230,28 @@ void main() {
 
       expect(notifier.alerts, ['Dining']);
     });
+  });
+
+  // The screen that saved must not wait on two ledger reads, the notification
+  // plugin and the network.
+  test('a write returns once the row is saved, before its follow-up ends',
+      () async {
+    final check = Completer<void>();
+    final slow = FinanceService(
+      db,
+      'user-a',
+      checkBudget: (_) => check.future,
+      sheets: sheets,
+    );
+
+    await slow.addTransaction(tx()).timeout(const Duration(seconds: 5));
+
+    expect(await ledger(), ['t1']);
+    expect(sheets.runs, 0, reason: 'the sync comes after the budget check');
+
+    check.complete();
+    await slow.followUpsDone;
+    expect(sheets.runs, 1);
   });
 
   test('a write that fails runs no follow-up', () async {
@@ -334,8 +331,9 @@ void main() {
     ]);
     addTearDown(container.dispose);
 
-    await container.read(financeServiceProvider).addTransaction(tx());
-    await settle();
+    final wired = container.read(financeServiceProvider);
+    await wired.addTransaction(tx());
+    await wired.followUpsDone;
 
     expect(notifier.alerts, ['Dining']);
     expect(sheets.runs, 1);

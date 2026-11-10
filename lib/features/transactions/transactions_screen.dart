@@ -229,7 +229,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             final notifier = ref.read(paginatedTransactionsProvider.notifier);
-            ref.invalidate(accountsProvider);
             final tasks = <Future>[
               notifier.refresh(),
               ref.read(financeServiceProvider).syncSheets(),

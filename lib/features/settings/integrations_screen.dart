@@ -186,8 +186,6 @@ class _IntegrationsScreenState extends ConsumerState<IntegrationsScreen>
     try {
       final result = await ref.read(financeServiceProvider).syncSheets();
       if (mounted) {
-        ref.invalidate(accountsProvider);
-        ref.invalidate(transactionsProvider(null));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result.toString())),
         );

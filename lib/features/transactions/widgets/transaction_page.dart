@@ -31,10 +31,27 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
 
   /// Persist an edit. The lists that show this row are live queries and hear
   /// about it by themselves; the pager holds its own copy, hence the callback.
+  ///
+  /// Every tap here saves at once, so a refusal or a failure is said on the
+  /// spot: the write would refuse a transfer into its own wallet with an
+  /// error, the owner gets the editor's sentence instead.
   Future<void> _save(Transaction updated) async {
-    await ref.read(financeServiceProvider).updateTransaction(updated);
+    if (!mounted) return;
+    if (updated.type == 'transfer' && updated.toAccountId == updated.accountId) {
+      _say(context.l10n.txPleaseSelectOtherWallet);
+      return;
+    }
+    try {
+      await ref.read(financeServiceProvider).updateTransaction(updated);
+    } catch (e, st) {
+      if (mounted) _say(context.l10n.txError(errorText(context, e, st)));
+      return;
+    }
     widget.onTransactionUpdated(updated);
   }
+
+  void _say(String message) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(message)));
 
   Future<void> _pickDate(BuildContext context) async {
     final now = DateTime.now();

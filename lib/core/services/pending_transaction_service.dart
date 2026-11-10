@@ -31,6 +31,8 @@ enum ApprovalStatus {
   /// Approved or rejected meanwhile (double tap, another screen).
   alreadyHandled,
 
+  /// In the ledger: the only status that carries [Approval.transaction], and
+  /// the only one after which the follow-up of a write was started.
   booked,
 }
 
@@ -223,7 +225,7 @@ class PendingTransactionService {
     });
     if (booked != null) {
       await _rememberWallet(draft.source, accountId);
-      await _finance.afterTransactionWrite(booked);
+      _finance.afterTransactionWrite(booked);
     }
     return booked;
   }
@@ -245,7 +247,7 @@ class PendingTransactionService {
     if (done == null) return false;
     final (source, booked) = done;
     await _rememberWallet(source, edited.accountId);
-    await _finance.afterTransactionWrite(booked);
+    _finance.afterTransactionWrite(booked);
     return true;
   }
 
@@ -277,11 +279,11 @@ class PendingTransactionService {
       throw ArgumentError(
           'A foreign-currency draft needs a euro amount confirmed by the owner');
     }
-    // A transfer to itself moves nothing, and one with no destination loses the
-    // money: the add sheet blocks both, this is the last line for every door.
-    if (tx.type == 'transfer' &&
-        (tx.toAccountId == null || tx.toAccountId == tx.accountId)) {
-      throw ArgumentError('A transfer needs a destination other than its source');
+    // A transfer with no destination loses the money. The write refuses one
+    // into its own source but lets this through (the Sheets import has no
+    // destination to give), so a draft is stopped here.
+    if (tx.type == 'transfer' && tx.toAccountId == null) {
+      throw ArgumentError('A transfer needs a destination');
     }
     // The Revolut push of a Widiba recharge may already be booked as income: the
     // transfer replaces it instead of standing beside it as a debit and a credit.

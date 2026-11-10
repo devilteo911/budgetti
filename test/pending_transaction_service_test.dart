@@ -6,13 +6,14 @@ import 'package:budgetti/core/services/bank_sync_service.dart'
 import 'package:budgetti/core/services/finance_service.dart';
 import 'package:budgetti/core/services/pending_transaction_service.dart';
 import 'package:budgetti/core/services/persistence_service.dart';
-import 'package:budgetti/core/services/sheets_sync_service.dart';
 import 'package:budgetti/models/transaction.dart' as model;
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart' show NativeDatabase;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/open.dart' as sqlite3open;
+
+import 'fake_sheets_sync.dart';
 
 // `flutter test` runs in the VM without sqlite3_flutter_libs' bundled native,
 // so point the FFI loader at the system library (.so.0 — no -dev symlink here).
@@ -150,29 +151,6 @@ model.Transaction _edited({
       category: 'Treats',
       type: type,
     );
-
-/// A Sheets sync that only notes, each time it is started, what the draft's
-/// status was: the follow-up of a booking must find the booking finished.
-class _Sheets implements SheetsSyncService {
-  _Sheets(this._db);
-  final AppDatabase _db;
-  final statusAtStart = <String>[];
-
-  @override
-  bool get isSyncing => false;
-
-  @override
-  Future<SyncResult> sync({
-    required List<model.Transaction> appTransactions,
-    required Map<String, String> accountNameToId,
-    required Map<String, String> accountIdToName,
-    required Future<void> Function(List<String> ids) onDeleteFromApp,
-    required Future<void> Function(List<model.Transaction> txs) onImportToApp,
-  }) async {
-    statusAtStart.add((await _draft(_db)).status);
-    return SyncResult();
-  }
-}
 
 void main() {
   setUpAll(_ensureSqlite);
@@ -1091,23 +1069,26 @@ void main() {
   group('what follows a booking', () {
     late AppDatabase db;
     late PendingTransactionService service;
-    late _Sheets sheets;
+    late FinanceService finance;
+    // The draft's status each time a Sheets sync started: the follow-up of a
+    // booking must find the booking finished.
+    late List<String> statusAtStart;
     late List<String> checked;
 
     setUp(() async {
       db = AppDatabase.forExecutor(NativeDatabase.memory());
       addTearDown(db.close);
-      sheets = _Sheets(db);
+      statusAtStart = [];
       checked = [];
-      service = PendingTransactionService(
+      finance = FinanceService(
         db,
-        FinanceService(
-          db,
-          'user-a',
-          checkBudget: (tx) async => checked.add(tx.category),
-          sheets: sheets,
+        'user-a',
+        checkBudget: (tx) async => checked.add(tx.category),
+        sheets: FakeSheetsSync(
+          onStart: () async => statusAtStart.add((await _draft(db)).status),
         ),
       );
+      service = PendingTransactionService(db, finance);
       await _insertAccount(db, 'wallet', 'Widiba');
       await _insertAccount(db, 'rev', 'Revolut');
       await _insertCategory(db, 'Dining');
@@ -1118,11 +1099,11 @@ void main() {
       await _insertDraft(db, suggestedCategory: 'Dining');
 
       final a = await service.tryApprove(await _draft(db));
-      await pumpEventQueue();
+      await finance.followUpsDone;
 
       expect(a.status, ApprovalStatus.booked);
       expect(checked, ['Dining']);
-      expect(sheets.statusAtStart, ['approved']);
+      expect(statusAtStart, ['approved']);
     });
 
     test('edit and approve checks the budget of what the owner saved',
@@ -1130,10 +1111,10 @@ void main() {
       await _insertDraft(db, suggestedCategory: 'Dining');
 
       await service.approveWith('pending_x', _edited());
-      await pumpEventQueue();
+      await finance.followUpsDone;
 
       expect(checked, ['Treats']);
-      expect(sheets.statusAtStart, ['approved']);
+      expect(statusAtStart, ['approved']);
     });
 
     test('a transfer starts the Sheets sync and checks no budget', () async {
@@ -1141,10 +1122,10 @@ void main() {
 
       await service.tryApprove(await _draft(db),
           type: 'transfer', toAccountId: 'rev');
-      await pumpEventQueue();
+      await finance.followUpsDone;
 
       expect(checked, isEmpty);
-      expect(sheets.statusAtStart, ['approved']);
+      expect(statusAtStart, ['approved']);
     });
 
     test('a transfer that takes over an income is followed up once', () async {
@@ -1162,10 +1143,10 @@ void main() {
 
       await service.tryApprove(await _draft(db),
           type: 'transfer', toAccountId: 'rev');
-      await pumpEventQueue();
+      await finance.followUpsDone;
 
       expect(checked, isEmpty);
-      expect(sheets.statusAtStart, ['approved']);
+      expect(statusAtStart, ['approved']);
     });
 
     test('an approval that books nothing is followed by nothing', () async {
@@ -1174,11 +1155,11 @@ void main() {
 
       final a = await service.tryApprove(await _draft(db));
       await service.approveWith('no-such-draft', _edited());
-      await pumpEventQueue();
+      await finance.followUpsDone;
 
       expect(a.status, ApprovalStatus.duplicate);
       expect(checked, isEmpty);
-      expect(sheets.statusAtStart, isEmpty);
+      expect(statusAtStart, isEmpty);
     });
   });
 }
