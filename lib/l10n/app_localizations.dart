@@ -2927,7 +2927,7 @@ abstract class AppLocalizations {
   /// No description provided for @setSyncPayPalNotificationsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Creates drafts from money received on PayPal'**
+  /// **'Creates drafts from money received and sent with PayPal'**
   String get setSyncPayPalNotificationsSubtitle;
 
   /// No description provided for @setNotificationAccess.

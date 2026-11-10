@@ -1703,7 +1703,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get setSyncPayPalNotificationsSubtitle =>
-      'Crea bozze dai soldi ricevuti su PayPal';
+      'Crea bozze dai soldi ricevuti e inviati con PayPal';
 
   @override
   String get setNotificationAccess => 'Accesso alle notifiche';

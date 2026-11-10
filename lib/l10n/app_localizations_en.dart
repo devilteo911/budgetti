@@ -1685,7 +1685,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get setSyncPayPalNotificationsSubtitle =>
-      'Creates drafts from money received on PayPal';
+      'Creates drafts from money received and sent with PayPal';
 
   @override
   String get setNotificationAccess => 'Notification access';

@@ -17,7 +17,7 @@ import 'package:flutter/foundation.dart';
 ///
 ///   - [sync] pulls Widiba notification emails over Gmail.
 ///   - [syncNotifications] drains Revolut's and PayPal's Android push
-///     notifications (PayPal: money received only).
+///     notifications.
 ///
 /// Both de-duplicate against already-seen external ids, flag likely repeats of
 /// existing transactions, and surface anything unreadable rather than dropping

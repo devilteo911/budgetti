@@ -1,25 +1,27 @@
-/// Parses PayPal Android push notifications into income drafts. Pure Dart, like
-/// the Revolut parser it is modelled on (see its header: the approach is
+/// Parses PayPal Android push notifications into drafts. Pure Dart, like the
+/// Revolut parser it is modelled on (see its header: the approach is
 /// *amount-first*, not template-matched).
 ///
-/// Only money RECEIVED becomes a draft. A payment made from PayPal is funded by
-/// the card or bank behind it, which already notifies it, so capturing it here
-/// too would book it twice. Every push is sorted four ways, direction first:
+/// Money received AND money sent become drafts. A payment funded by a card or
+/// bank that Budgetti captures too arrives twice, once from each source: the
+/// parser cannot tell (a push never names the funding source), so the review
+/// inbox is where the owner drops the twin — only a payment from the PayPal
+/// balance has no other witness, and that is the one this exists to catch.
+/// Every push is sorted three ways, direction first:
 ///
-/// - incoming wording with an amount: an income draft, whatever else the text
-///   says (a payer's note may quote "offerta" or "password");
-/// - outgoing wording: no draft, not surfaced;
-/// - noise (codes, promos, account notices) with no incoming wording: no draft,
-///   not surfaced;
+/// - incoming or outgoing wording with an amount: an income or expense draft,
+///   whatever else the text says (a payer's note may quote "offerta");
+/// - noise (codes, promos, account notices) with no direction: no draft, not
+///   surfaced;
 /// - anything else with an amount or a money word: no draft, but
 ///   [PayPalNotificationParser.looksTransactional], so the review inbox shows
 ///   its raw text.
 ///
-/// One real push is covered (20/10/2026: the amount in the title, "da `Name`"
-/// alone in the text); the other wordings are generic Italian/English ones, and
-/// the inbox is how the real templates get discovered. A false positive costs
-/// one "Ignora" tap; a missed reimbursement is the failure this parser exists to
-/// avoid.
+/// Two real pushes are covered (20/10/2026: the amount in the title, "da
+/// `Name`" alone in the text; 10/11/2026: "Hai inviato … € EUR a `Name`" in the
+/// text); the other wordings are generic Italian/English ones, and the inbox is
+/// how the real templates get discovered. A false positive costs one "Ignora"
+/// tap; a missed movement is the failure this parser exists to avoid.
 library;
 
 import 'package:budgetti/core/finance_math.dart';
@@ -27,7 +29,7 @@ import 'package:budgetti/core/services/bank_draft.dart';
 
 export 'package:budgetti/core/services/bank_draft.dart' show ParsedBankDraft;
 
-/// Description of a draft whose push named no payer. Every such credit shares
+/// Description of a draft whose push named nobody. Every such draft shares
 /// it, so it is no merchant identity: the learned category ignores it. Duplicate
 /// matching still runs on it, on date + amount alone, on purpose (see the
 /// Revolut twin).
@@ -36,54 +38,57 @@ const paypalFallbackDescription = 'Movimento PayPal';
 class PayPalNotificationParser {
   const PayPalNotificationParser();
 
-  /// Returns an income draft, or null when the notification has no recognisable
-  /// incoming wording (outgoing, noise, anything else) or carries no readable
-  /// amount (the one field we never invent). Noise is not consulted: incoming
-  /// wording wins over whatever a payer's note quotes.
+  /// Returns an income or expense draft, or null when the notification has no
+  /// recognisable direction (noise, anything else) or carries no readable
+  /// amount (the one field we never invent). Noise is not consulted: a direction
+  /// wins over whatever a payer's note quotes.
   ParsedBankDraft? parse({
     required String title,
     required String text,
     required DateTime when,
   }) {
     final haystack = _haystack(title, text);
-    if (_direction(haystack) != _Direction.incoming) return null;
+    final direction = _direction(haystack);
+    if (direction == _Direction.unknown) return null;
+    final outgoing = direction == _Direction.outgoing;
 
     final match = bankAmountRe.firstMatch(haystack);
     if (match == null) return null;
 
     // ponytail: first amount wins, as in the Revolut parser. A balance quoted
-    // before the credit would be read as the credit, and a foreign amount is
+    // before the movement would be read as the movement, and a foreign amount is
     // stored as if it were euros (the currency in the description is the cue);
     // both are visible and fixable in the review inbox before approval.
     final rawAmount = match.group(2) ?? match.group(3)!;
     final amount = parseAmount(rawAmount);
     if (amount == null || amount == 0) return null;
 
-    final counterparty = _counterparty(title, text, haystack, match.end);
+    final counterparty = outgoing
+        ? _nameAfter(_payeeAfterAmountRe, haystack, match.end)
+        : _counterparty(title, text, haystack, match.end);
     final currency = currencyCodeOf(match.group(1) ?? match.group(4)!);
     final description = counterparty ?? paypalFallbackDescription;
 
     return ParsedBankDraft(
-      amount: amount,
+      amount: outgoing ? -amount : amount,
       description: currency == 'EUR'
           ? description
           : withForeignAmount(description, rawAmount, currency),
       date: when.toLocal(),
-      type: 'income',
+      type: outgoing ? 'expense' : 'income',
       counterparty: counterparty,
       rawSnippet: _snippet(title, text),
     );
   }
 
-  /// Whether an unparsed notification looks like it was about money coming in
-  /// (or about money at all, when its direction is unknown) and so deserves
-  /// surfacing in the review inbox. Outgoing pushes never do, and noise only
-  /// when nothing in the text says money came in.
+  /// Whether an unparsed notification looks like it was about money and so
+  /// deserves surfacing in the review inbox: any push with a direction (it had
+  /// no readable amount), else one that is not noise and names an amount or a
+  /// money word.
   bool looksTransactional(String title, String text) {
     final haystack = _haystack(title, text);
     return switch (_direction(haystack)) {
-      _Direction.incoming => true,
-      _Direction.outgoing => false,
+      _Direction.incoming || _Direction.outgoing => true,
       _Direction.unknown => !_isNoise(haystack) &&
           (bankAmountRe.hasMatch(haystack) || _moneyWordRe.hasMatch(haystack)),
     };
@@ -147,7 +152,12 @@ class PayPalNotificationParser {
     // Right after the amount ("20,00 € da Mario"), else after a word or two of
     // the sentence ("20,00 € EUR da Mario", "€20.00 received from Jane"). At
     // most three: further out a "da" is as likely part of something else.
-    final m = _nameAfterAmountRe.firstMatch(haystack.substring(amountEnd));
+    return _nameAfter(_nameAfterAmountRe, haystack, amountEnd);
+  }
+
+  /// The name [re] finds after the amount, or null when the push names nobody.
+  String? _nameAfter(RegExp re, String haystack, int amountEnd) {
+    final m = re.firstMatch(haystack.substring(amountEnd));
     final after = _merchantOnly(m?.group(1) ?? '');
     return after.isNotEmpty && !_genericTitles.contains(after)
         ? _titleCase(after)
@@ -185,6 +195,13 @@ class PayPalNotificationParser {
 
   static final _nameAfterAmountRe =
       RegExp(r'^\s*(?:\S+\s+){0,3}?(?:da|from)\s+(.{2,})$');
+
+  /// The payee of money sent: "20,00 € EUR a `Name`", "$25.00 USD to `Name`",
+  /// "9,99 € presso `Shop`".
+  // ponytail: only a name AFTER the amount. "Pagamento a Spotify di 9,99 €"
+  // keeps the fallback description; read it when a real push is worded so.
+  static final _payeeAfterAmountRe =
+      RegExp(r'^\s*(?:\S+\s+){0,3}?(?:a|to|presso|at)\s+(.{2,})$');
 }
 
 enum _Direction { incoming, outgoing, unknown }
@@ -207,7 +224,7 @@ final _incomingRe = RegExp(
 );
 
 /// Money out, first person: the owner paid, sent or refunded. Deliberately
-/// short — everything else with an amount is surfaced, not dropped.
+/// short — everything else with an amount is surfaced for the owner to read.
 final _outgoingRe = RegExp(
   r'\b(?:hai (?:pagato|inviato|mandato|speso|trasferito|rimborsato)'
   r'|you(?:.?ve)? (?:paid|sent|spent|transferred|refunded)'

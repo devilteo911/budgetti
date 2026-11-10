@@ -205,17 +205,20 @@ void main() {
       expect(draft.suggestedCategory, isNull);
     });
 
-    test('an outgoing push inserts nothing visible', () async {
+    test('money sent becomes a pending expense draft on source paypal',
+        () async {
       final listener = _CountingListener(
-        paypal: [paypalPush('Hai pagato 9,99 € EUR a Spotify')],
+        paypal: [paypalPush('Hai inviato 20,00 € EUR a Mario Rossi')],
       );
       final s = service(listener, persistence: await switches(paypal: true));
 
-      expect(await s.syncNotifications(), isEmpty);
+      final draft = (await s.syncNotifications()).single;
 
-      final rows = await db.select(db.pendingTransactions).get();
-      expect(rows.where((r) => r.status == 'pending' || r.status == 'skipped'),
-          isEmpty);
+      expect(draft.source, 'paypal');
+      expect(draft.status, 'pending');
+      expect(draft.suggestedType, 'expense');
+      expect(draft.parsedAmount, -20.0);
+      expect(draft.parsedDescription, 'Mario Rossi');
     });
 
     test('an unknown wording is surfaced as skipped, with its raw text',
