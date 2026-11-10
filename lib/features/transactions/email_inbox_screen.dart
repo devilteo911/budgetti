@@ -377,10 +377,7 @@ class _DraftCard extends ConsumerWidget {
           // watchPending stream.
           return say((c) => c.l10n.txNowLooksDuplicate);
         case ApprovalStatus.booked:
-          final tx = approval.transaction!;
-          ref.invalidate(accountsProvider);
-          ref.invalidate(transactionsProvider(null));
-          if (tx.type != 'transfer') ref.invalidate(budgetsProvider);
+          // Balances, ledger and budgets are live queries: nothing to refresh.
           return;
       }
     }

@@ -327,14 +327,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal>
       if (mounted) setState(() => _saving = false);
     }
 
-    ref.invalidate(accountsProvider);
-    ref.invalidate(transactionsProvider(null));
-    ref.invalidate(transactionsProvider(_selectedAccountId));
-    if (_type == 'transfer' && _selectedToAccountId != null) {
-      ref.invalidate(transactionsProvider(_selectedToAccountId));
-    }
-    if (_type != 'transfer') ref.invalidate(budgetsProvider);
-
     if (!mounted) return;
     context.pop();
     ScaffoldMessenger.of(context).showSnackBar(

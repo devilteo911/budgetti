@@ -29,12 +29,11 @@ class TransactionPage extends ConsumerStatefulWidget {
 class _TransactionPageState extends ConsumerState<TransactionPage> {
   Transaction get _tx => widget.transaction;
 
-  /// Persist an edit and let every list that shows this row hear about it.
-  Future<void> _save(Transaction updated, {bool balancesChanged = true}) async {
+  /// Persist an edit. The lists that show this row are live queries and hear
+  /// about it by themselves; the pager holds its own copy, hence the callback.
+  Future<void> _save(Transaction updated) async {
     await ref.read(financeServiceProvider).updateTransaction(updated);
     widget.onTransactionUpdated(updated);
-    ref.invalidate(transactionsProvider(null));
-    if (balancesChanged) ref.invalidate(accountsProvider);
   }
 
   Future<void> _pickDate(BuildContext context) async {
@@ -49,7 +48,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
     );
 
     if (picked != null && picked != _tx.date) {
-      await _save(_tx.copyWith(date: picked), balancesChanged: false);
+      await _save(_tx.copyWith(date: picked));
     }
   }
 
@@ -65,7 +64,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
     if (edited.description == _tx.description && edited.amount == _tx.amount) {
       return;
     }
-    await _save(edited, balancesChanged: edited.amount != _tx.amount);
+    await _save(edited);
   }
 
   void _showAccountPicker(
@@ -368,7 +367,7 @@ class _TransactionPageState extends ConsumerState<TransactionPage> {
                   } else {
                     next.add(tag.name);
                   }
-                  _save(_tx.copyWith(tags: next), balancesChanged: false);
+                  _save(_tx.copyWith(tags: next));
                 },
               );
             }).toList(),

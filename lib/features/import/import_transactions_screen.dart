@@ -64,11 +64,6 @@ class _ImportTransactionsScreenState extends ConsumerState<ImportTransactionsScr
           txn.copyWith(accountId: _selectedWalletId),
       ]);
 
-      // Refresh providers
-      ref.invalidate(accountsProvider);
-      ref.invalidate(transactionsProvider(_selectedWalletId));
-      ref.invalidate(transactionsProvider(null));
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.importSuccess(_transactions.length))),

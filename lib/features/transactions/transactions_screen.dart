@@ -91,8 +91,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         setState(() {
           _selectedIds.clear();
         });
-        ref.invalidate(accountsProvider);
-        ref.invalidate(transactionsProvider(null));
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
