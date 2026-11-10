@@ -541,6 +541,16 @@ name (only the manifest label changed, to "Budgetti bank sync"), and writes
 `com.paypal*`. Each switch (`revolut_sync_enabled`, `paypal_sync_enabled`) drains only
 its own file; every capture trigger guards with `notificationSyncEnabled` (either on).
 
+### E2E: the test phone
+
+`tool/e2e_phone.py` (run it with `--help`) does the device-proof chores on the **test**
+phone: `up` starts a throwaway PocketBase on :8091 and tunnels it over USB, `login`
+drives the login screen to it, `tap` / `wait` / `labels` read and drive the screen by
+label, `push` posts a shell notification, `logout` and `down` put everything back.
+`ANDROID_SERIAL` is mandatory: never the phone with real data. CI
+(`.github/workflows/ci.yml`) runs `flutter analyze` and `flutter test` on every push
+to `main` and every pull request.
+
 ### E2E: injecting bank pushes
 
 A debug build accepts notifications posted from the adb shell, so the whole capture
